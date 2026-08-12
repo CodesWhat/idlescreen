@@ -70,6 +70,9 @@ dmg_sha256="$(/usr/bin/shasum -a 256 "$distribution_root/idlescreen-0.1.0-build6
   echo 'set -euo pipefail'
   echo '[[ $# -eq 2 ]]'
   echo '/usr/bin/printf "%s\n%s\n" "$1" "$2" >"${IDLESCREEN_HOMEBREW_VERIFIER_MARKER:?}"'
+  echo 'if [[ -n "${IDLESCREEN_HOMEBREW_RACE_OUTPUT:-}" ]]; then'
+  echo '  /usr/bin/printf "attacker-owned\n" >"$IDLESCREEN_HOMEBREW_RACE_OUTPUT"'
+  echo 'fi'
 } >"$verifier"
 /bin/chmod +x "$verifier"
 
@@ -117,6 +120,17 @@ for required_text in \
     exit 1
   fi
 done
+
+race_output="$scratch_root/race-output.rb"
+if IDLESCREEN_HOMEBREW_RACE_OUTPUT="$race_output" \
+  generate_fixture_cask "$manifest" "$race_output" >/dev/null 2>&1; then
+  echo "FAIL: the cask generator overwrote an output created during verification." >&2
+  exit 1
+fi
+if [[ "$(<"$race_output")" != attacker-owned ]]; then
+  echo "FAIL: a raced cask output was modified." >&2
+  exit 1
+fi
 
 bad_manifest="$scratch_root/bad-manifest.txt"
 /usr/bin/sed 's/notary_status=Accepted/notary_status=Rejected/' "$manifest" >"$bad_manifest"

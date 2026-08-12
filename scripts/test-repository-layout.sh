@@ -70,9 +70,19 @@ for codeql_contract in \
   grep -Fq "$codeql_contract" "$codeql_workflow" ||
     fail "advanced CodeQL workflow is missing: $codeql_contract"
 done
-if grep -Eq 'uses: [^[:space:]]+@v[0-9]' "$codeql_workflow"; then
-  fail "advanced CodeQL actions must use full commit SHAs"
+action_ref_is_pinned() {
+  local action_ref="$1"
+  [[ "$action_ref" == ./* || "$action_ref" =~ ^[^@[:space:]]+@[0-9a-f]{40}$ ]]
+}
+if action_ref_is_pinned actions/checkout@main ||
+   action_ref_is_pinned actions/checkout@4.4.0 ||
+   ! action_ref_is_pinned actions/checkout@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; then
+  fail "the action-reference validator must reject every mutable external reference"
 fi
+while IFS= read -r action_ref; do
+  action_ref_is_pinned "$action_ref" ||
+    fail "advanced CodeQL actions must use full commit SHAs: $action_ref"
+done < <(awk '/uses:/ { print $2 }' "$codeql_workflow")
 
 coderabbit_tone_length="$(ruby -ryaml -e 'print YAML.load_file(ARGV.fetch(0)).fetch("tone_instructions").length' .coderabbit.yaml)" ||
   fail "CodeRabbit configuration must parse"
