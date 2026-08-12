@@ -111,6 +111,7 @@ for required_text in \
   'version "0.1.0,62"' \
   "sha256 \"$dmg_sha256\"" \
   'releases/download/v#{version.csv.first}/idlescreen-#{version.csv.first}-build#{version.csv.second}.dmg' \
+  'desc "Metal-rendered ASCII art screen saver"' \
   'depends_on macos: :tahoe' \
   'app "IdleScreen.app"' \
   'quit: "com.idlescreen.app"' \
@@ -120,6 +121,17 @@ for required_text in \
     exit 1
   fi
 done
+
+if ! /usr/bin/awk '
+  /^  sha256 / { saw_sha = 1; next }
+  saw_sha && /^$/ { saw_gap = 1; next }
+  saw_sha && /^  url / { exit saw_gap ? 0 : 1 }
+  saw_sha { exit 1 }
+  END { if (!saw_sha) exit 1 }
+' "$cask"; then
+  echo "FAIL: generated cask does not separate the URL stanza group." >&2
+  exit 1
+fi
 
 race_output="$scratch_root/race-output.rb"
 if IDLESCREEN_HOMEBREW_RACE_OUTPUT="$race_output" \

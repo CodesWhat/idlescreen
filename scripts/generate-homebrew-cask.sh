@@ -117,9 +117,10 @@ trap '/bin/rm -f "${temporary_output:?}"' EXIT
   echo 'cask "idlescreen" do'
   /usr/bin/printf '  version "%s,%s"\n' "$bundle_short_version" "$bundle_version"
   /usr/bin/printf '  sha256 "%s"\n' "$expected_sha256"
+  echo
   echo '  url "https://github.com/CodesWhat/idlescreen/releases/download/v#{version.csv.first}/idlescreen-#{version.csv.first}-build#{version.csv.second}.dmg"'
   echo '  name "idlescreen"'
-  echo '  desc "ASCII art screen saver for macOS"'
+  echo '  desc "Metal-rendered ASCII art screen saver"'
   echo '  homepage "https://github.com/CodesWhat/idlescreen"'
   echo
   echo '  depends_on macos: :tahoe'
