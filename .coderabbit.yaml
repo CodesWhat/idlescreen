@@ -1,0 +1,129 @@
+# CodeRabbit configuration: idlescreen
+language: en-US
+early_access: true
+enable_free_tier: true
+
+tone_instructions: >-
+  Reviewing a Swift macOS app with a screen-saver extension, Metal renderer,
+  signed camera agent, and local hook command. Terse and direct. State the
+  problem and fix with code. Skip praise and rhetoric. Flag weakened consent
+  gates, signing or identity drift, unsafe cross-process state, camera privacy
+  regressions, unbounded rendering work, and missed existing utilities. Only
+  actionable feedback.
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_instructions: >-
+    This summary will be read by a coding agent. Be direct and structured. Use
+    a compact changelog, then list concerns as flat bullets with no praise or
+    repeated diff context.
+  high_level_summary_placeholder: "@coderabbitai summary"
+  high_level_summary_in_walkthrough: false
+  collapse_walkthrough: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  review_details: false
+  review_status: true
+  commit_status: true
+  fail_commit_status: false
+  poem: false
+  in_progress_fortune: false
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: false
+  auto_apply_labels: false
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+  enable_prompt_for_ai_agents: true
+  abort_on_close: true
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+      - "[skip review]"
+
+  path_filters:
+    - "!**/build/**"
+    - "!**/DerivedData/**"
+    - "!**/*.xcresult/**"
+    - "!IdleScreen.xcodeproj/project.pbxproj"
+    - "!**/*.generated.*"
+    - "!.planning/**"
+    - "!CHANGELOG.md"
+
+  path_instructions:
+    - path: "IdleScreenCameraAgent/**"
+      instructions: |
+        Sole AVFoundation owner. Flag camera capture outside explicit valid leases, identity-check weakening, unbounded retries, raw-frame logging, and stale-generation presentation.
+    - path: "IdleScreenScreenSaver/**"
+      instructions: |
+        Hosted extension hot path. Flag private-content logging, per-frame allocation or file I/O, lifecycle leaks, and camera demand without verified policy.
+    - path: "IdleScreenCore/AgentSignal*"
+      instructions: |
+        Privacy-minimal local ingress. Flag prompt, transcript, tool, command, credential, or unbounded message ingestion; symlink races; non-private publication; and lock waits without deadlines.
+    - path: "scripts/*release*"
+      instructions: |
+        Fail-closed signing and distribution authority. Flag credential creation, identity ambiguity, post-notarization signing, non-atomic evidence, mutable inputs, and skipped mounted-byte verification.
+    - path: "**/*Tests/**"
+      instructions: |
+        Test code. Check that assertions cover behavior; skip production-style refactor and defensive-programming suggestions.
+
+  finishing_touches:
+    docstrings:
+      enabled: true
+    unit_tests:
+      enabled: true
+
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    title:
+      mode: "off"
+    description:
+      mode: "off"
+    issue_assessment:
+      mode: "warning"
+
+  tools:
+    shellcheck:
+      enabled: true
+    markdownlint:
+      enabled: true
+    yamllint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    actionlint:
+      enabled: true
+    ast-grep:
+      essential_rules: true
+    github-checks:
+      enabled: true
+      timeout_ms: 90000
+    languagetool:
+      enabled: false
+
+knowledge_base:
+  opt_out: false
+  learnings:
+    scope: local
+  issues:
+    scope: local
+  code_guidelines:
+    enabled: true
+  web_search:
+    enabled: true
+  pull_requests:
+    scope: local
+
+chat:
+  auto_reply: true
+  art: false

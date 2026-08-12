@@ -1,0 +1,31 @@
+# Build artifacts
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xccheckout
+*.moved-aside
+
+# Xcode custom build cache
+.build/
+
+# Local planning, audits, evidence, and agent state
+/.planning/
+/.claude/
+
+# Auto-generated research notes
+.research-findings.md
+
+# Qlty local output
+.qlty/logs/
+.qlty/out/

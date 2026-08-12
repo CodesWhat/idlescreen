@@ -1,0 +1,86 @@
+name: Bug Report
+description: Report a problem with idlescreen
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Never attach camera frames, credentials, prompts, transcripts, or unredacted private paths.
+
+  - type: input
+    id: version
+    attributes:
+      label: idlescreen version and build
+      placeholder: "0.1 (62)"
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and build
+      placeholder: "macOS 26.0 (25A...)"
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Mac and architecture
+      placeholder: "MacBook Pro, Apple silicon"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation method
+      options:
+        - Homebrew
+        - GitHub release DMG
+        - Built from source
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem without private content.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the selected pattern, source, display mode, and whether the companion was open.
+    validations:
+      required: true
+
+  - type: textarea
+    id: displays
+    attributes:
+      label: Display setup
+      description: Number of displays, resolutions, scaling, arrangement, and active Spaces. Do not include serial numbers.
+
+  - type: textarea
+    id: camera
+    attributes:
+      label: Camera context
+      description: Whether camera mode was enabled and whether a device was connected. Do not attach frames or device serial numbers.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs
+      description: Remove usernames, home paths, credentials, prompts, transcripts, hook payloads, and camera content.
+      render: text

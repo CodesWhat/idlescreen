@@ -1,0 +1,1393 @@
+name: IdleScreen
+options:
+  bundleIdPrefix: com.idlescreen
+  deploymentTarget:
+    macOS: "15.0"
+  xcodeVersion: "16.0"
+  developmentLanguage: Swift
+
+settings:
+  SWIFT_VERSION: "6.0"
+  SWIFT_STRICT_CONCURRENCY: complete
+  IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER: 3524374A2S
+
+schemes:
+  IdleScreenCtl:
+    build:
+      targets:
+        IdleScreenCtl: all
+
+  IdleScreenAgent:
+    build:
+      targets:
+        IdleScreenAgent: all
+        IdleScreenAgentTests: [test]
+    test:
+      targets:
+        - IdleScreenAgentTests
+
+  IdleScreenCore:
+    build:
+      targets:
+        IdleScreenCore: all
+        IdleScreenCoreTests: [test]
+    test:
+      targets:
+        - IdleScreenCoreTests
+
+  IdleScreenDisplay:
+    build:
+      targets:
+        IdleScreenDisplay: all
+        IdleScreenDisplayTests: [test]
+    test:
+      targets:
+        - IdleScreenDisplayTests
+
+  IdleScreenRenderer:
+    build:
+      targets:
+        IdleScreenRenderer: all
+        IdleScreenRendererTests: [test]
+    test:
+      targets:
+        - IdleScreenRendererTests
+
+  IdleScreenPerformance:
+    build:
+      targets:
+        IdleScreenPerformance: all
+        IdleScreenPerformanceTests: [test]
+    test:
+      targets:
+        - IdleScreenPerformanceTests
+
+  IdleScreenPerformanceRunner:
+    build:
+      targets:
+        IdleScreenPerformanceRunner: all
+    run:
+      config: Release
+      executable: IdleScreenPerformanceRunner
+    profile:
+      config: Release
+      executable: IdleScreenPerformanceRunner
+
+  IdleScreenCamera:
+    build:
+      targets:
+        IdleScreenCamera: all
+        IdleScreenCameraTests: [test]
+    test:
+      targets:
+        - IdleScreenCameraTests
+
+  IdleScreenCameraAgent:
+    build:
+      targets:
+        IdleScreenCameraAgentCore: all
+        IdleScreenCameraAgentTests: [test]
+    test:
+      targets:
+        - IdleScreenCameraAgentTests
+
+  IdleScreenSyntheticGate:
+    build:
+      targets:
+        IdleScreenSyntheticGateApp: [archive]
+
+  IdleScreenCameraSyntheticAgentArchive:
+    build:
+      targets:
+        IdleScreenCameraSyntheticAgentArchiveProduct: [archive]
+        IdleScreenCameraSyntheticAgent: [archive]
+    archive:
+      config: Release
+    run:
+      config: Debug
+      executable: IdleScreenCameraSyntheticAgentArchiveProduct
+    profile:
+      config: Release
+      executable: IdleScreenCameraSyntheticAgentArchiveProduct
+
+  IdleScreenSyntheticHostedGateExtensionArchive:
+    build:
+      targets:
+        IdleScreenSyntheticHostedGateExtensionArchiveProduct: [archive]
+        IdleScreenSyntheticHostedGateExtension: [archive]
+    archive:
+      config: Release
+    run:
+      config: Debug
+      executable: IdleScreenSyntheticHostedGateExtensionArchiveProduct
+    profile:
+      config: Release
+      executable: IdleScreenSyntheticHostedGateExtensionArchiveProduct
+
+  # C4 preparation archives only generic bundle products. The helper remains
+  # application-shaped and the extension remains appex-shaped, but neither
+  # target enters Xcode's application product registration path.
+  IdleScreenC4SyntheticHelperArchive:
+    build:
+      targets:
+        IdleScreenC4SyntheticHelperArchiveBundle: [archive]
+    archive:
+      config: Release
+      revealArchiveInOrganizer: false
+
+  IdleScreenC4SyntheticHostedExtensionArchive:
+    build:
+      targets:
+        IdleScreenC4SyntheticHostedExtensionArchiveBundle: [archive]
+    archive:
+      config: Release
+      revealArchiveInOrganizer: false
+
+  IdleScreenSyntheticGateTests:
+    build:
+      targets:
+        IdleScreenCameraSyntheticAgentCore: all
+        IdleScreenSyntheticGateTests: [test]
+    test:
+      targets:
+        - IdleScreenSyntheticGateTests
+
+  IdleScreenSystem:
+    build:
+      targets:
+        IdleScreenSystem: all
+        IdleScreenSystemTests: [test]
+    test:
+      targets:
+        - IdleScreenSystemTests
+
+  IdleScreenScreenSaver:
+    build:
+      targets:
+        IdleScreenScreenSaverTests: [test]
+    test:
+      targets:
+        - IdleScreenScreenSaverTests
+
+  IdleScreenAppCamera:
+    build:
+      targets:
+        IdleScreenCamera: all
+        IdleScreenAppCameraTests: [test]
+    test:
+      targets:
+        - IdleScreenAppCameraTests
+
+  IdleScreenAppCompileGate:
+    build:
+      targets:
+        IdleScreenAppCompileGateTests: [test]
+    test:
+      targets:
+        - IdleScreenAppCompileGateTests
+
+  # Deliberate C3 entry point. The outer app and nested helper use application-
+  # shaped bundle targets (`.app` + `mh_execute`) because Xcode 26 registers
+  # every `type: application` product unconditionally, including Archive-only
+  # products. These C3-only targets preserve the shipping bytes/contracts while
+  # avoiding ApplicationProductTypeSpec's LaunchServices task entirely.
+  IdleScreenC3ReleaseArchive:
+    build:
+      targets:
+        IdleScreenC3ArchiveBundle: [archive]
+    archive:
+      config: Release
+      revealArchiveInOrganizer: false
+
+targets:
+  IdleScreenAgent:
+    type: framework.static
+    platform: macOS
+    sources:
+      - path: IdleScreenAgent
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenAgent
+        PRODUCT_MODULE_NAME: IdleScreenAgent
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.agent
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+    dependencies:
+      - target: IdleScreenCore
+      - sdk: CryptoKit.framework
+
+  IdleScreenAgentTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenAgentTests
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenAgentTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.agent-tests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_TESTABILITY: YES
+    dependencies:
+      - target: IdleScreenAgent
+      - target: IdleScreenCore
+
+  IdleScreenCtl:
+    type: tool
+    platform: macOS
+    sources:
+      - path: IdleScreenAgentExecutable
+    settings:
+      base:
+        PRODUCT_NAME: idlescreenctl
+        PRODUCT_MODULE_NAME: IdleScreenCtl
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.ctl
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        SKIP_INSTALL: YES
+        CODE_SIGN_ENTITLEMENTS: IdleScreenAgentExecutable/idlescreenctl.entitlements
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: IdleScreenAgentExecutable/idlescreenctl-Debug.entitlements
+        Release:
+          CODE_SIGN_ENTITLEMENTS: IdleScreenAgentExecutable/idlescreenctl.entitlements
+          OTHER_CODE_SIGN_FLAGS: "--identifier com.idlescreen.ctl"
+          DEVELOPMENT_TEAM: 3524374A2S
+          CODE_SIGN_STYLE: Automatic
+          CODE_SIGN_IDENTITY: "Apple Development"
+          REGISTER_APP_GROUPS: YES
+    dependencies:
+      - target: IdleScreenAgent
+        embed: false
+      - target: IdleScreenCore
+        embed: false
+
+  IdleScreenCore:
+    type: framework.static
+    platform: macOS
+    sources:
+      - path: IdleScreenCore
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCore
+        PRODUCT_MODULE_NAME: IdleScreenCore
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.core
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+
+  IdleScreenCoreStoreTestWorker:
+    type: tool
+    platform: macOS
+    sources:
+      - path: IdleScreenCoreTestSupport
+    settings:
+      base:
+        PRODUCT_NAME: idlescreen-store-test-worker
+        PRODUCT_MODULE_NAME: IdleScreenCoreStoreTestWorker
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.core-store-test-worker
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        ENABLE_APP_SANDBOX: NO
+        SKIP_INSTALL: YES
+    dependencies:
+      - target: IdleScreenCore
+
+  IdleScreenRenderer:
+    type: framework
+    platform: macOS
+    sources:
+      - path: IdleScreenRenderer
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenRenderer
+        PRODUCT_MODULE_NAME: IdleScreenRenderer
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.renderer
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+        ENABLE_HARDENED_RUNTIME: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+
+  IdleScreenCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenCoreTests
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCoreTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.core-tests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_TESTABILITY: YES
+    dependencies:
+      - target: IdleScreenCore
+      - target: IdleScreenCoreStoreTestWorker
+        link: false
+
+  IdleScreenRendererTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenRendererTests
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenRendererTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.renderer-tests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_TESTABILITY: YES
+    dependencies:
+      - target: IdleScreenRenderer
+
+  IdleScreenPerformance:
+    type: framework.static
+    platform: macOS
+    sources:
+      - path: IdleScreenPerformance
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenPerformance
+        PRODUCT_MODULE_NAME: IdleScreenPerformance
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.performance
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+    dependencies:
+      - target: IdleScreenCore
+      - target: IdleScreenRenderer
+      - target: IdleScreenCamera
+      - target: IdleScreenCameraAgentCore
+      - sdk: AppKit.framework
+      - sdk: MetalKit.framework
+
+  IdleScreenPerformanceTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenPerformanceTests
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenPerformanceTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.performance-tests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_TESTABILITY: YES
+    dependencies:
+      - target: IdleScreenPerformance
+
+  IdleScreenPerformanceRunner:
+    type: tool
+    platform: macOS
+    sources:
+      - path: IdleScreenPerformanceExecutable
+    settings:
+      base:
+        PRODUCT_NAME: idlescreen-perf
+        PRODUCT_MODULE_NAME: IdleScreenPerformanceRunner
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.performance-runner
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: NO
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path"
+    dependencies:
+      - target: IdleScreenPerformance
+      - target: IdleScreenCore
+      - target: IdleScreenRenderer
+      - target: IdleScreenCamera
+      - target: IdleScreenCameraAgentCore
+      - sdk: AppKit.framework
+      - sdk: MetalKit.framework
+
+  IdleScreenDisplay:
+    type: framework.static
+    platform: macOS
+    sources:
+      - path: IdleScreenDisplay
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenDisplay
+        PRODUCT_MODULE_NAME: IdleScreenDisplay
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.display
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - target: IdleScreenCore
+      - sdk: AppKit.framework
+      - sdk: ColorSync.framework
+      - sdk: CoreGraphics.framework
+
+  IdleScreenDisplayTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenDisplayTests
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenDisplayTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.display-tests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_TESTABILITY: YES
+    dependencies:
+      - target: IdleScreenCore
+      - target: IdleScreenDisplay
+
+  IdleScreenCameraAtomics:
+    type: framework.static
+    platform: macOS
+    sources:
+      - path: IdleScreenCameraAtomics
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCameraAtomics
+        PRODUCT_MODULE_NAME: IdleScreenCameraAtomics
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-atomics
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+        CLANG_ENABLE_MODULES: YES
+
+  IdleScreenCamera:
+    type: framework.static
+    platform: macOS
+    sources:
+      - path: IdleScreenCamera
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCamera
+        PRODUCT_MODULE_NAME: IdleScreenCamera
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+    dependencies:
+      - target: IdleScreenCameraAtomics
+
+  IdleScreenCameraTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenCameraTests
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCameraTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-tests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_TESTABILITY: YES
+    dependencies:
+      - target: IdleScreenCamera
+
+  IdleScreenCameraAgent:
+    type: application
+    platform: macOS
+    sources:
+      - path: IdleScreenCameraAgentExecutable
+    info:
+      path: IdleScreenCameraAgentExecutable/Info.plist
+      properties:
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: idlescreen
+        CFBundleDisplayName: idlescreen
+        CFBundleExecutable: IdleScreenCameraAgent
+        CFBundlePackageType: APPL
+        CFBundleVersion: "28"
+        CFBundleShortVersionString: "0.1"
+        LSBackgroundOnly: true
+        LSUIElement: true
+        NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
+        NSCameraUseContinuityCameraDeviceType: true
+        IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
+        IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenCameraAgentTeamIdentifier: $(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)
+        IdleScreenCameraAgentMailboxFileName: camera-frames-v1.mailbox
+        IdleScreenCameraAgentLaunchAgentSHA256: $(IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256)
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCameraAgent
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        SKIP_INSTALL: YES
+        CODE_SIGN_ENTITLEMENTS: IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent.dev
+          IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.dev.shared.camera-agent
+          IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.dev.shared
+          IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256: 43adaaf96c2c1ea87365b2f46e33327005ecaa1fa4bdf8eb9e2edead682ad9cf
+          CODE_SIGN_ENTITLEMENTS: IdleScreenCameraAgent/IdleScreenCameraAgent-Debug.entitlements
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent
+          IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
+          IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
+          IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256: 151f0b19ff95aa853a3188f7e64c3eae8d159c5718658a4ba6e9518dcaa19e92
+          CODE_SIGN_ENTITLEMENTS: IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements
+          CODE_SIGN_STYLE: Automatic
+          DEVELOPMENT_TEAM: 3524374A2S
+          CODE_SIGN_IDENTITY: "Apple Development"
+          REGISTER_APP_GROUPS: YES
+    dependencies:
+      - target: IdleScreenCameraAgentCore
+        embed: false
+      - target: IdleScreenCore
+        embed: false
+      - target: IdleScreenCamera
+        embed: false
+      - target: IdleScreenCameraAtomics
+        embed: false
+      - sdk: AppKit.framework
+      - sdk: AVFoundation.framework
+      - sdk: CoreMedia.framework
+      - sdk: CoreVideo.framework
+      - sdk: Security.framework
+
+  # C3-only application-shaped bundle. Its executable and signed contract are
+  # identical to IdleScreenCameraAgent, but the bundle product type prevents
+  # Xcode 26 from planning RegisterWithLaunchServices.
+  IdleScreenC3CameraAgentArchiveBundle:
+    type: bundle
+    platform: macOS
+    sources:
+      - path: IdleScreenCameraAgentExecutable
+    info:
+      path: IdleScreenCameraAgentExecutable/Info.plist
+      properties:
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: idlescreen
+        CFBundleDisplayName: idlescreen
+        CFBundleExecutable: IdleScreenCameraAgent
+        CFBundlePackageType: APPL
+        CFBundleVersion: "28"
+        CFBundleShortVersionString: "0.1"
+        LSBackgroundOnly: true
+        LSUIElement: true
+        NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
+        NSCameraUseContinuityCameraDeviceType: true
+        IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
+        IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenCameraAgentTeamIdentifier: $(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)
+        IdleScreenCameraAgentMailboxFileName: camera-frames-v1.mailbox
+        IdleScreenCameraAgentLaunchAgentSHA256: $(IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256)
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCameraAgent
+        PRODUCT_MODULE_NAME: IdleScreenCameraAgentC3Archive
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent
+        WRAPPER_EXTENSION: app
+        MACH_O_TYPE: mh_execute
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        SKIP_INSTALL: YES
+        IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
+        IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
+        IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256: 151f0b19ff95aa853a3188f7e64c3eae8d159c5718658a4ba6e9518dcaa19e92
+        CODE_SIGN_ENTITLEMENTS: IdleScreenCameraAgent/IdleScreenCameraAgentC3Archive.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 3524374A2S
+        CODE_SIGN_IDENTITY: "Apple Development"
+        REGISTER_APP_GROUPS: YES
+    postBuildScripts:
+      - name: Embed C3 helper provisioning profile
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          test -f "$IDLESCREEN_C3_HELPER_PROVISIONING_PROFILE_PATH"
+          /usr/bin/ditto "$IDLESCREEN_C3_HELPER_PROVISIONING_PROFILE_PATH" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/embedded.provisionprofile"
+    dependencies:
+      - target: IdleScreenCameraAgentCore
+        embed: false
+      - target: IdleScreenCore
+        embed: false
+      - target: IdleScreenCamera
+        embed: false
+      - target: IdleScreenCameraAtomics
+        embed: false
+      - sdk: AppKit.framework
+      - sdk: AVFoundation.framework
+      - sdk: CoreMedia.framework
+      - sdk: CoreVideo.framework
+      - sdk: Security.framework
+
+  IdleScreenCameraAgentCore:
+    type: framework.static
+    platform: macOS
+    sources:
+      - path: IdleScreenCameraAgent/CameraAgentService.swift
+      - path: IdleScreenCameraAgent/CameraAgentDiagnostics.swift
+      - path: IdleScreenCameraAgent/CameraCaptureSessionController.swift
+      - path: IdleScreenCameraAgent/CameraFrameMailboxWriter.swift
+      - path: IdleScreenCameraAgent/CameraAgentXPCListener.swift
+      - path: IdleScreenCameraAgent/CameraAgentRuntimeDriver.swift
+      - path: IdleScreenCameraAgent/CameraAgentProcessRuntime.swift
+      - path: IdleScreenCameraAgent/CameraDeviceInventory.swift
+      - path: IdleScreenCameraAgent/AVFoundationCameraCaptureComposition.swift
+      - path: IdleScreenCameraAgent/AVFoundationCameraAgentComposition.swift
+      - path: IdleScreenCameraAgent/AVFoundationCameraDeviceInventory.swift
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCameraAgentCore
+        PRODUCT_MODULE_NAME: IdleScreenCameraAgentCore
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent-core
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+    dependencies:
+      - target: IdleScreenCore
+      - target: IdleScreenCamera
+      - target: IdleScreenCameraAtomics
+      - sdk: AVFoundation.framework
+      - sdk: CoreMedia.framework
+      - sdk: CoreVideo.framework
+      - sdk: Security.framework
+      - sdk: AppKit.framework
+
+  IdleScreenCameraAgentTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenCameraAgentTests/CameraAgentServiceTests.swift
+      - path: IdleScreenCameraAgentTests/CameraCaptureSessionControllerTests.swift
+      - path: IdleScreenCameraAgentTests/CameraFrameMailboxWriterTests.swift
+      - path: IdleScreenCameraAgentTests/CameraAgentXPCListenerTests.swift
+      - path: IdleScreenCameraAgentTests/CameraAgentRuntimeDriverTests.swift
+      - path: IdleScreenCameraAgentTests/CameraAgentProcessRuntimeTests.swift
+      - path: IdleScreenCameraAgentTests/CameraDeviceInventoryTests.swift
+      - path: IdleScreenCameraAgentTests/CameraAgentDiagnosticsTests.swift
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCameraAgentTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent-tests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_TESTABILITY: YES
+    dependencies:
+      - target: IdleScreenCore
+      - target: IdleScreenCamera
+      - target: IdleScreenCameraAgentCore
+
+  IdleScreenCameraSyntheticAgentCore:
+    type: framework.static
+    platform: macOS
+    sources:
+      - path: IdleScreenCameraAgent/CameraAgentService.swift
+      - path: IdleScreenCameraAgent/CameraAgentDiagnostics.swift
+      - path: IdleScreenCameraAgent/CameraCaptureSessionController.swift
+      - path: IdleScreenCameraAgent/CameraFrameMailboxWriter.swift
+      - path: IdleScreenCameraAgent/CameraAgentXPCListener.swift
+      - path: IdleScreenCameraAgent/CameraAgentRuntimeDriver.swift
+      - path: IdleScreenCameraAgent/CameraAgentProcessRuntime.swift
+      - path: IdleScreenCameraAgent/CameraDeviceInventory.swift
+      - path: IdleScreenSyntheticGate/Core
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCameraSyntheticAgentCore
+        PRODUCT_MODULE_NAME: IdleScreenCameraSyntheticAgentCore
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-synthetic-agent-core
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+    dependencies:
+      - target: IdleScreenCore
+      - target: IdleScreenCamera
+      - target: IdleScreenCameraAtomics
+      - sdk: AppKit.framework
+      - sdk: CoreVideo.framework
+      - sdk: Security.framework
+
+  IdleScreenCameraSyntheticAgent:
+    type: application
+    platform: macOS
+    sources:
+      - path: IdleScreenSyntheticGate/Executable
+    info:
+      path: IdleScreenSyntheticGate/HelperInfo.plist
+      properties:
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: idlescreen
+        CFBundleDisplayName: idlescreen
+        CFBundleExecutable: IdleScreenCameraAgent
+        CFBundlePackageType: APPL
+        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.1"
+        LSBackgroundOnly: true
+        LSUIElement: true
+        IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
+        IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenCameraAgentTeamIdentifier: $(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)
+        IdleScreenCameraAgentMailboxFileName: camera-frames-v1.mailbox
+        IdleScreenSyntheticGateVersion: "1"
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCameraAgent
+        PRODUCT_MODULE_NAME: IdleScreenCameraSyntheticAgent
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        # Gate-only helper archive product; shipping helper remains embedded and
+        # SKIP_INSTALL=YES in the production graph.
+        SKIP_INSTALL: NO
+        CODE_SIGN_ENTITLEMENTS: IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent.entitlements
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent.dev
+          IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.dev.shared.camera-agent
+          IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.dev.shared
+          CODE_SIGN_ENTITLEMENTS: IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent-Debug.entitlements
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent
+          IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
+          IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
+          CODE_SIGN_ENTITLEMENTS: IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent.entitlements
+          CODE_SIGN_STYLE: Automatic
+          DEVELOPMENT_TEAM: 3524374A2S
+          CODE_SIGN_IDENTITY: "Apple Development"
+          REGISTER_APP_GROUPS: YES
+    dependencies:
+      - target: IdleScreenCameraSyntheticAgentCore
+        embed: false
+      - target: IdleScreenCore
+        embed: false
+      - target: IdleScreenCamera
+        embed: false
+      - target: IdleScreenCameraAtomics
+        embed: false
+      - sdk: AppKit.framework
+      - sdk: CoreVideo.framework
+      - sdk: Security.framework
+
+  # C4-only application-shaped synthetic helper. The executable, Info tuple,
+  # entitlements, and archive location match IdleScreenCameraSyntheticAgent,
+  # while `type: bundle` prevents RegisterWithLaunchServices planning.
+  IdleScreenC4SyntheticHelperArchiveBundle:
+    type: bundle
+    platform: macOS
+    sources:
+      - path: IdleScreenSyntheticGate/Executable
+    info:
+      path: IdleScreenSyntheticGate/HelperInfo.plist
+      properties:
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: idlescreen
+        CFBundleDisplayName: idlescreen
+        CFBundleExecutable: IdleScreenCameraAgent
+        CFBundlePackageType: APPL
+        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.1"
+        LSBackgroundOnly: true
+        LSUIElement: true
+        IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
+        IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenCameraAgentTeamIdentifier: $(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)
+        IdleScreenCameraAgentMailboxFileName: camera-frames-v1.mailbox
+        IdleScreenSyntheticGateVersion: "1"
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenCameraAgent
+        PRODUCT_MODULE_NAME: IdleScreenCameraSyntheticAgentC4Archive
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent
+        WRAPPER_EXTENSION: app
+        MACH_O_TYPE: mh_execute
+        INSTALL_PATH: /Applications
+        SKIP_INSTALL: NO
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
+        IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
+        CODE_SIGN_ENTITLEMENTS: IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgentC4Archive.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 3524374A2S
+        CODE_SIGN_IDENTITY: "Apple Development"
+        REGISTER_APP_GROUPS: YES
+    postBuildScripts:
+      - name: Embed C4 synthetic helper provisioning profile
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          test -f "$IDLESCREEN_C4_HELPER_PROVISIONING_PROFILE_PATH"
+          /usr/bin/ditto "$IDLESCREEN_C4_HELPER_PROVISIONING_PROFILE_PATH" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/embedded.provisionprofile"
+    dependencies:
+      - target: IdleScreenCameraSyntheticAgentCore
+        embed: false
+      - target: IdleScreenCore
+        embed: false
+      - target: IdleScreenCamera
+        embed: false
+      - target: IdleScreenCameraAtomics
+        embed: false
+      - sdk: AppKit.framework
+      - sdk: CoreVideo.framework
+      - sdk: Security.framework
+
+  IdleScreenSyntheticGateTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenSyntheticGateTests
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenSyntheticGateTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.synthetic-gate-tests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_TESTABILITY: YES
+    dependencies:
+      - target: IdleScreenCore
+      - target: IdleScreenCameraSyntheticAgentCore
+
+  IdleScreenSystem:
+    type: framework.static
+    platform: macOS
+    sources:
+      - path: IdleScreenSystem
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenSystem
+        PRODUCT_MODULE_NAME: IdleScreenSystem
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.system
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+
+  IdleScreenSystemTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenSystemTests
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenSystemTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.system-tests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_TESTABILITY: YES
+    dependencies:
+      - target: IdleScreenSystem
+
+  IdleScreenScreenSaver:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: IdleScreenScreenSaver
+      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+    info:
+      path: IdleScreenScreenSaver/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: $(DEVELOPMENT_LANGUAGE)
+        CFBundleDisplayName: idlescreen
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundlePackageType: XPC!
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        IdleScreenAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenSharedContainerEnabled: $(IDLESCREEN_SHARED_CONTAINER_ENABLED)
+        IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
+        IdleScreenCameraAgentTeamIdentifier: $(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.screensaver
+          NSExtensionPointVersion: "1.0"
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).IdleScreenScreenSaverExtension
+        SSEHasConfigureSheet: true
+        SSENeedsAnimationTimer: true
+        ScreenSaverConfigurationSheetViewControllerClass: $(PRODUCT_MODULE_NAME).IdleScreenScreenSaverConfigurationViewController
+        ScreenSaverViewControllerClass: $(PRODUCT_MODULE_NAME).IdleScreenScreenSaverViewController
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenScreenSaver
+        PRODUCT_MODULE_NAME: IdleScreenScreenSaver
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        CURRENT_PROJECT_VERSION: "61"
+        MARKETING_VERSION: "0.1"
+        CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../../../Frameworks"
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app.dev.screensaver
+          IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.dev.shared
+          IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.dev.shared.camera-agent
+          IDLESCREEN_SHARED_CONTAINER_ENABLED: NO
+          CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app.screensaver
+          IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
+          IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
+          IDLESCREEN_SHARED_CONTAINER_ENABLED: YES
+          CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
+          DEVELOPMENT_TEAM: 3524374A2S
+          CODE_SIGN_STYLE: Automatic
+          CODE_SIGN_IDENTITY: "Apple Development"
+          REGISTER_APP_GROUPS: YES
+    dependencies:
+      - target: IdleScreenCore
+        embed: false
+      - target: IdleScreenDisplay
+        embed: false
+      - target: IdleScreenRenderer
+        embed: false
+      - target: IdleScreenCamera
+        embed: false
+      - sdk: ScreenSaver.framework
+      - sdk: QuartzCore.framework
+
+  IdleScreenScreenSaverTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenScreenSaver/IdleScreenSaverView.swift
+      - path: IdleScreenScreenSaver/IdleScreenSaverCameraClient.swift
+      - path: IdleScreenScreenSaver/Private/IdleScreenSaverHostActivity.m
+      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateViewController.swift
+      - path: IdleScreenScreenSaverTests
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenScreenSaverTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.screensaver-tests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_TESTABILITY: YES
+        SWIFT_OBJC_BRIDGING_HEADER: IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE"
+    dependencies:
+      - target: IdleScreenCore
+      - target: IdleScreenDisplay
+      - target: IdleScreenRenderer
+        embed: false
+      - target: IdleScreenCamera
+      - sdk: ScreenSaver.framework
+      - sdk: QuartzCore.framework
+
+  IdleScreenSyntheticHostedGateExtension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: IdleScreenScreenSaver
+        excludes:
+          - Info.plist
+          - IdleScreenScreenSaver.entitlements
+          - IdleScreenScreenSaver-Debug.entitlements
+          - IdleScreenScreenSaverViewController.swift
+      - path: IdleScreenSyntheticHostedGateExtension
+        excludes:
+          - Info.plist
+      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+    info:
+      path: IdleScreenSyntheticHostedGateExtension/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: $(DEVELOPMENT_LANGUAGE)
+        CFBundleDisplayName: idlescreen
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundlePackageType: XPC!
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        IdleScreenAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenSharedContainerEnabled: $(IDLESCREEN_SHARED_CONTAINER_ENABLED)
+        IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
+        IdleScreenCameraAgentTeamIdentifier: $(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)
+        IdleScreenSyntheticHostedGateVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.screensaver
+          NSExtensionPointVersion: "1.0"
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).IdleScreenScreenSaverExtension
+        SSEHasConfigureSheet: false
+        SSENeedsAnimationTimer: true
+        ScreenSaverViewControllerClass: $(PRODUCT_MODULE_NAME).IdleScreenSyntheticHostedGateViewController
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenScreenSaver
+        PRODUCT_MODULE_NAME: IdleScreenScreenSaver
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: NO
+        INSTALL_PATH: "$(LOCAL_APPS_DIR)"
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.1"
+        CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../../../Frameworks"
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE"
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app.dev.screensaver
+          IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.dev.shared
+          IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.dev.shared.camera-agent
+          IDLESCREEN_SHARED_CONTAINER_ENABLED: NO
+          CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app.screensaver
+          IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
+          IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
+          IDLESCREEN_SHARED_CONTAINER_ENABLED: YES
+          CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
+          DEVELOPMENT_TEAM: 3524374A2S
+          CODE_SIGN_STYLE: Automatic
+          CODE_SIGN_IDENTITY: "Apple Development"
+          REGISTER_APP_GROUPS: YES
+    dependencies:
+      - target: IdleScreenCore
+        embed: false
+      - target: IdleScreenDisplay
+        embed: false
+      - target: IdleScreenRenderer
+        embed: false
+      - target: IdleScreenCamera
+        embed: false
+      - sdk: ScreenSaver.framework
+      - sdk: QuartzCore.framework
+
+  # C4-only appex-shaped bundle. It compiles the same hosted synthetic saver
+  # sources and exact Release contract without invoking an extension container
+  # application or any application-product registration task.
+  IdleScreenC4SyntheticHostedExtensionArchiveBundle:
+    type: bundle
+    platform: macOS
+    sources:
+      - path: IdleScreenScreenSaver
+        excludes:
+          - Info.plist
+          - IdleScreenScreenSaver.entitlements
+          - IdleScreenScreenSaver-Debug.entitlements
+          - IdleScreenScreenSaverViewController.swift
+      - path: IdleScreenSyntheticHostedGateExtension
+        excludes:
+          - Info.plist
+      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+    info:
+      path: IdleScreenSyntheticHostedGateExtension/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: $(DEVELOPMENT_LANGUAGE)
+        CFBundleDisplayName: idlescreen
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundlePackageType: XPC!
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        IdleScreenAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenSharedContainerEnabled: $(IDLESCREEN_SHARED_CONTAINER_ENABLED)
+        IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
+        IdleScreenCameraAgentTeamIdentifier: $(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)
+        IdleScreenSyntheticHostedGateVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.screensaver
+          NSExtensionPointVersion: "1.0"
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).IdleScreenScreenSaverExtension
+        SSEHasConfigureSheet: false
+        SSENeedsAnimationTimer: true
+        ScreenSaverViewControllerClass: $(PRODUCT_MODULE_NAME).IdleScreenSyntheticHostedGateViewController
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenScreenSaver
+        PRODUCT_MODULE_NAME: IdleScreenScreenSaver
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app.screensaver
+        WRAPPER_EXTENSION: appex
+        MACH_O_TYPE: mh_bundle
+        INSTALL_PATH: /Applications
+        SKIP_INSTALL: NO
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.1"
+        IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
+        IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
+        IDLESCREEN_SHARED_CONTAINER_ENABLED: YES
+        CODE_SIGN_ENTITLEMENTS: IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../../../Frameworks"
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 3524374A2S
+        CODE_SIGN_IDENTITY: "Apple Development"
+        REGISTER_APP_GROUPS: YES
+    postBuildScripts:
+      - name: Embed C4 hosted extension provisioning profile
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          test -f "$IDLESCREEN_C4_EXTENSION_PROVISIONING_PROFILE_PATH"
+          /usr/bin/ditto "$IDLESCREEN_C4_EXTENSION_PROVISIONING_PROFILE_PATH" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/embedded.provisionprofile"
+    dependencies:
+      - target: IdleScreenCore
+        embed: false
+      - target: IdleScreenDisplay
+        embed: false
+      - target: IdleScreenRenderer
+        embed: false
+      - target: IdleScreenCamera
+        embed: false
+      - sdk: ScreenSaver.framework
+      - sdk: QuartzCore.framework
+
+  IdleScreenAppCameraTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenApp/IdleScreenCompanionCameraClient.swift
+      - path: IdleScreenAppCameraTests
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenAppCameraTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app-camera-tests
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_TESTABILITY: YES
+    dependencies:
+      - target: IdleScreenCamera
+      - target: IdleScreenCore
+      - target: IdleScreenRenderer
+
+  IdleScreenAppCompileGateTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: IdleScreenApp
+        includes:
+          - "**/*.swift"
+        excludes:
+          - "Info.plist"
+      - path: IdleScreenAppCompileGateTests
+      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreenAppCompileGateTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app-compile-gate-tests
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: ""
+        ENABLE_TESTABILITY: YES
+        SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) IDLESCREEN_APP_COMPILE_GATE"
+    dependencies:
+      - target: IdleScreenAgent
+      - target: IdleScreenCore
+      - target: IdleScreenDisplay
+      - target: IdleScreenCamera
+      - target: IdleScreenSystem
+      - target: IdleScreenRenderer
+
+  IdleScreenApp:
+    type: application
+    platform: macOS
+    sources:
+      - path: IdleScreenApp
+      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: THIRD_PARTY_NOTICES.md
+        buildPhase: resources
+      - path: IdleScreenCameraAgent/LaunchAgents
+        buildPhase:
+          copyFiles:
+            destination: wrapper
+            subpath: Contents/Library/LaunchAgents
+    info:
+      path: IdleScreenApp/Info.plist
+      properties:
+        CFBundleDisplayName: idlescreen
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: idlescreen
+        CFBundleExecutable: IdleScreen
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "61"
+        IdleScreenAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
+        IdleScreenCameraAgentTeamIdentifier: $(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)
+        IdleScreenSharedContainerEnabled: $(IDLESCREEN_SHARED_CONTAINER_ENABLED)
+        LSApplicationCategoryType: public.app-category.utilities
+        NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreen
+        PRODUCT_MODULE_NAME: IdleScreenApp
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        CODE_SIGN_ENTITLEMENTS: IdleScreenApp/IdleScreenApp.entitlements
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app.dev
+          IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.dev.shared
+          IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.dev.shared.camera-agent
+          IDLESCREEN_SHARED_CONTAINER_ENABLED: NO
+          EXCLUDED_SOURCE_FILE_NAMES: group.com.idlescreen.shared.camera-agent.plist
+          CODE_SIGN_ENTITLEMENTS: IdleScreenApp/IdleScreenApp-Debug.entitlements
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app
+          REGISTER_WITH_LAUNCH_SERVICES: NO
+          IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
+          IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
+          IDLESCREEN_SHARED_CONTAINER_ENABLED: YES
+          EXCLUDED_SOURCE_FILE_NAMES: group.com.idlescreen.dev.shared.camera-agent.plist
+          CODE_SIGN_ENTITLEMENTS: IdleScreenApp/IdleScreenApp.entitlements
+          DEVELOPMENT_TEAM: 3524374A2S
+          CODE_SIGN_STYLE: Automatic
+          CODE_SIGN_IDENTITY: "Apple Development"
+          REGISTER_APP_GROUPS: YES
+    dependencies:
+      - target: IdleScreenAgent
+        embed: false
+      - target: IdleScreenCore
+        embed: false
+      - target: IdleScreenDisplay
+        embed: false
+      - target: IdleScreenRenderer
+        embed: true
+      - target: IdleScreenCamera
+        embed: false
+      - target: IdleScreenSystem
+        embed: false
+      - target: IdleScreenScreenSaver
+        embed: true
+      - target: IdleScreenCameraAgent
+        embed: true
+        link: false
+        codeSign: true
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
+      - target: IdleScreenCtl
+        embed: true
+        link: false
+        codeSign: true
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
+
+  # C3-only application-shaped outer bundle. It reuses the complete shipping
+  # companion sources and production extension, but embeds the C3 helper bundle
+  # above so Archive never plans an application-product registration task.
+  IdleScreenC3ArchiveBundle:
+    type: bundle
+    platform: macOS
+    sources:
+      - path: IdleScreenApp
+      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: IdleScreenCameraAgent/LaunchAgents
+        buildPhase:
+          copyFiles:
+            destination: wrapper
+            subpath: Contents/Library/LaunchAgents
+    info:
+      path: IdleScreenApp/Info.plist
+      properties:
+        CFBundleDisplayName: idlescreen
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: idlescreen
+        CFBundleExecutable: IdleScreen
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "61"
+        IdleScreenAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
+        IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
+        IdleScreenCameraAgentTeamIdentifier: $(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)
+        IdleScreenSharedContainerEnabled: $(IDLESCREEN_SHARED_CONTAINER_ENABLED)
+        LSApplicationCategoryType: public.app-category.utilities
+        NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
+    settings:
+      base:
+        PRODUCT_NAME: IdleScreen
+        PRODUCT_MODULE_NAME: IdleScreenApp
+        PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        WRAPPER_EXTENSION: app
+        MACH_O_TYPE: mh_execute
+        INSTALL_PATH: /Applications
+        SKIP_INSTALL: NO
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
+        IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
+        IDLESCREEN_SHARED_CONTAINER_ENABLED: YES
+        EXCLUDED_SOURCE_FILE_NAMES: group.com.idlescreen.dev.shared.camera-agent.plist
+        CODE_SIGN_ENTITLEMENTS: IdleScreenApp/IdleScreenC3Archive.entitlements
+        DEVELOPMENT_TEAM: 3524374A2S
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        REGISTER_APP_GROUPS: YES
+    postBuildScripts:
+      - name: Embed C3 app provisioning profile
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          test -f "$IDLESCREEN_C3_APP_PROVISIONING_PROFILE_PATH"
+          /usr/bin/ditto "$IDLESCREEN_C3_APP_PROVISIONING_PROFILE_PATH" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/embedded.provisionprofile"
+    dependencies:
+      - target: IdleScreenAgent
+        embed: false
+      - target: IdleScreenCore
+        embed: false
+      - target: IdleScreenRenderer
+        embed: true
+      - target: IdleScreenCamera
+        embed: false
+      - target: IdleScreenSystem
+        embed: false
+      - target: IdleScreenScreenSaver
+        embed: true
+      - target: IdleScreenC3CameraAgentArchiveBundle
+        embed: true
+        link: false
+        codeSign: true
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
+      - target: IdleScreenCtl
+        embed: true
+        link: false
+        codeSign: true
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
+
+aggregateTargets:
+  IdleScreenCameraSyntheticAgentArchiveProduct:
+    dependencies:
+      - target: IdleScreenCameraSyntheticAgent
+
+  IdleScreenSyntheticHostedGateExtensionArchiveProduct:
+    dependencies:
+      - target: IdleScreenSyntheticHostedGateExtension
+
+  IdleScreenSyntheticGateApp:
+    dependencies:
+      - target: IdleScreenApp
+      - target: IdleScreenCameraSyntheticAgent
+      - target: IdleScreenSyntheticHostedGateExtension

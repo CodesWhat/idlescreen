@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>idlescreen</string>
+	<key>CFBundleExecutable</key>
+	<string>IdleScreenCameraAgent</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>idlescreen</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1</string>
+	<key>CFBundleVersion</key>
+	<string>28</string>
+	<key>IdleScreenCameraAgentAppGroupIdentifier</key>
+	<string>$(IDLESCREEN_APP_GROUP_IDENTIFIER)</string>
+	<key>IdleScreenCameraAgentLaunchAgentSHA256</key>
+	<string>$(IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256)</string>
+	<key>IdleScreenCameraAgentMachServiceName</key>
+	<string>$(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)</string>
+	<key>IdleScreenCameraAgentMailboxFileName</key>
+	<string>camera-frames-v1.mailbox</string>
+	<key>IdleScreenCameraAgentTeamIdentifier</key>
+	<string>$(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)</string>
+	<key>LSBackgroundOnly</key>
+	<true/>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>idlescreen uses the camera only for camera-based screen saver effects you explicitly enable.</string>
+	<key>NSCameraUseContinuityCameraDeviceType</key>
+	<true/>
+</dict>
+</plist>

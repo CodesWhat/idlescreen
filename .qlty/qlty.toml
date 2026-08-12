@@ -1,0 +1,20 @@
+config_version = "0"
+
+exclude_patterns = [
+  "**/build/**",
+  "**/DerivedData/**",
+  ".qlty/**",
+]
+
+[coverage]
+ignores = [
+  "**/*Tests/**",
+  "IdleScreenCoreTestSupport/**",
+]
+
+[smells]
+mode = "comment"
+
+[[source]]
+name = "default"
+default = true

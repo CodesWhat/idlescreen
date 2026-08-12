@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Install XcodeGen
+        run: |
+          brew install xcodegen
+          [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          git diff --exit-code -- IdleScreen.xcodeproj
+          [[ -z "$(git ls-files --others --exclude-standard -- IdleScreen.xcodeproj)" ]]
+
+      - name: Verify canonical repository and project contracts
+        run: |
+          ./scripts/test-repository-layout.sh
+          ./scripts/test-project-contracts.sh
+
+      - name: Run modern unit and integration tests
+        run: |
+          result_root="$RUNNER_TEMP/idlescreen-test-results"
+          mkdir -p "$result_root"
+          for scheme in \
+            IdleScreenAgent \
+            IdleScreenCore \
+            IdleScreenDisplay \
+            IdleScreenRenderer \
+            IdleScreenPerformance \
+            IdleScreenCamera \
+            IdleScreenCameraAgent \
+            IdleScreenSyntheticGateTests \
+            IdleScreenSystem \
+            IdleScreenScreenSaver \
+            IdleScreenAppCamera; do
+            result_bundle="$result_root/$scheme.xcresult"
+            echo "::group::$scheme"
+            if ! xcodebuild test -quiet \
+              -project IdleScreen.xcodeproj \
+              -scheme "$scheme" \
+              -destination 'platform=macOS' \
+              -derivedDataPath "$RUNNER_TEMP/idlescreen-ci-$scheme" \
+              -resultBundlePath "$result_bundle" \
+              CODE_SIGNING_ALLOWED=NO \
+              SWIFT_TREAT_WARNINGS_AS_ERRORS=YES; then
+              xcrun xcresulttool get test-results summary --path "$result_bundle" || true
+              xcrun xcresulttool get test-results tests --path "$result_bundle" || true
+              echo "::endgroup::"
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
+
+      - name: Run deterministic product fixtures
+        run: |
+          python3 ./scripts/test_performance_r1_report.py
+          ./scripts/test-run-performance-r1.sh
+          ./scripts/test-companion-compile-gate.sh /tmp/idlescreen-ci-companion-gate
+          ./scripts/test-idlescreenctl-runtime.sh
+          ./scripts/test-camera-agent-product-fixtures.sh
+          (umask 077; ./scripts/test-synthetic-gate-product-fixtures.sh)
+          ./scripts/test-release-archive-provenance-fixtures.sh
+          ./scripts/test-r1-release-candidate-fixtures.sh
+
+      - name: Build canonical companion product
+        run: |
+          xcodebuild build -quiet \
+            -project IdleScreen.xcodeproj \
+            -scheme IdleScreenApp \
+            -destination 'platform=macOS' \
+            -derivedDataPath /tmp/idlescreen-ci-product \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+
+  coverage:
+    if: github.event_name == 'push'
+    needs: build-and-test
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Generate Xcode coverage reports
+        run: |
+          coverage_root="$RUNNER_TEMP/idlescreen-coverage"
+          mkdir -p "$coverage_root"
+          for scheme in \
+            IdleScreenAgent \
+            IdleScreenCore \
+            IdleScreenDisplay \
+            IdleScreenRenderer \
+            IdleScreenPerformance \
+            IdleScreenCamera \
+            IdleScreenCameraAgent \
+            IdleScreenSyntheticGateTests \
+            IdleScreenSystem \
+            IdleScreenScreenSaver \
+            IdleScreenAppCamera \
+            IdleScreenAppCompileGate; do
+            result_bundle="$coverage_root/$scheme.xcresult"
+            xcodebuild test -quiet \
+              -project IdleScreen.xcodeproj \
+              -scheme "$scheme" \
+              -destination 'platform=macOS' \
+              -derivedDataPath "$RUNNER_TEMP/idlescreen-coverage-derived-$scheme" \
+              -enableCodeCoverage YES \
+              -resultBundlePath "$result_bundle" \
+              CODE_SIGNING_ALLOWED=NO \
+              SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+            xcrun xccov view --archive --json "$result_bundle" \
+              >"$coverage_root/$scheme.json"
+          done
+
+      - name: Upload coverage to Qlty
+        uses: qltysh/qlty-action/coverage@ea1eaf434a27bf50cd544153084fbb11c52aaf84
+        with:
+          oidc: true
+          format: xccov-json
+          skip-errors: false
+          validate: true
+          cli-version: 0.618.0
+          files: ${{ runner.temp }}/idlescreen-coverage/*.json
