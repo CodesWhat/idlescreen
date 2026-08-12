@@ -64,12 +64,10 @@ for codeql_contract in \
   'language: swift' \
   'runner: macos-26' \
   'build-mode: manual' \
-  '-downloadComponent metalToolchain -exportPath' \
-  '-importComponent metalToolchain -importPath' \
-  'xcrun metal --version' \
   'arch -arm64 /opt/homebrew/bin/brew install xcodegen' \
   'xcodebuild build' \
   'ARCHS=arm64' \
+  "EXCLUDED_SOURCE_FILE_NAMES='*.metal'" \
   'security-events: write'; do
   grep -Fq -- "$codeql_contract" "$codeql_workflow" ||
     fail "advanced CodeQL workflow is missing: $codeql_contract"
