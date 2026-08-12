@@ -74,6 +74,12 @@ if grep -Eq 'uses: [^[:space:]]+@v[0-9]' "$codeql_workflow"; then
   fail "advanced CodeQL actions must use full commit SHAs"
 fi
 
+coderabbit_tone_length="$(ruby -ryaml -e 'print YAML.load_file(ARGV.fetch(0)).fetch("tone_instructions").length' .coderabbit.yaml)" ||
+  fail "CodeRabbit configuration must parse"
+if ((coderabbit_tone_length > 250)); then
+  fail "CodeRabbit tone_instructions exceeds the 250-character schema limit"
+fi
+
 tracked_redistribution_archives="$(git ls-files -- '*.zip' '*.ttf' '*.otf' '*.dmg' '*.pkg')"
 [[ -z "$tracked_redistribution_archives" ]] ||
   fail "binary redistribution input is tracked:\n$tracked_redistribution_archives"

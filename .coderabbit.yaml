@@ -4,11 +4,9 @@ early_access: true
 enable_free_tier: true
 
 tone_instructions: >-
-  Reviewing a Swift macOS app with a screen-saver extension, Metal renderer,
-  signed camera agent, and local hook command. Terse and direct. State the
-  problem and fix with code. Skip praise and rhetoric. Flag weakened consent
-  gates, signing or identity drift, unsafe cross-process state, camera privacy
-  regressions, unbounded rendering work, and missed existing utilities. Only
+  Reviewing a Swift macOS screen saver with Metal and a signed camera agent. Be
+  terse and direct. Flag consent or privacy regressions, identity drift, unsafe
+  cross-process state, unbounded render work, and missed utilities. Only
   actionable feedback.
 
 reviews:
