@@ -6,8 +6,8 @@ Security fixes are shipped on the latest public release line only.
 
 | Version | Supported |
 | --- | --- |
-| Latest public alpha | Yes |
-| Older builds | No |
+| 0.1.x | Yes |
+| Older release lines | No |
 
 ## Reporting a vulnerability
 

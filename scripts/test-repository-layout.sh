@@ -45,13 +45,52 @@ for public_file in \
   .coderabbit.yaml \
   .github/CODEOWNERS \
   .github/FUNDING.yml \
+  .github/workflows/codeql.yml \
   .github/ISSUE_TEMPLATE/bug_report.yml \
   .github/ISSUE_TEMPLATE/config.yml \
   scripts/generate-brand-assets.sh \
+  scripts/generate-homebrew-cask.sh \
+  scripts/test-public-release-contract.sh \
   renovate.json; do
   [[ -f "$public_file" ]] ||
     fail "required public repository file is missing: $public_file"
 done
+
+codeql_workflow=.github/workflows/codeql.yml
+for codeql_contract in \
+  'language: actions' \
+  'language: c-cpp' \
+  'language: python' \
+  'language: swift' \
+  'runner: macos-26' \
+  'build-mode: manual' \
+  'arch -arm64 /opt/homebrew/bin/brew install xcodegen' \
+  'xcodebuild build' \
+  'ARCHS=arm64' \
+  "EXCLUDED_SOURCE_FILE_NAMES='*.metal'" \
+  'security-events: write'; do
+  grep -Fq -- "$codeql_contract" "$codeql_workflow" ||
+    fail "advanced CodeQL workflow is missing: $codeql_contract"
+done
+action_ref_is_pinned() {
+  local action_ref="$1"
+  [[ "$action_ref" == ./* || "$action_ref" =~ ^[^@[:space:]]+@[0-9a-f]{40}$ ]]
+}
+if action_ref_is_pinned actions/checkout@main ||
+   action_ref_is_pinned actions/checkout@4.4.0 ||
+   ! action_ref_is_pinned actions/checkout@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; then
+  fail "the action-reference validator must reject every mutable external reference"
+fi
+while IFS= read -r action_ref; do
+  action_ref_is_pinned "$action_ref" ||
+    fail "advanced CodeQL actions must use full commit SHAs: $action_ref"
+done < <(awk '/uses:/ { print $2 }' "$codeql_workflow")
+
+coderabbit_tone_length="$(ruby -ryaml -e 'print YAML.load_file(ARGV.fetch(0)).fetch("tone_instructions").length' .coderabbit.yaml)" ||
+  fail "CodeRabbit configuration must parse"
+if ((coderabbit_tone_length > 250)); then
+  fail "CodeRabbit tone_instructions exceeds the 250-character schema limit"
+fi
 
 tracked_redistribution_archives="$(git ls-files -- '*.zip' '*.ttf' '*.otf' '*.dmg' '*.pkg')"
 [[ -z "$tracked_redistribution_archives" ]] ||
