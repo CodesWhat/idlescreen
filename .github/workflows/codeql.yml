@@ -45,17 +45,18 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install Swift build tools
+        if: matrix.language == 'swift'
+        run: |
+          xcodebuild -downloadComponent MetalToolchain
+          arch -arm64 /opt/homebrew/bin/brew install xcodegen
+          [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-
-      - name: Install XcodeGen
-        if: matrix.language == 'swift'
-        run: |
-          arch -arm64 /opt/homebrew/bin/brew install xcodegen
-          [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
 
       - name: Generate Xcode project
         if: matrix.language == 'swift'

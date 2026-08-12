@@ -64,6 +64,7 @@ for codeql_contract in \
   'language: swift' \
   'runner: macos-26' \
   'build-mode: manual' \
+  'xcodebuild -downloadComponent MetalToolchain' \
   'arch -arm64 /opt/homebrew/bin/brew install xcodegen' \
   'xcodebuild build' \
   'ARCHS=arm64' \
