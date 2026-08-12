@@ -65,7 +65,7 @@ for codeql_contract in \
   'runner: macos-26' \
   'build-mode: manual' \
   '-downloadComponent metalToolchain -exportPath' \
-  '-importComponent metalToolchain' \
+  '-importComponent metalToolchain -importPath' \
   'xcrun metal --version' \
   'arch -arm64 /opt/homebrew/bin/brew install xcodegen' \
   'xcodebuild build' \
