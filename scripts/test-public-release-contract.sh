@@ -122,14 +122,25 @@ for required_text in \
   fi
 done
 
-if ! /usr/bin/awk '
-  /^  sha256 / { saw_sha = 1; next }
-  saw_sha && /^$/ { saw_gap = 1; next }
-  saw_sha && /^  url / { exit saw_gap ? 0 : 1 }
-  saw_sha { exit 1 }
-  END { if (!saw_sha) exit 1 }
-' "$cask"; then
+cask_has_separated_url() {
+  /usr/bin/awk '
+    /^  sha256 / { saw_sha = 1; next }
+    saw_sha && /^$/ { saw_gap = 1; next }
+    saw_sha && /^  url / { saw_url = 1; exit saw_gap ? 0 : 1 }
+    saw_sha { exit 1 }
+    END { if (!saw_sha || !saw_url) exit 1 }
+  ' "$1"
+}
+
+if ! cask_has_separated_url "$cask"; then
   echo "FAIL: generated cask does not separate the URL stanza group." >&2
+  exit 1
+fi
+
+missing_url_cask="$scratch_root/missing-url.rb"
+/usr/bin/awk '/^  url / { exit } { print }' "$cask" >"$missing_url_cask"
+if cask_has_separated_url "$missing_url_cask"; then
+  echo "FAIL: the URL stanza separator check accepted a cask without a URL." >&2
   exit 1
 fi
 
