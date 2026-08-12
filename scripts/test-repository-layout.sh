@@ -45,13 +45,34 @@ for public_file in \
   .coderabbit.yaml \
   .github/CODEOWNERS \
   .github/FUNDING.yml \
+  .github/workflows/codeql.yml \
   .github/ISSUE_TEMPLATE/bug_report.yml \
   .github/ISSUE_TEMPLATE/config.yml \
   scripts/generate-brand-assets.sh \
+  scripts/generate-homebrew-cask.sh \
+  scripts/test-public-release-contract.sh \
   renovate.json; do
   [[ -f "$public_file" ]] ||
     fail "required public repository file is missing: $public_file"
 done
+
+codeql_workflow=.github/workflows/codeql.yml
+for codeql_contract in \
+  'language: actions' \
+  'language: c-cpp' \
+  'language: python' \
+  'language: swift' \
+  'runner: macos-26' \
+  'build-mode: manual' \
+  'xcodebuild build' \
+  'ARCHS=arm64' \
+  'security-events: write'; do
+  grep -Fq "$codeql_contract" "$codeql_workflow" ||
+    fail "advanced CodeQL workflow is missing: $codeql_contract"
+done
+if grep -Eq 'uses: [^[:space:]]+@v[0-9]' "$codeql_workflow"; then
+  fail "advanced CodeQL actions must use full commit SHAs"
+fi
 
 tracked_redistribution_archives="$(git ls-files -- '*.zip' '*.ttf' '*.otf' '*.dmg' '*.pkg')"
 [[ -z "$tracked_redistribution_archives" ]] ||

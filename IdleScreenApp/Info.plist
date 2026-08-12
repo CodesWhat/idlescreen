@@ -17,9 +17,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1</string>
+	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>61</string>
+	<string>62</string>
 	<key>IdleScreenAppGroupIdentifier</key>
 	<string>$(IDLESCREEN_APP_GROUP_IDENTIFIER)</string>
 	<key>IdleScreenCameraAgentAppGroupIdentifier</key>

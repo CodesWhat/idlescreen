@@ -1,0 +1,81 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 8 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            runner: ubuntu-latest
+            build-mode: none
+          - language: c-cpp
+            runner: ubuntu-latest
+            build-mode: none
+          - language: python
+            runner: ubuntu-latest
+            build-mode: none
+          - language: swift
+            runner: macos-26
+            build-mode: manual
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Install XcodeGen
+        if: matrix.language == 'swift'
+        run: |
+          brew install xcodegen
+          [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
+
+      - name: Generate Xcode project
+        if: matrix.language == 'swift'
+        run: |
+          xcodegen generate
+          git diff --exit-code -- IdleScreen.xcodeproj
+
+      - name: Build Swift manually
+        if: matrix.language == 'swift'
+        run: |
+          xcodebuild build -quiet \
+            -project IdleScreen.xcodeproj \
+            -scheme IdleScreenApp \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/idlescreen-codeql" \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          category: "/language:${{ matrix.language }}"

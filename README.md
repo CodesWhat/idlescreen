@@ -36,12 +36,14 @@ capture has one explicit, inspectable lifecycle.
 
 ## Install
 
-The first public alpha is being prepared for the official CodesWhat tap. Once
-published, install it with:
+Install the signed and notarized app from the official CodesWhat tap:
 
 ```sh
 brew install --cask codeswhat/tap/idlescreen
 ```
+
+Upgrade it later with `brew upgrade --cask idlescreen`, or remove it with
+`brew uninstall --cask idlescreen`.
 
 idlescreen requires macOS 26 Tahoe or later. It does not require Gatekeeper or
 System Integrity Protection to be disabled.

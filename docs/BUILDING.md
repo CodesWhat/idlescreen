@@ -34,6 +34,7 @@ python3 ./scripts/test_performance_r1_report.py
 ./scripts/test-synthetic-gate-product-fixtures.sh
 ./scripts/test-release-archive-provenance-fixtures.sh
 ./scripts/test-r1-release-candidate-fixtures.sh
+./scripts/test-public-release-contract.sh
 ```
 
 CI also runs the modern Xcode unit and integration schemes with Swift warnings
@@ -72,12 +73,27 @@ credentials and never signs code after notarization.
 Replay a completed candidate with:
 
 ```sh
-./scripts/verify-r1-release-candidate.sh /absolute/candidate/output
+./scripts/verify-r1-release-candidate.sh \
+  /absolute/candidate/Distribution/idlescreen-0.1.0-build62.dmg \
+  /absolute/candidate/IdleScreenR1ReleaseCandidateV1.txt
 ```
 
 The verifier checks source identity, manifests, certificates, CodeDirectory
 hashes, entitlements, profiles, notarization, extended attributes, symlinks,
 and the exact mounted bytes.
+
+Generate the exact Homebrew cask from that immutable candidate with:
+
+```sh
+./scripts/generate-homebrew-cask.sh \
+  /absolute/candidate/IdleScreenR1ReleaseCandidateV1.txt \
+  /absolute/output/idlescreen.rb
+```
+
+The generator accepts only a clean stable release candidate whose notarization,
+stapling, Gatekeeper results, canonical filename, and final DMG checksum all
+pass. Publish the DMG on the matching `v0.1.0` GitHub release before proposing
+the generated cask to `CodesWhat/homebrew-tap`.
 
 ## Repository hygiene
 
