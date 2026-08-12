@@ -48,7 +48,13 @@ jobs:
       - name: Install Swift build tools
         if: matrix.language == 'swift'
         run: |
-          xcodebuild -downloadComponent MetalToolchain
+          metal_component_root="$RUNNER_TEMP/idlescreen-metal-toolchain"
+          mkdir "$metal_component_root"
+          xcodebuild -downloadComponent metalToolchain -exportPath "$metal_component_root"
+          metal_components=("$metal_component_root"/*)
+          [[ "${#metal_components[@]}" == 1 && -e "${metal_components[0]}" ]]
+          xcodebuild -importComponent metalToolchain "${metal_components[0]}"
+          xcrun metal --version
           arch -arm64 /opt/homebrew/bin/brew install xcodegen
           [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
 

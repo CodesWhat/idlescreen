@@ -64,12 +64,14 @@ for codeql_contract in \
   'language: swift' \
   'runner: macos-26' \
   'build-mode: manual' \
-  'xcodebuild -downloadComponent MetalToolchain' \
+  '-downloadComponent metalToolchain -exportPath' \
+  '-importComponent metalToolchain' \
+  'xcrun metal --version' \
   'arch -arm64 /opt/homebrew/bin/brew install xcodegen' \
   'xcodebuild build' \
   'ARCHS=arm64' \
   'security-events: write'; do
-  grep -Fq "$codeql_contract" "$codeql_workflow" ||
+  grep -Fq -- "$codeql_contract" "$codeql_workflow" ||
     fail "advanced CodeQL workflow is missing: $codeql_contract"
 done
 action_ref_is_pinned() {
