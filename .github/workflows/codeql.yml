@@ -54,7 +54,7 @@ jobs:
       - name: Install XcodeGen
         if: matrix.language == 'swift'
         run: |
-          brew install xcodegen
+          arch -arm64 /opt/homebrew/bin/brew install xcodegen
           [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
 
       - name: Generate Xcode project
