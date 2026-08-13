@@ -39,7 +39,7 @@ for public_file in \
   CODE_OF_CONDUCT.md \
   CONTRIBUTING.md \
   docs/ASSET_PROVENANCE.md \
-  docs/assets/idlescreen-icon.svg \
+  docs/assets/idlescreen-logo.png \
   docs/assets/idlescreen-saver.svg \
   SECURITY.md \
   .coderabbit.yaml \
@@ -55,6 +55,11 @@ for public_file in \
   [[ -f "$public_file" ]] ||
     fail "required public repository file is missing: $public_file"
 done
+
+brand_asset_generator=scripts/generate-brand-assets.sh
+grep -Fq 'icon_source="$project_root/docs/assets/idlescreen-logo.png"' \
+  "$brand_asset_generator" ||
+  fail "the app icon must be generated from the canonical CRT product logo"
 
 codeql_workflow=.github/workflows/codeql.yml
 for codeql_contract in \

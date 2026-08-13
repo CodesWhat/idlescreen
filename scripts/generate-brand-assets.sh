@@ -3,7 +3,7 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
-icon_source="$project_root/docs/assets/idlescreen-icon.svg"
+icon_source="$project_root/docs/assets/idlescreen-logo.png"
 saver_source="$project_root/docs/assets/idlescreen-saver.svg"
 icon_catalog="$project_root/Products/IdleScreenApp/Assets.xcassets/AppIcon.appiconset"
 saver_catalog="$project_root/Products/IdleScreenScreenSaver/Assets.xcassets/thumbnail.imageset"
@@ -56,7 +56,7 @@ if [[ "$mode" == --check ]]; then
       exit 1
     }
   done
-  echo "PASS: generated brand assets match their tracked SVG sources."
+  echo "PASS: generated brand assets match their tracked sources."
   exit 0
 fi
 
