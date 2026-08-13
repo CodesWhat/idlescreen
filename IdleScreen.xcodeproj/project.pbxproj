@@ -5131,7 +5131,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = "Products/IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 62;
+				CURRENT_PROJECT_VERSION = 63;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.dev.shared;
@@ -5140,7 +5140,7 @@
 				INFOPLIST_FILE = Products/IdleScreenScreenSaver/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../../../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.idlescreen.app.dev.screensaver;
 				PRODUCT_MODULE_NAME = IdleScreenScreenSaver;
 				PRODUCT_NAME = IdleScreenScreenSaver;
@@ -5490,7 +5490,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 62;
+				CURRENT_PROJECT_VERSION = 63;
 				DEVELOPMENT_TEAM = 3524374A2S;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -5500,7 +5500,7 @@
 				INFOPLIST_FILE = Products/IdleScreenScreenSaver/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../../../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.idlescreen.app.screensaver;
 				PRODUCT_MODULE_NAME = IdleScreenScreenSaver;
 				PRODUCT_NAME = IdleScreenScreenSaver;
