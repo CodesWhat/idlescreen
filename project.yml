@@ -204,7 +204,7 @@ targets:
     type: framework.static
     platform: macOS
     sources:
-      - path: IdleScreenAgent
+      - path: Sources/IdleScreenAgent
     settings:
       base:
         PRODUCT_NAME: IdleScreenAgent
@@ -221,7 +221,7 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenAgentTests
+      - path: Tests/IdleScreenAgentTests
     settings:
       base:
         PRODUCT_NAME: IdleScreenAgentTests
@@ -237,7 +237,7 @@ targets:
     type: tool
     platform: macOS
     sources:
-      - path: IdleScreenAgentExecutable
+      - path: Products/IdleScreenAgentExecutable
     settings:
       base:
         PRODUCT_NAME: idlescreenctl
@@ -247,12 +247,12 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         ENABLE_APP_SANDBOX: YES
         SKIP_INSTALL: YES
-        CODE_SIGN_ENTITLEMENTS: IdleScreenAgentExecutable/idlescreenctl.entitlements
+        CODE_SIGN_ENTITLEMENTS: Products/IdleScreenAgentExecutable/idlescreenctl.entitlements
       configs:
         Debug:
-          CODE_SIGN_ENTITLEMENTS: IdleScreenAgentExecutable/idlescreenctl-Debug.entitlements
+          CODE_SIGN_ENTITLEMENTS: Products/IdleScreenAgentExecutable/idlescreenctl-Debug.entitlements
         Release:
-          CODE_SIGN_ENTITLEMENTS: IdleScreenAgentExecutable/idlescreenctl.entitlements
+          CODE_SIGN_ENTITLEMENTS: Products/IdleScreenAgentExecutable/idlescreenctl.entitlements
           OTHER_CODE_SIGN_FLAGS: "--identifier com.idlescreen.ctl"
           DEVELOPMENT_TEAM: 3524374A2S
           CODE_SIGN_STYLE: Automatic
@@ -268,7 +268,7 @@ targets:
     type: framework.static
     platform: macOS
     sources:
-      - path: IdleScreenCore
+      - path: Sources/IdleScreenCore
     settings:
       base:
         PRODUCT_NAME: IdleScreenCore
@@ -282,7 +282,7 @@ targets:
     type: tool
     platform: macOS
     sources:
-      - path: IdleScreenCoreTestSupport
+      - path: Tests/IdleScreenCoreTestSupport
     settings:
       base:
         PRODUCT_NAME: idlescreen-store-test-worker
@@ -298,7 +298,7 @@ targets:
     type: framework
     platform: macOS
     sources:
-      - path: IdleScreenRenderer
+      - path: Sources/IdleScreenRenderer
     settings:
       base:
         PRODUCT_NAME: IdleScreenRenderer
@@ -314,7 +314,7 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenCoreTests
+      - path: Tests/IdleScreenCoreTests
     settings:
       base:
         PRODUCT_NAME: IdleScreenCoreTests
@@ -331,7 +331,7 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenRendererTests
+      - path: Tests/IdleScreenRendererTests
     settings:
       base:
         PRODUCT_NAME: IdleScreenRendererTests
@@ -346,7 +346,7 @@ targets:
     type: framework.static
     platform: macOS
     sources:
-      - path: IdleScreenPerformance
+      - path: Sources/IdleScreenPerformance
     settings:
       base:
         PRODUCT_NAME: IdleScreenPerformance
@@ -367,7 +367,7 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenPerformanceTests
+      - path: Tests/IdleScreenPerformanceTests
     settings:
       base:
         PRODUCT_NAME: IdleScreenPerformanceTests
@@ -382,7 +382,7 @@ targets:
     type: tool
     platform: macOS
     sources:
-      - path: IdleScreenPerformanceExecutable
+      - path: Support/IdleScreenPerformanceExecutable
     settings:
       base:
         PRODUCT_NAME: idlescreen-perf
@@ -406,7 +406,7 @@ targets:
     type: framework.static
     platform: macOS
     sources:
-      - path: IdleScreenDisplay
+      - path: Sources/IdleScreenDisplay
     settings:
       base:
         PRODUCT_NAME: IdleScreenDisplay
@@ -426,7 +426,7 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenDisplayTests
+      - path: Tests/IdleScreenDisplayTests
     settings:
       base:
         PRODUCT_NAME: IdleScreenDisplayTests
@@ -442,7 +442,7 @@ targets:
     type: framework.static
     platform: macOS
     sources:
-      - path: IdleScreenCameraAtomics
+      - path: Sources/IdleScreenCameraAtomics
     settings:
       base:
         PRODUCT_NAME: IdleScreenCameraAtomics
@@ -457,7 +457,7 @@ targets:
     type: framework.static
     platform: macOS
     sources:
-      - path: IdleScreenCamera
+      - path: Sources/IdleScreenCamera
     settings:
       base:
         PRODUCT_NAME: IdleScreenCamera
@@ -473,7 +473,7 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenCameraTests
+      - path: Tests/IdleScreenCameraTests
     settings:
       base:
         PRODUCT_NAME: IdleScreenCameraTests
@@ -488,9 +488,9 @@ targets:
     type: application
     platform: macOS
     sources:
-      - path: IdleScreenCameraAgentExecutable
+      - path: Products/IdleScreenCameraAgentExecutable
     info:
-      path: IdleScreenCameraAgentExecutable/Info.plist
+      path: Products/IdleScreenCameraAgentExecutable/Info.plist
       properties:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleName: idlescreen
@@ -515,20 +515,20 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         ENABLE_APP_SANDBOX: YES
         SKIP_INSTALL: YES
-        CODE_SIGN_ENTITLEMENTS: IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements
+        CODE_SIGN_ENTITLEMENTS: Sources/IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements
       configs:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent.dev
           IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.dev.shared.camera-agent
           IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.dev.shared
           IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256: 43adaaf96c2c1ea87365b2f46e33327005ecaa1fa4bdf8eb9e2edead682ad9cf
-          CODE_SIGN_ENTITLEMENTS: IdleScreenCameraAgent/IdleScreenCameraAgent-Debug.entitlements
+          CODE_SIGN_ENTITLEMENTS: Sources/IdleScreenCameraAgent/IdleScreenCameraAgent-Debug.entitlements
         Release:
           PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent
           IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
           IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
           IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256: 151f0b19ff95aa853a3188f7e64c3eae8d159c5718658a4ba6e9518dcaa19e92
-          CODE_SIGN_ENTITLEMENTS: IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements
+          CODE_SIGN_ENTITLEMENTS: Sources/IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements
           CODE_SIGN_STYLE: Automatic
           DEVELOPMENT_TEAM: 3524374A2S
           CODE_SIGN_IDENTITY: "Apple Development"
@@ -555,9 +555,9 @@ targets:
     type: bundle
     platform: macOS
     sources:
-      - path: IdleScreenCameraAgentExecutable
+      - path: Products/IdleScreenCameraAgentExecutable
     info:
-      path: IdleScreenCameraAgentExecutable/Info.plist
+      path: Products/IdleScreenCameraAgentExecutable/Info.plist
       properties:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleName: idlescreen
@@ -590,7 +590,7 @@ targets:
         IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
         IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
         IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256: 151f0b19ff95aa853a3188f7e64c3eae8d159c5718658a4ba6e9518dcaa19e92
-        CODE_SIGN_ENTITLEMENTS: IdleScreenCameraAgent/IdleScreenCameraAgentC3Archive.entitlements
+        CODE_SIGN_ENTITLEMENTS: Sources/IdleScreenCameraAgent/IdleScreenCameraAgentC3Archive.entitlements
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 3524374A2S
         CODE_SIGN_IDENTITY: "Apple Development"
@@ -621,17 +621,17 @@ targets:
     type: framework.static
     platform: macOS
     sources:
-      - path: IdleScreenCameraAgent/CameraAgentService.swift
-      - path: IdleScreenCameraAgent/CameraAgentDiagnostics.swift
-      - path: IdleScreenCameraAgent/CameraCaptureSessionController.swift
-      - path: IdleScreenCameraAgent/CameraFrameMailboxWriter.swift
-      - path: IdleScreenCameraAgent/CameraAgentXPCListener.swift
-      - path: IdleScreenCameraAgent/CameraAgentRuntimeDriver.swift
-      - path: IdleScreenCameraAgent/CameraAgentProcessRuntime.swift
-      - path: IdleScreenCameraAgent/CameraDeviceInventory.swift
-      - path: IdleScreenCameraAgent/AVFoundationCameraCaptureComposition.swift
-      - path: IdleScreenCameraAgent/AVFoundationCameraAgentComposition.swift
-      - path: IdleScreenCameraAgent/AVFoundationCameraDeviceInventory.swift
+      - path: Sources/IdleScreenCameraAgent/CameraAgentService.swift
+      - path: Sources/IdleScreenCameraAgent/CameraAgentDiagnostics.swift
+      - path: Sources/IdleScreenCameraAgent/CameraCaptureSessionController.swift
+      - path: Sources/IdleScreenCameraAgent/CameraFrameMailboxWriter.swift
+      - path: Sources/IdleScreenCameraAgent/CameraAgentXPCListener.swift
+      - path: Sources/IdleScreenCameraAgent/CameraAgentRuntimeDriver.swift
+      - path: Sources/IdleScreenCameraAgent/CameraAgentProcessRuntime.swift
+      - path: Sources/IdleScreenCameraAgent/CameraDeviceInventory.swift
+      - path: Sources/IdleScreenCameraAgent/AVFoundationCameraCaptureComposition.swift
+      - path: Sources/IdleScreenCameraAgent/AVFoundationCameraAgentComposition.swift
+      - path: Sources/IdleScreenCameraAgent/AVFoundationCameraDeviceInventory.swift
     settings:
       base:
         PRODUCT_NAME: IdleScreenCameraAgentCore
@@ -654,14 +654,14 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenCameraAgentTests/CameraAgentServiceTests.swift
-      - path: IdleScreenCameraAgentTests/CameraCaptureSessionControllerTests.swift
-      - path: IdleScreenCameraAgentTests/CameraFrameMailboxWriterTests.swift
-      - path: IdleScreenCameraAgentTests/CameraAgentXPCListenerTests.swift
-      - path: IdleScreenCameraAgentTests/CameraAgentRuntimeDriverTests.swift
-      - path: IdleScreenCameraAgentTests/CameraAgentProcessRuntimeTests.swift
-      - path: IdleScreenCameraAgentTests/CameraDeviceInventoryTests.swift
-      - path: IdleScreenCameraAgentTests/CameraAgentDiagnosticsTests.swift
+      - path: Tests/IdleScreenCameraAgentTests/CameraAgentServiceTests.swift
+      - path: Tests/IdleScreenCameraAgentTests/CameraCaptureSessionControllerTests.swift
+      - path: Tests/IdleScreenCameraAgentTests/CameraFrameMailboxWriterTests.swift
+      - path: Tests/IdleScreenCameraAgentTests/CameraAgentXPCListenerTests.swift
+      - path: Tests/IdleScreenCameraAgentTests/CameraAgentRuntimeDriverTests.swift
+      - path: Tests/IdleScreenCameraAgentTests/CameraAgentProcessRuntimeTests.swift
+      - path: Tests/IdleScreenCameraAgentTests/CameraDeviceInventoryTests.swift
+      - path: Tests/IdleScreenCameraAgentTests/CameraAgentDiagnosticsTests.swift
     settings:
       base:
         PRODUCT_NAME: IdleScreenCameraAgentTests
@@ -678,15 +678,15 @@ targets:
     type: framework.static
     platform: macOS
     sources:
-      - path: IdleScreenCameraAgent/CameraAgentService.swift
-      - path: IdleScreenCameraAgent/CameraAgentDiagnostics.swift
-      - path: IdleScreenCameraAgent/CameraCaptureSessionController.swift
-      - path: IdleScreenCameraAgent/CameraFrameMailboxWriter.swift
-      - path: IdleScreenCameraAgent/CameraAgentXPCListener.swift
-      - path: IdleScreenCameraAgent/CameraAgentRuntimeDriver.swift
-      - path: IdleScreenCameraAgent/CameraAgentProcessRuntime.swift
-      - path: IdleScreenCameraAgent/CameraDeviceInventory.swift
-      - path: IdleScreenSyntheticGate/Core
+      - path: Sources/IdleScreenCameraAgent/CameraAgentService.swift
+      - path: Sources/IdleScreenCameraAgent/CameraAgentDiagnostics.swift
+      - path: Sources/IdleScreenCameraAgent/CameraCaptureSessionController.swift
+      - path: Sources/IdleScreenCameraAgent/CameraFrameMailboxWriter.swift
+      - path: Sources/IdleScreenCameraAgent/CameraAgentXPCListener.swift
+      - path: Sources/IdleScreenCameraAgent/CameraAgentRuntimeDriver.swift
+      - path: Sources/IdleScreenCameraAgent/CameraAgentProcessRuntime.swift
+      - path: Sources/IdleScreenCameraAgent/CameraDeviceInventory.swift
+      - path: Support/IdleScreenSyntheticGate/Core
     settings:
       base:
         PRODUCT_NAME: IdleScreenCameraSyntheticAgentCore
@@ -707,9 +707,9 @@ targets:
     type: application
     platform: macOS
     sources:
-      - path: IdleScreenSyntheticGate/Executable
+      - path: Support/IdleScreenSyntheticGate/Executable
     info:
-      path: IdleScreenSyntheticGate/HelperInfo.plist
+      path: Support/IdleScreenSyntheticGate/HelperInfo.plist
       properties:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleName: idlescreen
@@ -735,18 +735,18 @@ targets:
         # Gate-only helper archive product; shipping helper remains embedded and
         # SKIP_INSTALL=YES in the production graph.
         SKIP_INSTALL: NO
-        CODE_SIGN_ENTITLEMENTS: IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent.entitlements
+        CODE_SIGN_ENTITLEMENTS: Support/IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent.entitlements
       configs:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent.dev
           IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.dev.shared.camera-agent
           IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.dev.shared
-          CODE_SIGN_ENTITLEMENTS: IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent-Debug.entitlements
+          CODE_SIGN_ENTITLEMENTS: Support/IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent-Debug.entitlements
         Release:
           PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.camera-agent
           IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
           IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
-          CODE_SIGN_ENTITLEMENTS: IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent.entitlements
+          CODE_SIGN_ENTITLEMENTS: Support/IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent.entitlements
           CODE_SIGN_STYLE: Automatic
           DEVELOPMENT_TEAM: 3524374A2S
           CODE_SIGN_IDENTITY: "Apple Development"
@@ -771,9 +771,9 @@ targets:
     type: bundle
     platform: macOS
     sources:
-      - path: IdleScreenSyntheticGate/Executable
+      - path: Support/IdleScreenSyntheticGate/Executable
     info:
-      path: IdleScreenSyntheticGate/HelperInfo.plist
+      path: Support/IdleScreenSyntheticGate/HelperInfo.plist
       properties:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleName: idlescreen
@@ -804,7 +804,7 @@ targets:
         ENABLE_USER_SCRIPT_SANDBOXING: NO
         IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
         IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
-        CODE_SIGN_ENTITLEMENTS: IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgentC4Archive.entitlements
+        CODE_SIGN_ENTITLEMENTS: Support/IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgentC4Archive.entitlements
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 3524374A2S
         CODE_SIGN_IDENTITY: "Apple Development"
@@ -833,7 +833,7 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenSyntheticGateTests
+      - path: Tests/IdleScreenSyntheticGateTests
     settings:
       base:
         PRODUCT_NAME: IdleScreenSyntheticGateTests
@@ -849,7 +849,7 @@ targets:
     type: framework.static
     platform: macOS
     sources:
-      - path: IdleScreenSystem
+      - path: Sources/IdleScreenSystem
     settings:
       base:
         PRODUCT_NAME: IdleScreenSystem
@@ -863,7 +863,7 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenSystemTests
+      - path: Tests/IdleScreenSystemTests
     settings:
       base:
         PRODUCT_NAME: IdleScreenSystemTests
@@ -878,10 +878,10 @@ targets:
     type: app-extension
     platform: macOS
     sources:
-      - path: IdleScreenScreenSaver
-      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Products/IdleScreenScreenSaver
+      - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
     info:
-      path: IdleScreenScreenSaver/Info.plist
+      path: Products/IdleScreenScreenSaver/Info.plist
       properties:
         CFBundleDevelopmentRegion: $(DEVELOPMENT_LANGUAGE)
         CFBundleDisplayName: idlescreen
@@ -917,8 +917,8 @@ targets:
         SKIP_INSTALL: YES
         CURRENT_PROJECT_VERSION: "62"
         MARKETING_VERSION: "0.1.0"
-        CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
-        SWIFT_OBJC_BRIDGING_HEADER: IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
+        CODE_SIGN_ENTITLEMENTS: Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../../../Frameworks"
       configs:
         Debug:
@@ -926,13 +926,13 @@ targets:
           IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.dev.shared
           IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.dev.shared.camera-agent
           IDLESCREEN_SHARED_CONTAINER_ENABLED: NO
-          CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements
+          CODE_SIGN_ENTITLEMENTS: Products/IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements
         Release:
           PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app.screensaver
           IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
           IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
           IDLESCREEN_SHARED_CONTAINER_ENABLED: YES
-          CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
+          CODE_SIGN_ENTITLEMENTS: Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
           DEVELOPMENT_TEAM: 3524374A2S
           CODE_SIGN_STYLE: Automatic
           CODE_SIGN_IDENTITY: "Apple Development"
@@ -953,12 +953,12 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenScreenSaver/IdleScreenSaverView.swift
-      - path: IdleScreenScreenSaver/IdleScreenSaverCameraClient.swift
-      - path: IdleScreenScreenSaver/Private/IdleScreenSaverHostActivity.m
-      - path: IdleScreenProduct/RendererConfigurationBridge.swift
-      - path: IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateViewController.swift
-      - path: IdleScreenScreenSaverTests
+      - path: Products/IdleScreenScreenSaver/IdleScreenSaverView.swift
+      - path: Products/IdleScreenScreenSaver/IdleScreenSaverCameraClient.swift
+      - path: Products/IdleScreenScreenSaver/Private/IdleScreenSaverHostActivity.m
+      - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Support/IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateViewController.swift
+      - path: Tests/IdleScreenScreenSaverTests
     settings:
       base:
         PRODUCT_NAME: IdleScreenScreenSaverTests
@@ -966,7 +966,7 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: "15.0"
         GENERATE_INFOPLIST_FILE: YES
         ENABLE_TESTABILITY: YES
-        SWIFT_OBJC_BRIDGING_HEADER: IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
+        SWIFT_OBJC_BRIDGING_HEADER: Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE"
     dependencies:
       - target: IdleScreenCore
@@ -981,18 +981,18 @@ targets:
     type: app-extension
     platform: macOS
     sources:
-      - path: IdleScreenScreenSaver
+      - path: Products/IdleScreenScreenSaver
         excludes:
           - Info.plist
           - IdleScreenScreenSaver.entitlements
           - IdleScreenScreenSaver-Debug.entitlements
           - IdleScreenScreenSaverViewController.swift
-      - path: IdleScreenSyntheticHostedGateExtension
+      - path: Support/IdleScreenSyntheticHostedGateExtension
         excludes:
           - Info.plist
-      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
     info:
-      path: IdleScreenSyntheticHostedGateExtension/Info.plist
+      path: Support/IdleScreenSyntheticHostedGateExtension/Info.plist
       properties:
         CFBundleDevelopmentRegion: $(DEVELOPMENT_LANGUAGE)
         CFBundleDisplayName: idlescreen
@@ -1029,8 +1029,8 @@ targets:
         INSTALL_PATH: "$(LOCAL_APPS_DIR)"
         CURRENT_PROJECT_VERSION: "1"
         MARKETING_VERSION: "0.1"
-        CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
-        SWIFT_OBJC_BRIDGING_HEADER: IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
+        CODE_SIGN_ENTITLEMENTS: Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../../../Frameworks"
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE"
       configs:
@@ -1039,13 +1039,13 @@ targets:
           IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.dev.shared
           IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.dev.shared.camera-agent
           IDLESCREEN_SHARED_CONTAINER_ENABLED: NO
-          CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements
+          CODE_SIGN_ENTITLEMENTS: Products/IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements
         Release:
           PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app.screensaver
           IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
           IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
           IDLESCREEN_SHARED_CONTAINER_ENABLED: YES
-          CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
+          CODE_SIGN_ENTITLEMENTS: Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
           DEVELOPMENT_TEAM: 3524374A2S
           CODE_SIGN_STYLE: Automatic
           CODE_SIGN_IDENTITY: "Apple Development"
@@ -1069,18 +1069,18 @@ targets:
     type: bundle
     platform: macOS
     sources:
-      - path: IdleScreenScreenSaver
+      - path: Products/IdleScreenScreenSaver
         excludes:
           - Info.plist
           - IdleScreenScreenSaver.entitlements
           - IdleScreenScreenSaver-Debug.entitlements
           - IdleScreenScreenSaverViewController.swift
-      - path: IdleScreenSyntheticHostedGateExtension
+      - path: Support/IdleScreenSyntheticHostedGateExtension
         excludes:
           - Info.plist
-      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
     info:
-      path: IdleScreenSyntheticHostedGateExtension/Info.plist
+      path: Support/IdleScreenSyntheticHostedGateExtension/Info.plist
       properties:
         CFBundleDevelopmentRegion: $(DEVELOPMENT_LANGUAGE)
         CFBundleDisplayName: idlescreen
@@ -1124,8 +1124,8 @@ targets:
         IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared
         IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
         IDLESCREEN_SHARED_CONTAINER_ENABLED: YES
-        CODE_SIGN_ENTITLEMENTS: IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements
-        SWIFT_OBJC_BRIDGING_HEADER: IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
+        CODE_SIGN_ENTITLEMENTS: Support/IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../../../Frameworks"
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE"
         CODE_SIGN_STYLE: Automatic
@@ -1155,8 +1155,8 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenApp/IdleScreenCompanionCameraClient.swift
-      - path: IdleScreenAppCameraTests
+      - path: Products/IdleScreenApp/IdleScreenCompanionCameraClient.swift
+      - path: Tests/IdleScreenAppCameraTests
     settings:
       base:
         PRODUCT_NAME: IdleScreenAppCameraTests
@@ -1173,13 +1173,13 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: IdleScreenApp
+      - path: Products/IdleScreenApp
         includes:
           - "**/*.swift"
         excludes:
           - "Info.plist"
-      - path: IdleScreenAppCompileGateTests
-      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Tests/IdleScreenAppCompileGateTests
+      - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
     settings:
       base:
         PRODUCT_NAME: IdleScreenAppCompileGateTests
@@ -1202,17 +1202,17 @@ targets:
     type: application
     platform: macOS
     sources:
-      - path: IdleScreenApp
-      - path: IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Products/IdleScreenApp
+      - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
       - path: THIRD_PARTY_NOTICES.md
         buildPhase: resources
-      - path: IdleScreenCameraAgent/LaunchAgents
+      - path: Sources/IdleScreenCameraAgent/LaunchAgents
         buildPhase:
           copyFiles:
             destination: wrapper
             subpath: Contents/Library/LaunchAgents
     info:
-      path: IdleScreenApp/Info.plist
+      path: Products/IdleScreenApp/Info.plist
       properties:
         CFBundleDisplayName: idlescreen
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
@@ -1236,7 +1236,7 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
-        CODE_SIGN_ENTITLEMENTS: IdleScreenApp/IdleScreenApp.entitlements
+        CODE_SIGN_ENTITLEMENTS: Products/IdleScreenApp/IdleScreenApp.entitlements
       configs:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app.dev
@@ -1244,7 +1244,7 @@ targets:
           IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.dev.shared.camera-agent
           IDLESCREEN_SHARED_CONTAINER_ENABLED: NO
           EXCLUDED_SOURCE_FILE_NAMES: group.com.idlescreen.shared.camera-agent.plist
-          CODE_SIGN_ENTITLEMENTS: IdleScreenApp/IdleScreenApp-Debug.entitlements
+          CODE_SIGN_ENTITLEMENTS: Products/IdleScreenApp/IdleScreenApp-Debug.entitlements
         Release:
           PRODUCT_BUNDLE_IDENTIFIER: com.idlescreen.app
           REGISTER_WITH_LAUNCH_SERVICES: NO
@@ -1252,7 +1252,7 @@ targets:
           IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
           IDLESCREEN_SHARED_CONTAINER_ENABLED: YES
           EXCLUDED_SOURCE_FILE_NAMES: group.com.idlescreen.dev.shared.camera-agent.plist
-          CODE_SIGN_ENTITLEMENTS: IdleScreenApp/IdleScreenApp.entitlements
+          CODE_SIGN_ENTITLEMENTS: Products/IdleScreenApp/IdleScreenApp.entitlements
           DEVELOPMENT_TEAM: 3524374A2S
           CODE_SIGN_STYLE: Automatic
           CODE_SIGN_IDENTITY: "Apple Development"
@@ -1294,15 +1294,15 @@ targets:
     type: bundle
     platform: macOS
     sources:
-      - path: IdleScreenApp
-      - path: IdleScreenProduct/RendererConfigurationBridge.swift
-      - path: IdleScreenCameraAgent/LaunchAgents
+      - path: Products/IdleScreenApp
+      - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenCameraAgent/LaunchAgents
         buildPhase:
           copyFiles:
             destination: wrapper
             subpath: Contents/Library/LaunchAgents
     info:
-      path: IdleScreenApp/Info.plist
+      path: Products/IdleScreenApp/Info.plist
       properties:
         CFBundleDisplayName: idlescreen
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
@@ -1337,7 +1337,7 @@ targets:
         IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.shared.camera-agent
         IDLESCREEN_SHARED_CONTAINER_ENABLED: YES
         EXCLUDED_SOURCE_FILE_NAMES: group.com.idlescreen.dev.shared.camera-agent.plist
-        CODE_SIGN_ENTITLEMENTS: IdleScreenApp/IdleScreenC3Archive.entitlements
+        CODE_SIGN_ENTITLEMENTS: Products/IdleScreenApp/IdleScreenC3Archive.entitlements
         DEVELOPMENT_TEAM: 3524374A2S
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "Apple Development"

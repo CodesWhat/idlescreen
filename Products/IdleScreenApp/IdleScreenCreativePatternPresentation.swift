@@ -2,7 +2,7 @@ import IdleScreenCore
 import SwiftUI
 
 /// Studio-only presentation metadata for the shared creative pattern contract.
-/// Renderer behavior and persistence remain owned by IdleScreenCore/Renderer.
+/// Renderer behavior and persistence remain owned by IdleScreenCore and IdleScreenRenderer.
 extension IdleScreenCreativePattern {
     var galleryEyebrow: String {
         switch self {

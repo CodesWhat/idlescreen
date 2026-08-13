@@ -58,13 +58,13 @@ reviews:
     - "!CHANGELOG.md"
 
   path_instructions:
-    - path: "IdleScreenCameraAgent/**"
+    - path: "Sources/IdleScreenCameraAgent/**"
       instructions: |
         Sole AVFoundation owner. Flag camera capture outside explicit valid leases, identity-check weakening, unbounded retries, raw-frame logging, and stale-generation presentation.
-    - path: "IdleScreenScreenSaver/**"
+    - path: "Products/IdleScreenScreenSaver/**"
       instructions: |
         Hosted extension hot path. Flag private-content logging, per-frame allocation or file I/O, lifecycle leaks, and camera demand without verified policy.
-    - path: "IdleScreenCore/AgentSignal*"
+    - path: "Sources/IdleScreenCore/AgentSignal*"
       instructions: |
         Privacy-minimal local ingress. Flag prompt, transcript, tool, command, credential, or unbounded message ingestion; symlink races; non-private publication; and lock waits without deadlines.
     - path: "scripts/*release*"

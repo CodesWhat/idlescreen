@@ -16,7 +16,7 @@ fail() {
 
 probe_binary="$fixture_root/selection-probe"
 xcrun swiftc \
-  "$project_root/IdleScreenSystem/ScreenSaverSelection.swift" \
+  "$project_root/Sources/IdleScreenSystem/ScreenSaverSelection.swift" \
   "$probe_source" \
   -o "$probe_binary"
 

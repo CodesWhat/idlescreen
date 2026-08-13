@@ -62,7 +62,7 @@ selection_probe="$artifact_root/selection-probe"
 [[ -x "$camera_product_verifier" ]] || fail "missing camera-agent product verifier"
 
 xcrun swiftc \
-  "$project_root/IdleScreenSystem/ScreenSaverSelection.swift" \
+  "$project_root/Sources/IdleScreenSystem/ScreenSaverSelection.swift" \
   "$project_root/scripts/ScreenSaverSelectionProbe.swift" \
   -o "$selection_probe" || fail "could not compile the production selection probe"
 selection_before="$($selection_probe "$extension_id")" || {

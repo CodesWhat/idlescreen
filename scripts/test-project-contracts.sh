@@ -123,17 +123,17 @@ echo "PASS: CI actions are pinned and the trusted-push Qlty coverage job uses le
 qlty_config="$project_root/.qlty/qlty.toml"
 if ! grep -Fq '[coverage]' "$qlty_config" ||
    ! grep -Fq '"**/*Tests/**"' "$qlty_config" ||
-   ! grep -Fq '"IdleScreenCoreTestSupport/**"' "$qlty_config"; then
+   ! grep -Fq '"Tests/IdleScreenCoreTestSupport/**"' "$qlty_config"; then
   echo "FAIL: Qlty coverage must report production code without test or test-support inflation." >&2
   exit 1
 fi
 
 echo "PASS: Qlty coverage excludes test and test-support sources from production coverage metrics."
 
-if ! grep -Fq '"RendererFrame"' "$project_root/IdleScreenRenderer/IdleScreenRenderer.swift" ||
-   ! grep -Fq '"MailboxPublish"' "$project_root/IdleScreenCameraAgent/CameraFrameMailboxWriter.swift" ||
-   ! grep -Fq '"MailboxRead"' "$project_root/IdleScreenCamera/CameraFrameMapping.swift" ||
-   ! grep -Fq '"AgentSignalPoll"' "$project_root/IdleScreenCore/AgentSignalMonitor.swift"; then
+if ! grep -Fq '"RendererFrame"' "$project_root/Sources/IdleScreenRenderer/IdleScreenRenderer.swift" ||
+   ! grep -Fq '"MailboxPublish"' "$project_root/Sources/IdleScreenCameraAgent/CameraFrameMailboxWriter.swift" ||
+   ! grep -Fq '"MailboxRead"' "$project_root/Sources/IdleScreenCamera/CameraFrameMapping.swift" ||
+   ! grep -Fq '"AgentSignalPoll"' "$project_root/Sources/IdleScreenCore/AgentSignalMonitor.swift"; then
   echo "FAIL: R1.1 requires privacy-minimal signposts at renderer, mailbox, and AgentSignal boundaries." >&2
   exit 1
 fi
@@ -142,8 +142,8 @@ echo "PASS: R1.1 renderer, transport, and polling boundaries expose privacy-mini
 
 r1_runner="$project_root/scripts/run-performance-r1.sh"
 r1_runner_fixture="$project_root/scripts/test-run-performance-r1.sh"
-performance_contract="$project_root/IdleScreenPerformance/PerformanceContract.swift"
-performance_contract_tests="$project_root/IdleScreenPerformanceTests/PerformanceContractTests.swift"
+performance_contract="$project_root/Sources/IdleScreenPerformance/PerformanceContract.swift"
+performance_contract_tests="$project_root/Tests/IdleScreenPerformanceTests/PerformanceContractTests.swift"
 performance_report="$project_root/scripts/performance_r1_report.py"
 performance_report_tests="$project_root/scripts/test_performance_r1_report.py"
 if [[ ! -x "$r1_runner" ]] ||
@@ -189,14 +189,14 @@ control_tool_target_block="$({
     in_tool { print }
   ' "$project_file"
 })"
-control_tool_entitlements="$project_root/IdleScreenAgentExecutable/idlescreenctl.entitlements"
-control_tool_developer_id_entitlements="$project_root/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements"
-control_tool_source="$project_root/IdleScreenAgentExecutable/main.swift"
+control_tool_entitlements="$project_root/Products/IdleScreenAgentExecutable/idlescreenctl.entitlements"
+control_tool_developer_id_entitlements="$project_root/Products/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements"
+control_tool_source="$project_root/Products/IdleScreenAgentExecutable/main.swift"
 control_tool_runtime_test="$project_root/scripts/test-idlescreenctl-runtime.sh"
 
 if [[ -z "$agent_target_block" || -z "$control_tool_target_block" ]] ||
    ! grep -Fq 'type: framework.static' <<<"$agent_target_block" ||
-   ! grep -Fq 'path: IdleScreenAgent' <<<"$agent_target_block" ||
+   ! grep -Fq 'path: Sources/IdleScreenAgent' <<<"$agent_target_block" ||
    ! grep -Fq 'target: IdleScreenCore' <<<"$agent_target_block" ||
    ! grep -Fq 'type: tool' <<<"$control_tool_target_block" ||
    ! grep -Fq 'PRODUCT_NAME: idlescreenctl' <<<"$control_tool_target_block" ||
@@ -211,7 +211,7 @@ if [[ -z "$agent_target_block" || -z "$control_tool_target_block" ]] ||
    [[ "$(grep -Fc './scripts/test-idlescreenctl-runtime.sh' "$ci_workflow")" -ne 1 ]] ||
    ! grep -Fq 'configuration Release' "$control_tool_runtime_test" ||
    ! grep -Fq "strings \"\$release_control_tool\"" "$control_tool_runtime_test" ||
-   ! grep -Fq 'path: IdleScreenCoreTestSupport' "$project_file" ||
+   ! grep -Fq 'path: Tests/IdleScreenCoreTestSupport' "$project_file" ||
    [[ "$(grep -Fc 'target: IdleScreenCoreStoreTestWorker' "$project_file")" -ne 1 ]] ||
    ! grep -Fq 'link: false' "$project_file" ||
    [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.app-sandbox' "$control_tool_entitlements" 2>/dev/null || true)" != true ]] ||
@@ -221,11 +221,11 @@ if [[ -z "$agent_target_block" || -z "$control_tool_target_block" ]] ||
    [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.team-identifier' "$control_tool_developer_id_entitlements" 2>/dev/null || true)" != 3524374A2S ]] ||
    [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' "$control_tool_developer_id_entitlements" 2>/dev/null || true)" != 3524374A2S.com.idlescreen.ctl ]] ||
    /usr/libexec/PlistBuddy -c 'Print :com.apple.security.device.camera' "$control_tool_entitlements" >/dev/null 2>&1 ||
-   grep -RqsE '(transcript_path|tool_input|tool_output|last_assistant_message|permission_suggestions|credential)' "$project_root/IdleScreenAgent" ||
+   grep -RqsE '(transcript_path|tool_input|tool_output|last_assistant_message|permission_suggestions|credential)' "$project_root/Sources/IdleScreenAgent" ||
    ! grep -Fq 'target: IdleScreenCtl' "$project_file" ||
    ! grep -Fq 'subpath: Contents/Helpers' "$project_file" ||
-   ! grep -Fq 'IdleScreenAgentSignalMonitor' "$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
-   ! grep -Fq 'IntegrationsView()' "$project_root/IdleScreenApp/IdleScreenStudio.swift" ||
+   ! grep -Fq 'IdleScreenAgentSignalMonitor' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
+   ! grep -Fq 'IntegrationsView()' "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift" ||
    ! grep -Fq 'IdleScreenAgent' "$project_root/.github/workflows/ci.yml"; then
   echo "FAIL: P3 requires tested privacy-minimal adapters, a release-inaccessible scratch-tested App Group control tool, explicit companion controls, and saver monitoring." >&2
   exit 1
@@ -244,8 +244,8 @@ camera_target_block="$({
 
 if [[ -z "$camera_target_block" ]] ||
    ! grep -Fq 'type: framework.static' <<<"$camera_target_block" ||
-   ! grep -Fq 'path: IdleScreenCamera' <<<"$camera_target_block" ||
-   grep -RqsE '(import AVFoundation|AVCapture(Session|Device|Output))' "$project_root/IdleScreenCamera"; then
+   ! grep -Fq 'path: Sources/IdleScreenCamera' <<<"$camera_target_block" ||
+   grep -RqsE '(import AVFoundation|AVCapture(Session|Device|Output))' "$project_root/Sources/IdleScreenCamera"; then
   echo "FAIL: deterministic camera contracts must live in an isolated camera-free static framework." >&2
   exit 1
 fi
@@ -279,16 +279,16 @@ camera_agent_tests_target_block="$({
 
 if [[ -z "$camera_agent_target_block" ]] ||
    ! grep -Fq 'type: application' <<<"$camera_agent_target_block" ||
-   ! grep -Fq 'path: IdleScreenCameraAgentExecutable' <<<"$camera_agent_target_block" ||
+   ! grep -Fq 'path: Products/IdleScreenCameraAgentExecutable' <<<"$camera_agent_target_block" ||
    ! grep -Fq 'target: IdleScreenCameraAgentCore' <<<"$camera_agent_target_block" ||
    ! grep -Fq 'LSBackgroundOnly: true' <<<"$camera_agent_target_block" ||
    ! grep -Fq 'LSUIElement: true' <<<"$camera_agent_target_block" ||
    ! grep -Fq 'NSCameraUsageDescription' <<<"$camera_agent_target_block" ||
    ! grep -Fq 'NSCameraUseContinuityCameraDeviceType: true' <<<"$camera_agent_target_block" ||
-   ! grep -Fq 'CODE_SIGN_ENTITLEMENTS: IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements' <<<"$camera_agent_target_block" ||
+   ! grep -Fq 'CODE_SIGN_ENTITLEMENTS: Sources/IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements' <<<"$camera_agent_target_block" ||
    ! grep -Fq 'REGISTER_APP_GROUPS: YES' <<<"$camera_agent_target_block" ||
    ! grep -Fq 'type: framework.static' <<<"$camera_agent_core_target_block" ||
-   ! grep -Fq 'path: IdleScreenCameraAgent' <<<"$camera_agent_core_target_block" ||
+   ! grep -Fq 'path: Sources/IdleScreenCameraAgent' <<<"$camera_agent_core_target_block" ||
    ! grep -Fq 'target: IdleScreenCamera' <<<"$camera_agent_core_target_block" ||
    ! grep -Fq 'sdk: AVFoundation.framework' <<<"$camera_agent_core_target_block" ||
    ! grep -Fq 'target: IdleScreenCameraAgentCore' <<<"$camera_agent_tests_target_block"; then
@@ -304,7 +304,7 @@ for static_dependency in IdleScreenCameraAgentCore IdleScreenCamera IdleScreenCa
   fi
 done
 
-if [[ "$(/usr/bin/plutil -extract NSCameraUseContinuityCameraDeviceType raw "$project_root/IdleScreenCameraAgentExecutable/Info.plist" 2>/dev/null || true)" != "true" ]]; then
+if [[ "$(/usr/bin/plutil -extract NSCameraUseContinuityCameraDeviceType raw "$project_root/Products/IdleScreenCameraAgentExecutable/Info.plist" 2>/dev/null || true)" != "true" ]]; then
   echo "FAIL: the camera agent must opt into distinct Continuity Camera device classification." >&2
   exit 1
 fi
@@ -316,9 +316,9 @@ fi
 
 echo "PASS: the camera owner is a separately provisioned, GUI-less app bundle with a tested AVFoundation core."
 
-release_agent_plist="$project_root/IdleScreenCameraAgent/LaunchAgents/group.com.idlescreen.shared.camera-agent.plist"
-debug_agent_plist="$project_root/IdleScreenCameraAgent/LaunchAgents/group.com.idlescreen.dev.shared.camera-agent.plist"
-release_agent_entitlements="$project_root/IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements"
+release_agent_plist="$project_root/Sources/IdleScreenCameraAgent/LaunchAgents/group.com.idlescreen.shared.camera-agent.plist"
+debug_agent_plist="$project_root/Sources/IdleScreenCameraAgent/LaunchAgents/group.com.idlescreen.dev.shared.camera-agent.plist"
+release_agent_entitlements="$project_root/Sources/IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements"
 
 for agent_plist in "$release_agent_plist" "$debug_agent_plist"; do
   if [[ ! -f "$agent_plist" ]] ||
@@ -366,7 +366,7 @@ if ! grep -Fq 'type: application' <<<"$companion_target_block"; then
   exit 1
 fi
 
-if ! grep -Fq 'path: IdleScreenApp' <<<"$companion_target_block"; then
+if ! grep -Fq 'path: Products/IdleScreenApp' <<<"$companion_target_block"; then
   echo "FAIL: IdleScreenApp must own sources in the isolated IdleScreenApp directory." >&2
   exit 1
 fi
@@ -381,8 +381,8 @@ companion_camera_tests_target_block="$({
   ' "$project_file"
 })"
 
-if ! grep -Fq 'path: IdleScreenApp/IdleScreenCompanionCameraClient.swift' <<<"$companion_camera_tests_target_block" ||
-   ! grep -Fq 'path: IdleScreenAppCameraTests' <<<"$companion_camera_tests_target_block" ||
+if ! grep -Fq 'path: Products/IdleScreenApp/IdleScreenCompanionCameraClient.swift' <<<"$companion_camera_tests_target_block" ||
+   ! grep -Fq 'path: Tests/IdleScreenAppCameraTests' <<<"$companion_camera_tests_target_block" ||
    ! grep -Fq 'target: IdleScreenCamera' <<<"$companion_camera_tests_target_block"; then
   echo "FAIL: the companion camera lifecycle must have a narrow deterministic test target." >&2
   exit 1
@@ -400,10 +400,10 @@ companion_compile_gate_target_block="$({
 
 if [[ -z "$companion_compile_gate_target_block" ]] ||
    ! grep -Fq 'type: bundle.unit-test' <<<"$companion_compile_gate_target_block" ||
-   ! grep -Fq 'path: IdleScreenApp' <<<"$companion_compile_gate_target_block" ||
+   ! grep -Fq 'path: Products/IdleScreenApp' <<<"$companion_compile_gate_target_block" ||
    ! grep -Fq -- '- "**/*.swift"' <<<"$companion_compile_gate_target_block" ||
    ! grep -Fq -- '- "Info.plist"' <<<"$companion_compile_gate_target_block" ||
-   ! grep -Fq 'path: IdleScreenAppCompileGateTests' <<<"$companion_compile_gate_target_block" ||
+   ! grep -Fq 'path: Tests/IdleScreenAppCompileGateTests' <<<"$companion_compile_gate_target_block" ||
    ! grep -Fq 'IDLESCREEN_APP_COMPILE_GATE' <<<"$companion_compile_gate_target_block" ||
    ! grep -Fq 'INFOPLIST_FILE: ""' <<<"$companion_compile_gate_target_block" ||
    ! grep -Fq 'SWIFT_TREAT_WARNINGS_AS_ERRORS: YES' <<<"$companion_compile_gate_target_block" ||
@@ -414,7 +414,7 @@ if [[ -z "$companion_compile_gate_target_block" ]] ||
    grep -Fq 'target: IdleScreenScreenSaver' <<<"$companion_compile_gate_target_block" ||
    grep -Fq 'target: IdleScreenCameraAgent' <<<"$companion_compile_gate_target_block" ||
    grep -Fq 'CODE_SIGN_ENTITLEMENTS' <<<"$companion_compile_gate_target_block" ||
-   ! grep -Fq '#if !IDLESCREEN_APP_COMPILE_GATE' "$project_root/IdleScreenApp/IdleScreenStudio.swift"; then
+   ! grep -Fq '#if !IDLESCREEN_APP_COMPILE_GATE' "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift"; then
   echo "FAIL: the companion compile gate must compile every companion Swift source in an isolated non-app test bundle." >&2
   exit 1
 fi
@@ -437,7 +437,7 @@ fi
 
 echo "PASS: Phase 1 invokes the headless companion compile gate and preserves its registration scan."
 
-if ! grep -Fq 'path: IdleScreenCameraAgent/LaunchAgents' <<<"$companion_target_block" ||
+if ! grep -Fq 'path: Sources/IdleScreenCameraAgent/LaunchAgents' <<<"$companion_target_block" ||
    ! grep -Fq 'destination: wrapper' <<<"$companion_target_block" ||
    ! grep -Fq 'subpath: Contents/Library/LaunchAgents' <<<"$companion_target_block" ||
    ! grep -Fq 'target: IdleScreenCameraAgent' <<<"$companion_target_block" ||
@@ -460,8 +460,8 @@ if ! grep -Fq 'NSCameraUsageDescription' <<<"$companion_target_block"; then
   exit 1
 fi
 
-if ! grep -Fq 'CODE_SIGN_ENTITLEMENTS: IdleScreenApp/IdleScreenApp.entitlements' <<<"$companion_target_block" ||
-   ! grep -Fq 'CODE_SIGN_ENTITLEMENTS: IdleScreenApp/IdleScreenApp-Debug.entitlements' <<<"$companion_target_block" ||
+if ! grep -Fq 'CODE_SIGN_ENTITLEMENTS: Products/IdleScreenApp/IdleScreenApp.entitlements' <<<"$companion_target_block" ||
+   ! grep -Fq 'CODE_SIGN_ENTITLEMENTS: Products/IdleScreenApp/IdleScreenApp-Debug.entitlements' <<<"$companion_target_block" ||
    ! grep -Fq 'IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.dev.shared' <<<"$companion_target_block" ||
    ! grep -Fq 'IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared' <<<"$companion_target_block" ||
    ! grep -Fq 'IDLESCREEN_SHARED_CONTAINER_ENABLED: NO' <<<"$companion_target_block" ||
@@ -472,7 +472,7 @@ fi
 
 echo "PASS: IdleScreenApp isolates development installs without requesting camera access."
 
-companion_info="$project_root/IdleScreenApp/Info.plist"
+companion_info="$project_root/Products/IdleScreenApp/Info.plist"
 for camera_info_tuple in \
   'IdleScreenCameraAgentAppGroupIdentifier:$(IDLESCREEN_APP_GROUP_IDENTIFIER)' \
   'IdleScreenCameraAgentMachServiceName:$(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)' \
@@ -501,15 +501,15 @@ if ! grep -Fq 'IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME: group.com.idlescreen.d
 fi
 
 for companion_entitlements in \
-  "$project_root/IdleScreenApp/IdleScreenApp.entitlements" \
-  "$project_root/IdleScreenApp/IdleScreenApp-Debug.entitlements"; do
+  "$project_root/Products/IdleScreenApp/IdleScreenApp.entitlements" \
+  "$project_root/Products/IdleScreenApp/IdleScreenApp-Debug.entitlements"; do
   if /usr/libexec/PlistBuddy -c 'Print :com.apple.security.device.camera' "$companion_entitlements" >/dev/null 2>&1; then
     echo "FAIL: IdleScreenApp must never carry the camera entitlement." >&2
     exit 1
   fi
 done
 
-camera_agent_info="$project_root/IdleScreenCameraAgentExecutable/Info.plist"
+camera_agent_info="$project_root/Products/IdleScreenCameraAgentExecutable/Info.plist"
 companion_camera_purpose="$(/usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$companion_info" 2>/dev/null || true)"
 agent_camera_purpose="$(/usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$camera_agent_info" 2>/dev/null || true)"
 if [[ -z "$companion_camera_purpose" ]] ||
@@ -520,10 +520,10 @@ fi
 
 echo "PASS: companion camera tuples and responsible-code purpose text are exact; only the agent owns camera entitlement."
 
-companion_camera_lifecycle="$project_root/IdleScreenApp/IdleScreenCompanionCameraClient.swift"
-companion_app_delegate="$project_root/IdleScreenApp/IdleScreenAppDelegate.swift"
-companion_studio="$project_root/IdleScreenApp/IdleScreenStudio.swift"
-companion_system_view="$project_root/IdleScreenApp/SystemViews.swift"
+companion_camera_lifecycle="$project_root/Products/IdleScreenApp/IdleScreenCompanionCameraClient.swift"
+companion_app_delegate="$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift"
+companion_studio="$project_root/Products/IdleScreenApp/IdleScreenStudio.swift"
+companion_system_view="$project_root/Products/IdleScreenApp/SystemViews.swift"
 if [[ "$(grep -Fc 'CameraClientBootstrap.makeRuntime(' "$companion_app_delegate")" != "1" ]] ||
    ! grep -Fq 'private lazy var cameraClient' "$companion_app_delegate" ||
    ! grep -Fq 'cameraPageDidAppear()' "$companion_studio" ||
@@ -552,9 +552,9 @@ fi
 
 echo "PASS: companion health copy attributes authorization to verified live evidence."
 
-if [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/IdleScreenApp/Info.plist" 2>/dev/null || true)" != "idlescreen" ]] ||
-   [[ "$(plutil -extract CFBundleName raw "$project_root/IdleScreenApp/Info.plist")" != "idlescreen" ]] ||
-   [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/IdleScreenScreenSaver/Info.plist")" != "idlescreen" ]]; then
+if [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenApp/Info.plist" 2>/dev/null || true)" != "idlescreen" ]] ||
+   [[ "$(plutil -extract CFBundleName raw "$project_root/Products/IdleScreenApp/Info.plist")" != "idlescreen" ]] ||
+   [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenScreenSaver/Info.plist")" != "idlescreen" ]]; then
   echo "FAIL: every user-visible modern product name must be lowercase idlescreen." >&2
   exit 1
 fi
@@ -567,8 +567,8 @@ for forbidden_brand in \
   'IdleScreen.app' \
   'IDLESCREEN  /'; do
   if grep -RqsF "$forbidden_brand" \
-    "$project_root/IdleScreenApp" \
-    "$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift"; then
+    "$project_root/Products/IdleScreenApp" \
+    "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift"; then
     echo "FAIL: user-facing modern copy contains non-lowercase brand '$forbidden_brand'." >&2
     exit 1
   fi
@@ -576,11 +576,11 @@ done
 
 echo "PASS: modern app, screen saver tile, and UI copy use lowercase idlescreen branding."
 
-if ! grep -Fq '@NSApplicationDelegateAdaptor(IdleScreenAppDelegate.self)' "$project_root/IdleScreenApp/IdleScreenStudio.swift" ||
-   ! grep -Fq 'NSHostingController' "$project_root/IdleScreenApp/IdleScreenAppDelegate.swift" ||
-   ! grep -Fq 'showMainWindow()' "$project_root/IdleScreenApp/IdleScreenAppDelegate.swift" ||
-   ! grep -Fq 'makeKeyAndOrderFront' "$project_root/IdleScreenApp/IdleScreenAppDelegate.swift" ||
-   grep -Fq 'WindowGroup(' "$project_root/IdleScreenApp/IdleScreenStudio.swift"; then
+if ! grep -Fq '@NSApplicationDelegateAdaptor(IdleScreenAppDelegate.self)' "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift" ||
+   ! grep -Fq 'NSHostingController' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
+   ! grep -Fq 'showMainWindow()' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
+   ! grep -Fq 'makeKeyAndOrderFront' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
+   grep -Fq 'WindowGroup(' "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift"; then
   echo "FAIL: The menu-bar resident app must explicitly reveal its main window after launch." >&2
   exit 1
 fi
@@ -588,9 +588,9 @@ fi
 echo "PASS: IdleScreenApp presents a visible main window on launch."
 
 companion_launch_policy_test="$project_root/scripts/test-companion-launch-policy.sh"
-if ! grep -Fq -- '--idlescreen-lifecycle-probe=' "$project_root/IdleScreenApp/IdleScreenLaunchPolicy.swift" ||
-   ! grep -Fq 'IdleScreenLaunchPolicy.shouldShowMainWindow' "$project_root/IdleScreenApp/IdleScreenAppDelegate.swift" ||
-   ! grep -Fq 'ProcessInfo.processInfo.arguments' "$project_root/IdleScreenApp/IdleScreenAppDelegate.swift" ||
+if ! grep -Fq -- '--idlescreen-lifecycle-probe=' "$project_root/Products/IdleScreenApp/IdleScreenLaunchPolicy.swift" ||
+   ! grep -Fq 'IdleScreenLaunchPolicy.shouldShowMainWindow' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
+   ! grep -Fq 'ProcessInfo.processInfo.arguments' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
    [[ ! -x "$companion_launch_policy_test" ]] ||
    ! grep -Fq 'test-companion-launch-policy.sh' "$project_root/scripts/test-phase1.sh"; then
   echo "FAIL: background companion lifecycle probes must not activate or reveal the main window." >&2
@@ -599,9 +599,9 @@ fi
 
 echo "PASS: automated companion lifecycle probes preserve user focus."
 
-if ! grep -Fq -- '--idlescreen-configuration-probe-contrast=' "$project_root/IdleScreenApp/IdleScreenLaunchPolicy.swift" ||
-   ! grep -Fq 'IdleScreenLaunchPolicy.backgroundProbe' "$project_root/IdleScreenApp/IdleScreenAppDelegate.swift" ||
-   ! grep -Fq 'updateContrast(contrast)' "$project_root/IdleScreenApp/IdleScreenAppDelegate.swift"; then
+if ! grep -Fq -- '--idlescreen-configuration-probe-contrast=' "$project_root/Products/IdleScreenApp/IdleScreenLaunchPolicy.swift" ||
+   ! grep -Fq 'IdleScreenLaunchPolicy.backgroundProbe' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
+   ! grep -Fq 'updateContrast(contrast)' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift"; then
   echo "FAIL: background configuration probes must use the real companion update path without revealing a window." >&2
   exit 1
 fi
@@ -622,17 +622,17 @@ fi
 
 echo "PASS: exact-Release live delivery is guarded and restores temporary edits on failure."
 
-if ! grep -Fq 'ScreenSaverSelectionClient' "$project_root/IdleScreenApp/IdleScreenAppModel.swift" ||
-   ! grep -Fq 'startIdleScreen(selection:' "$project_root/IdleScreenApp/IdleScreenAppModel.swift" ||
-   grep -Rqs 'startCurrentScreenSaver()' "$project_root/IdleScreenApp"; then
+if ! grep -Fq 'ScreenSaverSelectionClient' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
+   ! grep -Fq 'startIdleScreen(selection:' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
+   grep -Rqs 'startCurrentScreenSaver()' "$project_root/Products/IdleScreenApp"; then
   echo "FAIL: the companion must read selection and guard activation before starting IdleScreen." >&2
   exit 1
 fi
 
 for selection_surface in \
-  "$project_root/IdleScreenApp/IdleScreenStudio.swift" \
-  "$project_root/IdleScreenApp/IdleScreenMenuBar.swift" \
-  "$project_root/IdleScreenApp/SystemViews.swift"; do
+  "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift" \
+  "$project_root/Products/IdleScreenApp/IdleScreenMenuBar.swift" \
+  "$project_root/Products/IdleScreenApp/SystemViews.swift"; do
   if ! grep -Fq 'model.selection?.isSelectedEverywhere' "$selection_surface"; then
     echo "FAIL: $(basename "$selection_surface") must disable activation until IdleScreen is selected." >&2
     exit 1
@@ -641,18 +641,18 @@ done
 
 echo "PASS: every companion activation surface is guarded by read-only selection state."
 
-if ! grep -Fq 'registrationClient.assessment(' "$project_root/IdleScreenApp/IdleScreenAppModel.swift" ||
-   ! grep -Fq 'registrationClient.repair(' "$project_root/IdleScreenApp/IdleScreenAppModel.swift" ||
-   ! grep -Fq 'registrationClient.forceRepair(' "$project_root/IdleScreenApp/IdleScreenAppModel.swift" ||
-   ! grep -Fq 'registrationAssessment.location' "$project_root/IdleScreenApp/SystemViews.swift" ||
-   ! grep -Fq 'Repair Screen Saver' "$project_root/IdleScreenApp/SystemViews.swift" ||
-   ! grep -Fq 'Different copy' "$project_root/IdleScreenApp/SystemViews.swift"; then
+if ! grep -Fq 'registrationClient.assessment(' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
+   ! grep -Fq 'registrationClient.repair(' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
+   ! grep -Fq 'registrationClient.forceRepair(' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
+   ! grep -Fq 'registrationAssessment.location' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
+   ! grep -Fq 'Repair Screen Saver' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
+   ! grep -Fq 'Different copy' "$project_root/Products/IdleScreenApp/SystemViews.swift"; then
   echo "FAIL: the companion must diagnose and repair a stale screen saver registration." >&2
   exit 1
 fi
 
 if grep -Fq 'model.registration.isRegistered || model.isRegistering' \
-  "$project_root/IdleScreenApp/IdleScreenMenuBar.swift"; then
+  "$project_root/Products/IdleScreenApp/IdleScreenMenuBar.swift"; then
   echo "FAIL: a stale registration must keep the menu-bar repair action enabled." >&2
   exit 1
 fi
@@ -674,7 +674,7 @@ if [[ -z "$core_target_block" ]]; then
 fi
 
 if ! grep -Fq 'type: framework.static' <<<"$core_target_block" ||
-   ! grep -Fq 'path: IdleScreenCore' <<<"$core_target_block"; then
+   ! grep -Fq 'path: Sources/IdleScreenCore' <<<"$core_target_block"; then
   echo "FAIL: IdleScreenCore must be an isolated static framework target." >&2
   exit 1
 fi
@@ -715,13 +715,13 @@ display_tests_target_block="$({
 })"
 if [[ -z "$display_target_block" ]] ||
    ! grep -Fq 'type: framework.static' <<<"$display_target_block" ||
-   ! grep -Fq 'path: IdleScreenDisplay' <<<"$display_target_block" ||
+   ! grep -Fq 'path: Sources/IdleScreenDisplay' <<<"$display_target_block" ||
    ! grep -Fq 'APPLICATION_EXTENSION_API_ONLY: YES' <<<"$display_target_block" ||
    ! grep -Fq 'target: IdleScreenCore' <<<"$display_target_block" ||
    ! grep -Fq 'AppKit.framework' <<<"$display_target_block" ||
    ! grep -Fq 'ColorSync.framework' <<<"$display_target_block" ||
    [[ -z "$display_tests_target_block" ]] ||
-   ! grep -Fq 'path: IdleScreenDisplayTests' <<<"$display_tests_target_block" ||
+   ! grep -Fq 'path: Tests/IdleScreenDisplayTests' <<<"$display_tests_target_block" ||
    ! grep -Fq 'target: IdleScreenDisplay' <<<"$display_tests_target_block"; then
   echo "FAIL: live display observation must stay in one tested, extension-safe shared module." >&2
   exit 1
@@ -747,7 +747,7 @@ system_tests_target_block="$({
 })"
 
 if ! grep -Fq 'type: framework.static' <<<"$system_target_block" ||
-   ! grep -Fq 'path: IdleScreenSystem' <<<"$system_target_block" ||
+   ! grep -Fq 'path: Sources/IdleScreenSystem' <<<"$system_target_block" ||
    ! grep -Fq 'target: IdleScreenSystem' <<<"$system_tests_target_block"; then
   echo "FAIL: pluginkit and host operations must live in a tested IdleScreenSystem boundary." >&2
   exit 1
@@ -770,9 +770,9 @@ if [[ -z "$extension_target_block" ]]; then
 fi
 
 if ! grep -Fq 'type: app-extension' <<<"$extension_target_block" ||
-   ! grep -Fq 'path: IdleScreenScreenSaver' <<<"$extension_target_block" ||
-   ! grep -Fq 'path: IdleScreenScreenSaver/Info.plist' <<<"$extension_target_block" ||
-   ! grep -Fq 'CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements' <<<"$extension_target_block"; then
+   ! grep -Fq 'path: Products/IdleScreenScreenSaver' <<<"$extension_target_block" ||
+   ! grep -Fq 'path: Products/IdleScreenScreenSaver/Info.plist' <<<"$extension_target_block" ||
+   ! grep -Fq 'CODE_SIGN_ENTITLEMENTS: Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements' <<<"$extension_target_block"; then
   echo "FAIL: IdleScreenScreenSaver must own an app-extension target, plist, and entitlements." >&2
   exit 1
 fi
@@ -791,10 +791,10 @@ fi
 
 if ! grep -Fq 'IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.dev.shared' <<<"$extension_target_block" ||
    ! grep -Fq 'IDLESCREEN_APP_GROUP_IDENTIFIER: group.com.idlescreen.shared' <<<"$extension_target_block" ||
-   ! grep -Fq 'CODE_SIGN_ENTITLEMENTS: IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements' <<<"$extension_target_block" ||
+   ! grep -Fq 'CODE_SIGN_ENTITLEMENTS: Products/IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements' <<<"$extension_target_block" ||
    ! grep -Fq 'IDLESCREEN_SHARED_CONTAINER_ENABLED: NO' <<<"$extension_target_block" ||
    ! grep -Fq 'IDLESCREEN_SHARED_CONTAINER_ENABLED: YES' <<<"$extension_target_block" ||
-   ! plutil -convert json -o - "$project_root/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements" | grep -Fq 'com.apple.security.application-groups'; then
+   ! plutil -convert json -o - "$project_root/Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements" | grep -Fq 'com.apple.security.application-groups'; then
   echo "FAIL: IdleScreenScreenSaver must share the versioned app-group container." >&2
   exit 1
 fi
@@ -1082,7 +1082,7 @@ done
 
 if [[ -z "$c4_helper_target_block" ]] ||
    ! grep -Fq 'type: bundle' <<<"$c4_helper_target_block" ||
-   ! grep -Fq 'path: IdleScreenSyntheticGate/Executable' <<<"$c4_helper_target_block" ||
+   ! grep -Fq 'path: Support/IdleScreenSyntheticGate/Executable' <<<"$c4_helper_target_block" ||
    ! grep -Fq 'CFBundlePackageType: APPL' <<<"$c4_helper_target_block" ||
    ! grep -Fq 'WRAPPER_EXTENSION: app' <<<"$c4_helper_target_block" ||
    ! grep -Fq 'MACH_O_TYPE: mh_execute' <<<"$c4_helper_target_block" ||
@@ -1096,7 +1096,7 @@ fi
 
 if [[ -z "$c4_extension_target_block" ]] ||
    ! grep -Fq 'type: bundle' <<<"$c4_extension_target_block" ||
-   ! grep -Fq 'path: IdleScreenSyntheticHostedGateExtension' <<<"$c4_extension_target_block" ||
+   ! grep -Fq 'path: Support/IdleScreenSyntheticHostedGateExtension' <<<"$c4_extension_target_block" ||
    ! grep -Fq 'CFBundlePackageType: XPC!' <<<"$c4_extension_target_block" ||
    ! grep -Fq 'WRAPPER_EXTENSION: appex' <<<"$c4_extension_target_block" ||
    ! grep -Fq 'MACH_O_TYPE: mh_bundle' <<<"$c4_extension_target_block" ||
@@ -1108,8 +1108,8 @@ if [[ -z "$c4_extension_target_block" ]] ||
   exit 1
 fi
 
-c4_helper_entitlements="$project_root/IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgentC4Archive.entitlements"
-c4_extension_entitlements="$project_root/IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements"
+c4_helper_entitlements="$project_root/Support/IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgentC4Archive.entitlements"
+c4_extension_entitlements="$project_root/Support/IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements"
 if [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' "$c4_helper_entitlements" 2>/dev/null || true)" != '3524374A2S.com.idlescreen.camera-agent' ]] ||
    [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.team-identifier' "$c4_helper_entitlements" 2>/dev/null || true)" != 3524374A2S ]] ||
    [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' "$c4_extension_entitlements" 2>/dev/null || true)" != '3524374A2S.com.idlescreen.app.screensaver' ]] ||
@@ -1233,38 +1233,38 @@ fi
 echo "PASS: Phase 1 evidence is bound to exact companion and extension identities."
 
 if grep -Fq 'representedView' \
-  "$project_root/IdleScreenScreenSaver/IdleScreenScreenSaverViewController.swift" \
-  "$project_root/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h"; then
+  "$project_root/Products/IdleScreenScreenSaver/IdleScreenScreenSaverViewController.swift" \
+  "$project_root/Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h"; then
   echo "FAIL: macOS 26 ScreenSaverViewController does not implement representedView." >&2
   exit 1
 fi
 
 if grep -Fq 'loadView(forFrame' \
-  "$project_root/IdleScreenScreenSaver/IdleScreenScreenSaverViewController.swift" ||
+  "$project_root/Products/IdleScreenScreenSaver/IdleScreenScreenSaverViewController.swift" ||
    grep -Fq 'loadViewForFrame' \
-  "$project_root/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h"; then
+  "$project_root/Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h"; then
   echo "FAIL: macOS 26 ScreenSaverViewController does not implement loadViewForFrame:isPreview:." >&2
   exit 1
 fi
 
 echo "PASS: the extension controller uses selectors implemented by the macOS 26 host runtime."
 
-if ! grep -Fq 'class_getInstanceMethod' "$project_root/IdleScreenSystem/ScreenSaverCompatibility.swift" ||
-   ! grep -Fq 'class_getInstanceMethod' "$project_root/IdleScreenScreenSaver/ScreenSaverCompatibility.swift" ||
-   ! grep -Fq 'missingSelectorNames' "$project_root/IdleScreenApp/SystemViews.swift"; then
+if ! grep -Fq 'class_getInstanceMethod' "$project_root/Sources/IdleScreenSystem/ScreenSaverCompatibility.swift" ||
+   ! grep -Fq 'class_getInstanceMethod' "$project_root/Products/IdleScreenScreenSaver/ScreenSaverCompatibility.swift" ||
+   ! grep -Fq 'missingSelectorNames' "$project_root/Products/IdleScreenApp/SystemViews.swift"; then
   echo "FAIL: compatibility diagnostics must probe and display required private-runtime selectors." >&2
   exit 1
 fi
 
 echo "PASS: compatibility diagnostics cover private runtime classes and selectors."
 
-host_activity_shim="$project_root/IdleScreenScreenSaver/Private/IdleScreenSaverHostActivity.m"
+host_activity_shim="$project_root/Products/IdleScreenScreenSaver/Private/IdleScreenSaverHostActivity.m"
 if [[ ! -f "$host_activity_shim" ]] ||
    ! grep -Fq '@try' "$host_activity_shim" ||
    ! grep -Fq 'screenSaverIsRunning' "$host_activity_shim" ||
    ! grep -Fq 'screenSaverIsRunningInBackground' "$host_activity_shim" ||
    grep -Eq 'screenSaver(Start|Stop)' "$host_activity_shim" ||
-   ! grep -Fq 'cameraDemand=' "$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
+   ! grep -Fq 'cameraDemand=' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
    ! grep -Fq 'IdleScreenSaverHostActivity.m' "$project_root/project.yml"; then
   echo "FAIL: Tahoe host-activity diagnostics must be exception-safe, read-only, explicit about camera demand, and test-built." >&2
   exit 1
@@ -1394,23 +1394,23 @@ fi
 
 echo "PASS: physical state transitions have deterministic invariant verification."
 
-if ! grep -Fq 'Animation stopped preview=' "$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift"; then
+if ! grep -Fq 'Animation stopped preview=' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift"; then
   echo "FAIL: physical invalidation evidence must identify the preview or full-screen surface." >&2
   exit 1
 fi
 
-if ! grep -Fq 'NSWindow.didChangeScreenNotification' "$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
-   ! grep -Fq 'CGDisplayBounds' "$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift"; then
+if ! grep -Fq 'NSWindow.didChangeScreenNotification' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
+   ! grep -Fq 'CGDisplayBounds' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift"; then
   echo "FAIL: display identity must be resolved after Tahoe migrates each hosted saver window off the main display." >&2
   exit 1
 fi
 
-if ! grep -Fq 'instanceIdentifier' "$project_root/IdleScreenCore/Health.swift" ||
-   ! grep -Fq 'displayIdentifier' "$project_root/IdleScreenCore/Health.swift" ||
-   ! grep -Fq 'instanceIdentifier: instanceIdentifier' "$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
-   ! grep -Fq 'displayIdentifier: displayIdentifier' "$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
-   ! grep -Fq 'Display \(displayIdentifier)' "$project_root/IdleScreenApp/SystemViews.swift" ||
-   ! grep -Fq 'IdleScreenHealthSelection.preferredReport' "$project_root/IdleScreenApp/IdleScreenAppModel.swift" ||
+if ! grep -Fq 'instanceIdentifier' "$project_root/Sources/IdleScreenCore/Health.swift" ||
+   ! grep -Fq 'displayIdentifier' "$project_root/Sources/IdleScreenCore/Health.swift" ||
+   ! grep -Fq 'instanceIdentifier: instanceIdentifier' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
+   ! grep -Fq 'displayIdentifier: displayIdentifier' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
+   ! grep -Fq 'Display \(displayIdentifier)' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
+   ! grep -Fq 'IdleScreenHealthSelection.preferredReport' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
    [[ ! -x "$project_root/scripts/verify-multidisplay-lifecycle-log.sh" ]] ||
    ! bash -n "$project_root/scripts/verify-multidisplay-lifecycle-log.sh" ||
    ! grep -Fq 'independent hosted-view lifecycle' "$project_root/scripts/verify-multidisplay-lifecycle-log.sh" ||
@@ -1425,22 +1425,22 @@ echo "PASS: concurrent display views publish independent, PID-correlated lifecyc
 
 echo "PASS: repeated physical host cycles are explicit, invalidation-aware, and registration-preserving."
 
-if ! grep -Fq 'IdleScreenConfigurationMonitor' "$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
-   ! grep -Fq 'refreshConfiguration(at:' "$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
-   ! grep -Fq 'configurationRevision: configuration.revision' "$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
-   ! grep -Fq 'configurationRevision: configuration.revision' "$project_root/IdleScreenApp/IdleScreenAppModel.swift" ||
-   ! grep -Fq 'report.configurationRevision' "$project_root/IdleScreenApp/SystemViews.swift"; then
+if ! grep -Fq 'IdleScreenConfigurationMonitor' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
+   ! grep -Fq 'refreshConfiguration(at:' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
+   ! grep -Fq 'configurationRevision: configuration.revision' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
+   ! grep -Fq 'configurationRevision: configuration.revision' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
+   ! grep -Fq 'report.configurationRevision' "$project_root/Products/IdleScreenApp/SystemViews.swift"; then
   echo "FAIL: running configuration delivery must be revision-monitored and visible in per-instance health." >&2
   exit 1
 fi
 
 echo "PASS: running configuration delivery publishes an observable per-instance revision."
 
-if ! grep -Fq 'isProcessReportLive' "$project_root/IdleScreenApp/IdleScreenAppModel.swift" ||
-   ! grep -Fq 'proc_pidpath' "$project_root/IdleScreenApp/IdleScreenAppModel.swift" ||
-   ! grep -Fq 'matchesExecutablePath' "$project_root/IdleScreenCore/Health.swift" ||
-   ! grep -Fq 'isLive: model.isProcessReportLive(report)' "$project_root/IdleScreenApp/SystemViews.swift" ||
-   ! grep -Fq 'Text(isLive ? report.lifecycle.rawValue.capitalized : "Exited")' "$project_root/IdleScreenApp/SystemViews.swift" ||
+if ! grep -Fq 'isProcessReportLive' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
+   ! grep -Fq 'proc_pidpath' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
+   ! grep -Fq 'matchesExecutablePath' "$project_root/Sources/IdleScreenCore/Health.swift" ||
+   ! grep -Fq 'isLive: model.isProcessReportLive(report)' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
+   ! grep -Fq 'Text(isLive ? report.lifecycle.rawValue.capitalized : "Exited")' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
    ! grep -Fq 'wrong executable identity' "$project_root/scripts/verify-shared-state.sh"; then
   echo "FAIL: companion diagnostics must not present exited process reports as live." >&2
   exit 1
@@ -1483,7 +1483,7 @@ extension_tests_target_block="$({
 })"
 
 if ! grep -Fq 'type: bundle.unit-test' <<<"$extension_tests_target_block" ||
-   ! grep -Fq 'path: IdleScreenScreenSaver/IdleScreenSaverView.swift' <<<"$extension_tests_target_block" ||
+   ! grep -Fq 'path: Products/IdleScreenScreenSaver/IdleScreenSaverView.swift' <<<"$extension_tests_target_block" ||
    ! grep -Fq 'target: IdleScreenCore' <<<"$extension_tests_target_block"; then
   echo "FAIL: the production saver view must have a dedicated lifecycle/render test target." >&2
   exit 1
@@ -1491,8 +1491,8 @@ fi
 
 echo "PASS: the production saver view has an isolated lifecycle/render test target."
 
-extension_info="$project_root/IdleScreenScreenSaver/Info.plist"
-extension_entitlements="$project_root/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements"
+extension_info="$project_root/Products/IdleScreenScreenSaver/Info.plist"
+extension_entitlements="$project_root/Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements"
 
 if [[ "$(plutil -extract NSExtension.NSExtensionPointIdentifier raw "$extension_info")" != "com.apple.screensaver" ]] ||
    [[ "$(plutil -extract NSExtension.NSExtensionPointVersion raw "$extension_info")" != "1.0" ]] ||
@@ -1516,8 +1516,8 @@ done
 
 echo "PASS: The extension plist and sandbox boundary match the Phase 1 host contract."
 
-thumbnail_1x="$project_root/IdleScreenScreenSaver/Assets.xcassets/thumbnail.imageset/thumbnail.png"
-thumbnail_2x="$project_root/IdleScreenScreenSaver/Assets.xcassets/thumbnail.imageset/thumbnail@2x.png"
+thumbnail_1x="$project_root/Products/IdleScreenScreenSaver/Assets.xcassets/thumbnail.imageset/thumbnail.png"
+thumbnail_2x="$project_root/Products/IdleScreenScreenSaver/Assets.xcassets/thumbnail.imageset/thumbnail@2x.png"
 
 if [[ ! -f "$thumbnail_1x" || ! -f "$thumbnail_2x" ]] ||
    [[ "$(sips -g pixelWidth "$thumbnail_1x" | awk '/pixelWidth/ { print $2 }')" != "107" ]] ||
@@ -1565,16 +1565,16 @@ done
 
 echo "PASS: IdleScreenApp embeds the extension and both hosts share Core and display observation."
 
-materials_configuration="$project_root/IdleScreenCore/PixelMaterialsConfiguration.swift"
-materials_reference="$project_root/IdleScreenRenderer/PixelMaterialsReference.swift"
-materials_coordinator="$project_root/IdleScreenRenderer/PixelMaterialsSceneCoordinator.swift"
-materials_bridge="IdleScreenProduct/RendererConfigurationBridge.swift"
-materials_shader="$project_root/IdleScreenRenderer/IdleScreenRendererShaders.metal"
+materials_configuration="$project_root/Sources/IdleScreenCore/PixelMaterialsConfiguration.swift"
+materials_reference="$project_root/Sources/IdleScreenRenderer/PixelMaterialsReference.swift"
+materials_coordinator="$project_root/Sources/IdleScreenRenderer/PixelMaterialsSceneCoordinator.swift"
+materials_bridge="Sources/IdleScreenProduct/RendererConfigurationBridge.swift"
+materials_shader="$project_root/Sources/IdleScreenRenderer/IdleScreenRendererShaders.metal"
 
 if [[ ! -f "$materials_configuration" ||
       ! -f "$materials_reference" ||
       ! -f "$materials_coordinator" ]] ||
-   ! grep -Fq 'case pixelMaterials' "$project_root/IdleScreenCore/CreativeConfiguration.swift" ||
+   ! grep -Fq 'case pixelMaterials' "$project_root/Sources/IdleScreenCore/CreativeConfiguration.swift" ||
    ! grep -Fq 'idleScreenPixelMaterialInstances' "$materials_shader"; then
   echo "FAIL: Pixel Materials requires versioned Core controls, a renderer-owned oracle/coordinator, and its Metal compute entry point." >&2
   exit 1
@@ -1651,10 +1651,10 @@ if [[ "$(grep -Fc './scripts/test-r1-release-candidate-fixtures.sh' "$ci_workflo
 fi
 
 for r1_entitlements in \
-  "$project_root/IdleScreenApp/IdleScreenDeveloperID.entitlements" \
-  "$project_root/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements" \
-  "$project_root/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements" \
-  "$project_root/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements"; do
+  "$project_root/Products/IdleScreenApp/IdleScreenDeveloperID.entitlements" \
+  "$project_root/Products/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements" \
+  "$project_root/Sources/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements" \
+  "$project_root/Products/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements"; do
   if ! plutil -lint "$r1_entitlements" >/dev/null; then
     echo "FAIL: R1.2a Developer ID entitlements must be explicit valid plists." >&2
     exit 1

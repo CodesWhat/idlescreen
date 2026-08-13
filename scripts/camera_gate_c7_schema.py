@@ -29,7 +29,7 @@ APP_ID = "com.idlescreen.app"
 HELPER_ID = "com.idlescreen.camera-agent"
 EXTENSION_ID = "com.idlescreen.app.screensaver"
 GENERATED_POLICY_REPOSITORY_PATH = (
-    "IdleScreenCore/Generated/IdleScreenC7ActivationDecision.generated.swift"
+    "Sources/IdleScreenCore/Generated/IdleScreenC7ActivationDecision.generated.swift"
 )
 SWIFT_CASES = {
     "trustworthy-activation-capability": "trustworthyActivationCapability",

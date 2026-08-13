@@ -195,7 +195,7 @@ write_renderer_info "$production_renderer_version/Resources/Info.plist"
 write_extension_info "$production_extension/Contents/Info.plist" false
 write_helper_info "$production_helper/Contents/Info.plist" false
 /bin/cp \
-  "$project_root/IdleScreenCameraAgent/LaunchAgents/group.com.idlescreen.dev.shared.camera-agent.plist" \
+  "$project_root/Sources/IdleScreenCameraAgent/LaunchAgents/group.com.idlescreen.dev.shared.camera-agent.plist" \
   "$production_app/Contents/Library/LaunchAgents/"
 /usr/bin/codesign --force --sign - --entitlements "$scratch_root/production-helper.entitlements" \
   "$production_helper" >/dev/null

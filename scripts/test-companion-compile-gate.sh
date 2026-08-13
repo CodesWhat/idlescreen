@@ -39,7 +39,7 @@ if /usr/bin/grep -Eq 'IdleScreen\.app|IdleScreenScreenSaver\.appex|IdleScreenCam
   exit 1
 fi
 
-if /usr/bin/grep -Fq "$project_root/IdleScreenApp/Info.plist" "$log_path"; then
+if /usr/bin/grep -Fq "$project_root/Products/IdleScreenApp/Info.plist" "$log_path"; then
   echo "FAIL: companion compile gate reused application bundle metadata." >&2
   echo "Evidence: $log_path" >&2
   exit 1

@@ -343,13 +343,13 @@ sign_product() {
 # Apple requires explicit inside-out signing. Do not replace this order with --deep.
 sign_product "$distribution_renderer"
 sign_product "$distribution_extension" \
-  "$project_root/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements"
+  "$project_root/Products/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements"
 sign_product "$distribution_helper" \
-  "$project_root/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements"
+  "$project_root/Sources/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements"
 sign_product "$distribution_control_tool" \
-  "$project_root/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements" \
+  "$project_root/Products/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements" \
   com.idlescreen.ctl
-sign_product "$distribution_app" "$project_root/IdleScreenApp/IdleScreenDeveloperID.entitlements"
+sign_product "$distribution_app" "$project_root/Products/IdleScreenApp/IdleScreenDeveloperID.entitlements"
 
 extract_certificate() {
   local product_path="$1"

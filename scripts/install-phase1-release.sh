@@ -548,7 +548,7 @@ handle_installer_exit() {
 trap handle_installer_exit EXIT
 
 xcrun swiftc \
-  "$project_root/IdleScreenSystem/ScreenSaverSelection.swift" \
+  "$project_root/Sources/IdleScreenSystem/ScreenSaverSelection.swift" \
   "$project_root/scripts/ScreenSaverSelectionProbe.swift" \
   -o "$selection_probe" || fail "could not compile the production selection probe"
 selection_before="$($selection_probe "$extension_id")" || {

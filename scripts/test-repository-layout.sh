@@ -126,6 +126,65 @@ for legacy_root in Idlescreen IdlescreenHelper IdlescreenSettings IdlescreenTest
     fail "$legacy_root remains beside the modern product"
 done
 
+canonical_paths=(
+  Products/IdleScreenAgentExecutable
+  Products/IdleScreenApp
+  Products/IdleScreenCameraAgentExecutable
+  Products/IdleScreenScreenSaver
+  Sources/IdleScreenAgent
+  Sources/IdleScreenCamera
+  Sources/IdleScreenCameraAgent
+  Sources/IdleScreenCameraAtomics
+  Sources/IdleScreenCore
+  Sources/IdleScreenDisplay
+  Sources/IdleScreenPerformance
+  Sources/IdleScreenProduct
+  Sources/IdleScreenRenderer
+  Sources/IdleScreenSystem
+  Tests/IdleScreenAgentTests
+  Tests/IdleScreenAppCameraTests
+  Tests/IdleScreenAppCompileGateTests
+  Tests/IdleScreenCameraAgentTests
+  Tests/IdleScreenCameraTests
+  Tests/IdleScreenCoreTestSupport
+  Tests/IdleScreenCoreTests
+  Tests/IdleScreenDisplayTests
+  Tests/IdleScreenPerformanceTests
+  Tests/IdleScreenRendererTests
+  Tests/IdleScreenScreenSaverTests
+  Tests/IdleScreenSyntheticGateTests
+  Tests/IdleScreenSystemTests
+  Support/IdleScreenPerformanceExecutable
+  Support/IdleScreenSyntheticGate
+  Support/IdleScreenSyntheticHostedGateExtension
+)
+
+for canonical_path in "${canonical_paths[@]}"; do
+  [[ -d "$canonical_path" ]] ||
+    fail "canonical repository directory is missing: $canonical_path"
+done
+
+flat_modern_roots="$(find . -maxdepth 1 -type d -name 'IdleScreen*' ! -name '*.xcodeproj' -print | sort)"
+[[ -z "$flat_modern_roots" ]] ||
+  fail "modern product directories must not remain flat at the repository root:\n$flat_modern_roots"
+
+stale_root_references="$({
+  for canonical_path in "${canonical_paths[@]}"; do
+    canonical_name="${canonical_path#*/}"
+    while IFS= read -r reference; do
+      [[ "$reference" == *"Products/$canonical_name/"* ]] && continue
+      [[ "$reference" == *"Sources/$canonical_name/"* ]] && continue
+      [[ "$reference" == *"Tests/$canonical_name/"* ]] && continue
+      [[ "$reference" == *"Support/$canonical_name/"* ]] && continue
+      [[ "$reference" == *"-only-testing:"* ]] && continue
+      [[ "$reference" == *"'/$canonical_name/"* ]] && continue
+      printf '%s\n' "$reference"
+    done < <(git grep -n -I -F "$canonical_name/" -- . ':(exclude).planning/**' || true)
+  done
+} | sort -u | sed -n '1,20p')"
+[[ -z "$stale_root_references" ]] ||
+  fail "tracked files still reference pre-layout root paths:\n$stale_root_references"
+
 if grep -Eq '^  (Idlescreen|IdlescreenHelper|IdlescreenSettings|IdlescreenTests):$' project.yml; then
   fail "the active project still declares a legacy product or test target"
 fi
@@ -137,7 +196,7 @@ root_reference_archives="$(find . -maxdepth 1 -type f -name '*.zip' -print)"
 [[ -z "$root_reference_archives" ]] ||
   fail "reference archives belong under .planning, not the repository root: $root_reference_archives"
 
-[[ ! -e IdleScreenApp/IdleScreenVisualsView.swift ]] ||
+[[ ! -e Products/IdleScreenApp/IdleScreenVisualsView.swift ]] ||
   fail "the superseded pre-Studio IdleScreenVisualsView source remains active"
 [[ ! -e release ]] ||
   fail "raw release artifacts must not accumulate in the source repository"
@@ -146,7 +205,7 @@ for retired_view in \
   'struct HealthView' \
   'struct CameraDeferredView' \
   'struct SystemStatusCard'; do
-  ! grep -Fq "$retired_view" IdleScreenApp/SystemViews.swift ||
+  ! grep -Fq "$retired_view" Products/IdleScreenApp/SystemViews.swift ||
     fail "the superseded pre-Studio declaration remains active: $retired_view"
 done
 

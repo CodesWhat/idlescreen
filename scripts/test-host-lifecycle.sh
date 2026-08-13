@@ -67,7 +67,7 @@ fi
 
 selection_probe="$artifact_root/selection-probe"
 xcrun swiftc \
-  "$project_root/IdleScreenSystem/ScreenSaverSelection.swift" \
+  "$project_root/Sources/IdleScreenSystem/ScreenSaverSelection.swift" \
   "$project_root/scripts/ScreenSaverSelectionProbe.swift" \
   -o "$selection_probe" || fail "could not compile the production selection probe"
 

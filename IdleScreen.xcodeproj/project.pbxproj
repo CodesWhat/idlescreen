@@ -1879,7 +1879,8 @@
 				51E66C49A6A282F14F330FC3 /* ScreenSaverRegistrationTests.swift */,
 				E1E125CAC2AEE19B2680FB1B /* ScreenSaverSelectionTests.swift */,
 			);
-			path = IdleScreenSystemTests;
+			name = IdleScreenSystemTests;
+			path = Tests/IdleScreenSystemTests;
 			sourceTree = "<group>";
 		};
 		0CFFE5A5431474EE0AFACC6D /* IdleScreenProduct */ = {
@@ -1887,7 +1888,8 @@
 			children = (
 				BE3DDFF9D16E7EA77639A3D8 /* RendererConfigurationBridge.swift */,
 			);
-			path = IdleScreenProduct;
+			name = IdleScreenProduct;
+			path = Sources/IdleScreenProduct;
 			sourceTree = "<group>";
 		};
 		1077AA405035F56973DC7F24 /* Generated */ = {
@@ -1911,7 +1913,8 @@
 				4AE3F89AF5660467DF04E657 /* ScreenSaverRegistration.swift */,
 				764F2D9D46A668526A1696D4 /* ScreenSaverSelection.swift */,
 			);
-			path = IdleScreenSystem;
+			name = IdleScreenSystem;
+			path = Sources/IdleScreenSystem;
 			sourceTree = "<group>";
 		};
 		1FFE7A58ED2CB77BA8356AAC /* Frameworks */ = {
@@ -1993,7 +1996,8 @@
 				89C3BFB5185E8463938B7BA6 /* CameraProcessLeaseCoordinatorTests.swift */,
 				34F07A3E917FFD71722538F0 /* CameraXPCProtocolTests.swift */,
 			);
-			path = IdleScreenCameraTests;
+			name = IdleScreenCameraTests;
+			path = Tests/IdleScreenCameraTests;
 			sourceTree = "<group>";
 		};
 		256525A95E87883C58A05DC7 /* IdleScreenDisplayTests */ = {
@@ -2003,7 +2007,8 @@
 				8BAEB5CDFF8CB4420B17218F /* DisplayScenePlannerTests.swift */,
 				2CAC7683C0BFBB81B3BA2464 /* DisplayTopologyPublisherTests.swift */,
 			);
-			path = IdleScreenDisplayTests;
+			name = IdleScreenDisplayTests;
+			path = Tests/IdleScreenDisplayTests;
 			sourceTree = "<group>";
 		};
 		2693E52717CA702143EEAC26 /* IdleScreenCoreTests */ = {
@@ -2023,7 +2028,8 @@
 				F376FA7C3ADDDE41023E992A /* PixelMaterialsConfigurationTests.swift */,
 				F06E17032ED1837DBB0392EE /* SharedContainerAgentPathsTests.swift */,
 			);
-			path = IdleScreenCoreTests;
+			name = IdleScreenCoreTests;
+			path = Tests/IdleScreenCoreTests;
 			sourceTree = "<group>";
 		};
 		32A9584CBBA98F7D2917A47D /* IdleScreenAppCameraTests */ = {
@@ -2031,7 +2037,8 @@
 			children = (
 				8AE7213968D563463E3BEFDD /* IdleScreenCompanionCameraClientTests.swift */,
 			);
-			path = IdleScreenAppCameraTests;
+			name = IdleScreenAppCameraTests;
+			path = Tests/IdleScreenAppCameraTests;
 			sourceTree = "<group>";
 		};
 		3B4C38CDEE828FCAF1F876CE /* IdleScreenAgentExecutable */ = {
@@ -2042,7 +2049,8 @@
 				E3066881DB983B0B381229CC /* idlescreenctl.entitlements */,
 				DCEB04B955F0B3D7581E9A42 /* main.swift */,
 			);
-			path = IdleScreenAgentExecutable;
+			name = IdleScreenAgentExecutable;
+			path = Products/IdleScreenAgentExecutable;
 			sourceTree = "<group>";
 		};
 		442111C7FADD8A9B39FCE652 /* IdleScreenAppCompileGateTests */ = {
@@ -2050,7 +2058,8 @@
 			children = (
 				DC1418A86E1F8B7C5B8830FF /* IdleScreenAppCompileGateSmokeTests.swift */,
 			);
-			path = IdleScreenAppCompileGateTests;
+			name = IdleScreenAppCompileGateTests;
+			path = Tests/IdleScreenAppCompileGateTests;
 			sourceTree = "<group>";
 		};
 		48A5EC418691033BDE200D7E /* IdleScreenSyntheticGateTests */ = {
@@ -2058,7 +2067,8 @@
 			children = (
 				698CE37E59E4508C27D18986 /* SyntheticCameraCompositionTests.swift */,
 			);
-			path = IdleScreenSyntheticGateTests;
+			name = IdleScreenSyntheticGateTests;
+			path = Tests/IdleScreenSyntheticGateTests;
 			sourceTree = "<group>";
 		};
 		4AFAD35D678298481DD75092 /* IdleScreenCore */ = {
@@ -2085,7 +2095,8 @@
 				38351B22A7EA99D0962EF932 /* SharedContainer.swift */,
 				1077AA405035F56973DC7F24 /* Generated */,
 			);
-			path = IdleScreenCore;
+			name = IdleScreenCore;
+			path = Sources/IdleScreenCore;
 			sourceTree = "<group>";
 		};
 		4D8C8C4FE0EB587A719F52A8 /* IdleScreenCamera */ = {
@@ -2109,7 +2120,8 @@
 				362CC899EBA213F2C9C96B3F /* CameraProcessLeaseCoordinator.swift */,
 				E61AF980C5495410D0D967B1 /* CameraXPCProtocol.swift */,
 			);
-			path = IdleScreenCamera;
+			name = IdleScreenCamera;
+			path = Sources/IdleScreenCamera;
 			sourceTree = "<group>";
 		};
 		5078471E455FE07B6FC42728 /* IdleScreenCameraAtomics */ = {
@@ -2118,7 +2130,8 @@
 				EBBEF21177A3832559B82C29 /* IdleScreenCameraAtomics.c */,
 				CE50C8F11B68ACAD1330ACC3 /* include */,
 			);
-			path = IdleScreenCameraAtomics;
+			name = IdleScreenCameraAtomics;
+			path = Sources/IdleScreenCameraAtomics;
 			sourceTree = "<group>";
 		};
 		573DC3A81CB2DD91EE3C0E9D /* IdleScreenCameraAgent */ = {
@@ -2136,7 +2149,8 @@
 				34EC82DE199EDE2DBF99D678 /* CameraDeviceInventory.swift */,
 				BBA00CAB82431F9AD3959E18 /* CameraFrameMailboxWriter.swift */,
 			);
-			path = IdleScreenCameraAgent;
+			name = IdleScreenCameraAgent;
+			path = Sources/IdleScreenCameraAgent;
 			sourceTree = "<group>";
 		};
 		57FE883BA53A46A0DEEBA3E2 /* IdleScreenCameraAgentTests */ = {
@@ -2151,7 +2165,8 @@
 				66AE902FC6507D6365AA007A /* CameraDeviceInventoryTests.swift */,
 				3C7E92F6408A7E1B8E6387D1 /* CameraFrameMailboxWriterTests.swift */,
 			);
-			path = IdleScreenCameraAgentTests;
+			name = IdleScreenCameraAgentTests;
+			path = Tests/IdleScreenCameraAgentTests;
 			sourceTree = "<group>";
 		};
 		6B9DCD0B73F88024B065C2F5 /* Private */ = {
@@ -2170,7 +2185,7 @@
 				EF20A93CF62C36B9FA6930E6 /* SyntheticCameraComposition.swift */,
 			);
 			name = Core;
-			path = IdleScreenSyntheticGate/Core;
+			path = Support/IdleScreenSyntheticGate/Core;
 			sourceTree = "<group>";
 		};
 		7C9B52A6F00D650138552F90 /* IdleScreenPerformance */ = {
@@ -2181,7 +2196,8 @@
 				EADA9AFB2C68F60C6D570A79 /* PerformanceRecorder.swift */,
 				EB162025575098F6933B2DBC /* ProcessSampler.swift */,
 			);
-			path = IdleScreenPerformance;
+			name = IdleScreenPerformance;
+			path = Sources/IdleScreenPerformance;
 			sourceTree = "<group>";
 		};
 		8394FD9D9C45CD78715A2E0B /* IdleScreenScreenSaverTests */ = {
@@ -2191,7 +2207,8 @@
 				1C91BC794A861F83CD7A318C /* IdleScreenSaverViewTests.swift */,
 				20B1D8A37D46F3AB286C574C /* IdleScreenSyntheticHostedGateViewControllerTests.swift */,
 			);
-			path = IdleScreenScreenSaverTests;
+			name = IdleScreenScreenSaverTests;
+			path = Tests/IdleScreenScreenSaverTests;
 			sourceTree = "<group>";
 		};
 		8CE3DEF439155FF2328F8267 /* IdleScreenCoreTestSupport */ = {
@@ -2199,7 +2216,8 @@
 			children = (
 				E8437E276A7A16A7C0AA6F8B /* main.swift */,
 			);
-			path = IdleScreenCoreTestSupport;
+			name = IdleScreenCoreTestSupport;
+			path = Tests/IdleScreenCoreTestSupport;
 			sourceTree = "<group>";
 		};
 		943C8B4FF8A0260020FD0F08 /* LaunchAgents */ = {
@@ -2209,7 +2227,7 @@
 				A3D66D50931C1795435B9134 /* group.com.idlescreen.shared.camera-agent.plist */,
 			);
 			name = LaunchAgents;
-			path = IdleScreenCameraAgent/LaunchAgents;
+			path = Sources/IdleScreenCameraAgent/LaunchAgents;
 			sourceTree = "<group>";
 		};
 		A378ED512E4104A24A02A106 /* IdleScreenRenderer */ = {
@@ -2222,7 +2240,8 @@
 				31721CFA8E5C4B7C0E7E3623 /* PixelMaterialsReference.swift */,
 				D4A2580EE1C5928BCDF24D1A /* PixelMaterialsSceneCoordinator.swift */,
 			);
-			path = IdleScreenRenderer;
+			name = IdleScreenRenderer;
+			path = Sources/IdleScreenRenderer;
 			sourceTree = "<group>";
 		};
 		A45F31B4E753C448571D9A79 /* IdleScreenSyntheticHostedGateExtension */ = {
@@ -2231,7 +2250,8 @@
 				6F0C12416BB930608EF931F5 /* IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements */,
 				F208EFB0D223F2BF807F18BD /* IdleScreenSyntheticHostedGateViewController.swift */,
 			);
-			path = IdleScreenSyntheticHostedGateExtension;
+			name = IdleScreenSyntheticHostedGateExtension;
+			path = Support/IdleScreenSyntheticHostedGateExtension;
 			sourceTree = "<group>";
 		};
 		A6D9A058C0191D665127E02A /* Products */ = {
@@ -2283,7 +2303,8 @@
 				49601798937E6AD79DA64C04 /* PixelMaterialsReferenceTests.swift */,
 				BAAFE521AB78ED56D4F7F751 /* PixelMaterialsRendererTests.swift */,
 			);
-			path = IdleScreenRendererTests;
+			name = IdleScreenRendererTests;
+			path = Tests/IdleScreenRendererTests;
 			sourceTree = "<group>";
 		};
 		B8E7F2A3CBE27F7E04E1A36E /* IdleScreenAgentTests */ = {
@@ -2293,7 +2314,8 @@
 				AB2799AA4AE474794C103BCB /* HookAdapterTests.swift */,
 				AA5C8F99D149979524D6F019 /* HookConfigurationManagerTests.swift */,
 			);
-			path = IdleScreenAgentTests;
+			name = IdleScreenAgentTests;
+			path = Tests/IdleScreenAgentTests;
 			sourceTree = "<group>";
 		};
 		BEE57E1ED2A1FF4F88AD65EA /* IdleScreenPerformanceTests */ = {
@@ -2303,7 +2325,8 @@
 				FB5022FA47940ABD700CFAFB /* PerformanceHarnessTests.swift */,
 				EDF7C7F85D88E984189D158F /* PerformanceRecorderTests.swift */,
 			);
-			path = IdleScreenPerformanceTests;
+			name = IdleScreenPerformanceTests;
+			path = Tests/IdleScreenPerformanceTests;
 			sourceTree = "<group>";
 		};
 		CE50C8F11B68ACAD1330ACC3 /* include */ = {
@@ -2330,7 +2353,8 @@
 				3FF4ABAFA94EFBE8925B73B4 /* ScreenSaverCompatibility.swift */,
 				6B9DCD0B73F88024B065C2F5 /* Private */,
 			);
-			path = IdleScreenScreenSaver;
+			name = IdleScreenScreenSaver;
+			path = Products/IdleScreenScreenSaver;
 			sourceTree = "<group>";
 		};
 		D2A4AB690431ECFB4F868FDF /* Executable */ = {
@@ -2339,7 +2363,7 @@
 				8C3AF53BFF89848725F37787 /* main.swift */,
 			);
 			name = Executable;
-			path = IdleScreenSyntheticGate/Executable;
+			path = Support/IdleScreenSyntheticGate/Executable;
 			sourceTree = "<group>";
 		};
 		D600B68539E3CD94ADE33BC3 /* IdleScreenApp */ = {
@@ -2366,7 +2390,8 @@
 				8AC28FEB285957CC3C80874D /* PixelMaterialsInspectorContract.swift */,
 				A7220C759882261E1A041FF5 /* SystemViews.swift */,
 			);
-			path = IdleScreenApp;
+			name = IdleScreenApp;
+			path = Products/IdleScreenApp;
 			sourceTree = "<group>";
 		};
 		D9F385E5981FA971D81403DA /* IdleScreenDisplay */ = {
@@ -2378,7 +2403,8 @@
 				DA6E95F7BFAC7CF5A27F7286 /* IdleScreenDisplay.swift */,
 				B1325B212E6B1A8896B47004 /* MacDisplayTopologyReader.swift */,
 			);
-			path = IdleScreenDisplay;
+			name = IdleScreenDisplay;
+			path = Sources/IdleScreenDisplay;
 			sourceTree = "<group>";
 		};
 		E36CFD494BF29AB8DA91F121 /* IdleScreenPerformanceExecutable */ = {
@@ -2386,7 +2412,8 @@
 			children = (
 				5DDA88FAA2C4A5A0A060EC2B /* PerformanceMain.swift */,
 			);
-			path = IdleScreenPerformanceExecutable;
+			name = IdleScreenPerformanceExecutable;
+			path = Support/IdleScreenPerformanceExecutable;
 			sourceTree = "<group>";
 		};
 		F6F39BA687E9732510A3D28D /* IdleScreenAgent */ = {
@@ -2396,7 +2423,8 @@
 				ED4D38EACE44CA59389E0B97 /* HookAdapter.swift */,
 				8B253FA47747E739F8D9E0DD /* HookConfigurationManager.swift */,
 			);
-			path = IdleScreenAgent;
+			name = IdleScreenAgent;
+			path = Sources/IdleScreenAgent;
 			sourceTree = "<group>";
 		};
 		FD6E14B9BD3DC77C35DD46C1 /* IdleScreenCameraAgentExecutable */ = {
@@ -2405,7 +2433,8 @@
 				1085707753B02EE26DB7FF8B /* Info.plist */,
 				5A0BFB1B70E4C2FBC72504FC /* main.swift */,
 			);
-			path = IdleScreenCameraAgentExecutable;
+			name = IdleScreenCameraAgentExecutable;
+			path = Products/IdleScreenCameraAgentExecutable;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -4312,7 +4341,7 @@
 		0A406CB84C3413811582B01B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = IdleScreenAgentExecutable/idlescreenctl.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Products/IdleScreenAgentExecutable/idlescreenctl.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -4490,7 +4519,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = "IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Products/IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = YES;
@@ -4498,7 +4527,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.dev.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.dev.shared.camera-agent";
 				IDLESCREEN_SHARED_CONTAINER_ENABLED = NO;
-				INFOPLIST_FILE = IdleScreenSyntheticHostedGateExtension/Info.plist;
+				INFOPLIST_FILE = Support/IdleScreenSyntheticHostedGateExtension/Info.plist;
 				INSTALL_PATH = "$(LOCAL_APPS_DIR)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../../../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
@@ -4509,14 +4538,14 @@
 				SDKROOT = macosx;
 				SKIP_INSTALL = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE";
-				SWIFT_OBJC_BRIDGING_HEADER = IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
 			};
 			name = Debug;
 		};
 		2B025B9EE64D402E1885E775 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = IdleScreenCameraAgent/IdleScreenCameraAgentC3Archive.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Sources/IdleScreenCameraAgent/IdleScreenCameraAgentC3Archive.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -4527,7 +4556,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256 = 151f0b19ff95aa853a3188f7e64c3eae8d159c5718658a4ba6e9518dcaa19e92;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
-				INFOPLIST_FILE = IdleScreenCameraAgentExecutable/Info.plist;
+				INFOPLIST_FILE = Products/IdleScreenCameraAgentExecutable/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -4548,14 +4577,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = "IdleScreenCameraAgent/IdleScreenCameraAgent-Debug.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Sources/IdleScreenCameraAgent/IdleScreenCameraAgent-Debug.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.dev.shared;
 				IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256 = 43adaaf96c2c1ea87365b2f46e33327005ecaa1fa4bdf8eb9e2edead682ad9cf;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.dev.shared.camera-agent";
-				INFOPLIST_FILE = IdleScreenCameraAgentExecutable/Info.plist;
+				INFOPLIST_FILE = Products/IdleScreenCameraAgentExecutable/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -4591,7 +4620,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = IdleScreenApp/IdleScreenC3Archive.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Products/IdleScreenApp/IdleScreenC3Archive.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -4602,7 +4631,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
 				IDLESCREEN_SHARED_CONTAINER_ENABLED = YES;
-				INFOPLIST_FILE = IdleScreenApp/Info.plist;
+				INFOPLIST_FILE = Products/IdleScreenApp/Info.plist;
 				INSTALL_PATH = /Applications;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -4735,7 +4764,7 @@
 		49DB8C1D9CDF5492B68A159B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = IdleScreenCameraAgent/IdleScreenCameraAgentC3Archive.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Sources/IdleScreenCameraAgent/IdleScreenCameraAgentC3Archive.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -4746,7 +4775,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256 = 151f0b19ff95aa853a3188f7e64c3eae8d159c5718658a4ba6e9518dcaa19e92;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
-				INFOPLIST_FILE = IdleScreenCameraAgentExecutable/Info.plist;
+				INFOPLIST_FILE = Products/IdleScreenCameraAgentExecutable/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -5007,7 +5036,7 @@
 				PRODUCT_NAME = IdleScreenScreenSaverTests;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE";
-				SWIFT_OBJC_BRIDGING_HEADER = IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
 			};
 			name = Release;
 		};
@@ -5100,7 +5129,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = "IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Products/IdleScreenScreenSaver/IdleScreenScreenSaver-Debug.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 62;
 				ENABLE_APP_SANDBOX = YES;
@@ -5108,7 +5137,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.dev.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.dev.shared.camera-agent";
 				IDLESCREEN_SHARED_CONTAINER_ENABLED = NO;
-				INFOPLIST_FILE = IdleScreenScreenSaver/Info.plist;
+				INFOPLIST_FILE = Products/IdleScreenScreenSaver/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../../../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 0.1.0;
@@ -5117,7 +5146,7 @@
 				PRODUCT_NAME = IdleScreenScreenSaver;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
 			};
 			name = Debug;
 		};
@@ -5143,7 +5172,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = IdleScreenApp/IdleScreenApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Products/IdleScreenApp/IdleScreenApp.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -5153,7 +5182,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
 				IDLESCREEN_SHARED_CONTAINER_ENABLED = YES;
-				INFOPLIST_FILE = IdleScreenApp/Info.plist;
+				INFOPLIST_FILE = Products/IdleScreenApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -5173,7 +5202,7 @@
 		7D4333027B36B8E9B34286BE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgentC4Archive.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Support/IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgentC4Archive.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -5183,7 +5212,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
-				INFOPLIST_FILE = IdleScreenSyntheticGate/HelperInfo.plist;
+				INFOPLIST_FILE = Support/IdleScreenSyntheticGate/HelperInfo.plist;
 				INSTALL_PATH = /Applications;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -5217,7 +5246,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Support/IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -5226,7 +5255,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
-				INFOPLIST_FILE = IdleScreenSyntheticGate/HelperInfo.plist;
+				INFOPLIST_FILE = Support/IdleScreenSyntheticGate/HelperInfo.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -5299,7 +5328,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Support/IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -5311,7 +5340,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
 				IDLESCREEN_SHARED_CONTAINER_ENABLED = YES;
-				INFOPLIST_FILE = IdleScreenSyntheticHostedGateExtension/Info.plist;
+				INFOPLIST_FILE = Support/IdleScreenSyntheticHostedGateExtension/Info.plist;
 				INSTALL_PATH = /Applications;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../../../Frameworks";
 				MACH_O_TYPE = mh_bundle;
@@ -5324,7 +5353,7 @@
 				SDKROOT = macosx;
 				SKIP_INSTALL = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE";
-				SWIFT_OBJC_BRIDGING_HEADER = IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
 				WRAPPER_EXTENSION = appex;
 			};
 			name = Release;
@@ -5378,7 +5407,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Support/IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -5390,7 +5419,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
 				IDLESCREEN_SHARED_CONTAINER_ENABLED = YES;
-				INFOPLIST_FILE = IdleScreenSyntheticHostedGateExtension/Info.plist;
+				INFOPLIST_FILE = Support/IdleScreenSyntheticHostedGateExtension/Info.plist;
 				INSTALL_PATH = /Applications;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../../../Frameworks";
 				MACH_O_TYPE = mh_bundle;
@@ -5403,7 +5432,7 @@
 				SDKROOT = macosx;
 				SKIP_INSTALL = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE";
-				SWIFT_OBJC_BRIDGING_HEADER = IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
 				WRAPPER_EXTENSION = appex;
 			};
 			name = Debug;
@@ -5457,7 +5486,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -5468,7 +5497,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
 				IDLESCREEN_SHARED_CONTAINER_ENABLED = YES;
-				INFOPLIST_FILE = IdleScreenScreenSaver/Info.plist;
+				INFOPLIST_FILE = Products/IdleScreenScreenSaver/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../../../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 0.1.0;
@@ -5478,7 +5507,7 @@
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
 			};
 			name = Release;
 		};
@@ -5486,7 +5515,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = IdleScreenApp/IdleScreenC3Archive.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Products/IdleScreenApp/IdleScreenC3Archive.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -5497,7 +5526,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
 				IDLESCREEN_SHARED_CONTAINER_ENABLED = YES;
-				INFOPLIST_FILE = IdleScreenApp/Info.plist;
+				INFOPLIST_FILE = Products/IdleScreenApp/Info.plist;
 				INSTALL_PATH = /Applications;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -5547,14 +5576,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = "IdleScreenApp/IdleScreenApp-Debug.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Products/IdleScreenApp/IdleScreenApp-Debug.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_SOURCE_FILE_NAMES = "group.com.idlescreen.shared.camera-agent.plist";
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.dev.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.dev.shared.camera-agent";
 				IDLESCREEN_SHARED_CONTAINER_ENABLED = NO;
-				INFOPLIST_FILE = IdleScreenApp/Info.plist;
+				INFOPLIST_FILE = Products/IdleScreenApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -5594,7 +5623,7 @@
 		AD58526CD068F4A51DAA106B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgentC4Archive.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Support/IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgentC4Archive.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -5604,7 +5633,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
-				INFOPLIST_FILE = IdleScreenSyntheticGate/HelperInfo.plist;
+				INFOPLIST_FILE = Support/IdleScreenSyntheticGate/HelperInfo.plist;
 				INSTALL_PATH = /Applications;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -5722,7 +5751,7 @@
 		C638561EDA4A5FFF45CBEC05 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = "IdleScreenAgentExecutable/idlescreenctl-Debug.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Products/IdleScreenAgentExecutable/idlescreenctl-Debug.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -5775,7 +5804,7 @@
 				PRODUCT_NAME = IdleScreenScreenSaverTests;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE";
-				SWIFT_OBJC_BRIDGING_HEADER = IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
 			};
 			name = Debug;
 		};
@@ -5975,13 +6004,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = "IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent-Debug.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Support/IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent-Debug.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.dev.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.dev.shared.camera-agent";
-				INFOPLIST_FILE = IdleScreenSyntheticGate/HelperInfo.plist;
+				INFOPLIST_FILE = Support/IdleScreenSyntheticGate/HelperInfo.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -6030,7 +6059,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Sources/IdleScreenCameraAgent/IdleScreenCameraAgent.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -6040,7 +6069,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_LAUNCH_AGENT_SHA256 = 151f0b19ff95aa853a3188f7e64c3eae8d159c5718658a4ba6e9518dcaa19e92;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
-				INFOPLIST_FILE = IdleScreenCameraAgentExecutable/Info.plist;
+				INFOPLIST_FILE = Products/IdleScreenCameraAgentExecutable/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -6058,7 +6087,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -6069,7 +6098,7 @@
 				IDLESCREEN_APP_GROUP_IDENTIFIER = group.com.idlescreen.shared;
 				IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME = "group.com.idlescreen.shared.camera-agent";
 				IDLESCREEN_SHARED_CONTAINER_ENABLED = YES;
-				INFOPLIST_FILE = IdleScreenSyntheticHostedGateExtension/Info.plist;
+				INFOPLIST_FILE = Support/IdleScreenSyntheticHostedGateExtension/Info.plist;
 				INSTALL_PATH = "$(LOCAL_APPS_DIR)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../../../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
@@ -6081,7 +6110,7 @@
 				SDKROOT = macosx;
 				SKIP_INSTALL = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) IDLESCREEN_SYNTHETIC_HOSTED_GATE";
-				SWIFT_OBJC_BRIDGING_HEADER = IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h;
 			};
 			name = Release;
 		};

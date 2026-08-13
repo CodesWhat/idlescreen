@@ -9,7 +9,7 @@ exclude_patterns = [
 [coverage]
 ignores = [
   "**/*Tests/**",
-  "IdleScreenCoreTestSupport/**",
+  "Tests/IdleScreenCoreTestSupport/**",
 ]
 
 [smells]

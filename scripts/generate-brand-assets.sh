@@ -5,8 +5,8 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 icon_source="$project_root/docs/assets/idlescreen-icon.svg"
 saver_source="$project_root/docs/assets/idlescreen-saver.svg"
-icon_catalog="$project_root/IdleScreenApp/Assets.xcassets/AppIcon.appiconset"
-saver_catalog="$project_root/IdleScreenScreenSaver/Assets.xcassets/thumbnail.imageset"
+icon_catalog="$project_root/Products/IdleScreenApp/Assets.xcassets/AppIcon.appiconset"
+saver_catalog="$project_root/Products/IdleScreenScreenSaver/Assets.xcassets/thumbnail.imageset"
 mode="${1:-generate}"
 
 [[ "$mode" == generate || "$mode" == --check ]] || {
