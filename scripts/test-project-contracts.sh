@@ -1152,8 +1152,16 @@ fi
 echo "PASS: C4 preparation uses only LaunchServices-clean generic bundle archives with exact C3 profile replay."
 
 release_candidate_builder="$project_root/scripts/build-phase1-release.sh"
+release_generation_line="$(grep -nF 'xcodegen generate --spec "$project_root/project.yml"' "$release_candidate_builder" | head -1 | cut -d: -f1 || true)"
+release_drift_line="$(grep -nF 'generated-project-diff.txt' "$release_candidate_builder" | head -1 | cut -d: -f1 || true)"
+release_build_line="$(grep -nF 'xcodebuild build \' "$release_candidate_builder" | head -1 | cut -d: -f1 || true)"
 if [[ ! -x "$release_candidate_builder" ]] ||
    ! bash -n "$release_candidate_builder" ||
+   [[ ! "$release_generation_line" =~ ^[1-9][0-9]*$ ]] ||
+   [[ ! "$release_drift_line" =~ ^[1-9][0-9]*$ ]] ||
+   [[ ! "$release_build_line" =~ ^[1-9][0-9]*$ ]] ||
+   ((release_generation_line >= release_drift_line)) ||
+   ((release_drift_line >= release_build_line)) ||
    ! grep -Fq -- '-configuration Release' "$release_candidate_builder" ||
    ! grep -Fq -- '-allowProvisioningUpdates' "$release_candidate_builder" ||
    ! grep -Fq 'verify-release-signing.sh' "$release_candidate_builder" ||
@@ -1169,7 +1177,7 @@ if [[ ! -x "$release_candidate_builder" ]] ||
    ! grep -Fq 'WallpaperAgent' "$release_candidate_builder" ||
    ! grep -Fq 'new WallpaperAgent PID' "$release_candidate_builder" ||
    ! grep -Fq 'ScreenSaverEngine is active' "$release_candidate_builder"; then
-  echo "FAIL: the provisioned Release build must preserve physical registration state." >&2
+  echo "FAIL: the provisioned Release build must reject generated-project drift before preserving physical registration state." >&2
   exit 1
 fi
 

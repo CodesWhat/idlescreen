@@ -57,7 +57,7 @@ for public_file in \
 done
 
 brand_asset_generator=scripts/generate-brand-assets.sh
-grep -Fq 'icon_source="$project_root/docs/assets/idlescreen-logo.png"' \
+grep -Fxq 'icon_source="$project_root/docs/assets/idlescreen-logo.png"' \
   "$brand_asset_generator" ||
   fail "the app icon must be generated from the canonical CRT product logo"
 
