@@ -112,6 +112,7 @@ for required_text in \
   "sha256 \"$dmg_sha256\"" \
   'releases/download/v#{version.csv.first}/idlescreen-#{version.csv.first}-build#{version.csv.second}.dmg' \
   'desc "Metal-rendered ASCII art screen saver"' \
+  'skip "Auto-generated on release."' \
   'depends_on macos: :tahoe' \
   'app "IdleScreen.app", target: "idlescreen.app"' \
   'quit: "com.idlescreen.app"' \
