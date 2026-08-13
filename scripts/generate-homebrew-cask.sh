@@ -125,7 +125,7 @@ trap '/bin/rm -f "${temporary_output:?}"' EXIT
   echo
   echo '  depends_on macos: :tahoe'
   echo
-  echo '  app "IdleScreen.app"'
+  echo '  app "IdleScreen.app", target: "idlescreen.app"'
   echo
   echo '  uninstall quit: "com.idlescreen.app"'
   echo

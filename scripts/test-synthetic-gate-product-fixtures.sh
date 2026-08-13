@@ -163,6 +163,8 @@ expect_gate_fail() {
 }
 
 /usr/bin/plutil -create xml1 "$scratch_root/app.entitlements"
+/usr/libexec/PlistBuddy -c 'Add :com.apple.security.device.camera bool true' \
+  "$scratch_root/app.entitlements"
 write_entitlements "$scratch_root/production-helper.entitlements" true
 write_entitlements "$scratch_root/gate-helper.entitlements" false
 write_entitlements "$scratch_root/extension.entitlements" false

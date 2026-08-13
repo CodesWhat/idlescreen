@@ -511,8 +511,10 @@ validate_exact_entitlements() {
       and $root["com.apple.security.application-groups"] == [$group]
       and (
         if $kind == "app" then
+          $root["com.apple.security.device.camera"] == true
+          and
           (($root | keys) - ["com.apple.security.get-task-allow"] | sort) ==
-            (["com.apple.application-identifier", "com.apple.developer.team-identifier", "com.apple.security.application-groups"] | sort)
+            (["com.apple.application-identifier", "com.apple.developer.team-identifier", "com.apple.security.application-groups", "com.apple.security.device.camera"] | sort)
         elif $kind == "extension" then
           $root["com.apple.security.app-sandbox"] == true
           and $root["com.apple.security.cs.disable-library-validation"] == true

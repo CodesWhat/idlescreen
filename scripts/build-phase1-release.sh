@@ -61,6 +61,22 @@ selection_probe="$artifact_root/selection-probe"
 [[ -x "$product_verifier" ]] || fail "missing modern product verifier"
 [[ -x "$camera_product_verifier" ]] || fail "missing camera-agent product verifier"
 
+command -v xcodegen >/dev/null 2>&1 || fail "xcodegen is required to verify the canonical Xcode project"
+if [[ -n "$(git -C "$project_root" status --porcelain --untracked-files=all -- IdleScreen.xcodeproj)" ]]; then
+  fail "the canonical Xcode project has uncommitted changes; preserve them before building Release"
+fi
+xcodegen generate --spec "$project_root/project.yml" \
+  >"$artifact_root/xcodegen.log" 2>&1 || fail "canonical project generation failed"
+if ! git -C "$project_root" diff --exit-code -- IdleScreen.xcodeproj \
+  >"$artifact_root/generated-project-diff.txt"; then
+  fail "the canonical Xcode project is stale; regenerate and commit it before building Release"
+fi
+generated_project_status="$(git -C "$project_root" status --porcelain --untracked-files=all -- IdleScreen.xcodeproj)"
+printf '%s\n' "$generated_project_status" >>"$artifact_root/generated-project-diff.txt"
+if [[ -n "$generated_project_status" ]]; then
+  fail "canonical project generation produced untracked files; inspect and commit them before building Release"
+fi
+
 xcrun swiftc \
   "$project_root/Sources/IdleScreenSystem/ScreenSaverSelection.swift" \
   "$project_root/scripts/ScreenSaverSelectionProbe.swift" \

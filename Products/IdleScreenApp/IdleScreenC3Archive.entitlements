@@ -10,5 +10,7 @@
 	<array>
 		<string>$(IDLESCREEN_APP_GROUP_IDENTIFIER)</string>
 	</array>
+	<key>com.apple.security.device.camera</key>
+	<true/>
 </dict>
 </plist>

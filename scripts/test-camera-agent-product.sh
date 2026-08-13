@@ -337,7 +337,7 @@ if [[ "$configuration" == Release ]]; then
     fail "camera-helper carries unexpected additional App Group entitlements"
   fi
 fi
-expect_absent_entitlement "$app_entitlements" app com.apple.security.device.camera
+expect_true_entitlement "$app_entitlements" app com.apple.security.device.camera
 expect_absent_entitlement "$extension_entitlements" screen-saver com.apple.security.device.camera
 expect_true_entitlement "$control_tool_entitlements" control-tool com.apple.security.app-sandbox
 control_tool_app_group="$(
@@ -427,4 +427,4 @@ fi
   fail "deep app signature verification failed"
 
 echo "PASS: $configuration camera-agent bundle structure and embedded configuration are exact."
-echo 'PASS: only the camera helper carries camera access, and all nested signatures verify.'
+echo 'PASS: only the camera helper carries camera APIs, and all nested signatures verify.'

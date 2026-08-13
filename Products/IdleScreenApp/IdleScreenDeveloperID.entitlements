@@ -10,5 +10,7 @@
 	<array>
 		<string>group.com.idlescreen.shared</string>
 	</array>
+	<key>com.apple.security.device.camera</key>
+	<true/>
 </dict>
 </plist>

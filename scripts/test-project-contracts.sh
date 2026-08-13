@@ -502,9 +502,11 @@ fi
 
 for companion_entitlements in \
   "$project_root/Products/IdleScreenApp/IdleScreenApp.entitlements" \
-  "$project_root/Products/IdleScreenApp/IdleScreenApp-Debug.entitlements"; do
-  if /usr/libexec/PlistBuddy -c 'Print :com.apple.security.device.camera' "$companion_entitlements" >/dev/null 2>&1; then
-    echo "FAIL: IdleScreenApp must never carry the camera entitlement." >&2
+  "$project_root/Products/IdleScreenApp/IdleScreenApp-Debug.entitlements" \
+  "$project_root/Products/IdleScreenApp/IdleScreenC3Archive.entitlements" \
+  "$project_root/Products/IdleScreenApp/IdleScreenDeveloperID.entitlements"; do
+  if [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.device.camera' "$companion_entitlements" 2>/dev/null || true)" != true ]]; then
+    echo "FAIL: the responsible IdleScreenApp must carry the camera entitlement so TCC can authorize its embedded agent." >&2
     exit 1
   fi
 done
@@ -518,7 +520,7 @@ if [[ -z "$companion_camera_purpose" ]] ||
   exit 1
 fi
 
-echo "PASS: companion camera tuples and responsible-code purpose text are exact; only the agent owns camera entitlement."
+echo "PASS: companion camera tuples, responsible-code entitlement, and purpose text are exact; only the agent owns camera APIs."
 
 companion_camera_lifecycle="$project_root/Products/IdleScreenApp/IdleScreenCompanionCameraClient.swift"
 companion_app_delegate="$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift"
@@ -1150,8 +1152,16 @@ fi
 echo "PASS: C4 preparation uses only LaunchServices-clean generic bundle archives with exact C3 profile replay."
 
 release_candidate_builder="$project_root/scripts/build-phase1-release.sh"
+release_generation_line="$(grep -nF 'xcodegen generate --spec "$project_root/project.yml"' "$release_candidate_builder" | head -1 | cut -d: -f1 || true)"
+release_drift_line="$(grep -nF 'generated-project-diff.txt' "$release_candidate_builder" | head -1 | cut -d: -f1 || true)"
+release_build_line="$(grep -nF 'xcodebuild build \' "$release_candidate_builder" | head -1 | cut -d: -f1 || true)"
 if [[ ! -x "$release_candidate_builder" ]] ||
    ! bash -n "$release_candidate_builder" ||
+   [[ ! "$release_generation_line" =~ ^[1-9][0-9]*$ ]] ||
+   [[ ! "$release_drift_line" =~ ^[1-9][0-9]*$ ]] ||
+   [[ ! "$release_build_line" =~ ^[1-9][0-9]*$ ]] ||
+   ((release_generation_line >= release_drift_line)) ||
+   ((release_drift_line >= release_build_line)) ||
    ! grep -Fq -- '-configuration Release' "$release_candidate_builder" ||
    ! grep -Fq -- '-allowProvisioningUpdates' "$release_candidate_builder" ||
    ! grep -Fq 'verify-release-signing.sh' "$release_candidate_builder" ||
@@ -1167,7 +1177,7 @@ if [[ ! -x "$release_candidate_builder" ]] ||
    ! grep -Fq 'WallpaperAgent' "$release_candidate_builder" ||
    ! grep -Fq 'new WallpaperAgent PID' "$release_candidate_builder" ||
    ! grep -Fq 'ScreenSaverEngine is active' "$release_candidate_builder"; then
-  echo "FAIL: the provisioned Release build must preserve physical registration state." >&2
+  echo "FAIL: the provisioned Release build must reject generated-project drift before preserving physical registration state." >&2
   exit 1
 fi
 

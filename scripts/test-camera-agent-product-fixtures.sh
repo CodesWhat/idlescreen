@@ -159,7 +159,7 @@ make_valid_fixture() {
     com.idlescreen.app.dev
   write_helper_entitlements "$helper_entitlements" true false
   write_entitlements "$scratch_root/saver.entitlements" com.apple.security.app-sandbox
-  /usr/bin/plutil -create xml1 "$scratch_root/app.entitlements"
+  write_entitlements "$scratch_root/app.entitlements" com.apple.security.device.camera
   /usr/bin/plutil -create xml1 "$scratch_root/control-tool.entitlements"
   /usr/libexec/PlistBuddy \
     -c 'Add :com.apple.security.app-sandbox bool true' \
@@ -346,6 +346,14 @@ write_helper_entitlements "$scratch_root/no-camera.entitlements" false false
 /usr/bin/codesign --force --sign - --entitlements "$scratch_root/no-camera.entitlements" \
   "$missing_camera_app/Contents/Helpers/IdleScreenCameraAgent.app" >/dev/null
 expect_fail 'helper without camera entitlement' "$missing_camera_app" 'camera entitlement is not true'
+
+missing_app_camera_app="$scratch_root/missing-app-camera/IdleScreen.app"
+/usr/bin/ditto "$base_app" "$missing_app_camera_app"
+/usr/bin/plutil -create xml1 "$scratch_root/no-app-camera.entitlements"
+/usr/bin/codesign --force --sign - --entitlements "$scratch_root/no-app-camera.entitlements" \
+  "$missing_app_camera_app" >/dev/null
+expect_fail 'responsible app without camera entitlement' "$missing_app_camera_app" \
+  'app com.apple.security.device.camera entitlement is not true'
 
 # Release verification decodes an Apple-signed CMS provisioning profile and
 # matches its DeveloperCertificates against the actual code-signing leaf.

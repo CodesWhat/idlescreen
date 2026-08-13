@@ -591,7 +591,9 @@ private struct Fixture {
     let configuration: CameraAgentIdentityCollectorConfiguration
 
     init(
-        applicationURL: URL = URL(fileURLWithPath: "/Applications/idlescreen.app")
+        applicationURL: URL = URL(
+            fileURLWithPath: "/private/tmp/idlescreen-identity-collector-tests/idlescreen.app"
+        )
     ) throws {
         self.applicationURL = applicationURL
         serviceIdentity = try CameraAgentServiceIdentity(
