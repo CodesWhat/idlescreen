@@ -1,7 +1,11 @@
 # Asset provenance
 
-The public idlescreen brand artwork was created for this repository by
-CodesWhat on August 12, 2026. Its editable sources are:
+The primary README artwork, `docs/assets/idlescreen-logo.png`, is the original
+idlescreen product logo from the pre-publication CodesWhat source tree. It was
+restored to the public repository on August 13, 2026.
+
+The app icon and screen-saver thumbnail artwork was created for this repository
+by CodesWhat on August 12, 2026. Its editable sources are:
 
 - `docs/assets/idlescreen-icon.svg`
 - `docs/assets/idlescreen-saver.svg`
