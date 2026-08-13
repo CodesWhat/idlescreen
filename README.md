@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/idlescreen-icon.svg" width="128" height="128" alt="idlescreen icon">
+  <img src="docs/assets/idlescreen-logo.png" width="200" height="200" alt="idlescreen logo">
 </p>
 
 <h1 align="center">idlescreen</h1>
