@@ -246,7 +246,7 @@ validate_helper_runtime() {
   [[ "$relevant_helper_count" -eq "$helper_process_count" ]] ||
     fail "$role snapshot relevant-process manifest disagrees with the structured helper manifest"
   /usr/bin/awk -v expected="$expected_helper_executable" '
-    /IdleScreenCameraAgent/ && index($0, expected) == 0 { exit 1 }
+    index($0, "IdleScreenCameraAgent") > 0 && index($0, expected) == 0 { exit 1 }
   ' "$root/relevant-processes.txt" ||
     fail "$role snapshot contains a camera helper outside the canonical app"
 }

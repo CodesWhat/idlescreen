@@ -2,7 +2,7 @@
 
 ## AppexSaverMinimal
 
-`IdleScreenScreenSaver/Private/ScreenSaverPrivate.h` includes declarations
+`Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h` includes declarations
 adapted from
 [AerialScreensaver/AppexSaverMinimal](https://github.com/AerialScreensaver/AppexSaverMinimal)
 at commit `6be6c85b49e827320711289853726e68d3fbd7ea`.

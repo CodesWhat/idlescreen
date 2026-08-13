@@ -69,9 +69,9 @@ for neutral_source in \
   CameraAgentRuntimeDriver.swift \
   CameraAgentProcessRuntime.swift \
   CameraDeviceInventory.swift; do
-  grep -Fq "IdleScreenCameraAgent/$neutral_source" <<<"$production_core" ||
+  grep -Fq "Sources/IdleScreenCameraAgent/$neutral_source" <<<"$production_core" ||
     fail "production core does not compile neutral source $neutral_source"
-  grep -Fq "IdleScreenCameraAgent/$neutral_source" <<<"$synthetic_core" ||
+  grep -Fq "Sources/IdleScreenCameraAgent/$neutral_source" <<<"$synthetic_core" ||
     fail "synthetic core does not reuse neutral production source $neutral_source"
 done
 
@@ -79,7 +79,7 @@ for production_source in \
   AVFoundationCameraCaptureComposition.swift \
   AVFoundationCameraAgentComposition.swift \
   AVFoundationCameraDeviceInventory.swift; do
-  grep -Fq "IdleScreenCameraAgent/$production_source" <<<"$production_core" ||
+  grep -Fq "Sources/IdleScreenCameraAgent/$production_source" <<<"$production_core" ||
     fail "production core does not explicitly compile $production_source"
   if grep -Fq "$production_source" <<<"$synthetic_core"; then
     fail "synthetic core compiles production-only source $production_source"
@@ -87,9 +87,9 @@ for production_source in \
 done
 
 for neutral_path in \
-  "$project_root/IdleScreenCameraAgent/CameraCaptureSessionController.swift" \
-  "$project_root/IdleScreenCameraAgent/CameraAgentRuntimeDriver.swift" \
-  "$project_root/IdleScreenCameraAgent/CameraAgentProcessRuntime.swift"; do
+  "$project_root/Sources/IdleScreenCameraAgent/CameraCaptureSessionController.swift" \
+  "$project_root/Sources/IdleScreenCameraAgent/CameraAgentRuntimeDriver.swift" \
+  "$project_root/Sources/IdleScreenCameraAgent/CameraAgentProcessRuntime.swift"; do
   if grep -Eq '(import AVFoundation|AVCapture|requestAccess\(|AVFoundationErrorDomain|IdleScreenSyntheticGate)' \
     "$neutral_path"; then
     fail "neutral production runtime still owns AVFoundation or a synthetic switch: $neutral_path"
@@ -98,13 +98,13 @@ done
 
 [[ -n "$synthetic_core" && -n "$synthetic_helper" && -n "$synthetic_extension" && -n "$synthetic_app" ]] ||
   fail "synthetic gate targets are missing"
-grep -Fq 'path: IdleScreenSyntheticGate' <<<"$synthetic_core" ||
+grep -Fq 'path: Support/IdleScreenSyntheticGate' <<<"$synthetic_core" ||
   fail "synthetic core has no separate gate-only composition"
 grep -Fq 'IdleScreenSyntheticGateVersion: "1"' <<<"$synthetic_helper" ||
   fail "synthetic helper lacks the unmistakable version-1 marker"
 grep -Fq 'target: IdleScreenCameraSyntheticAgentCore' <<<"$synthetic_helper" ||
   fail "synthetic helper does not use the synthetic composition"
-grep -Fq 'CODE_SIGN_ENTITLEMENTS: IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent.entitlements' \
+grep -Fq 'CODE_SIGN_ENTITLEMENTS: Support/IdleScreenSyntheticGate/IdleScreenCameraSyntheticAgent.entitlements' \
   <<<"$synthetic_helper" || fail "synthetic helper has no dedicated camera-free entitlement file"
 grep -Fq 'aggregateTargets:' "$project_file" ||
   fail "gate product must compose archived products rather than recompile the outer app"
@@ -115,11 +115,11 @@ grep -Fq 'target: IdleScreenApp' <<<"$synthetic_app" ||
 grep -Fq 'target: IdleScreenSyntheticHostedGateExtension' <<<"$synthetic_app" ||
   fail "gate aggregate does not archive the isolated hosted-gate extension"
 
-grep -Fq 'path: IdleScreenScreenSaver' <<<"$synthetic_extension" ||
+grep -Fq 'path: Products/IdleScreenScreenSaver' <<<"$synthetic_extension" ||
   fail "hosted-gate extension does not reuse the production saver view/client/core sources"
 grep -Fq 'IdleScreenScreenSaverViewController.swift' <<<"$synthetic_extension" ||
   fail "hosted-gate extension does not explicitly exclude the shipping principal controller"
-grep -Fq 'path: IdleScreenSyntheticHostedGateExtension' <<<"$synthetic_extension" ||
+grep -Fq 'path: Support/IdleScreenSyntheticHostedGateExtension' <<<"$synthetic_extension" ||
   fail "hosted-gate extension has no separate gate-only principal-controller source"
 grep -Fq 'IdleScreenSyntheticHostedGateVersion: "1"' <<<"$synthetic_extension" ||
   fail "hosted-gate extension lacks the unmistakable version-1 marker"
@@ -146,24 +146,24 @@ expected_production_source_excludes="$({
     IdleScreenScreenSaverViewController.swift \
     Info.plist
 } | LC_ALL=C /usr/bin/sort)"
-actual_production_source_excludes="$(source_excludes "$synthetic_extension" IdleScreenScreenSaver | LC_ALL=C /usr/bin/sort)"
+actual_production_source_excludes="$(source_excludes "$synthetic_extension" Products/IdleScreenScreenSaver | LC_ALL=C /usr/bin/sort)"
 [[ "$actual_production_source_excludes" == "$expected_production_source_excludes" ]] ||
   fail "hosted-gate extension must use the exact production-source exclude set"
-[[ "$(source_excludes "$synthetic_extension" IdleScreenSyntheticHostedGateExtension)" == Info.plist ]] ||
+[[ "$(source_excludes "$synthetic_extension" Support/IdleScreenSyntheticHostedGateExtension)" == Info.plist ]] ||
   fail "hosted-gate source path may exclude only its Info.plist"
-grep -Fq 'path: IdleScreenScreenSaver' <<<"$production_extension" ||
+grep -Fq 'path: Products/IdleScreenScreenSaver' <<<"$production_extension" ||
   fail "production extension no longer resolves the canonical saver source directory"
 while IFS= read -r production_source; do
   [[ -n "$production_source" ]] || continue
-  relative_source="${production_source#"$project_root/IdleScreenScreenSaver/"}"
+  relative_source="${production_source#"$project_root/Products/IdleScreenScreenSaver/"}"
   [[ "$relative_source" == IdleScreenScreenSaverViewController.swift ]] && continue
   if grep -Fxq "$relative_source" <<<"$actual_production_source_excludes"; then
     fail "hosted gate excludes resolved production saver/client source: $relative_source"
   fi
-done < <(/usr/bin/find "$project_root/IdleScreenScreenSaver" -type f \
+done < <(/usr/bin/find "$project_root/Products/IdleScreenScreenSaver" -type f \
   \( -name '*.swift' -o -name '*.m' -o -name '*.h' \) | LC_ALL=C /usr/bin/sort)
 
-gate_controller="$project_root/IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateViewController.swift"
+gate_controller="$project_root/Support/IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateViewController.swift"
 [[ -f "$gate_controller" ]] || fail "gate-only hosted principal controller source is missing"
 grep -Fq 'cameraHostContext: .explicitlyVerifiedFullScreen' "$gate_controller" ||
   fail "gate-only hosted controller does not inject explicit full-screen test provenance"
@@ -188,10 +188,10 @@ topology_log_line="$(grep -nF 'Synthetic hosted gate loaded topology-equivalent=
    "$preflight_log_line" -lt "$topology_log_line" ]] ||
   fail "authenticated idle preflight marker must precede the topology marker"
 if grep -Fq 'explicitlyVerifiedFullScreen' \
-  "$project_root/IdleScreenScreenSaver/IdleScreenScreenSaverViewController.swift"; then
+  "$project_root/Products/IdleScreenScreenSaver/IdleScreenScreenSaverViewController.swift"; then
   fail "shipping principal controller gained a hosted-gate capability"
 fi
-saver_view="$project_root/IdleScreenScreenSaver/IdleScreenSaverView.swift"
+saver_view="$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift"
 [[ "$(grep -Fc 'return configuration.source == .camera' "$saver_view")" == 1 ]] ||
   fail "the shipping saver must enable camera demand only from the selected camera source"
 [[ "$(grep -Fc 'syntheticCameraHostContext = cameraHostContext' "$saver_view")" == 1 ]] ||
@@ -207,8 +207,8 @@ if grep -Eq '(AVFoundation|com\.apple\.security\.device\.camera|NSCameraUsageDes
   fail "synthetic helper or hosted-gate extension target carries camera linkage, entitlement, or purpose text"
 fi
 if rg -n '(import AVFoundation|AVCapture|requestAccess\(|NSCameraUsageDescription|com\.apple\.security\.device\.camera)' \
-  "$project_root/IdleScreenSyntheticGate" \
-  "$project_root/IdleScreenSyntheticHostedGateExtension" >/dev/null; then
+  "$project_root/Support/IdleScreenSyntheticGate" \
+  "$project_root/Support/IdleScreenSyntheticHostedGateExtension" >/dev/null; then
   fail "gate-only sources contain a camera API, purpose string, or entitlement"
 fi
 
@@ -241,11 +241,11 @@ for archive_scheme in IdleScreenSyntheticGate IdleScreenCameraSyntheticAgentArch
 done
 
 for shipping_source in \
-  "$project_root/IdleScreenCamera" \
-  "$project_root/IdleScreenCameraAgent" \
-  "$project_root/IdleScreenCameraAgentExecutable" \
-  "$project_root/IdleScreenApp" \
-  "$project_root/IdleScreenScreenSaver"; do
+  "$project_root/Sources/IdleScreenCamera" \
+  "$project_root/Sources/IdleScreenCameraAgent" \
+  "$project_root/Products/IdleScreenCameraAgentExecutable" \
+  "$project_root/Products/IdleScreenApp" \
+  "$project_root/Products/IdleScreenScreenSaver"; do
   if rg -n 'IdleScreenSyntheticGateVersion|SyntheticGateVersion|SyntheticHostedGate|SyntheticCamera' \
     "$shipping_source" >/dev/null; then
     fail "shipping source contains a synthetic marker, type, or switch: $shipping_source"

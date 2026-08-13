@@ -13,7 +13,7 @@ trap cleanup EXIT
 
 xcrun swiftc \
   -parse-as-library \
-  "$project_root/IdleScreenApp/IdleScreenLaunchPolicy.swift" \
+  "$project_root/Products/IdleScreenApp/IdleScreenLaunchPolicy.swift" \
   "$project_root/scripts/IdleScreenLaunchPolicyProbe.swift" \
   -o "$fixture_root/launch-policy-probe"
 

@@ -185,26 +185,26 @@ mock_codesign_main() {
         [[ $# -eq 9 && "$1" == --force && "$2" == --sign &&
            "$3" == "$IDLESCREEN_DEVELOPER_IDENTITY_SHA1" && "$4" == --timestamp &&
            "$5" == --options && "$6" == runtime && "$7" == --entitlements &&
-           "$8" == "$IDLESCREEN_FIXTURE_PROJECT_ROOT/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements" ]] || return 1
+           "$8" == "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Products/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements" ]] || return 1
         ;;
       helper)
         [[ $# -eq 9 && "$1" == --force && "$2" == --sign &&
            "$3" == "$IDLESCREEN_DEVELOPER_IDENTITY_SHA1" && "$4" == --timestamp &&
            "$5" == --options && "$6" == runtime && "$7" == --entitlements &&
-           "$8" == "$IDLESCREEN_FIXTURE_PROJECT_ROOT/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements" ]] || return 1
+           "$8" == "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Sources/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements" ]] || return 1
         ;;
       control-tool)
         [[ $# -eq 11 && "$1" == --force && "$2" == --sign &&
            "$3" == "$IDLESCREEN_DEVELOPER_IDENTITY_SHA1" && "$4" == --timestamp &&
            "$5" == --options && "$6" == runtime && "$7" == --identifier &&
            "$8" == com.idlescreen.ctl && "$9" == --entitlements &&
-           "${10}" == "$IDLESCREEN_FIXTURE_PROJECT_ROOT/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements" ]] || return 1
+           "${10}" == "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Products/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements" ]] || return 1
         ;;
       app)
         [[ $# -eq 9 && "$1" == --force && "$2" == --sign &&
            "$3" == "$IDLESCREEN_DEVELOPER_IDENTITY_SHA1" && "$4" == --timestamp &&
            "$5" == --options && "$6" == runtime && "$7" == --entitlements &&
-           "$8" == "$IDLESCREEN_FIXTURE_PROJECT_ROOT/IdleScreenApp/IdleScreenDeveloperID.entitlements" ]] || return 1
+           "$8" == "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Products/IdleScreenApp/IdleScreenDeveloperID.entitlements" ]] || return 1
         ;;
       dmg)
         [[ $# -eq 7 && "$1" == --force && "$2" == --sign &&
@@ -233,10 +233,10 @@ mock_codesign_main() {
       /bin/cat "$IDLESCREEN_FIXTURE_BAD_ENTITLEMENTS"
     else
       case "$product_name" in
-        app) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/IdleScreenApp/IdleScreenDeveloperID.entitlements" ;;
-        extension) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements" ;;
-        helper) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements" ;;
-        control-tool) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements" ;;
+        app) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Products/IdleScreenApp/IdleScreenDeveloperID.entitlements" ;;
+        extension) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Products/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements" ;;
+        helper) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Sources/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements" ;;
+        control-tool) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Products/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements" ;;
         *) return 1 ;;
       esac
     fi
@@ -477,7 +477,7 @@ make_profile "$profile_root/extension.provisionprofile" com.idlescreen.app.scree
 make_profile "$profile_root/helper.provisionprofile" com.idlescreen.camera-agent
 
 bad_entitlements="$fixture_root/get-task-allow.entitlements"
-/bin/cp "$project_root/IdleScreenApp/IdleScreenDeveloperID.entitlements" "$bad_entitlements" 2>/dev/null ||
+/bin/cp "$project_root/Products/IdleScreenApp/IdleScreenDeveloperID.entitlements" "$bad_entitlements" 2>/dev/null ||
   /usr/bin/plutil -create xml1 "$bad_entitlements"
 /usr/libexec/PlistBuddy -c 'Add :com.apple.security.get-task-allow bool true' "$bad_entitlements"
 

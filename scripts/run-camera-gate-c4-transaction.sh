@@ -142,7 +142,7 @@ extension_relative="Contents/PlugIns/IdleScreenScreenSaver.appex"
 extension_executable_relative="$extension_relative/Contents/MacOS/IdleScreenScreenSaver"
 selection_probe="$durable_evidence/ScreenSaverSelectionProbe"
 xcrun swiftc \
-  "$project_root/IdleScreenSystem/ScreenSaverSelection.swift" \
+  "$project_root/Sources/IdleScreenSystem/ScreenSaverSelection.swift" \
   "$project_root/scripts/ScreenSaverSelectionProbe.swift" \
   -o "$selection_probe" >"$durable_evidence/selection-probe-build.log" 2>&1 ||
   fail "could not compile the real ScreenSaver selection probe"

@@ -272,13 +272,13 @@ validate_developer_id_app() {
     fail "Developer ID certificate does not match the recorded candidate signer"
 
   validate_exact_entitlements "$app_path" app \
-    "$project_root/IdleScreenApp/IdleScreenDeveloperID.entitlements"
+    "$project_root/Products/IdleScreenApp/IdleScreenDeveloperID.entitlements"
   validate_exact_entitlements "$extension_path" extension \
-    "$project_root/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements"
+    "$project_root/Products/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements"
   validate_exact_entitlements "$helper_path" helper \
-    "$project_root/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements"
+    "$project_root/Sources/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements"
   validate_exact_entitlements "$control_tool" control-tool \
-    "$project_root/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements"
+    "$project_root/Products/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements"
 
   validate_distribution_profile \
     "$app_path/Contents/embedded.provisionprofile" app com.idlescreen.app "$reference_certificate"

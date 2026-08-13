@@ -4,6 +4,15 @@ idlescreen ships one companion app with an embedded screen-saver extension,
 camera agent, renderer framework, and local command tool. The active project is
 generated from `project.yml`.
 
+## Repository layout
+
+- `Products/` contains the app, screen saver, helper, and command-line entry
+  points that ship inside `IdleScreen.app`.
+- `Sources/` contains shared production frameworks and modules.
+- `Tests/` contains unit-test targets and test-only support executables.
+- `Support/` contains performance and synthetic-gate executables that do not
+  ship in the distributed application.
+
 ## Product boundary
 
 ```text
@@ -80,5 +89,5 @@ priority, and display-destination rules.
   provisioning profile, code directory hash, and the mounted DMG contents.
 
 The active private screen-saver declarations are isolated under
-`IdleScreenScreenSaver/Private`. Their upstream attribution is recorded in
-`THIRD_PARTY_NOTICES.md`.
+`Products/IdleScreenScreenSaver/Private`. Their upstream attribution is recorded
+in `THIRD_PARTY_NOTICES.md`.

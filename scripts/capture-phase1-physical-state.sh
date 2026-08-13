@@ -237,7 +237,7 @@ write_helper_launchd_observation() {
 write_camera_helper_processes() {
   printf 'pid\tppid\tuid\texecutable\n'
   /bin/ps -ww -axo pid=,ppid=,uid=,comm= |
-    /usr/bin/awk '/IdleScreenCameraAgent/ {
+    /usr/bin/awk 'index($0, "IdleScreenCameraAgent") {
       printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4
     }'
 }
@@ -358,7 +358,7 @@ record_command power-assertions.txt /usr/bin/pmset -g assertions
 record_command power-history.txt write_power_history
 
 xcrun swiftc \
-  "$project_root/IdleScreenSystem/ScreenSaverSelection.swift" \
+  "$project_root/Sources/IdleScreenSystem/ScreenSaverSelection.swift" \
   "$project_root/scripts/ScreenSaverSelectionProbe.swift" \
   -o "$selection_probe"
 record_command selection.txt "$selection_probe" "$extension_id"
