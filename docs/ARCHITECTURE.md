@@ -78,7 +78,8 @@ priority, and display-destination rules.
 
 ## Security invariants
 
-- Release clients carry no camera entitlement.
+- The responsible companion and camera agent carry the camera entitlement, but
+  only the camera agent links AVFoundation or invokes camera APIs.
 - The camera agent admits only expected Team ID and bundle identities.
 - Release builds reject `get-task-allow` and require hardened runtime.
 - App Group files are validated without following attacker-controlled symlinks.

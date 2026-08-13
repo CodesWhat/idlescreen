@@ -197,6 +197,7 @@ write_app_entitlements() {
 
   /usr/bin/plutil -create xml1 "$plist"
   add_identity_entitlements "$plist" com.idlescreen.app
+  /usr/libexec/PlistBuddy -c 'Add :com.apple.security.device.camera bool true' "$plist"
 }
 
 write_extension_entitlements() {
@@ -497,11 +498,11 @@ missing_camera_entitlement="$scratch_root/missing-camera-entitlement/IdleScreen.
   "$missing_camera_entitlement/Products/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/fixture-entitlements.plist"
 expect_fail 'helper missing camera entitlement' "$missing_camera_entitlement" 'helper signed entitlements are not the exact Release entitlement set'
 
-app_camera_entitlement="$scratch_root/app-camera-entitlement/IdleScreen.xcarchive"
-/usr/bin/ditto "$base_archive" "$app_camera_entitlement"
-/usr/libexec/PlistBuddy -c 'Add :com.apple.security.device.camera bool true' \
-  "$app_camera_entitlement/Products/Applications/IdleScreen.app/Contents/fixture-entitlements.plist"
-expect_fail 'camera entitlement outside helper' "$app_camera_entitlement" 'app signed entitlements are not the exact Release entitlement set'
+missing_app_camera_entitlement="$scratch_root/missing-app-camera-entitlement/IdleScreen.xcarchive"
+/usr/bin/ditto "$base_archive" "$missing_app_camera_entitlement"
+/usr/libexec/PlistBuddy -c 'Delete :com.apple.security.device.camera' \
+  "$missing_app_camera_entitlement/Products/Applications/IdleScreen.app/Contents/fixture-entitlements.plist"
+expect_fail 'responsible app missing camera entitlement' "$missing_app_camera_entitlement" 'app signed entitlements are not the exact Release entitlement set'
 
 control_tool_group_drift="$scratch_root/control-tool-group-drift/IdleScreen.xcarchive"
 /usr/bin/ditto "$base_archive" "$control_tool_group_drift"

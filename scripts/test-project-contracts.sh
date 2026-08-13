@@ -502,9 +502,11 @@ fi
 
 for companion_entitlements in \
   "$project_root/Products/IdleScreenApp/IdleScreenApp.entitlements" \
-  "$project_root/Products/IdleScreenApp/IdleScreenApp-Debug.entitlements"; do
-  if /usr/libexec/PlistBuddy -c 'Print :com.apple.security.device.camera' "$companion_entitlements" >/dev/null 2>&1; then
-    echo "FAIL: IdleScreenApp must never carry the camera entitlement." >&2
+  "$project_root/Products/IdleScreenApp/IdleScreenApp-Debug.entitlements" \
+  "$project_root/Products/IdleScreenApp/IdleScreenC3Archive.entitlements" \
+  "$project_root/Products/IdleScreenApp/IdleScreenDeveloperID.entitlements"; do
+  if [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.device.camera' "$companion_entitlements" 2>/dev/null || true)" != true ]]; then
+    echo "FAIL: the responsible IdleScreenApp must carry the camera entitlement so TCC can authorize its embedded agent." >&2
     exit 1
   fi
 done
@@ -518,7 +520,7 @@ if [[ -z "$companion_camera_purpose" ]] ||
   exit 1
 fi
 
-echo "PASS: companion camera tuples and responsible-code purpose text are exact; only the agent owns camera entitlement."
+echo "PASS: companion camera tuples, responsible-code entitlement, and purpose text are exact; only the agent owns camera APIs."
 
 companion_camera_lifecycle="$project_root/Products/IdleScreenApp/IdleScreenCompanionCameraClient.swift"
 companion_app_delegate="$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift"
