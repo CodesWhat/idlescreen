@@ -123,6 +123,10 @@ trap '/bin/rm -f "${temporary_output:?}"' EXIT
   echo '  desc "Metal-rendered ASCII art screen saver"'
   echo '  homepage "https://github.com/CodesWhat/idlescreen"'
   echo
+  echo '  livecheck do'
+  echo '    skip "Auto-generated on release."'
+  echo '  end'
+  echo
   echo '  depends_on macos: :tahoe'
   echo
   echo '  app "IdleScreen.app", target: "idlescreen.app"'
