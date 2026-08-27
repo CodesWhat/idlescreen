@@ -10,7 +10,9 @@ useful after it ships.
 
 ## v0.1.2 patch release
 
-Status: included in v0.1.2.
+Status: implementation and reviewed development merge complete. Publication is
+blocked before artifact creation until Apple notarization authentication is
+renewed.
 
 - Enforce the generated fail-closed saver camera activation policy.
 - Move procedural glyph generation from the main actor to bounded Metal
