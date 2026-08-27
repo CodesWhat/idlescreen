@@ -1,122 +1,148 @@
 <p align="center">
-  <img src="docs/assets/idlescreen-logo.png" width="200" height="200" alt="idlescreen logo">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/idlescreen-logo.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/idlescreen-logo.png">
+    <img src="docs/assets/idlescreen-logo.png" width="200" height="200" alt="idlescreen CRT logo">
+  </picture>
 </p>
 
 <h1 align="center">idlescreen</h1>
 
+<p align="center"><strong>Turn procedural scenes or a live camera into a Metal-rendered field of animated characters.</strong></p>
+
 <p align="center">
-  ASCII art screen saver for macOS, rendered in Metal and built for modern screen-saver extensions.
+  <a href="https://github.com/CodesWhat/idlescreen/releases/latest"><strong>Download for Mac</strong></a>
+  · <a href="docs/BUILDING.md">Documentation</a>
+  · <a href="https://github.com/CodesWhat/idlescreen">GitHub</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/CodesWhat/idlescreen/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/CodesWhat/idlescreen/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="macOS 26+" src="https://img.shields.io/badge/macOS-26%2B-111111?logo=apple">
-  <img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white">
-  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <a href="https://github.com/CodesWhat/idlescreen/releases/latest"><img src="https://img.shields.io/github/v/release/CodesWhat/idlescreen" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/macOS-26%2B-111111?logo=apple" alt="macOS 26 or newer">
+  <img src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white" alt="Swift 6">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/CodesWhat/idlescreen" alt="License"></a>
+  <br>
+  <a href="https://github.com/CodesWhat/idlescreen/actions/workflows/ci-verify.yml"><img src="https://github.com/CodesWhat/idlescreen/actions/workflows/ci-verify.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://securityscorecards.dev/viewer/?uri=github.com/CodesWhat/idlescreen"><img src="https://api.scorecard.dev/projects/github.com/CodesWhat/idlescreen/badge" alt="OpenSSF Scorecard"></a>
+  <a href="https://codecov.io/gh/CodesWhat/idlescreen"><img src="https://codecov.io/gh/CodesWhat/idlescreen/graph/badge.svg" alt="Coverage"></a>
+  <br>
+  <a href="https://github.com/CodesWhat/idlescreen/releases"><img src="https://img.shields.io/github/downloads/CodesWhat/idlescreen/total?logo=github&logoColor=white&label=downloads" alt="Release downloads"></a>
+  <a href="https://github.com/sponsors/scttbnsn"><img src="https://img.shields.io/github/sponsors/scttbnsn?logo=githubsponsors&label=sponsor" alt="Sponsor CodesWhat"></a>
 </p>
 
-idlescreen turns generative scenes or a live camera feed into a field of animated
-characters. The companion app controls the look. The embedded screen-saver
-extension renders it. A separately signed camera agent owns camera access so
-capture has one explicit, inspectable lifecycle.
+idlescreen is a signed and notarized macOS Tahoe screen saver with a native
+companion Studio. The companion controls the look, the embedded extension
+renders it, and a separately signed camera agent owns the complete camera
+lifecycle.
 
-## Highlights
+## Contents
 
-- 19 Metal-rendered procedural patterns, including rain, plasma, terrain,
-  aurora, starfields, and Pixel Materials sand and water simulations
-- Live camera-to-glyph rendering with camera selection, mirroring, and
-  automatic recovery after a device disconnect
-- Panorama, Per Display, and Focus Display layouts for coordinated multi-screen
-  scenes
-- Saved Looks and a native Studio for color, scale, contrast, motion, and
-  material controls
-- Optional, expiring Codex and Claude status overlays with no prompt or
-  transcript ingestion
-- Universal Apple silicon and Intel build, signed and notarized for macOS Tahoe
+- [Quick Start](#quick-start)
+- [Recent Updates](#recent-updates)
+- [Screenshot](#screenshot)
+- [Why idlescreen](#why-idlescreen)
+- [Features](#features)
+- [Supported Integrations](#supported-integrations)
+- [Roadmap](#roadmap)
+- [Built With](#built-with)
+- [Community and Support](#community-and-support)
 
-## Install
+## Quick Start
 
-Install the signed and notarized app from the official CodesWhat tap:
+Install the official Homebrew cask:
 
 ```sh
 brew install --cask codeswhat/tap/idlescreen
 ```
 
-Upgrade it later with `brew upgrade --cask idlescreen`, or remove it with
+Open idlescreen once, then select it in System Settings under Wallpaper and
+Screen Saver. Camera access is requested only when you explicitly choose a
+camera effect. Gatekeeper and System Integrity Protection stay enabled.
+
+Upgrade with `brew upgrade --cask idlescreen` or remove it with
 `brew uninstall --cask idlescreen`.
 
-idlescreen requires macOS 26 Tahoe or later. It does not require Gatekeeper or
-System Integrity Protection to be disabled.
+## Recent Updates
 
-## Privacy
+Version 0.1.2 moves procedural glyph generation to a bounded Metal
+compute path, prevents unverified saver surfaces from starting the camera,
+avoids duplicate frame payload copies, and strengthens camera-pump and
+ScreenSaverEngine recovery coverage. See the [changelog](CHANGELOG.md) for the
+complete release notes.
 
-Camera access is requested only from an explicit action in the companion app.
-The camera agent publishes the latest frame through a bounded local App Group
-mailbox. Frames are not sent over the network, written to logs, or retained as
-test evidence. Capture stops after the final valid consumer lease ends.
+## Screenshot
 
-Codex and Claude integrations are off by default. If enabled, their hooks send
-only short lifecycle state through the bundled `idlescreenctl` command. Prompt,
-transcript, tool input, tool output, command, assistant-response, credential,
-and error content are not imported.
+<p align="center">
+  <img src="docs/assets/idlescreen-saver.svg" width="720" alt="idlescreen procedural glyph scene">
+</p>
 
-## How it fits together
+## Why idlescreen
 
-```text
-idlescreen.app
-├── companion Studio
-├── IdleScreenScreenSaver.appex
-├── Contents/Helpers/IdleScreenCameraAgent.app
-└── Contents/Helpers/idlescreenctl
+Traditional screen savers often split preview, full-screen rendering, and
+camera capture into unrelated paths. idlescreen uses one renderer and one
+versioned configuration across the companion and saver. Camera capture belongs
+to one authenticated helper with bounded leases and a fixed-size local mailbox,
+so ownership and teardown remain inspectable.
 
-companion / screen saver ── shared configuration ── shared Metal renderer
-             │
-             └── signed XPC leases ── camera agent ── AVFoundation
-                                      │
-                                      └── bounded App Group frame mailbox
-```
+## Features
 
-The app and screen saver use the same renderer, configuration schema, display
-planner, and frame transport. See [Architecture](docs/ARCHITECTURE.md) for the
-module boundaries and security model.
+- 19 Metal-rendered modes, including 18 procedural patterns and live camera
+- Pixel Materials sand and water simulations with deterministic scene state
+- Panorama, Per Display, and Focus Display multi-screen layouts
+- Saved Looks and native controls for color, scale, contrast, motion, terrain,
+  materials, camera choice, and mirroring
+- Automatic camera fallback and recovery after permission or device changes
+- Optional expiring Codex and Claude status overlays with no prompt,
+  transcript, command, or response ingestion
+- Universal Apple silicon and Intel build for macOS 26 Tahoe or newer
 
-## Build from source
+Camera frames stay inside the local App Group mailbox. They are not sent over
+the network, written to logs, or retained as test evidence. Capture stops after
+the last valid consumer lease ends.
 
-Requirements:
+## Supported Integrations
 
-- macOS 26 or later
-- Xcode 26
-- [XcodeGen 2.46.0](https://github.com/yonaskolb/XcodeGen)
+| Integration | Behavior |
+| --- | --- |
+| Homebrew | Signed and notarized cask from `codeswhat/tap` |
+| Codex | Optional local lifecycle status through bundled `idlescreenctl` |
+| Claude | Optional local lifecycle status through bundled `idlescreenctl` |
+| macOS ScreenSaverEngine | Embedded modern screen-saver extension |
 
-```sh
-brew install xcodegen
-xcodegen generate
-open IdleScreen.xcodeproj
-```
+## Roadmap
 
-Run the deterministic source gates with:
+The public [project roadmap](docs/ROADMAP.md) tracks shipped work, the current
+release, and remaining compatibility coverage. Detailed local evidence stays in
+the ignored `.planning/` tree and is never published.
 
-```sh
-./scripts/test-repository-layout.sh
-./scripts/test-project-contracts.sh
-./scripts/test-companion-compile-gate.sh
-```
+## Built With
 
-These commands do not install the app, register a screen saver, request camera
-permission, or change System Settings. Physical lifecycle and distribution
-workflows require explicit opt-ins. The companion compile gate prints the
-temporary directory containing its disposable build log. See
-[Building](docs/BUILDING.md).
+- Swift 6, SwiftUI, and AppKit
+- Metal and Metal compute shaders
+- ScreenSaver, ServiceManagement, AVFoundation, and XPC
+- XcodeGen 2.46.0
 
-## Contributing
+The [architecture guide](docs/ARCHITECTURE.md) describes product boundaries,
+camera leases, shared state, display planning, and release security.
 
-Bug reports and focused pull requests are welcome. Read
-[CONTRIBUTING.md](CONTRIBUTING.md) before changing product topology, signing,
-camera lifecycle, or release tooling. Report vulnerabilities through the
-[private security advisory form](https://github.com/CodesWhat/idlescreen/security/advisories/new),
-not a public issue.
+## Community and Support
 
-## License
+Use [GitHub Issues](https://github.com/CodesWhat/idlescreen/issues) for durable
+bug reports and concrete feature requests, [GitHub Discussions](https://github.com/CodesWhat/idlescreen/discussions)
+for open-ended questions and ideas, and the [CodesWhat Discord](https://discord.gg/mWHCPJRzSx)
+for chat. Report vulnerabilities privately through the
+[security policy](SECURITY.md), never through a public issue.
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before
+changing product topology, camera lifecycle, signing, or release tooling.
+
+## CodesWhat Ecosystem
+
+- [drydock](https://github.com/CodesWhat/drydock) manages containerized app
+  updates.
+- [sockguard](https://github.com/CodesWhat/sockguard) protects Docker sockets.
+- [portwing](https://github.com/CodesWhat/portwing) exposes local services
+  through secure tunnels.
 
 idlescreen is available under the [MIT License](LICENSE). Third-party notices
 are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

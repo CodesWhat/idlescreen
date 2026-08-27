@@ -53,7 +53,8 @@ struct CameraFrameSourceTests {
             let mapping = ScriptedFrameSourceMapping([
                 .frame(repeated, [9, 8, 7, 6]),
                 .frame(repeated, [9, 8, 7, 6]),
-                .frame(repeated, [9, 8, 7, 6])
+                .frame(repeated, [9, 8, 7, 6]),
+                .frame(descriptor(epoch: 3, sequence: 5), [6, 7, 8, 9]),
             ])
             let source = try CameraFrameSource(
                 appGroupContainerURL: containerURL,
@@ -72,9 +73,21 @@ struct CameraFrameSourceTests {
             #expect(source.withFrame { _, _ in deliveryCount += 1 }.unavailableReason
                 == .staleFrame(epoch: 3, sequence: 4))
             #expect(deliveryCount == 1)
+            #expect(mapping.pixelReadCount == 1)
             #expect(source.availability == .unavailable(
                 .staleFrame(epoch: 3, sequence: 4)
             ))
+
+            clock.now = 101.1
+            guard case let .frame(frame, pixels) = source.withFrame({ _, pixels in
+                Array(pixels)
+            }) else {
+                Issue.record("Expected a fresh sequence after the duplicate")
+                return
+            }
+            #expect(frame.sequence == 5)
+            #expect(pixels == [6, 7, 8, 9])
+            #expect(mapping.pixelReadCount == 2)
         }
     }
 
@@ -99,6 +112,7 @@ struct CameraFrameSourceTests {
             _ = outOfOrder.withFrame { _, _ in () }
             #expect(outOfOrder.withFrame { _, _ in () }.unavailableReason
                 == .outOfOrderSequence(last: 2, candidate: 1))
+            #expect(outOfOrderMapping.pixelReadCount == 1)
             outOfOrderClock.now = 20
             #expect(outOfOrder.withFrame { _, _ in () }.unavailableReason
                 == .outOfOrderSequence(last: 2, candidate: 1))
@@ -118,6 +132,10 @@ struct CameraFrameSourceTests {
             wrongEpoch.receive(available(epoch: 5))
             #expect(wrongEpoch.withFrame { _, _ in () }.unavailableReason
                 == .wrongProducerEpoch(expected: 5, actual: 6))
+            #expect(
+                (wrongEpochFactory.lastCreatedMapping as? ScriptedFrameSourceMapping)?
+                    .pixelReadCount == 0
+            )
             wrongEpochClock.now = 20
             #expect(wrongEpoch.withFrame { _, _ in () }.unavailableReason
                 == .wrongProducerEpoch(expected: 5, actual: 6))
@@ -530,6 +548,7 @@ private final class ScriptedFrameSourceMapping:
     var beforeSnapshot: (() -> Void)?
     private(set) var callbackIsActive = false
     private(set) var readCount = 0
+    private(set) var pixelReadCount = 0
 
     init(_ snapshots: [ScriptedFrameSourceSnapshot]) {
         self.snapshots = snapshots
@@ -541,16 +560,43 @@ private final class ScriptedFrameSourceMapping:
             UnsafeRawBufferPointer
         ) throws -> Result
     ) throws -> Result? {
+        let read = try withStableSnapshot(
+            copyingPixelsWhen: { _ in true },
+            body
+        )
+        switch read {
+        case nil:
+            return nil
+        case let .frame(result):
+            return result
+        case .descriptor:
+            preconditionFailure("An unconditional test snapshot omitted its payload")
+        }
+    }
+
+    func withStableSnapshot<Result>(
+        copyingPixelsWhen shouldCopyPixels: (
+            IdleScreenCameraFrameDescriptor
+        ) throws -> Bool,
+        _ body: (
+            IdleScreenCameraFrameDescriptor,
+            UnsafeRawBufferPointer
+        ) throws -> Result
+    ) throws -> CameraFrameSourceMappingRead<Result>? {
         readCount += 1
         beforeSnapshot?()
         beforeSnapshot = nil
         guard !snapshots.isEmpty else { return nil }
         switch snapshots.removeFirst() {
         case let .frame(descriptor, pixels):
+            guard try shouldCopyPixels(descriptor) else {
+                return .descriptor(descriptor)
+            }
+            pixelReadCount += 1
             return try pixels.withUnsafeBytes { bytes in
                 callbackIsActive = true
                 defer { callbackIsActive = false }
-                return try body(descriptor, bytes)
+                return .frame(try body(descriptor, bytes))
             }
         case .unstable:
             return nil
@@ -567,6 +613,7 @@ private final class ScriptedFrameSourceMappingFactory:
     private var mappings: [any CameraFrameSourceMapping]
     private let errorOnMake: Bool
     private(set) var requestedURLs: [URL] = []
+    private(set) var lastCreatedMapping: (any CameraFrameSourceMapping)?
 
     init(
         mappings: [any CameraFrameSourceMapping] = [],
@@ -581,7 +628,9 @@ private final class ScriptedFrameSourceMappingFactory:
         guard !errorOnMake, !mappings.isEmpty else {
             throw ScriptedFrameSourceError.failed
         }
-        return mappings.removeFirst()
+        let mapping = mappings.removeFirst()
+        lastCreatedMapping = mapping
+        return mapping
     }
 }
 

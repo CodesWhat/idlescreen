@@ -1,5 +1,5 @@
 import AppKit
-import IdleScreenCamera
+@testable import IdleScreenCamera
 import IdleScreenCore
 import IdleScreenDisplay
 import Testing
@@ -57,6 +57,50 @@ struct IdleScreenSaverGlobalHostActivityTests {
                 "global activity \(activity.rawValue) must remain diagnostic-only"
             )
         }
+    }
+
+    @Test("the checked-in shipping decision rejects every hosted observation")
+    func checkedInShippingDecisionFailsClosed() {
+        for activity in IdleScreenSaverGlobalHostActivity.allCases {
+            #expect(
+                !IdleScreenSaverShippingCameraDemand.permitsCamera(
+                    source: .camera,
+                    hostActivity: activity,
+                    isPreviewHint: false
+                ),
+                "generated fail-closed decision accepted \(activity.rawValue)"
+            )
+        }
+    }
+
+    @Test("a verified foreground policy maps only the trustworthy observation")
+    func verifiedForegroundDecisionUsesHostObservation() {
+        let digest = String(repeating: "a", count: 64)
+        let decision = IdleScreenSaverActivationDecisionInput(
+            policy: .trustworthyActivationCapability,
+            c6DecisionSHA256: digest,
+            c6EvidenceSetSHA256: digest,
+            generatedFromVerifiedC6Decision: true
+        )
+
+        for activity in IdleScreenSaverGlobalHostActivity.allCases {
+            #expect(
+                IdleScreenSaverShippingCameraDemand.permitsCamera(
+                    source: .camera,
+                    hostActivity: activity,
+                    isPreviewHint: false,
+                    decision: decision
+                ) == (activity == .runningForeground)
+            )
+        }
+        #expect(
+            !IdleScreenSaverShippingCameraDemand.permitsCamera(
+                source: .camera,
+                hostActivity: .runningForeground,
+                isPreviewHint: true,
+                decision: decision
+            )
+        )
     }
 }
 
@@ -594,6 +638,100 @@ private enum SaverDisplayFixtures {
     }
 }
 
+@Suite("Runtime-backed saver camera frame pump", .serialized)
+struct IdleScreenSaverCameraFramePumpTests {
+    @Test("shared samples survive transient gaps and clear on lease loss")
+    func cameraFramePumpLeaseLossAndTransientGap() throws {
+        try withSaverPumpRuntime { harness in
+            let initialMapping = SaverPumpFrameMapping(
+                streamEpoch: 73,
+                sequence: 1
+            )
+            harness.mappingFactory.enqueue(initialMapping)
+            let runtime = try #require(harness.makeRuntime())
+            let presentationClock = harness.presentationClock
+            let pump = IdleScreenSaverCameraFramePump(
+                runtime: runtime,
+                monotonicClock: { presentationClock.now },
+                automaticallyPolls: false
+            )
+
+            #expect(pump.attach(consumerIdentifier: "display-one"))
+            #expect(pump.attach(consumerIdentifier: "display-two"))
+            pump.synchronize()
+            #expect(runtime.activeConsumerCount == 2)
+
+            runtime.frameSource.receive(.available(.init(
+                producerStreamEpoch: 73,
+                transportIdentifier: "camera-frames-v1.mailbox"
+            )))
+            pump.pollOnce()
+            let firstDisplay = pump.latestSample()
+            let secondDisplay = pump.latestSample()
+            #expect(firstDisplay == secondDisplay)
+            #expect(firstDisplay.sequence == 1)
+
+            initialMapping.failReads = true
+            harness.frameClock.now = 0.01
+            harness.presentationClock.now = 0.01
+            pump.pollOnce()
+            #expect(pump.latestSample().sequence == 1)
+
+            let recoveredMapping = SaverPumpFrameMapping(
+                streamEpoch: 73,
+                sequence: 2
+            )
+            harness.mappingFactory.enqueue(recoveredMapping)
+            harness.frameClock.now = 0.11
+            harness.presentationClock.now = 0.11
+            pump.pollOnce()
+            #expect(pump.latestSample().sequence == 2)
+
+            #expect(pump.detach(consumerIdentifier: "display-one"))
+            pump.synchronize()
+            #expect(runtime.activeConsumerCount == 1)
+            #expect(pump.latestSample().sequence == 2)
+
+            recoveredMapping.failReads = true
+            harness.frameClock.now = 0.12
+            harness.presentationClock.now = 0.12
+            pump.pollOnce()
+            #expect(pump.latestSample().sequence == 2)
+
+            harness.frameClock.now = 0.13
+            harness.presentationClock.now = 0.38
+            pump.pollOnce()
+            #expect(pump.latestSample() == .unavailable)
+
+            let restoredMapping = SaverPumpFrameMapping(
+                streamEpoch: 74,
+                sequence: 1
+            )
+            harness.mappingFactory.enqueue(restoredMapping)
+            harness.frameClock.now = 0.4
+            harness.presentationClock.now = 0.4
+            runtime.frameSource.receive(.available(.init(
+                producerStreamEpoch: 74,
+                transportIdentifier: "camera-frames-v1.mailbox"
+            )))
+            #expect(runtime.frameSource.availability == .waitingForFrame(epoch: 74))
+            pump.pollOnce()
+            #expect(runtime.frameSource.availability == .available(epoch: 74, sequence: 1))
+            #expect(pump.latestSample().sequence == 1)
+
+            harness.presentationClock.now = 0.41
+            runtime.frameSource.receive(.unavailable)
+            pump.pollOnce()
+            #expect(pump.latestSample() == .unavailable)
+
+            #expect(pump.detach(consumerIdentifier: "display-two"))
+            pump.synchronize()
+            #expect(runtime.activeConsumerCount == 0)
+            #expect(pump.latestSample() == .noNewFrame)
+        }
+    }
+}
+
 @Suite("Bounded BGRA camera glyph sampler")
 struct IdleScreenCameraGlyphSamplerTests {
     @Test("sampling is stride aware, deterministic, and bounded")
@@ -719,5 +857,247 @@ private final class CameraClientRecorder {
                 return sampleReads.removeFirst()
             }
         )
+    }
+}
+
+private extension IdleScreenSaverCameraSampleRead {
+    var sequence: UInt64? {
+        guard case let .frame(sample) = self else { return nil }
+        return sample.sequence
+    }
+}
+
+private func withSaverPumpRuntime<Result>(
+    _ body: (SaverPumpRuntimeHarness) throws -> Result
+) throws -> Result {
+    let containerURL = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "idlescreen-saver-pump-tests-\(UUID().uuidString)",
+        isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+        at: containerURL,
+        withIntermediateDirectories: false
+    )
+    defer { try? FileManager.default.removeItem(at: containerURL) }
+    return try body(SaverPumpRuntimeHarness(containerURL: containerURL))
+}
+
+private final class SaverPumpRuntimeHarness {
+    let containerURL: URL
+    let scheduler = SaverPumpLeaseScheduler()
+    let remote = SaverPumpCameraRemote()
+    let mappingFactory = SaverPumpMappingFactory()
+    let frameClock = SaverPumpClock()
+    let presentationClock = SaverPumpClock()
+    private lazy var connections = SaverPumpConnectionFactory(remote: remote)
+
+    init(containerURL: URL) {
+        self.containerURL = containerURL
+    }
+
+    func makeRuntime() -> CameraClientRuntime? {
+        guard let configuration = CameraClientRuntimeConfiguration(
+            appGroupIdentifier: CameraClientRuntimeConfiguration.releaseAppGroupIdentifier,
+            machServiceName: CameraAgentXPCClientConfiguration.releaseMachServiceName,
+            expectedTeamIdentifier: CameraClientRuntimeConfiguration.productionTeamIdentifier
+        ) else {
+            return nil
+        }
+        return CameraClientRuntime(
+            configuration: configuration,
+            appGroupContainerURL: containerURL,
+            scheduler: scheduler,
+            connectionFactory: connections.makeConnection,
+            frameSourceClock: frameClock,
+            mappingFactory: mappingFactory
+        )
+    }
+}
+
+private final class SaverPumpClock: CameraFrameSourceClock, @unchecked Sendable {
+    var now: TimeInterval = 0
+}
+
+private final class SaverPumpMappingFactory:
+    CameraFrameSourceMappingFactory,
+    @unchecked Sendable
+{
+    private var mappings: [any CameraFrameSourceMapping] = []
+
+    func enqueue(_ mapping: any CameraFrameSourceMapping) {
+        mappings.append(mapping)
+    }
+
+    func makeMapping(contentsOf url: URL) throws -> any CameraFrameSourceMapping {
+        _ = url
+        return mappings.removeFirst()
+    }
+}
+
+private final class SaverPumpFrameMapping:
+    CameraFrameSourceMapping,
+    @unchecked Sendable
+{
+    private enum MappingError: Error {
+        case unavailable
+    }
+
+    let streamEpoch: UInt64
+    let sequence: UInt64
+    var failReads: Bool
+
+    init(streamEpoch: UInt64, sequence: UInt64, failReads: Bool = false) {
+        self.streamEpoch = streamEpoch
+        self.sequence = sequence
+        self.failReads = failReads
+    }
+
+    func withStableSnapshot<Result>(
+        _ body: (
+            IdleScreenCameraFrameDescriptor,
+            UnsafeRawBufferPointer
+        ) throws -> Result
+    ) throws -> Result? {
+        guard !failReads else { throw MappingError.unavailable }
+        let descriptor = IdleScreenCameraFrameDescriptor(
+            protocolVersion: IdleScreenCameraFrameDescriptor.currentProtocolVersion,
+            streamEpoch: streamEpoch,
+            sequence: sequence,
+            timestamp: TimeInterval(sequence),
+            width: 1,
+            height: 1,
+            bytesPerRow: 4,
+            pixelFormat: .bgra8Unorm,
+            slotIndex: 0,
+            slotCount: 3
+        )
+        return try [UInt8(7), 3, 0, 255].withUnsafeBytes { pixels in
+            try body(descriptor, pixels)
+        }
+    }
+}
+
+private final class SaverPumpConnectionFactory: @unchecked Sendable {
+    private let remote: SaverPumpCameraRemote
+
+    init(remote: SaverPumpCameraRemote) {
+        self.remote = remote
+    }
+
+    func makeConnection(
+        serviceName: String
+    ) -> any CameraAgentXPCConnectionTransport {
+        _ = serviceName
+        return SaverPumpXPCTransport(remote: remote)
+    }
+}
+
+private final class SaverPumpXPCTransport:
+    CameraAgentXPCConnectionTransport,
+    @unchecked Sendable
+{
+    var remoteObjectInterface: NSXPCInterface?
+    var interruptionHandler: (() -> Void)?
+    var invalidationHandler: (() -> Void)?
+    private let remote: SaverPumpCameraRemote
+
+    init(remote: SaverPumpCameraRemote) {
+        self.remote = remote
+    }
+
+    func setCodeSigningRequirement(_ requirement: String) {
+        _ = requirement
+    }
+
+    func activate() {}
+    func invalidate() {}
+
+    func remoteCameraProxy(
+        errorHandler: @escaping @Sendable (Error) -> Void
+    ) -> (any IdleScreenCameraXPCProtocol)? {
+        _ = errorHandler
+        return remote
+    }
+}
+
+private final class SaverPumpCameraRemote:
+    NSObject,
+    IdleScreenCameraXPCProtocol,
+    @unchecked Sendable
+{
+    func authorizationStatus(
+        _ request: IdleScreenCameraStatusRequest,
+        withReply reply: @escaping (IdleScreenCameraAuthorizationReply) -> Void
+    ) {
+        _ = request
+        _ = reply
+    }
+
+    func requestAuthorization(
+        _ request: IdleScreenCameraAuthorizationRequest,
+        withReply reply: @escaping (IdleScreenCameraAuthorizationReply) -> Void
+    ) {
+        _ = request
+        _ = reply
+    }
+
+    func diagnosticSnapshot(
+        _ request: IdleScreenCameraDiagnosticRequest,
+        withReply reply: @escaping (IdleScreenCameraDiagnosticSnapshot) -> Void
+    ) {
+        _ = request
+        _ = reply
+    }
+
+    func cameraDeviceSnapshot(
+        _ request: IdleScreenCameraStatusRequest,
+        withReply reply: @escaping (IdleScreenCameraDeviceSnapshotReply) -> Void
+    ) {
+        _ = request
+        _ = reply
+    }
+
+    func beginStream(
+        _ request: IdleScreenCameraBeginStreamRequest,
+        withReply reply: @escaping (IdleScreenCameraBeginStreamReply) -> Void
+    ) {
+        _ = request
+        _ = reply
+    }
+
+    func heartbeat(
+        _ request: IdleScreenCameraHeartbeatRequest,
+        withReply reply: @escaping (IdleScreenCameraHeartbeatReply) -> Void
+    ) {
+        _ = request
+        _ = reply
+    }
+
+    func endStream(
+        _ request: IdleScreenCameraEndStreamRequest,
+        withReply reply: @escaping (IdleScreenCameraEndStreamReply) -> Void
+    ) {
+        _ = request
+        _ = reply
+    }
+}
+
+private final class SaverPumpLeaseScheduler:
+    CameraLeaseScheduling,
+    @unchecked Sendable
+{
+    private final class Task: CameraLeaseScheduledTask, @unchecked Sendable {
+        func cancel() {}
+    }
+
+    var now: TimeInterval = 0
+
+    func schedule(
+        after delay: TimeInterval,
+        operation: @escaping @Sendable () -> Void
+    ) -> any CameraLeaseScheduledTask {
+        _ = delay
+        _ = operation
+        return Task()
     }
 }

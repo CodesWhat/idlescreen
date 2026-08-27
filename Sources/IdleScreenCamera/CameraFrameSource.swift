@@ -22,6 +22,40 @@ public protocol CameraFrameSourceMapping: AnyObject {
             UnsafeRawBufferPointer
         ) throws -> Result
     ) throws -> Result?
+
+    func withStableSnapshot<Result>(
+        copyingPixelsWhen shouldCopyPixels: (
+            IdleScreenCameraFrameDescriptor
+        ) throws -> Bool,
+        _ body: (
+            IdleScreenCameraFrameDescriptor,
+            UnsafeRawBufferPointer
+        ) throws -> Result
+    ) throws -> CameraFrameSourceMappingRead<Result>?
+}
+
+public enum CameraFrameSourceMappingRead<Result> {
+    case descriptor(IdleScreenCameraFrameDescriptor)
+    case frame(Result)
+}
+
+public extension CameraFrameSourceMapping {
+    func withStableSnapshot<Result>(
+        copyingPixelsWhen shouldCopyPixels: (
+            IdleScreenCameraFrameDescriptor
+        ) throws -> Bool,
+        _ body: (
+            IdleScreenCameraFrameDescriptor,
+            UnsafeRawBufferPointer
+        ) throws -> Result
+    ) throws -> CameraFrameSourceMappingRead<Result>? {
+        try withStableSnapshot { descriptor, pixels in
+            guard try shouldCopyPixels(descriptor) else {
+                return .descriptor(descriptor)
+            }
+            return .frame(try body(descriptor, pixels))
+        }
+    }
 }
 
 extension IdleScreenCameraFrameMailboxMapping: CameraFrameSourceMapping {}
@@ -119,6 +153,12 @@ public final class CameraFrameSource: @unchecked Sendable {
         let generation: UInt64
         let descriptor: CameraAgentStreamDescriptor
         let mailboxURL: URL
+    }
+
+    private enum StableDescriptorDisposition {
+        case deliver
+        case noNewFrame
+        case unavailable(CameraFrameSourceUnavailableReason)
     }
 
     private let appGroupContainerURL: URL
@@ -219,8 +259,12 @@ public final class CameraFrameSource: @unchecked Sendable {
 
         let snapshot: ActiveMapping?
         let unavailableReason: CameraFrameSourceUnavailableReason?
+        let acceptedEpoch: UInt64?
+        let acceptedSequence: UInt64?
         lock.lock()
         snapshot = activeMapping
+        acceptedEpoch = lastAcceptedEpoch
+        acceptedSequence = lastAcceptedSequence
         if case let .unavailable(reason) = currentAvailability {
             unavailableReason = reason
         } else {
@@ -233,25 +277,39 @@ public final class CameraFrameSource: @unchecked Sendable {
         }
 
         do {
-            let result = try snapshot.mapping.withStableSnapshot { descriptor, pixels in
-                guard (try? descriptor.validated()) != nil else {
-                    let failure: CameraFrameSourceRead<Result> = self.failCurrent(
-                        generation: snapshot.generation,
-                        reason: .invalidFrameDescriptor
+            let result = try snapshot.mapping.withStableSnapshot(
+                copyingPixelsWhen: { descriptor in
+                    guard (try? descriptor.validated()) != nil,
+                          descriptor.streamEpoch == snapshot.producerStreamEpoch else {
+                        return false
+                    }
+                    guard acceptedEpoch == descriptor.streamEpoch,
+                          let acceptedSequence else {
+                        return true
+                    }
+                    return descriptor.sequence > acceptedSequence
+                },
+                { descriptor, pixels in
+                    self.consumeStableFrame(
+                        descriptor,
+                        pixels: pixels,
+                        snapshot: snapshot,
+                        body: body
                     )
-                    return failure
                 }
-                return self.consumeStableFrame(
-                    descriptor,
-                    pixels: pixels,
-                    snapshot: snapshot,
-                    body: body
-                )
-            }
+            )
             guard let result else {
                 return handleNoStableSnapshot(snapshot: snapshot)
             }
-            return result
+            switch result {
+            case let .descriptor(descriptor):
+                return consumeStableDescriptorWithoutPixels(
+                    descriptor,
+                    snapshot: snapshot
+                )
+            case let .frame(read):
+                return read
+            }
         } catch {
             return failCurrent(
                 generation: snapshot.generation,
@@ -376,15 +434,71 @@ public final class CameraFrameSource: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
+        guard (try? descriptor.validated()) != nil else {
+            return failCurrentLocked(reason: .invalidFrameDescriptor)
+        }
+        switch stableDescriptorDispositionLocked(descriptor, snapshot: snapshot) {
+        case .deliver:
+            break
+        case .noNewFrame:
+            return .noNewFrame
+        case let .unavailable(reason):
+            return .unavailable(reason)
+        }
+
+        let now = clock.now
+        lastAcceptedEpoch = descriptor.streamEpoch
+        lastAcceptedSequence = descriptor.sequence
+        lastFrameArrivalTime = now
+        currentAvailability = .available(
+            epoch: descriptor.streamEpoch,
+            sequence: descriptor.sequence
+        )
+
+        // The lock fences replacements until the callback finishes, so an old
+        // mapping can never expose pixels after a newer generation is installed.
+        return .frame(descriptor, body(descriptor, pixels))
+    }
+
+    private func consumeStableDescriptorWithoutPixels<Result>(
+        _ descriptor: IdleScreenCameraFrameDescriptor,
+        snapshot: ActiveMapping
+    ) -> CameraFrameSourceRead<Result> {
+        guard (try? descriptor.validated()) != nil else {
+            return failCurrent(
+                generation: snapshot.generation,
+                reason: .invalidFrameDescriptor
+            )
+        }
+        return lock.withLock {
+            switch stableDescriptorDispositionLocked(descriptor, snapshot: snapshot) {
+            case .deliver:
+                // The acceptance baseline changed while the header was read.
+                // Leave the frame unaccepted so the next poll copies its pixels.
+                return .noNewFrame
+            case .noNewFrame:
+                return .noNewFrame
+            case let .unavailable(reason):
+                return .unavailable(reason)
+            }
+        }
+    }
+
+    private func stableDescriptorDispositionLocked(
+        _ descriptor: IdleScreenCameraFrameDescriptor,
+        snapshot: ActiveMapping
+    ) -> StableDescriptorDisposition {
         guard activeMapping?.generation == snapshot.generation,
               mappingGeneration == snapshot.generation else {
             return .noNewFrame
         }
         guard descriptor.streamEpoch == snapshot.producerStreamEpoch else {
-            return failCurrentLocked(reason: .wrongProducerEpoch(
+            let reason = CameraFrameSourceUnavailableReason.wrongProducerEpoch(
                 expected: snapshot.producerStreamEpoch,
                 actual: descriptor.streamEpoch
-            ))
+            )
+            fenceAndRetireLocked(reason: reason)
+            return .unavailable(reason)
         }
 
         let now = clock.now
@@ -399,10 +513,12 @@ public final class CameraFrameSource: @unchecked Sendable {
         if lastAcceptedEpoch == descriptor.streamEpoch,
            let lastAcceptedSequence {
             if descriptor.sequence < lastAcceptedSequence {
-                return failCurrentLocked(reason: .outOfOrderSequence(
+                let reason = CameraFrameSourceUnavailableReason.outOfOrderSequence(
                     last: lastAcceptedSequence,
                     candidate: descriptor.sequence
-                ))
+                )
+                fenceAndRetireLocked(reason: reason)
+                return .unavailable(reason)
             }
             if descriptor.sequence == lastAcceptedSequence {
                 guard let lastFrameArrivalTime,
@@ -417,18 +533,7 @@ public final class CameraFrameSource: @unchecked Sendable {
                 return .noNewFrame
             }
         }
-
-        lastAcceptedEpoch = descriptor.streamEpoch
-        lastAcceptedSequence = descriptor.sequence
-        lastFrameArrivalTime = now
-        currentAvailability = .available(
-            epoch: descriptor.streamEpoch,
-            sequence: descriptor.sequence
-        )
-
-        // The lock fences replacements until the callback finishes, so an old
-        // mapping can never expose pixels after a newer generation is installed.
-        return .frame(descriptor, body(descriptor, pixels))
+        return .deliver
     }
 
     private func handleNoStableSnapshot<Result>(

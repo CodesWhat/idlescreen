@@ -104,6 +104,91 @@ private struct MetadataOnlyStorage: IdleScreenCameraFrameStorage {
     }
 }
 
+private struct RecordedCopy: Equatable {
+    let offset: Int
+    let count: Int
+}
+
+private final class RecordingMappedRegion: IdleScreenCameraMappedRegion {
+    let byteCount: Int
+    var unsafeBaseAddress: UnsafeRawPointer { UnsafeRawPointer(baseStorage) }
+    private let baseStorage: UnsafeMutableRawPointer
+    private let header: Data
+    private let payload: Data
+    private let payloadOffset: Int
+    private(set) var copies: [RecordedCopy] = []
+
+    init(
+        byteCount: Int,
+        header: Data,
+        payload: Data,
+        payloadOffset: Int
+    ) {
+        self.byteCount = byteCount
+        self.header = header
+        self.payload = payload
+        self.payloadOffset = payloadOffset
+        baseStorage = .allocate(
+            byteCount: MemoryLayout<UInt64>.size,
+            alignment: MemoryLayout<UInt64>.alignment
+        )
+    }
+
+    deinit {
+        baseStorage.deallocate()
+    }
+
+    func copyBytes(
+        at offset: Int,
+        into destination: UnsafeMutableRawBufferPointer
+    ) throws {
+        copies.append(RecordedCopy(offset: offset, count: destination.count))
+        let source: Data
+        switch offset {
+        case 0:
+            source = header
+        case payloadOffset:
+            source = payload
+        default:
+            throw IdleScreenCameraFrameMappingError.invalidCopyRange(
+                offset: offset,
+                count: destination.count,
+                mappedByteCount: byteCount
+            )
+        }
+        guard source.count >= destination.count else {
+            throw IdleScreenCameraFrameMappingError.invalidCopyRange(
+                offset: offset,
+                count: destination.count,
+                mappedByteCount: byteCount
+            )
+        }
+        _ = source.copyBytes(to: destination.bindMemory(to: UInt8.self))
+    }
+}
+
+private final class RecordingMappedFile: IdleScreenCameraFrameStorageFile {
+    let metadata: IdleScreenCameraFrameFileMetadata
+    let region: RecordingMappedRegion
+
+    init(metadata: IdleScreenCameraFrameFileMetadata, region: RecordingMappedRegion) {
+        self.metadata = metadata
+        self.region = region
+    }
+
+    func mapReadOnly(byteCount: Int) throws -> any IdleScreenCameraMappedRegion {
+        region
+    }
+}
+
+private struct RecordingMappedStorage: IdleScreenCameraFrameStorage {
+    let file: RecordingMappedFile
+
+    func openReadOnlyNoFollow(at url: URL) throws -> any IdleScreenCameraFrameStorageFile {
+        file
+    }
+}
+
 private enum SnapshotConsumerError: Swift.Error, Equatable {
     case stop
 }
@@ -273,6 +358,157 @@ struct CameraFrameMappingTests {
 
         #expect(firstAddress != nil)
         #expect(secondAddress == firstAddress)
+    }
+
+    @Test("a stable rejected descriptor does not copy its pixel payload")
+    func rejectedDescriptorSkipsPayloadCopy() throws {
+        let layout = IdleScreenCameraFrameMailboxLayout.current
+        let header = IdleScreenCameraFrameMailboxHeader(
+            generation: 2,
+            descriptor: descriptor()
+        )
+        let payload = Data(Array(0..<32))
+        let region = RecordingMappedRegion(
+            byteCount: try layout.expectedFileByteCount(),
+            header: header.encoded(),
+            payload: payload,
+            payloadOffset: try layout.payloadOffset(forSlot: header.slotIndex)
+        )
+        let file = RecordingMappedFile(
+            metadata: IdleScreenCameraFrameFileMetadata(
+                kind: .regularFile,
+                ownerUserID: geteuid(),
+                permissions: 0o600,
+                byteCount: UInt64(try layout.expectedFileByteCount())
+            ),
+            region: region
+        )
+        let mapping = try IdleScreenCameraFrameMailboxMapping(
+            contentsOf: URL(fileURLWithPath: "/unused-test-path"),
+            storage: RecordingMappedStorage(file: file),
+            generationLoader: ScriptedGenerationLoader([2, 2])
+        )
+
+        let read: CameraFrameSourceMappingRead<Void>? = try mapping.withStableSnapshot(
+            copyingPixelsWhen: { _ in false },
+            { _, _ in Issue.record("A rejected descriptor exposed its payload") }
+        )
+
+        guard case let .descriptor(observed) = read else {
+            Issue.record("Expected a descriptor-only read")
+            return
+        }
+        #expect(observed == descriptor())
+        #expect(region.copies == [RecordedCopy(offset: 0, count: 128)])
+    }
+
+    @Test("a descriptor-only generation race retries before returning")
+    func descriptorOnlyGenerationRace() throws {
+        let layout = IdleScreenCameraFrameMailboxLayout.current
+        let header = IdleScreenCameraFrameMailboxHeader(
+            generation: 2,
+            descriptor: descriptor()
+        )
+        let region = RecordingMappedRegion(
+            byteCount: try layout.expectedFileByteCount(),
+            header: header.encoded(),
+            payload: Data(Array(0..<32)),
+            payloadOffset: try layout.payloadOffset(forSlot: header.slotIndex)
+        )
+        let file = RecordingMappedFile(
+            metadata: IdleScreenCameraFrameFileMetadata(
+                kind: .regularFile,
+                ownerUserID: geteuid(),
+                permissions: 0o600,
+                byteCount: UInt64(try layout.expectedFileByteCount())
+            ),
+            region: region
+        )
+        let loader = ScriptedGenerationLoader([2, 4, 2, 2])
+        let mapping = try IdleScreenCameraFrameMailboxMapping(
+            contentsOf: URL(fileURLWithPath: "/unused-test-path"),
+            storage: RecordingMappedStorage(file: file),
+            generationLoader: loader
+        )
+
+        let read: CameraFrameSourceMappingRead<Void>? = try mapping.withStableSnapshot(
+            copyingPixelsWhen: { _ in false },
+            { _, _ in Issue.record("A descriptor-only read exposed pixels") }
+        )
+
+        guard case .descriptor = read else {
+            Issue.record("Expected a stable descriptor after one retry")
+            return
+        }
+        #expect(loader.callCount == 4)
+        #expect(region.copies == [
+            RecordedCopy(offset: 0, count: 128),
+            RecordedCopy(offset: 0, count: 128),
+        ])
+    }
+
+    @Test("duplicate header fast path materially reduces mailbox read CPU work")
+    func duplicateHeaderFastPathMeasurement() throws {
+        let largeDescriptor = descriptor(
+            width: 1_280,
+            height: 720,
+            bytesPerRow: 5_120,
+            slotIndex: 0
+        )
+        let payloadByteCount = 1_280 * 720 * 4
+        let mailbox = try TemporaryCameraMailbox(
+            header: IdleScreenCameraFrameMailboxHeader(
+                generation: 2,
+                descriptor: largeDescriptor
+            ),
+            payload: [UInt8](repeating: 0x5A, count: payloadByteCount)
+        )
+        let mapping = try IdleScreenCameraFrameMailboxMapping(
+            contentsOf: mailbox.fileURL,
+            generationLoader: ScriptedGenerationLoader([2])
+        )
+        let iterations = 60
+        let clock = ContinuousClock()
+
+        let headerStartedAt = clock.now
+        for _ in 0..<iterations {
+            let read: CameraFrameSourceMappingRead<Void>? = try mapping
+                .withStableSnapshot(
+                    copyingPixelsWhen: { _ in false },
+                    { _, _ in Issue.record("A duplicate exposed pixels") }
+                )
+            guard case .descriptor = read else {
+                Issue.record("Expected a descriptor-only duplicate")
+                return
+            }
+        }
+        let headerDuration = headerStartedAt.duration(to: clock.now)
+
+        var observedByteCount = 0
+        let payloadStartedAt = clock.now
+        for _ in 0..<iterations {
+            observedByteCount += try #require(
+                mapping.withStableSnapshot { _, pixels in pixels.count }
+            )
+        }
+        let payloadDuration = payloadStartedAt.duration(to: clock.now)
+        let headerMilliseconds = milliseconds(headerDuration)
+        let payloadMilliseconds = milliseconds(payloadDuration)
+        print(
+            "camera_duplicate_copy_benchmark iterations=\(iterations) "
+                + "payload_bytes=\(payloadByteCount) "
+                + "header_ms=\(headerMilliseconds) "
+                + "payload_ms=\(payloadMilliseconds)"
+        )
+
+        #expect(observedByteCount == payloadByteCount * iterations)
+        #expect(headerMilliseconds * 3 < payloadMilliseconds)
+    }
+
+    private func milliseconds(_ duration: Duration) -> Double {
+        let components = duration.components
+        return Double(components.seconds) * 1_000
+            + Double(components.attoseconds) / 1e15
     }
 
     @Test("consumer errors escape once and are never folded into seqlock retries")

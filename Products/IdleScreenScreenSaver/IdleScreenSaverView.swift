@@ -115,6 +115,39 @@ enum IdleScreenSaverCameraDemandPolicy {
 }
 #endif
 
+enum IdleScreenSaverShippingCameraDemand {
+    static func permitsCamera(
+        source: IdleScreenSource,
+        hostActivity: IdleScreenSaverGlobalHostActivity,
+        isPreviewHint: Bool,
+        producerAlreadyWarm: Bool = false,
+        decision: IdleScreenSaverActivationDecisionInput =
+            IdleScreenC7GeneratedActivationDecision.input
+    ) -> Bool {
+        let directive = IdleScreenShippingSaverCameraDemandPolicy(
+            decision: decision
+        ).directive(
+            source: source,
+            activation: hostActivity.activationObservation,
+            isPreviewHint: isPreviewHint,
+            producerAlreadyWarm: producerAlreadyWarm
+        )
+        return directive != .disabled
+    }
+}
+
+private extension IdleScreenSaverGlobalHostActivity {
+    var activationObservation: IdleScreenSaverActivationObservation {
+        switch self {
+        case .unavailable: .unavailable
+        case .inactive: .inactive
+        case .runningForeground: .runningForeground
+        case .runningBackground: .runningBackground
+        case .inconsistent: .inconsistent
+        }
+    }
+}
+
 struct IdleScreenSaverDiagnosticState: Equatable {
     let lifecycle: IdleScreenLifecyclePhase
     let isPreview: Bool
@@ -812,7 +845,12 @@ final class IdleScreenSaverView: ScreenSaverView {
             isPreviewHint: isPreviewMode
         )
 #else
-        return configuration.source == .camera
+        return IdleScreenSaverShippingCameraDemand.permitsCamera(
+            source: configuration.source,
+            hostActivity: globalHostActivity,
+            isPreviewHint: isPreviewMode,
+            producerAlreadyWarm: false
+        )
 #endif
     }
 

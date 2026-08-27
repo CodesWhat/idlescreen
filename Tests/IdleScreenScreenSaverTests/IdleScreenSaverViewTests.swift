@@ -86,7 +86,15 @@ struct IdleScreenSaverViewTests {
         #expect(view.diagnosticState.lifecycle == .attached)
         #expect(view.diagnosticState.isPreview)
         #expect(view.diagnosticState.renderedGlyphField.isEmpty)
-        #expect(view.layer?.sublayers?.contains { $0 is CAGradientLayer } == true)
+        let gradient = try #require(
+            view.layer?.sublayers?.compactMap { $0 as? CAGradientLayer }.first
+        )
+        let colors = try #require(gradient.colors as? [CGColor])
+        #expect(colors.count == 3)
+        #expect(colors[0] == colors[2])
+        #expect(colors[1] == NSColor.black.cgColor)
+        #expect(gradient.startPoint == CGPoint(x: 0, y: 0))
+        #expect(gradient.endPoint == CGPoint(x: 1, y: 1))
     }
 
     @Test("host lifecycle stops cleanly and can restart after detachment")
