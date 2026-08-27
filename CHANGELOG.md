@@ -5,6 +5,25 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+### Changed
+
+- Moved procedural glyph generation to a bounded Metal compute pass while
+  preserving the CPU renderer as the deterministic fallback and test oracle.
+- Reduced live-camera mailbox work by rejecting duplicate frames before copying
+  their pixel payloads.
+
+### Fixed
+
+- Enforced the generated fail-closed camera activation policy in the shipping
+  screen-saver host instead of starting capture from an unverified preview
+  hint.
+- Preserved the last valid camera frame through short read gaps, cleared it on
+  lease loss, and stopped the shared frame pump after its final consumer exits.
+- Strengthened screen-saver registration repair and WallpaperAgent refresh
+  checks against stale, multiple, or identity-mismatched host processes.
+- Rendered the initial fallback frame synchronously so the saver never starts
+  with an empty view while Metal initializes.
+
 ## [0.1.1] - 2026-08-13
 
 ### Fixed

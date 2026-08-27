@@ -38,7 +38,7 @@ public struct IdleScreenProceduralPatternSettings: Equatable, Sendable {
 
     public static let `default` = Self()
 
-    fileprivate var normalized: Self {
+    var normalized: Self {
         Self(
             speed: Self.clamp(speed, fallback: 1, to: 0.1...3),
             scale: Self.clamp(scale, fallback: 1, to: 0.25...4),
@@ -842,8 +842,26 @@ public enum IdleScreenProceduralPatterns {
     }
 
     private static func hash2D(x: Float, y: Float) -> Float {
-        let sine = sinf(x * 127.1 + y * 311.7) * 43_758.5453123
-        return sine - floorf(sine)
+        let quantizedX = quantizedHashCoordinate(x)
+        let quantizedY = quantizedHashCoordinate(y)
+        var hash = quantizedX &* 0x9E37_79B1
+        hash ^= quantizedY &* 0x85EB_CA77
+        hash ^= hash >> 16
+        hash &*= 0x7FEB_352D
+        hash ^= hash >> 15
+        hash &*= 0x846C_A68B
+        hash ^= hash >> 16
+        return Float(hash & 0x00FF_FFFF) / 16_777_216
+    }
+
+    private static func quantizedHashCoordinate(_ value: Float) -> UInt32 {
+        guard value.isFinite else { return 0 }
+        let scaled = roundf(value * 4_096)
+        guard scaled.isFinite else {
+            return value.sign == .minus ? 0x8000_0080 : 0x7FFF_FF80
+        }
+        let bounded = min(2_147_483_520, max(-2_147_483_520, scaled))
+        return UInt32(bitPattern: Int32(bounded))
     }
 
     private static func mix(_ a: Float, _ b: Float, amount: Float) -> Float {

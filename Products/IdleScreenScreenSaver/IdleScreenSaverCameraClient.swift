@@ -221,7 +221,9 @@ enum IdleScreenCameraGlyphSampler {
 /// sampling the mailbox, so a display's main thread cannot wait behind that
 /// work. Every display view backed by `IdleScreenSaverCameraProcess.shared`
 /// reads the same immutable sample.
-private final class IdleScreenSaverCameraFramePump: @unchecked Sendable {
+final class IdleScreenSaverCameraFramePump: @unchecked Sendable {
+    typealias MonotonicClock = @Sendable () -> TimeInterval
+
     private enum LatestState: Sendable {
         case waiting
         case available(IdleScreenCameraGlyphSample)
@@ -248,6 +250,8 @@ private final class IdleScreenSaverCameraFramePump: @unchecked Sendable {
     )
 
     private let runtime: CameraClientRuntime
+    private let monotonicClock: MonotonicClock
+    private let automaticallyPolls: Bool
     private let queue = DispatchQueue(
         label: "com.idlescreen.screensaver.camera-frame-pump",
         qos: .userInteractive
@@ -262,8 +266,16 @@ private final class IdleScreenSaverCameraFramePump: @unchecked Sendable {
     private var transientUnavailableReason: String?
     private var transientUnavailableReadCount = 0
 
-    init(runtime: CameraClientRuntime) {
+    init(
+        runtime: CameraClientRuntime,
+        monotonicClock: @escaping MonotonicClock = {
+            ProcessInfo.processInfo.systemUptime
+        },
+        automaticallyPolls: Bool = true
+    ) {
         self.runtime = runtime
+        self.monotonicClock = monotonicClock
+        self.automaticallyPolls = automaticallyPolls
     }
 
     @discardableResult
@@ -311,7 +323,16 @@ private final class IdleScreenSaverCameraFramePump: @unchecked Sendable {
         }
     }
 
+    func pollOnce() {
+        queue.sync { readLatestFrame() }
+    }
+
+    func synchronize() {
+        queue.sync {}
+    }
+
     private func startTimer() {
+        guard automaticallyPolls else { return }
         guard timer == nil else { return }
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(
@@ -374,7 +395,7 @@ private final class IdleScreenSaverCameraFramePump: @unchecked Sendable {
             return
         }
 
-        let now = ProcessInfo.processInfo.systemUptime
+        let now = monotonicClock()
         guard now.isFinite, now >= 0 else {
             resetTransientUnavailable()
             publish(.unavailable)
@@ -406,7 +427,7 @@ private final class IdleScreenSaverCameraFramePump: @unchecked Sendable {
 
     private func reportTransientRecoveryIfNeeded() {
         guard let startedAt = transientUnavailableStartedAt else { return }
-        let now = ProcessInfo.processInfo.systemUptime
+        let now = monotonicClock()
         let durationMilliseconds = now.isFinite && now >= startedAt
             ? Int((now - startedAt) * 1_000)
             : -1

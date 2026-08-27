@@ -309,6 +309,8 @@ targets:
         DEFINES_MODULE: YES
         ENABLE_HARDENED_RUNTIME: YES
         APPLICATION_EXTENSION_API_ONLY: YES
+        MTL_FAST_MATH: NO
+        MTL_TREAT_WARNINGS_AS_ERRORS: YES
 
   IdleScreenCoreTests:
     type: bundle.unit-test

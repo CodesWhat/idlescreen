@@ -312,6 +312,29 @@ public final class IdleScreenCameraFrameMailboxMapping {
             UnsafeRawBufferPointer
         ) throws -> Result
     ) throws -> Result? {
+        let read = try withStableSnapshot(
+            copyingPixelsWhen: { _ in true },
+            body
+        )
+        switch read {
+        case nil:
+            return nil
+        case let .frame(result):
+            return result
+        case .descriptor:
+            preconditionFailure("An unconditional snapshot omitted its payload")
+        }
+    }
+
+    public func withStableSnapshot<Result>(
+        copyingPixelsWhen shouldCopyPixels: (
+            IdleScreenCameraFrameDescriptor
+        ) throws -> Bool,
+        _ body: (
+            IdleScreenCameraFrameDescriptor,
+            UnsafeRawBufferPointer
+        ) throws -> Result
+    ) throws -> CameraFrameSourceMappingRead<Result>? {
         let signpostState = Self.performanceSignposter.beginInterval(
             "MailboxRead"
         )
@@ -332,6 +355,7 @@ public final class IdleScreenCameraFrameMailboxMapping {
 
             var stableDescriptor: IdleScreenCameraFrameDescriptor?
             var stablePayloadByteCount = 0
+            var copiedPixels = false
             do {
                 let headerDestination = UnsafeMutableRawBufferPointer(
                     start: headerStorage,
@@ -357,14 +381,17 @@ public final class IdleScreenCameraFrameMailboxMapping {
                             capacity: layout.slotByteCapacity
                         )
                 }
-                let frameDestination = UnsafeMutableRawBufferPointer(
-                    start: frameStorage,
-                    count: payloadByteCount
-                )
-                try region.copyBytes(
-                    at: layout.payloadOffset(forSlot: header.slotIndex),
-                    into: frameDestination
-                )
+                if try shouldCopyPixels(descriptor) {
+                    let frameDestination = UnsafeMutableRawBufferPointer(
+                        start: frameStorage,
+                        count: payloadByteCount
+                    )
+                    try region.copyBytes(
+                        at: layout.payloadOffset(forSlot: header.slotIndex),
+                        into: frameDestination
+                    )
+                    copiedPixels = true
+                }
 
                 let generationAfter = try generationLoader.loadAcquireGeneration(
                     from: region.unsafeBaseAddress,
@@ -387,13 +414,17 @@ public final class IdleScreenCameraFrameMailboxMapping {
                 }
             }
             if let stableDescriptor {
-                return try body(
-                    stableDescriptor,
-                    UnsafeRawBufferPointer(
-                        start: frameStorage,
-                        count: stablePayloadByteCount
-                    )
-                )
+                if copiedPixels {
+                    return .frame(try body(
+                        stableDescriptor,
+                        UnsafeRawBufferPointer(
+                            start: frameStorage,
+                            count: stablePayloadByteCount
+                        )
+                    ))
+                } else {
+                    return .descriptor(stableDescriptor)
+                }
             }
         }
         return nil
