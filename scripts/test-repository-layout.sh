@@ -16,7 +16,6 @@ private_tracked_paths="$({
     Archive \
     Design \
     CODE_REVIEW.md \
-    'docs/ROADMAP*' \
     'docs/RESEARCH*' \
     'docs/C6_*' \
     'docs/C7_*' \
