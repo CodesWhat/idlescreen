@@ -55,18 +55,24 @@ struct IdleScreenProceduralUniforms {
 };
 
 static float gpuHash2D(float x, float y) {
-    const float scaledX = isfinite(x) ? round(x * 4096.0) : 0.0;
-    const float scaledY = isfinite(y) ? round(y * 4096.0) : 0.0;
-    const uint quantizedX = as_type<uint>(int(clamp(
-        isfinite(scaledX) ? scaledX : copysign(2147483520.0, x),
-        -2147483520.0,
-        2147483520.0
-    )));
-    const uint quantizedY = as_type<uint>(int(clamp(
-        isfinite(scaledY) ? scaledY : copysign(2147483520.0, y),
-        -2147483520.0,
-        2147483520.0
-    )));
+    const float coordinateSpan = 1048576.0;
+    const float coordinateHalfSpan = 524288.0;
+    float wrappedX = isfinite(x)
+        ? fmod(x, coordinateSpan)
+        : 0.0;
+    float wrappedY = isfinite(y)
+        ? fmod(y, coordinateSpan)
+        : 0.0;
+    wrappedX += wrappedX >= coordinateHalfSpan ? -coordinateSpan : 0.0;
+    wrappedX += wrappedX < -coordinateHalfSpan ? coordinateSpan : 0.0;
+    wrappedY += wrappedY >= coordinateHalfSpan ? -coordinateSpan : 0.0;
+    wrappedY += wrappedY < -coordinateHalfSpan ? coordinateSpan : 0.0;
+    const uint quantizedX = as_type<uint>(
+        int(round(wrappedX * 4096.0))
+    );
+    const uint quantizedY = as_type<uint>(
+        int(round(wrappedY * 4096.0))
+    );
     uint hash = quantizedX * 0x9E3779B1u;
     hash ^= quantizedY * 0x85EBCA77u;
     hash ^= hash >> 16;
@@ -110,7 +116,9 @@ static float gpuSmoothstep(float edge0, float edge1, float x) {
 
 /// Generate pattern (characterIndex, brightness) for a grid cell on GPU.
 /// patternIndex: 0=perlin, 1=plasma, 2=sweep, 3=matrixRain, 4=rainbowCycle, 5=fireEffect,
-///               6=ripple, 7=voronoi, 8=warp, 9=staticNoise, 10=pulse, 11=dvdBounce
+///               6=ripple, 7=voronoi, 8=warp, 9=staticNoise, 10=pulse, 11=dvdBounce,
+///               12=metaballs, 13=starfield, 14=spiral, 15=terrain, 16=rainOnGlass,
+///               17=aurora
 static float2 generatePattern(uint col, uint row, uint columns, uint rows,
                                uint patternIndex, float timestamp, uint characterCount,
                                constant IdleScreenProceduralUniforms &params) {

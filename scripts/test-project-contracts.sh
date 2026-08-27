@@ -84,18 +84,19 @@ ci_coverage_block="$(sed -n '/^  coverage:$/,/^  qlty:$/p' "$ci_workflow")"
 if [[ "$(grep -Fc "uses: actions/checkout@$checkout_sha" "$ci_workflow" || true)" -ne 3 ]] ||
    [[ "$(grep -Fc "uses: step-security/harden-runner@$harden_runner_sha" "$ci_workflow" || true)" -ne 3 ]] ||
    [[ "$(grep -Fc 'persist-credentials: false' "$ci_workflow" || true)" -ne 3 ]] ||
-   ! grep -Fq 'permissions:' "$ci_workflow" ||
-   ! grep -Fq 'contents: read' "$ci_workflow" ||
-   ! grep -Fq 'id-token: write' "$ci_workflow" ||
-   ! grep -Fq "uses: codecov/codecov-action@$codecov_sha" "$ci_workflow" ||
-   ! grep -Fq "if: github.event_name == 'push'" "$ci_workflow" ||
-   ! grep -Fq -- '-enableCodeCoverage YES' "$ci_workflow" ||
-   ! grep -Fq -- '-resultBundlePath "$result_bundle"' "$ci_workflow" ||
-   ! grep -Fq 'xcrun xccov view --archive --json "$result_bundle"' "$ci_workflow" ||
-   ! grep -Fq 'use_oidc: true' "$ci_workflow" ||
-   ! grep -Fq 'plugins: xcode' "$ci_workflow" ||
-   ! grep -Fq 'swift_project: IdleScreen' "$ci_workflow" ||
-   ! grep -Fq 'fail_ci_if_error: false' "$ci_workflow" ||
+   ! grep -Fq 'permissions:' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'contents: read' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'id-token: write' <<<"$ci_coverage_block" ||
+   ! grep -Fq "uses: codecov/codecov-action@$codecov_sha" <<<"$ci_coverage_block" ||
+   ! grep -Fq "if: github.event_name == 'push'" <<<"$ci_coverage_block" ||
+   ! grep -Fq 'keybase.io:443' <<<"$ci_coverage_block" ||
+   ! grep -Fq -- '-enableCodeCoverage YES' <<<"$ci_coverage_block" ||
+   ! grep -Fq -- '-resultBundlePath "$result_bundle"' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'xcrun xccov view --archive --json "$result_bundle"' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'use_oidc: true' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'plugins: xcode' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'swift_project: IdleScreen' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'fail_ci_if_error: false' <<<"$ci_coverage_block" ||
    ! grep -Fq 'IdleScreenAppCompileGate; do' <<<"$ci_coverage_block" ||
    grep -Eq '^[[:space:]]+token:' <<<"$ci_coverage_block" ||
    grep -Fq 'QLTY_COVERAGE_TOKEN' "$ci_workflow" ||

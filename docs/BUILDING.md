@@ -6,12 +6,19 @@
 - Xcode 26
 - XcodeGen 2.46.0
 - Python 3 for deterministic fixture tests
-- Lefthook, Qlty, actionlint, and zizmor for repository gates
+- Lefthook 2.1.11, Qlty 0.618.0, actionlint 1.7.12, and zizmor 1.29.0 for
+  repository gates
 
-Install XcodeGen and generate the checked-in project:
+Install the Homebrew-provided tools and Qlty's signed release CLI:
 
 ```sh
-brew install xcodegen
+brew install xcodegen lefthook actionlint zizmor
+curl https://qlty.sh | sh
+```
+
+Generate the checked-in project:
+
+```sh
 xcodegen generate
 git diff --exit-code -- IdleScreen.xcodeproj
 ```
@@ -28,6 +35,11 @@ lefthook install
 ./scripts/verify-workflows.sh
 ./scripts/test-modern-schemes.sh
 ```
+
+`scripts/verify-workflows.sh` runs actionlint and zizmor when they are present.
+It reports a skip when either tool is unavailable because CI remains the
+authoritative workflow-security gate. Lefthook and Qlty are required for their
+respective local commands and fail when unavailable.
 
 ## Safe deterministic checks
 
