@@ -1,0 +1,213 @@
+name: CI Verify
+
+run-name: >-
+  ${{
+    github.event_name == 'schedule' && 'CI Verify - Weekly schedule' ||
+    github.event_name == 'pull_request' && format('CI Verify - PR #{0}', github.event.pull_request.number) ||
+    format('CI Verify - {0}', github.ref_name)
+  }}
+
+on:
+  push:
+    branches: [main, "dev/**"]
+  pull_request:
+    branches: [main, "dev/**"]
+  schedule:
+    - cron: "37 8 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            formulae.brew.sh:443
+            ghcr.io:443
+            github.com:443
+            objects.githubusercontent.com:443
+            pkg-containers.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install XcodeGen
+        run: |
+          brew install xcodegen
+          [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          git diff --exit-code -- IdleScreen.xcodeproj
+          [[ -z "$(git ls-files --others --exclude-standard -- IdleScreen.xcodeproj)" ]]
+
+      - name: Check changed Swift formatting
+        run: ./scripts/check-swift-format.sh changed
+
+      - name: Verify canonical repository and project contracts
+        run: |
+          ./scripts/test-repository-layout.sh
+          ./scripts/test-project-contracts.sh
+
+      - name: Run modern unit and integration tests
+        run: ./scripts/test-modern-schemes.sh "$RUNNER_TEMP/idlescreen-test-results"
+
+      - name: Run deterministic product fixtures
+        run: |
+          python3 ./scripts/test_performance_r1_report.py
+          ./scripts/test-run-performance-r1.sh
+          ./scripts/test-companion-compile-gate.sh /tmp/idlescreen-ci-companion-gate
+          ./scripts/test-idlescreenctl-runtime.sh
+          ./scripts/test-camera-agent-product-fixtures.sh
+          (umask 077; ./scripts/test-synthetic-gate-product-fixtures.sh)
+          ./scripts/test-release-archive-provenance-fixtures.sh
+          ./scripts/test-r1-release-candidate-fixtures.sh
+          ./scripts/test-public-release-contract.sh
+
+      - name: Build canonical companion product
+        run: |
+          xcodebuild build -quiet \
+            -project IdleScreen.xcodeproj \
+            -scheme IdleScreenApp \
+            -destination 'platform=macOS' \
+            -derivedDataPath /tmp/idlescreen-ci-product \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+
+  coverage:
+    if: github.event_name == 'push'
+    needs: build-and-test
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.codecov.io:443
+            api.github.com:443
+            cli.codecov.io:443
+            formulae.brew.sh:443
+            ghcr.io:443
+            github.com:443
+            ingest.codecov.io:443
+            objects.githubusercontent.com:443
+            pkg-containers.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            storage.googleapis.com:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install XcodeGen
+        run: |
+          brew install xcodegen
+          [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
+
+      - name: Generate Xcode coverage reports
+        run: |
+          coverage_root="$RUNNER_TEMP/idlescreen-coverage"
+          mkdir -p "$coverage_root"
+          for scheme in \
+            IdleScreenAgent \
+            IdleScreenCore \
+            IdleScreenDisplay \
+            IdleScreenRenderer \
+            IdleScreenPerformance \
+            IdleScreenCamera \
+            IdleScreenCameraAgent \
+            IdleScreenSyntheticGateTests \
+            IdleScreenSystem \
+            IdleScreenScreenSaver \
+            IdleScreenAppCamera \
+            IdleScreenAppCompileGate; do
+            result_bundle="$coverage_root/$scheme.xcresult"
+            xcodebuild test -quiet \
+              -project IdleScreen.xcodeproj \
+              -scheme "$scheme" \
+              -destination 'platform=macOS' \
+              -derivedDataPath "$HOME/Library/Developer/Xcode/DerivedData/IdleScreenCoverage-$scheme" \
+              -enableCodeCoverage YES \
+              -resultBundlePath "$result_bundle" \
+              CODE_SIGNING_ALLOWED=NO \
+              SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+            xcrun xccov view --archive --json "$result_bundle" \
+              >"$coverage_root/$scheme.json"
+          done
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          use_oidc: true
+          plugins: xcode
+          swift_project: IdleScreen
+          fail_ci_if_error: false
+
+  qlty:
+    name: qlty
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            api.segment.io:443
+            api0.prismacloud.io:443
+            cafe.github.com:443
+            dl.google.com:443
+            files.pythonhosted.org:443
+            github-proxy.qlty.sh:443
+            github.com:443
+            go.dev:443
+            nodejs.org:443
+            proxy.golang.org:443
+            pypi.org:443
+            qlty-releases.s3.amazonaws.com:443
+            radarlint-releases.s3.amazonaws.com:443
+            registry.npmjs.org:443
+            release-assets.githubusercontent.com:443
+            sum.golang.org:443
+            tmaproduction.blob.core.windows.net:443
+            tuf-repo-cdn.sigstore.dev:443
+            tuf-repo.github.com:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Qlty
+        uses: qltysh/qlty-action/install@08a0a862c159eae9b9003081da6663d96efef637 # v2.3.0
+
+      - name: Run Qlty gate
+        run: ./scripts/qlty-check-gate.sh all

@@ -1,0 +1,31 @@
+commit-msg:
+  jobs:
+    - name: conventional-commit
+      run: ./scripts/validate-commit-msg.sh {1}
+
+pre-commit:
+  jobs:
+    - name: swift-format
+      glob: "*.swift"
+      run: xcrun swift-format format --in-place {staged_files}
+      stage_fixed: true
+
+pre-push:
+  piped: true
+  jobs:
+    - name: clean-tree
+      run: test -z "$(git status --porcelain)"
+    - name: swift-format
+      run: ./scripts/check-swift-format.sh changed
+    - name: qlty
+      run: ./scripts/qlty-check-gate.sh all
+    - name: workflow-security
+      run: ./scripts/verify-workflows.sh
+    - name: repository-contracts
+      run: ./scripts/test-repository-layout.sh && ./scripts/test-project-contracts.sh
+    - name: xcode-tests
+      run: ./scripts/test-modern-schemes.sh
+    - name: release-fixtures
+      run: ./scripts/test-companion-compile-gate.sh && ./scripts/test-release-archive-provenance-fixtures.sh && ./scripts/test-r1-release-candidate-fixtures.sh && ./scripts/test-public-release-contract.sh
+    - name: release-build
+      run: xcodebuild build -quiet -project IdleScreen.xcodeproj -scheme IdleScreenApp -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES

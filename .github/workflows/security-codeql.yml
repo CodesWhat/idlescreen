@@ -1,10 +1,10 @@
-name: CodeQL
+name: "Security: CodeQL"
 
 on:
   push:
-    branches: [main]
+    branches: [main, "dev/**"]
   pull_request:
-    branches: [main]
+    branches: [main, "dev/**"]
   schedule:
     - cron: "17 8 * * 1"
   workflow_dispatch:
@@ -40,8 +40,22 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            formulae.brew.sh:443
+            ghcr.io:443
+            github.com:443
+            objects.githubusercontent.com:443
+            pkg-containers.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            uploads.github.com:443
+
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
