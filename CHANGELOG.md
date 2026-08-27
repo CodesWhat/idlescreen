@@ -5,6 +5,13 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-27
+
+### Added
+
+- Added a manifest-bound SPDX 2.3 SBOM for the signed release DMG and adapted
+  third-party declarations.
+
 ### Changed
 
 - Moved procedural glyph generation to a bounded Metal compute pass while
@@ -49,6 +56,7 @@ Initial public release.
 - Private planning, raw evidence, design exports, and legacy recovery material
   are no longer part of the public source tree.
 
-[Unreleased]: https://github.com/CodesWhat/idlescreen/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/CodesWhat/idlescreen/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/CodesWhat/idlescreen/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/CodesWhat/idlescreen/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/CodesWhat/idlescreen/releases/tag/v0.1.0
