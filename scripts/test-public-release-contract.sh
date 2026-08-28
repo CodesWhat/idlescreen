@@ -30,12 +30,32 @@ c3_archive_block="$({
   ' "$project_file"
 })"
 
+camera_agent_block="$({
+  awk '
+    /^targets:$/ { in_targets = 1; next }
+    in_targets && /^  IdleScreenCameraAgent:$/ { in_target = 1 }
+    in_target && /^  [[:alnum:]_]+:$/ && $0 != "  IdleScreenCameraAgent:" { exit }
+    in_target { print }
+  ' "$project_file"
+})"
+c3_camera_agent_block="$({
+  awk '
+    /^targets:$/ { in_targets = 1; next }
+    in_targets && /^  IdleScreenC3CameraAgentArchiveBundle:$/ { in_target = 1 }
+    in_target && /^  [[:alnum:]_]+:$/ && $0 != "  IdleScreenC3CameraAgentArchiveBundle:" { exit }
+    in_target { print }
+  ' "$project_file"
+})"
 if ! grep -Fq 'CURRENT_PROJECT_VERSION: "64"' <<<"$screen_saver_block" ||
    ! grep -Fq 'MARKETING_VERSION: "0.1.2"' <<<"$screen_saver_block" ||
    ! grep -Fq 'CFBundleShortVersionString: "0.1.2"' <<<"$app_block" ||
    ! grep -Fq 'CFBundleVersion: "64"' <<<"$app_block" ||
    ! grep -Fq 'CFBundleShortVersionString: "0.1.2"' <<<"$c3_archive_block" ||
-   ! grep -Fq 'CFBundleVersion: "64"' <<<"$c3_archive_block"; then
+   ! grep -Fq 'CFBundleVersion: "64"' <<<"$c3_archive_block" ||
+   ! grep -Fq 'CFBundleShortVersionString: "0.1.2"' <<<"$camera_agent_block" ||
+   ! grep -Fq 'CFBundleVersion: "64"' <<<"$camera_agent_block" ||
+   ! grep -Fq 'CFBundleShortVersionString: "0.1.2"' <<<"$c3_camera_agent_block" ||
+   ! grep -Fq 'CFBundleVersion: "64"' <<<"$c3_camera_agent_block"; then
   echo "FAIL: v0.1.2 must ship build 64 consistently across every production bundle." >&2
   exit 1
 fi

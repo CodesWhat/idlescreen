@@ -337,6 +337,9 @@ struct StudioView: View {
         .onChange(of: navigation.previewDisplayIdentifier) { _, _ in
             reconcileCameraPreviewSurface(for: model.configuration.source)
         }
+        .onChange(of: previewUsesCamera) { _, _ in
+            reconcileCameraPreviewSurface(for: model.configuration.source)
+        }
         .onChange(of: cameraClient.canStartCameraPreview) { _, canStart in
             guard cameraSourceSelected, canStart else { return }
             cameraClient.startCameraPreview()
@@ -504,9 +507,10 @@ struct StudioView: View {
     }
 
     private var previewUsesCamera: Bool {
-        guard cameraSourceSelected else { return false }
-        if case .quiet = previewAssignment?.role { return false }
-        return true
+        StudioCameraPreviewReconciliation.usesCamera(
+            source: model.configuration.source,
+            previewRole: previewAssignment?.role
+        )
     }
 
     private var previewRendererMode: IdleScreenRendererMode {

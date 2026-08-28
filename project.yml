@@ -499,8 +499,8 @@ targets:
         CFBundleDisplayName: idlescreen
         CFBundleExecutable: IdleScreenCameraAgent
         CFBundlePackageType: APPL
-        CFBundleVersion: "28"
-        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "64"
+        CFBundleShortVersionString: "0.1.2"
         LSBackgroundOnly: true
         LSUIElement: true
         NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
@@ -566,8 +566,8 @@ targets:
         CFBundleDisplayName: idlescreen
         CFBundleExecutable: IdleScreenCameraAgent
         CFBundlePackageType: APPL
-        CFBundleVersion: "28"
-        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "64"
+        CFBundleShortVersionString: "0.1.2"
         LSBackgroundOnly: true
         LSUIElement: true
         NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
