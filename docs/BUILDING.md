@@ -6,17 +6,40 @@
 - Xcode 26
 - XcodeGen 2.46.0
 - Python 3 for deterministic fixture tests
+- Lefthook 2.1.11, Qlty 0.618.0, actionlint 1.7.12, and zizmor 1.29.0 for
+  repository gates
 
-Install XcodeGen and generate the checked-in project:
+Install the Homebrew-provided tools and Qlty's signed release CLI:
 
 ```sh
-brew install xcodegen
+brew install xcodegen lefthook actionlint zizmor
+curl https://qlty.sh | sh
+```
+
+Generate the checked-in project:
+
+```sh
 xcodegen generate
 git diff --exit-code -- IdleScreen.xcodeproj
 ```
 
 Open `IdleScreen.xcodeproj` and run the `IdleScreenApp` scheme for normal local
 development.
+
+Install the hooks and run the repository-owned gates with:
+
+```sh
+lefthook install
+./scripts/check-swift-format.sh changed
+./scripts/qlty-check-gate.sh all
+./scripts/verify-workflows.sh
+./scripts/test-modern-schemes.sh
+```
+
+`scripts/verify-workflows.sh` runs actionlint and zizmor when they are present.
+It reports a skip when either tool is unavailable because CI remains the
+authoritative workflow-security gate. Lefthook and Qlty are required for their
+respective local commands and fail when unavailable.
 
 ## Safe deterministic checks
 
@@ -38,7 +61,8 @@ python3 ./scripts/test_performance_r1_report.py
 ```
 
 CI also runs the modern Xcode unit and integration schemes with Swift warnings
-treated as errors. The companion compile gate prints the temporary directory
+treated as errors, CodeQL, workflow security, Qlty, and Codecov coverage. The
+companion compile gate prints the temporary directory
 containing its disposable build log.
 
 ## Physical checks
@@ -74,7 +98,7 @@ Replay a completed candidate with:
 
 ```sh
 ./scripts/verify-r1-release-candidate.sh \
-  /absolute/candidate/Distribution/idlescreen-0.1.0-build62.dmg \
+  /absolute/candidate/Distribution/idlescreen-0.1.2-build64.dmg \
   /absolute/candidate/IdleScreenR1ReleaseCandidateV1.txt
 ```
 
@@ -92,8 +116,24 @@ Generate the exact Homebrew cask from that immutable candidate with:
 
 The generator accepts only a clean stable release candidate whose notarization,
 stapling, Gatekeeper results, canonical filename, and final DMG checksum all
-pass. Publish the DMG on the matching `v0.1.0` GitHub release before proposing
+pass. Publish the DMG on the matching GitHub release before proposing
 the generated cask to `CodesWhat/homebrew-tap`.
+
+Generate and publish the SPDX 2.3 SBOM from the same verified manifest:
+
+```sh
+./scripts/generate-release-sbom.sh \
+  /absolute/candidate/IdleScreenR1ReleaseCandidateV1.txt \
+  /absolute/output/idlescreen-0.1.2-build64.spdx.json
+```
+
+The SBOM generator replays the candidate verifier, binds the final DMG SHA-256,
+and records the adapted AppexSaverMinimal declarations from the third-party
+notice.
+
+Ordinary changes target the protected `dev/v0.1` branch. `main` advances only
+through a reviewed promotion pull request and must immediately receive the GA
+tag so `git describe --exact-match origin/main` succeeds.
 
 ## Repository hygiene
 

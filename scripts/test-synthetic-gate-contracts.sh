@@ -192,8 +192,15 @@ if grep -Fq 'explicitlyVerifiedFullScreen' \
   fail "shipping principal controller gained a hosted-gate capability"
 fi
 saver_view="$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift"
-[[ "$(grep -Fc 'return configuration.source == .camera' "$saver_view")" == 1 ]] ||
-  fail "the shipping saver must enable camera demand only from the selected camera source"
+if grep -Fq 'return configuration.source == .camera' "$saver_view"; then
+  fail "the shipping saver bypasses the generated activation decision"
+fi
+grep -Fq 'IdleScreenC7GeneratedActivationDecision.input' "$saver_view" ||
+  fail "the shipping saver does not consume the generated activation decision"
+grep -Fq 'IdleScreenShippingSaverCameraDemandPolicy' "$saver_view" ||
+  fail "the shipping saver does not evaluate the generated activation policy"
+[[ "$(grep -Fc 'return IdleScreenSaverShippingCameraDemand.permitsCamera(' "$saver_view")" == 1 ]] ||
+  fail "the shipping demand branch does not call the generated-policy helper exactly once"
 [[ "$(grep -Fc 'syntheticCameraHostContext = cameraHostContext' "$saver_view")" == 1 ]] ||
   fail "the synthetic initializer must keep its explicit target-gated host context"
 grep -Fq 'IDLESCREEN_SYNTHETIC_HOSTED_GATE' <<<"$synthetic_extension" ||

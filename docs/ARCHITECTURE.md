@@ -64,6 +64,11 @@ The companion preview and screen saver consume the same planner output. Pixel
 Materials uses the same topology boundary so shared terrain and world edges stay
 stable across view recreation and display changes.
 
+Procedural modes generate their visible glyph instances through a bounded Metal
+compute pass. The CPU procedural implementation remains the deterministic
+reference and fallback. Parity tests cover every pattern, viewport, seed,
+brightness, contrast, and glyph choice.
+
 ## Local agent signals
 
 Codex and Claude integrations are opt-in. Their hook adapters accept bounded
@@ -80,6 +85,8 @@ priority, and display-destination rules.
 
 - The responsible companion and camera agent carry the camera entitlement, but
   only the camera agent links AVFoundation or invokes camera APIs.
+- The screen saver can request camera demand only after the checked-in generated
+  activation decision and shipping policy accept the observed host surface.
 - The camera agent admits only expected Team ID and bundle identities.
 - Release builds reject `get-task-allow` and require hardened runtime.
 - App Group files are validated without following attacker-controlled symlinks.

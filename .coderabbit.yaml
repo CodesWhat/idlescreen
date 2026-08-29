@@ -32,8 +32,16 @@ reviews:
   assess_linked_issues: true
   related_issues: true
   related_prs: true
-  suggested_labels: false
-  auto_apply_labels: false
+  suggested_labels: true
+  auto_apply_labels: true
+  labeling_instructions:
+    - label: "second-opinion"
+      instructions: |
+        Apply when the diff changes camera or XPC trust boundaries, release or
+        security workflows, signing and notarization, shared-state validation,
+        or is a large renderer or product-topology refactor. The label summons
+        Greptile once through .github/workflows/greptile.yml, so apply it only
+        when an independent second opinion is warranted.
   suggested_reviewers: false
   auto_assign_reviewers: false
   enable_prompt_for_ai_agents: true
@@ -43,6 +51,8 @@ reviews:
     enabled: true
     auto_incremental_review: true
     drafts: false
+    base_branches:
+      - "dev/.*"
     ignore_title_keywords:
       - "WIP"
       - "DO NOT MERGE"

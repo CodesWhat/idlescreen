@@ -16,7 +16,6 @@ private_tracked_paths="$({
     Archive \
     Design \
     CODE_REVIEW.md \
-    'docs/ROADMAP*' \
     'docs/RESEARCH*' \
     'docs/C6_*' \
     'docs/C7_*' \
@@ -38,6 +37,9 @@ for public_file in \
   CHANGELOG.md \
   CODE_OF_CONDUCT.md \
   CONTRIBUTING.md \
+  AGENTS.md \
+  docs/PROJECT_STATUS.md \
+  docs/ROADMAP.md \
   docs/ASSET_PROVENANCE.md \
   docs/assets/idlescreen-logo.png \
   docs/assets/idlescreen-saver.svg \
@@ -45,12 +47,21 @@ for public_file in \
   .coderabbit.yaml \
   .github/CODEOWNERS \
   .github/FUNDING.yml \
-  .github/workflows/codeql.yml \
+  .github/workflows/ci-verify.yml \
+  .github/workflows/security-codeql.yml \
+  .github/workflows/security-actions.yml \
+  .github/workflows/security-scorecard.yml \
+  .github/workflows/main-is-released.yml \
+  .github/workflows/greptile.yml \
   .github/ISSUE_TEMPLATE/bug_report.yml \
   .github/ISSUE_TEMPLATE/config.yml \
   scripts/generate-brand-assets.sh \
   scripts/generate-homebrew-cask.sh \
+  scripts/generate-release-sbom.py \
+  scripts/generate-release-sbom.sh \
   scripts/test-public-release-contract.sh \
+  greptile.json \
+  lefthook.yml \
   renovate.json; do
   [[ -f "$public_file" ]] ||
     fail "required public repository file is missing: $public_file"
@@ -61,7 +72,7 @@ grep -Fxq 'icon_source="$project_root/docs/assets/idlescreen-logo.png"' \
   "$brand_asset_generator" ||
   fail "the app icon must be generated from the canonical CRT product logo"
 
-codeql_workflow=.github/workflows/codeql.yml
+codeql_workflow=.github/workflows/security-codeql.yml
 for codeql_contract in \
   'language: actions' \
   'language: c-cpp' \
@@ -215,21 +226,21 @@ for retired_view in \
 done
 
 if grep -Eq -- '-scheme (Idlescreen|IdlescreenSettings|IdlescreenTests)([[:space:]\\]|$)' \
-  .github/workflows/ci.yml scripts/test-phase1.sh; then
+  .github/workflows/ci-verify.yml scripts/test-phase1.sh; then
   fail "the active CI/test gate still builds a legacy scheme"
 fi
 
 grep -Fq '[[ "$(xcodegen --version)" == "Version: 2.46.0" ]]' \
-  .github/workflows/ci.yml ||
+  .github/workflows/ci-verify.yml ||
   fail "CI must enforce the XcodeGen version that owns the checked-in project"
 grep -Fq 'git diff --exit-code -- IdleScreen.xcodeproj' \
-  .github/workflows/ci.yml ||
+  .github/workflows/ci-verify.yml ||
   fail "CI must reject tracked generated-project drift"
 grep -Fq 'git ls-files --others --exclude-standard -- IdleScreen.xcodeproj' \
-  .github/workflows/ci.yml ||
+  .github/workflows/ci-verify.yml ||
   fail "CI must reject newly generated untracked project metadata"
 
-grep -Fq 'ASCII art screen saver for macOS' README.md ||
+grep -Fq 'Metal-rendered field of animated characters' README.md ||
   fail "README.md does not identify the product"
 
 echo "PASS: one canonical modern project is active and private planning material is excluded."

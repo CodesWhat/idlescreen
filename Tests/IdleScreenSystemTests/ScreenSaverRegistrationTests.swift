@@ -328,6 +328,58 @@ struct ScreenSaverRegistrationTests {
         ])
     }
 
+    @Test("force repair converges before and after refreshing the host")
+    func forceRepairWaitsForCanonicalRegistrationBeforeAndAfterHostRefresh() throws {
+        let extensionURL = URL(
+            fileURLWithPath: "/Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex"
+        )
+        let stalePath = "/private/tmp/stale/IdleScreenScreenSaver.appex"
+        var results = [
+            registrationResult(path: extensionURL.path),
+            registrationResults(paths: [extensionURL.path]),
+            CommandResult(exitCode: 0, output: ""),
+        ]
+        appendConvergenceResults(
+            to: &results,
+            currentPath: extensionURL.path,
+            transientPath: stalePath
+        )
+        appendConvergenceResults(
+            to: &results,
+            currentPath: extensionURL.path,
+            transientPath: stalePath
+        )
+        let runner = QueueCommandRunner(results: results)
+        let refresher = RecordingHostRefresher {
+            runner.commands.count
+        }
+        let client = ScreenSaverRegistrationClient(
+            bundleIdentifier: bundleIdentifier,
+            commandRunner: runner,
+            hostRefresher: refresher
+        )
+
+        let assessment = try client.forceRepair(extensionAt: extensionURL)
+
+        #expect(assessment.isCurrentBuild)
+        #expect(refresher.commandCountsAtRefresh == [27])
+        #expect(runner.commands.count == 51)
+        #expect(runner.remainingResultCount == 0)
+        #expect(runner.commands[0] == registrationQuery)
+        #expect(runner.commands[1] == duplicateRegistrationQuery)
+        #expect(
+            runner.commands[2]
+                == .init(
+                    executable: "/usr/bin/pluginkit",
+                    arguments: ["-a", extensionURL.path]
+                )
+        )
+        for index in stride(from: 3, to: runner.commands.count, by: 2) {
+            #expect(runner.commands[index] == registrationQuery)
+            #expect(runner.commands[index + 1] == duplicateRegistrationQuery)
+        }
+    }
+
     private var registrationQuery: CommandRequest {
         .init(
             executable: "/usr/bin/pluginkit",
@@ -357,6 +409,18 @@ struct ScreenSaverRegistrationTests {
                 .joined(separator: "\n")
         )
     }
+
+    private func appendConvergenceResults(
+        to results: inout [CommandResult],
+        currentPath: String,
+        transientPath: String
+    ) {
+        for path in [currentPath, transientPath]
+            + Array(repeating: currentPath, count: 10) {
+            results.append(registrationResult(path: path))
+            results.append(registrationResults(paths: [path]))
+        }
+    }
 }
 
 private final class QueueCommandRunner: CommandRunning, @unchecked Sendable {
@@ -367,8 +431,23 @@ private final class QueueCommandRunner: CommandRunning, @unchecked Sendable {
         self.results = results
     }
 
+    var remainingResultCount: Int { results.count }
+
     func run(_ request: CommandRequest) throws -> CommandResult {
         commands.append(request)
         return results.removeFirst()
+    }
+}
+
+private final class RecordingHostRefresher: ScreenSaverHostRefreshing, @unchecked Sendable {
+    private let commandCount: () -> Int
+    private(set) var commandCountsAtRefresh: [Int] = []
+
+    init(commandCount: @escaping () -> Int) {
+        self.commandCount = commandCount
+    }
+
+    func refresh() {
+        commandCountsAtRefresh.append(commandCount())
     }
 }

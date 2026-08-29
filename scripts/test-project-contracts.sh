@@ -47,7 +47,8 @@ fi
 echo "PASS: local camera-agent and saver unit-test schemes compile source-only test graphs without GUI/product registration."
 
 companion_compile_gate="$project_root/scripts/test-companion-compile-gate.sh"
-ci_workflow="$project_root/.github/workflows/ci.yml"
+ci_workflow="$project_root/.github/workflows/ci-verify.yml"
+modern_test_runner="$project_root/scripts/test-modern-schemes.sh"
 companion_ci_invocation_count="$(grep -Fc './scripts/test-companion-compile-gate.sh' "$ci_workflow" || true)"
 ci_modern_test_block="$({
   awk '
@@ -58,46 +59,49 @@ ci_modern_test_block="$({
 })"
 if ! grep -Fq 'SWIFT_TREAT_WARNINGS_AS_ERRORS=YES' "$companion_compile_gate" ||
    [[ "$companion_ci_invocation_count" -ne 1 ]] ||
-   grep -Fq 'IdleScreenAppCompileGate \' <<<"$ci_modern_test_block"; then
+   [[ "$(grep -Fc './scripts/test-modern-schemes.sh "$RUNNER_TEMP/idlescreen-test-results"' "$ci_workflow" || true)" -ne 1 ]] ||
+   grep -Fq 'IdleScreenAppCompileGate' "$modern_test_runner"; then
   echo "FAIL: CI must run the warnings-as-errors companion safety wrapper exactly once, outside the generic scheme loop." >&2
   exit 1
 fi
 
 echo "PASS: CI runs the companion compile safety wrapper once with warnings as errors."
 
-if ! grep -Fq 'result_root="$RUNNER_TEMP/idlescreen-test-results"' <<<"$ci_modern_test_block" ||
-   ! grep -Fq -- '-resultBundlePath "$result_bundle"' <<<"$ci_modern_test_block" ||
-   ! grep -Fq 'xcrun xcresulttool get test-results summary --path "$result_bundle"' <<<"$ci_modern_test_block" ||
-   ! grep -Fq 'xcrun xcresulttool get test-results tests --path "$result_bundle"' <<<"$ci_modern_test_block"; then
+if ! grep -Fq -- '-resultBundlePath "$result_bundle"' "$modern_test_runner" ||
+   ! grep -Fq 'xcrun xcresulttool get test-results summary --path "$result_bundle"' "$modern_test_runner" ||
+   ! grep -Fq 'xcrun xcresulttool get test-results tests --path "$result_bundle"' "$modern_test_runner" ||
+   [[ "$(grep -Ec '^  IdleScreen[A-Za-z]+$' "$modern_test_runner" || true)" -ne 11 ]]; then
   echo "FAIL: CI must preserve and print actionable Xcode test diagnostics for every modern scheme." >&2
   exit 1
 fi
 
 echo "PASS: CI preserves and prints actionable Xcode test diagnostics for every modern scheme."
 
-checkout_sha='11d5960a326750d5838078e36cf38b85af677262'
-qlty_coverage_sha='ea1eaf434a27bf50cd544153084fbb11c52aaf84'
-ci_coverage_block="$(sed -n '/^  coverage:$/,$p' "$ci_workflow")"
-if [[ "$(grep -Fc "uses: actions/checkout@$checkout_sha" "$ci_workflow" || true)" -ne 2 ]] ||
-   [[ "$(grep -Fc 'persist-credentials: false' "$ci_workflow" || true)" -ne 2 ]] ||
-   ! grep -Fq 'permissions:' "$ci_workflow" ||
-   ! grep -Fq 'contents: read' "$ci_workflow" ||
-   ! grep -Fq 'id-token: write' "$ci_workflow" ||
-   ! grep -Fq "uses: qltysh/qlty-action/coverage@$qlty_coverage_sha" "$ci_workflow" ||
-   ! grep -Fq "if: github.event_name == 'push'" "$ci_workflow" ||
-   ! grep -Fq -- '-enableCodeCoverage YES' "$ci_workflow" ||
-   ! grep -Fq -- '-resultBundlePath "$result_bundle"' "$ci_workflow" ||
-   ! grep -Fq 'xcrun xccov view --archive --json "$result_bundle"' "$ci_workflow" ||
-   ! grep -Fq 'oidc: true' "$ci_workflow" ||
-   ! grep -Fq 'format: xccov-json' "$ci_workflow" ||
-   ! grep -Fq 'skip-errors: false' "$ci_workflow" ||
-   ! grep -Fq 'validate: true' "$ci_workflow" ||
-   ! grep -Fq 'cli-version: 0.618.0' "$ci_workflow" ||
+checkout_sha='3d3c42e5aac5ba805825da76410c181273ba90b1'
+codecov_sha='fb8b3582c8e4def4969c97caa2f19720cb33a72f'
+harden_runner_sha='05e31511f85b41b11d1cf0ef85d0992719546e2c'
+ci_coverage_block="$(sed -n '/^  coverage:$/,/^  qlty:$/p' "$ci_workflow")"
+if [[ "$(grep -Fc "uses: actions/checkout@$checkout_sha" "$ci_workflow" || true)" -ne 3 ]] ||
+   [[ "$(grep -Fc "uses: step-security/harden-runner@$harden_runner_sha" "$ci_workflow" || true)" -ne 3 ]] ||
+   [[ "$(grep -Fc 'persist-credentials: false' "$ci_workflow" || true)" -ne 3 ]] ||
+   ! grep -Fq 'permissions:' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'contents: read' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'id-token: write' <<<"$ci_coverage_block" ||
+   ! grep -Fq "uses: codecov/codecov-action@$codecov_sha" <<<"$ci_coverage_block" ||
+   ! grep -Fq "if: github.event_name == 'push'" <<<"$ci_coverage_block" ||
+   ! grep -Fq 'keybase.io:443' <<<"$ci_coverage_block" ||
+   ! grep -Fq -- '-enableCodeCoverage YES' <<<"$ci_coverage_block" ||
+   ! grep -Fq -- '-resultBundlePath "$result_bundle"' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'xcrun xccov view --archive --json "$result_bundle"' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'use_oidc: true' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'plugins: xcode' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'swift_project: IdleScreen' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'fail_ci_if_error: false' <<<"$ci_coverage_block" ||
    ! grep -Fq 'IdleScreenAppCompileGate; do' <<<"$ci_coverage_block" ||
    grep -Eq '^[[:space:]]+token:' <<<"$ci_coverage_block" ||
    grep -Fq 'QLTY_COVERAGE_TOKEN' "$ci_workflow" ||
    grep -Eq 'uses: [^[:space:]]+@v[0-9]' "$ci_workflow"; then
-  echo "FAIL: CI must pin actions, discard checkout credentials, minimize permissions, and upload trusted-push Xcode coverage through Qlty OIDC." >&2
+  echo "FAIL: CI must harden and pin actions, discard checkout credentials, minimize permissions, and upload trusted-push Xcode coverage through Codecov OIDC." >&2
   exit 1
 fi
 
@@ -118,7 +122,7 @@ if [[ "$(grep -Ec '^[[:space:]]+id-token: write$' "$ci_workflow" || true)" -ne 1
   exit 1
 fi
 
-echo "PASS: CI actions are pinned and the trusted-push Qlty coverage job uses least-privilege OIDC without a stored token."
+echo "PASS: CI actions are pinned and hardened, and the trusted-push Codecov coverage job uses least-privilege OIDC without a stored credential."
 
 qlty_config="$project_root/.qlty/qlty.toml"
 if ! grep -Fq '[coverage]' "$qlty_config" ||
@@ -128,7 +132,7 @@ if ! grep -Fq '[coverage]' "$qlty_config" ||
   exit 1
 fi
 
-echo "PASS: Qlty coverage excludes test and test-support sources from production coverage metrics."
+echo "PASS: coverage configuration excludes test and test-support sources from production metrics."
 
 if ! grep -Fq '"RendererFrame"' "$project_root/Sources/IdleScreenRenderer/IdleScreenRenderer.swift" ||
    ! grep -Fq '"MailboxPublish"' "$project_root/Sources/IdleScreenCameraAgent/CameraFrameMailboxWriter.swift" ||
@@ -226,7 +230,7 @@ if [[ -z "$agent_target_block" || -z "$control_tool_target_block" ]] ||
    ! grep -Fq 'subpath: Contents/Helpers' "$project_file" ||
    ! grep -Fq 'IdleScreenAgentSignalMonitor' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
    ! grep -Fq 'IntegrationsView()' "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift" ||
-   ! grep -Fq 'IdleScreenAgent' "$project_root/.github/workflows/ci.yml"; then
+   ! grep -Fq 'IdleScreenAgent' "$project_root/.github/workflows/ci-verify.yml"; then
   echo "FAIL: P3 requires tested privacy-minimal adapters, a release-inaccessible scratch-tested App Group control tool, explicit companion controls, and saver monitoring." >&2
   exit 1
 fi

@@ -309,6 +309,8 @@ targets:
         DEFINES_MODULE: YES
         ENABLE_HARDENED_RUNTIME: YES
         APPLICATION_EXTENSION_API_ONLY: YES
+        MTL_FAST_MATH: NO
+        MTL_TREAT_WARNINGS_AS_ERRORS: YES
 
   IdleScreenCoreTests:
     type: bundle.unit-test
@@ -497,8 +499,8 @@ targets:
         CFBundleDisplayName: idlescreen
         CFBundleExecutable: IdleScreenCameraAgent
         CFBundlePackageType: APPL
-        CFBundleVersion: "28"
-        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "64"
+        CFBundleShortVersionString: "0.1.2"
         LSBackgroundOnly: true
         LSUIElement: true
         NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
@@ -564,8 +566,8 @@ targets:
         CFBundleDisplayName: idlescreen
         CFBundleExecutable: IdleScreenCameraAgent
         CFBundlePackageType: APPL
-        CFBundleVersion: "28"
-        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "64"
+        CFBundleShortVersionString: "0.1.2"
         LSBackgroundOnly: true
         LSUIElement: true
         NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
@@ -915,8 +917,8 @@ targets:
         ENABLE_APP_SANDBOX: YES
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
-        CURRENT_PROJECT_VERSION: "63"
-        MARKETING_VERSION: "0.1.1"
+        CURRENT_PROJECT_VERSION: "64"
+        MARKETING_VERSION: "0.1.2"
         CODE_SIGN_ENTITLEMENTS: Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
         SWIFT_OBJC_BRIDGING_HEADER: Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../../../Frameworks"
@@ -1218,8 +1220,8 @@ targets:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleName: idlescreen
         CFBundleExecutable: IdleScreen
-        CFBundleShortVersionString: "0.1.1"
-        CFBundleVersion: "63"
+        CFBundleShortVersionString: "0.1.2"
+        CFBundleVersion: "64"
         IdleScreenAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
@@ -1309,8 +1311,8 @@ targets:
         CFBundleName: idlescreen
         CFBundleExecutable: IdleScreen
         CFBundlePackageType: APPL
-        CFBundleShortVersionString: "0.1.1"
-        CFBundleVersion: "63"
+        CFBundleShortVersionString: "0.1.2"
+        CFBundleVersion: "64"
         IdleScreenAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)

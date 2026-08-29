@@ -262,6 +262,16 @@ public protocol IdleScreenRendererPerformanceObserving: AnyObject, Sendable {
     )
 }
 
+public struct IdleScreenProceduralRendererDebugState: Equatable, Sendable {
+    public let usesComputePipeline: Bool
+    public let instanceCount: Int
+
+    public init(usesComputePipeline: Bool, instanceCount: Int) {
+        self.usesComputePipeline = usesComputePipeline
+        self.instanceCount = instanceCount
+    }
+}
+
 /// A small production Metal renderer recovered from the legacy renderer.
 ///
 /// A host supplies an `MTKView`; the renderer configures the view and drives
@@ -285,6 +295,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     private let commandQueue: MTLCommandQueue
     private let pipelineState: MTLRenderPipelineState
     private let cameraComputePipelineState: MTLComputePipelineState?
+    private let proceduralComputePipelineState: MTLComputePipelineState?
     private let pixelMaterialsComputePipelineState: MTLComputePipelineState?
     private let pixelMaterialsCoordinator: IdleScreenPixelMaterialsSceneCoordinator
     private let performanceObserver:
@@ -339,6 +350,8 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     private var isShutdown = false
     public private(set) var pixelMaterialsDebugState:
         IdleScreenPixelMaterialsRendererDebugState?
+    public private(set) var proceduralDebugState:
+        IdleScreenProceduralRendererDebugState?
 
     public init(
         metalView: MTKView,
@@ -421,6 +434,25 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
             cameraComputePipelineState = nil
             Self.logger.error(
                 "Camera compute function idleScreenCameraInstances is missing"
+            )
+        }
+
+        if let proceduralFunction = library.makeFunction(
+            name: "idleScreenProceduralInstances"
+        ) {
+            do {
+                proceduralComputePipelineState = try device
+                    .makeComputePipelineState(function: proceduralFunction)
+            } catch {
+                proceduralComputePipelineState = nil
+                Self.logger.error(
+                    "Procedural compute pipeline unavailable: \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        } else {
+            proceduralComputePipelineState = nil
+            Self.logger.error(
+                "Procedural compute function idleScreenProceduralInstances is missing"
             )
         }
 
@@ -560,6 +592,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
             repeating: 0,
             count: Self.maximumInFlightFrameCount
         )
+        proceduralDebugState = nil
     }
 
     /// Draw one frame using a host-owned lifecycle clock.
@@ -659,6 +692,16 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
                    materialsInput,
                    grid: grid,
                    bufferIndex: bufferIndex,
+                   instanceBuffer: instanceBuffer,
+                   commandBuffer: commandBuffer
+               ) {
+                dropReason = .encodingFailed
+                return
+            }
+            if prepared.usesProceduralCompute,
+               !encodeProceduralInstances(
+                   grid: grid,
+                   elapsed: elapsed,
                    instanceBuffer: instanceBuffer,
                    commandBuffer: commandBuffer
                ) {
@@ -826,7 +869,8 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
                     columns: activeCameraFrame.columns,
                     rows: activeCameraFrame.rows
                 ),
-                pixelMaterialsInput: nil
+                pixelMaterialsInput: nil,
+                usesProceduralCompute: false
             )
         }
         if configuration.patternRawValue == "pixelMaterials",
@@ -837,9 +881,26 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
             return PreparedGrid(
                 dimensions: GridDimensions(columns: columns, rows: rows),
                 cameraInput: nil,
-                pixelMaterialsInput: input
+                pixelMaterialsInput: input,
+                usesProceduralCompute: false
             )
         }
+        if proceduralComputePipelineState != nil {
+            proceduralDebugState = .init(
+                usesComputePipeline: true,
+                instanceCount: count
+            )
+            return PreparedGrid(
+                dimensions: GridDimensions(columns: columns, rows: rows),
+                cameraInput: nil,
+                pixelMaterialsInput: nil,
+                usesProceduralCompute: true
+            )
+        }
+        proceduralDebugState = .init(
+            usesComputePipeline: false,
+            instanceCount: count
+        )
         for row in 0..<rows {
             for column in 0..<columns {
                 var brightness: Float
@@ -883,8 +944,90 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         return PreparedGrid(
             dimensions: GridDimensions(columns: columns, rows: rows),
             cameraInput: nil,
-            pixelMaterialsInput: nil
+            pixelMaterialsInput: nil,
+            usesProceduralCompute: false
         )
+    }
+
+    private func encodeProceduralInstances(
+        grid: GridDimensions,
+        elapsed: Float,
+        instanceBuffer: any MTLBuffer,
+        commandBuffer: any MTLCommandBuffer
+    ) -> Bool {
+        guard let pipeline = proceduralComputePipelineState,
+              let encoder = commandBuffer.makeComputeCommandEncoder() else {
+            return false
+        }
+        let settings = configuration.proceduralSettings.normalized
+        let origin = configuration.viewport.coordinate(
+            column: 0,
+            row: 0,
+            columns: grid.columns,
+            rows: grid.rows,
+            sceneSeed: configuration.sceneSeed
+        )
+        let resolvedPattern = IdleScreenProceduralPatterns
+            .resolvedPatternRawValue(
+                configuration.patternRawValue,
+                at: TimeInterval(elapsed),
+                autoCycleInterval: settings.autoCycleInterval
+            )
+        let patternIndex = UInt32(
+            IdleScreenProceduralPatterns.patternRawValues
+                .firstIndex(of: resolvedPattern) ?? 0
+        )
+        var uniforms = ProceduralComputeUniforms(
+            gridSize: SIMD2(UInt32(grid.columns), UInt32(grid.rows)),
+            sceneSize: SIMD2(UInt32(origin.columns), UInt32(origin.rows)),
+            sceneOrigin: SIMD2(UInt32(origin.column), UInt32(origin.row)),
+            patternIndex: patternIndex,
+            glyphCount: UInt32(Self.glyphRamp.count),
+            timestamp: elapsed,
+            contrast: Float(0.6 + configuration.contrast * 1.6),
+            sceneBrightness: Float(configuration.sceneBrightness),
+            speed: Float(settings.speed),
+            scale: Float(settings.scale),
+            intensity: Float(settings.intensity * settings.qualityLevel),
+            trailing: Float(settings.trailing),
+            matrixTrailLength: Float(settings.matrixTrailLength),
+            rainbowAmplitude: Float(settings.rainbowAmplitude),
+            fireDecay: Float(settings.fireDecay),
+            foreground: configuration.paletteColors.foregroundRGBA
+        )
+        encoder.label = "IdleScreen procedural glyph compute"
+        encoder.setComputePipelineState(pipeline)
+        encoder.setBuffer(instanceBuffer, offset: 0, index: 0)
+        encoder.setBytes(
+            &uniforms,
+            length: MemoryLayout<ProceduralComputeUniforms>.stride,
+            index: 1
+        )
+        let threadWidth = max(
+            1,
+            min(grid.columns, pipeline.threadExecutionWidth)
+        )
+        let threadHeight = max(
+            1,
+            min(
+                grid.rows,
+                pipeline.maxTotalThreadsPerThreadgroup / threadWidth
+            )
+        )
+        encoder.dispatchThreadgroups(
+            MTLSize(
+                width: (grid.columns + threadWidth - 1) / threadWidth,
+                height: (grid.rows + threadHeight - 1) / threadHeight,
+                depth: 1
+            ),
+            threadsPerThreadgroup: MTLSize(
+                width: threadWidth,
+                height: threadHeight,
+                depth: 1
+            )
+        )
+        encoder.endEncoding()
+        return true
     }
 
     private func preparePixelMaterialsInput(
@@ -1187,6 +1330,25 @@ private struct PixelMaterialsComputeUniforms {
     let waterColor: SIMD4<Float>
 }
 
+struct ProceduralComputeUniforms {
+    let gridSize: SIMD2<UInt32>
+    let sceneSize: SIMD2<UInt32>
+    let sceneOrigin: SIMD2<UInt32>
+    let patternIndex: UInt32
+    let glyphCount: UInt32
+    let timestamp: Float
+    let contrast: Float
+    let sceneBrightness: Float
+    let speed: Float
+    let scale: Float
+    let intensity: Float
+    let trailing: Float
+    let matrixTrailLength: Float
+    let rainbowAmplitude: Float
+    let fireDecay: Float
+    let foreground: SIMD4<Float>
+}
+
 private struct CameraPixelSample {
     let brightness: Float
     let rgb: SIMD3<Float>
@@ -1205,11 +1367,13 @@ private struct PreparedGrid {
     let dimensions: GridDimensions
     let cameraInput: CameraComputeInput?
     let pixelMaterialsInput: PixelMaterialsComputeInput?
+    let usesProceduralCompute: Bool
 
     static let empty = PreparedGrid(
         dimensions: .empty,
         cameraInput: nil,
-        pixelMaterialsInput: nil
+        pixelMaterialsInput: nil,
+        usesProceduralCompute: false
     )
 }
 
