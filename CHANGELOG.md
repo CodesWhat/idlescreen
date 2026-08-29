@@ -7,6 +7,10 @@ All notable changes to idlescreen are documented here. The project follows
 
 ### Changed
 
+- Kept the companion in the menu bar and dropped its Dock tile when the main
+  window closes, so the tile no longer outlives the window it belongs to.
+- Gave the app icon a phosphor background so the silver CRT chassis reads
+  against it at Dock size instead of sitting on the system's default fill.
 - Pointed the Codecov upload at the coverage reports the preceding job writes,
   so a failed upload can no longer pass silently.
 - Described the Homebrew integration as installing the signed, notarized DMG
