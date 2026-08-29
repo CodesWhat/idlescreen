@@ -5,6 +5,11 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+### Changed
+
+- Kept the companion in the menu bar and dropped its Dock tile when the main
+  window closes, so the tile no longer outlives the window it belongs to.
+
 ## [0.1.2] - 2026-08-29
 
 ### Added
