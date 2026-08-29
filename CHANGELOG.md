@@ -30,6 +30,12 @@ All notable changes to idlescreen are documented here. The project follows
   checks against stale, multiple, or identity-mismatched host processes.
 - Rendered the initial fallback frame synchronously so the saver never starts
   with an empty view while Metal initializes.
+- Released the Studio camera preview lease when a display-plan change alone
+  quiets the previewed display, so the camera indicator no longer stays lit
+  after a scene-policy or display-topology change.
+- Aligned the bundled camera agent's bundle and marketing versions with the
+  shipping app so upgrade staleness checks can distinguish one release's
+  helper from another's.
 
 ## [0.1.1] - 2026-08-13
 
