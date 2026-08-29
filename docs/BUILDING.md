@@ -6,7 +6,7 @@
 - Xcode 26
 - XcodeGen 2.46.0
 - Python 3 for deterministic fixture tests
-- Lefthook 2.1.11, Qlty 0.618.0, actionlint 1.7.12, and zizmor 1.29.0 for
+- Lefthook 2.1.12, Qlty 0.618.0, actionlint 1.7.12, and zizmor 1.29.0 for
   repository gates
 
 Install the Homebrew-provided tools and Qlty's signed release CLI. Download the
