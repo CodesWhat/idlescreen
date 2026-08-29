@@ -8,12 +8,12 @@ import IdleScreenDisplay
 /// Deriving both from one value lets the view observe the decision itself
 /// rather than enumerating every input that feeds it.
 enum StudioCameraPreviewReconciliation {
-    static func usesCamera(
-        source: IdleScreenSource,
-        previewRole: DisplaySceneRole?
-    ) -> Bool {
-        guard source == .camera else { return false }
-        if case .quiet = previewRole { return false }
-        return true
-    }
+  static func usesCamera(
+    source: IdleScreenSource,
+    previewRole: DisplaySceneRole?
+  ) -> Bool {
+    guard source == .camera else { return false }
+    if case .quiet = previewRole { return false }
+    return true
+  }
 }
