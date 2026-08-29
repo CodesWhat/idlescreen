@@ -45,11 +45,13 @@ whatever comes next:
   cannot strand a partial `.spdx.json`.
 - Scope the renderer zero-drop budget to the named benchmark host, matching the
   camera duplicate-copy benchmark.
-
-Still open, raised as a TOCTOU finding during the v0.1.2 promotion review and
-tracked as X48 in the ops execution plan: bind the candidate verifier and the
-SBOM generator to a single immutable snapshot, so the two cannot be pointed at
-different bytes between steps.
+- Bind the candidate verifier and SBOM generator to one descriptor-held
+  immutable snapshot, closing the X48 TOCTOU finding from the v0.1.2 promotion
+  review.
+- Add a consent-gated attended runner that consumes short-lived
+  signed-candidate plans, bounds camera lifecycle soaks, and records
+  process-scoped energy samples. C8 release evidence remains a separate
+  operator-collected and verified workflow.
 
 ## Completed product foundation
 
@@ -72,9 +74,6 @@ remain useful coverage and product work:
   matrix on additional physical Mac configurations.
 - Smoke-test the next macOS beta and Intel hardware while universal support is
   advertised.
-- A consent-gated attended runner consumes short-lived signed-candidate plans,
-  bounds camera lifecycle soaks, and records process-scoped energy samples. C8
-  release evidence remains a separate operator-collected and verified workflow.
 - Move signed-release construction and artifact attestations into GitHub Actions
   after Apple signing and notary credentials have an approved enrollment path.
 - Consider the optional custom-pet importer only with explicit user-owned art
