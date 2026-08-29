@@ -39,9 +39,21 @@ and the [roadmap](ROADMAP.md) for the user-facing scope.
 
 ## Release exit
 
-The feature PR is merged and its stable checks are required on `main`. The
-audit closes when refreshed notarization authentication produces one accepted
-candidate, the promotion PR merges with required reviews, v0.1.2 exactly tags
-`main`, the attached DMG and manifest replay, the SBOM and Homebrew cask bind
-to that checksum, and the public badges and live rulesets are re-read after
-publication.
+v0.1.2 shipped on 2026-08-29. Every exit condition is met:
+
+- Notarization authenticated through the team-scoped App Store Connect API key
+  and produced one accepted candidate, 0 issues, stapled and Gatekeeper-checked.
+- Promotion PR #15 merged with two non-author approvals and every required
+  check green, after all seven CodeRabbit threads were answered and resolved.
+- `v0.1.2` tags `main` exactly at `1d357b82`, `main` and `dev/v0.1` are
+  tree-equal, and `main-is-released` passed on that commit.
+- The published DMG was downloaded and re-hashed to
+  `2e5ebbf222a060bba900baa7738c87bf4df58b7c9648b4885ab3ff5b78c7e687`, matching
+  the manifest, the SBOM binding, and the generated cask.
+- DMG, `IdleScreenR1ReleaseCandidateV1.txt` and the SPDX SBOM are attached to
+  the release; the cask bump is CodesWhat/homebrew-tap#8.
+
+Carried forward, none release-blocking: binding the candidate verifier and the
+SBOM generator to a single immutable snapshot so the two cannot be pointed at
+different bytes by a local principal, raised as a TOCTOU finding on #15 and
+deferred rather than landed in a promotion PR.

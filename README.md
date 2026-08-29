@@ -104,7 +104,7 @@ the last valid consumer lease ends.
 
 | Integration | Behavior |
 | --- | --- |
-| Homebrew | Signed and notarized cask from `codeswhat/tap` |
+| Homebrew | Cask from `codeswhat/tap` installing the signed, notarized DMG |
 | Codex | Optional local lifecycle status through bundled `idlescreenctl` |
 | Claude | Optional local lifecycle status through bundled `idlescreenctl` |
 | macOS ScreenSaverEngine | Embedded modern screen-saver extension |

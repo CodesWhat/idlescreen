@@ -165,6 +165,10 @@ jobs:
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           use_oidc: true
+          # The report step writes to $RUNNER_TEMP/idlescreen-coverage, which is
+          # outside the workspace the action searches by default. Without this
+          # the upload finds nothing and fail_ci_if_error keeps the job green.
+          directory: ${{ runner.temp }}/idlescreen-coverage
           plugins: xcode
           swift_project: IdleScreen
           fail_ci_if_error: false

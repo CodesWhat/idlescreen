@@ -9,12 +9,29 @@
 - Lefthook 2.1.11, Qlty 0.618.0, actionlint 1.7.12, and zizmor 1.29.0 for
   repository gates
 
-Install the Homebrew-provided tools and Qlty's signed release CLI:
+Install the Homebrew-provided tools and Qlty's signed release CLI. Download the
+Qlty installer and read it before running it rather than piping it into a shell,
+so an upstream change to that script cannot execute unseen:
 
 ```sh
 brew install xcodegen lefthook actionlint zizmor
-curl https://qlty.sh | sh
+curl -fsSL https://qlty.sh -o /tmp/qlty-install.sh
+less /tmp/qlty-install.sh
+sh /tmp/qlty-install.sh
 ```
+
+Homebrew installs whatever is current, which is not necessarily the version the
+gate expects. Check what you got against the versions listed above before
+relying on a local pass:
+
+```sh
+./scripts/check-tool-versions.sh
+```
+
+CI does not depend on any of this. It asserts `xcodegen --version` exactly and
+installs Qlty from `qltysh/qlty-action/install` pinned to a full commit SHA, so
+a local version mismatch shows up as a disagreement with CI rather than as a
+silent pass.
 
 Generate the checked-in project:
 
@@ -130,6 +147,12 @@ Generate and publish the SPDX 2.3 SBOM from the same verified manifest:
 The SBOM generator replays the candidate verifier, binds the final DMG SHA-256,
 and records the adapted AppexSaverMinimal declarations from the third-party
 notice.
+
+Attach that file to the matching GitHub release under exactly the name
+`idlescreen-<version>-build<build>.spdx.json`, alongside the DMG and
+`IdleScreenR1ReleaseCandidateV1.txt`. The name is load-bearing: the published
+download URL is derived from it, so a release whose SBOM is attached under any
+other name reads as having no SBOM at all.
 
 Ordinary changes target the protected `dev/v0.1` branch. `main` advances only
 through a reviewed promotion pull request and must immediately receive the GA
