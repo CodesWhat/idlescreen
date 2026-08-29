@@ -14,7 +14,7 @@ pipeline, or web runtime.
 | Control | Expected state | Current state | Verdict |
 | --- | --- | --- | --- |
 | Default branch | `main` is the latest GA tag | `main` exactly matches the v0.1.2 GA tag at `1d357b82` | Pass |
-| Development line | One active protected `dev/vX.Y` branch | `dev/v0.1` exists with deletion and force-push protection | Pass |
+| Development line | One active protected `dev/vX.Y` branch | `dev/v0.1` requires PRs, two approvals, current-head approval, the six stable checks, and CodeQL, with no bypass actors | Pass |
 | Release tags | `v*` tags cannot be deleted, updated, or force-pushed | Active tag ruleset, no bypass actors | Pass |
 | Main protection | PRs, two approvals, code owners, current head approval, required checks, CodeQL | Active no-bypass ruleset requires the six stable PR contexts proven by the representative review | Pass |
 | Contributor files | Repo-specific AGENTS, CONTRIBUTING, SECURITY, ownership, license | Present on protected `dev/v0.1` and aligned with the exact local gates | Pass |
