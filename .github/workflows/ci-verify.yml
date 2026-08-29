@@ -74,6 +74,7 @@ jobs:
         run: |
           python3 ./scripts/test_performance_r1_report.py
           ./scripts/test-run-performance-r1.sh
+          ./scripts/test-camera-gate-c8-soak-planner.py
           ./scripts/test-companion-compile-gate.sh /tmp/idlescreen-ci-companion-gate
           ./scripts/test-idlescreenctl-runtime.sh
           ./scripts/test-camera-agent-product-fixtures.sh

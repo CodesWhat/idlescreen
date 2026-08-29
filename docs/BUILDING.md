@@ -69,6 +69,7 @@ camera access, open System Settings, or change power state:
 ./scripts/test-companion-compile-gate.sh
 python3 ./scripts/test_performance_r1_report.py
 ./scripts/test-run-performance-r1.sh
+./scripts/test-camera-gate-c8-soak-planner.py
 ./scripts/test-idlescreenctl-runtime.sh
 ./scripts/test-camera-agent-product-fixtures.sh
 ./scripts/test-synthetic-gate-product-fixtures.sh
@@ -91,6 +92,25 @@ separately consent-gated. Their default behavior is to refuse the action.
 Never run a physical script by copying an opt-in from a fixture or another test
 session. Read the script's refusal message, confirm the exact candidate and
 scope, and authorize only the action being performed.
+
+The controlled C8 soak planner currently provides scheduling only. It validates the pending
+same-candidate matrix row and writes a short-lived inert plan with an exact
+300-second TTL; it never starts a lifecycle transition or performance process.
+The legacy `--execute-plan` option is intentionally fail-closed because this
+repository does not yet have a canonical installed-candidate soak and evidence
+collector. The planner cannot claim row completion, update a matrix, or emit
+verifier-valid evidence.
+Plan creation claims the final output name directly with an exclusive no-follow
+open, keeping the inode at mode `000` until its content and durability checks
+finish. A failed write may strand a mode-`000` partial file at that name; it is
+not a valid plan and must be discarded before retrying. Every resolved output
+ancestor must be owned by root or the current user, have no group/other write
+permission, and have no extended ACL. No C8 schedule command initiates sleep, reboot, logout, display,
+registration, installation, TCC, or process changes. A future executor must
+probe the live console immediately before confirmation and at its action
+boundary, bind the installed signed candidate, collect all six canonical C8
+artifacts, transition the row and matrix atomically, and replay
+`verify-camera-gate-c8-evidence.py` before reporting success.
 
 ## Release candidates
 

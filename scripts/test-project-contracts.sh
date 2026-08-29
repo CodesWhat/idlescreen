@@ -1642,6 +1642,25 @@ done
 
 echo "PASS: C4 evidence is bound from exact C3 install trees through ordered A1T/A1TR restoration."
 
+c8_soak_planner="$project_root/scripts/run-camera-gate-c8-row.py"
+c8_soak_fixtures="$project_root/scripts/test-camera-gate-c8-soak-planner.py"
+if [[ ! -x "$c8_soak_planner" || ! -x "$c8_soak_fixtures" ]] ||
+   ! python3 -m py_compile "$c8_soak_planner" ||
+   ! grep -Fq -- '--schedule-soak' "$c8_soak_planner" ||
+   ! grep -Fq -- '--execute-plan' "$c8_soak_planner" ||
+   ! grep -Fq 'write_exclusive_json' "$c8_soak_planner" ||
+   ! grep -Fq 'no safe canonical installed-candidate executor' "$c8_soak_planner" ||
+   grep -Fq 'run-performance-r1.sh' "$c8_soak_planner"; then
+  echo "FAIL: C8 requires an executable inert scheduled soak planner with a fail-closed executor boundary." >&2
+  exit 1
+fi
+"$c8_soak_fixtures" >/dev/null || {
+  echo "FAIL: deterministic controlled C8 soak planner fixtures failed." >&2
+  exit 1
+}
+
+echo "PASS: controlled C8 soak planning is inert and completion claims are fail-closed."
+
 r1_builder="$project_root/scripts/build-r1-release-candidate.sh"
 r1_verifier="$project_root/scripts/verify-r1-release-candidate.sh"
 r1_fixtures="$project_root/scripts/test-r1-release-candidate-fixtures.sh"
