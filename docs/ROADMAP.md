@@ -1,6 +1,6 @@
 # IdleScreen roadmap
 
-Last updated: August 28, 2026
+Last updated: August 29, 2026
 
 IdleScreen 0.1 is a released public product. The companion app, modern
 screen-saver extension, Metal renderer, camera agent, multi-display planner,
