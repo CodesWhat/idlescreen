@@ -107,6 +107,14 @@ source_commit="$(git -C "$project_root" rev-parse HEAD)"
   echo '  /usr/bin/sed "s/^stapled_dmg_sha256=.*/stapled_dmg_sha256=$swapped_sha/" "$IDLESCREEN_SBOM_RACE_MANIFEST" >"$IDLESCREEN_SBOM_RACE_MANIFEST.swapped"'
   echo '  /bin/mv "$IDLESCREEN_SBOM_RACE_MANIFEST.swapped" "$IDLESCREEN_SBOM_RACE_MANIFEST"'
   echo 'fi'
+  echo 'if [[ "${IDLESCREEN_SBOM_FIXTURE_CLEANUP_GUARD:-NO}" == YES ]]; then'
+  echo '  cleanup_guard="$(/usr/bin/dirname "$2")/.cleanup-guard"'
+  echo '  : >"$cleanup_guard"'
+  echo '  /usr/bin/chflags uchg "$cleanup_guard"'
+  echo 'fi'
+  echo 'if [[ -n "${IDLESCREEN_SBOM_FIXTURE_VERIFIER_EXIT:-}" ]]; then'
+  echo '  exit "$IDLESCREEN_SBOM_FIXTURE_VERIFIER_EXIT"'
+  echo 'fi'
 } >"$verifier"
 /bin/chmod +x "$verifier"
 
@@ -237,6 +245,37 @@ if IDLESCREEN_SBOM_FIXTURE_MODE=YES \
 fi
 if [[ -e "$escaping_verifier_marker" ]]; then
   echo "FAIL: the SBOM generator verified a candidate snapshot with an escaping symlink." >&2
+  exit 1
+fi
+
+cleanup_failure_output="$scratch_root/cleanup-failure.spdx.json"
+set +e
+IDLESCREEN_SBOM_FIXTURE_CLEANUP_GUARD=YES \
+  generate_fixture_sbom "$manifest" "$cleanup_failure_output" >/dev/null 2>&1
+cleanup_failure_status=$?
+set -e
+cleanup_failure_manifest="$(/usr/bin/sed -n '2p' "$verifier_marker")"
+cleanup_failure_root="$(/usr/bin/dirname "$(/usr/bin/dirname "$cleanup_failure_manifest")")"
+/usr/bin/chflags nouchg "$(/usr/bin/dirname "$cleanup_failure_manifest")/.cleanup-guard"
+/bin/rm -rf "$cleanup_failure_root"
+if [[ "$cleanup_failure_status" -eq 0 ]]; then
+  echo "FAIL: the SBOM generator reported success after snapshot cleanup failed." >&2
+  exit 1
+fi
+
+cleanup_preserved_output="$scratch_root/cleanup-preserved.spdx.json"
+set +e
+IDLESCREEN_SBOM_FIXTURE_CLEANUP_GUARD=YES \
+  IDLESCREEN_SBOM_FIXTURE_VERIFIER_EXIT=73 \
+  generate_fixture_sbom "$manifest" "$cleanup_preserved_output" >/dev/null 2>&1
+cleanup_preserved_status=$?
+set -e
+cleanup_preserved_manifest="$(/usr/bin/sed -n '2p' "$verifier_marker")"
+cleanup_preserved_root="$(/usr/bin/dirname "$(/usr/bin/dirname "$cleanup_preserved_manifest")")"
+/usr/bin/chflags nouchg "$(/usr/bin/dirname "$cleanup_preserved_manifest")/.cleanup-guard"
+/bin/rm -rf "$cleanup_preserved_root"
+if [[ "$cleanup_preserved_status" -ne 73 ]]; then
+  echo "FAIL: snapshot cleanup replaced the original verifier failure status." >&2
   exit 1
 fi
 

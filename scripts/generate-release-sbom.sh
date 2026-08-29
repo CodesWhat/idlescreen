@@ -16,9 +16,13 @@ snapshot_parent=""
 
 cleanup() {
   local status=$?
+  local cleanup_status=0
   trap - EXIT
   if [[ -n "$snapshot_parent" ]]; then
-    /bin/rm -rf "${snapshot_parent:?}"
+    /bin/rm -rf "${snapshot_parent:?}" || cleanup_status=$?
+  fi
+  if [[ "$status" -eq 0 && "$cleanup_status" -ne 0 ]]; then
+    status="$cleanup_status"
   fi
   exit "$status"
 }
