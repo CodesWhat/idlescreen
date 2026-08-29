@@ -92,6 +92,7 @@ verifier_marker="$scratch_root/verifier-arguments.txt"
 dmg_sha256="$(/usr/bin/shasum -a 256 "$distribution_root/idlescreen-0.1.2-build64.dmg" | /usr/bin/awk '{ print $1 }')"
 source_commit="$(git -C "$project_root" rev-parse HEAD)"
 
+# shellcheck disable=SC2016,SC2028
 {
   echo '#!/bin/bash'
   echo 'set -euo pipefail'
@@ -99,6 +100,20 @@ source_commit="$(git -C "$project_root" rev-parse HEAD)"
   echo '/usr/bin/printf "%s\n%s\n" "$1" "$2" >"${IDLESCREEN_HOMEBREW_VERIFIER_MARKER:?}"'
   echo 'if [[ -n "${IDLESCREEN_HOMEBREW_RACE_OUTPUT:-}" ]]; then'
   echo '  /usr/bin/printf "attacker-owned\n" >"$IDLESCREEN_HOMEBREW_RACE_OUTPUT"'
+  echo 'fi'
+  echo 'if [[ -n "${IDLESCREEN_SBOM_RACE_MANIFEST:-}" ]]; then'
+  echo '  /usr/bin/printf "swapped candidate dmg\n" >"${IDLESCREEN_SBOM_RACE_DMG:?}"'
+  echo '  swapped_sha="$(/usr/bin/shasum -a 256 "$IDLESCREEN_SBOM_RACE_DMG" | /usr/bin/awk '\''{ print $1 }'\'')"'
+  echo '  /usr/bin/sed "s/^stapled_dmg_sha256=.*/stapled_dmg_sha256=$swapped_sha/" "$IDLESCREEN_SBOM_RACE_MANIFEST" >"$IDLESCREEN_SBOM_RACE_MANIFEST.swapped"'
+  echo '  /bin/mv "$IDLESCREEN_SBOM_RACE_MANIFEST.swapped" "$IDLESCREEN_SBOM_RACE_MANIFEST"'
+  echo 'fi'
+  echo 'if [[ "${IDLESCREEN_SBOM_FIXTURE_CLEANUP_GUARD:-NO}" == YES ]]; then'
+  echo '  cleanup_guard="$(/usr/bin/dirname "$2")/.cleanup-guard"'
+  echo '  : >"$cleanup_guard"'
+  echo '  /usr/bin/chflags uchg "$cleanup_guard"'
+  echo 'fi'
+  echo 'if [[ -n "${IDLESCREEN_SBOM_FIXTURE_VERIFIER_EXIT:-}" ]]; then'
+  echo '  exit "$IDLESCREEN_SBOM_FIXTURE_VERIFIER_EXIT"'
   echo 'fi'
 } >"$verifier"
 /bin/chmod +x "$verifier"
@@ -174,6 +189,15 @@ if ! cask_has_separated_url "$cask"; then
 fi
 
 generate_fixture_sbom "$manifest" "$sbom"
+verified_dmg="$(/usr/bin/sed -n '1p' "$verifier_marker")"
+verified_manifest="$(/usr/bin/sed -n '2p' "$verifier_marker")"
+verified_root="$(/usr/bin/dirname "$verified_manifest")"
+[[ "$verified_manifest" != "$manifest" &&
+   "$verified_dmg" == "$verified_root/Distribution/idlescreen-0.1.2-build64.dmg" &&
+   ! -e "$verified_root" ]] || {
+  echo "FAIL: the SBOM verifier and generator did not share one disposable candidate snapshot." >&2
+  exit 1
+}
 /usr/bin/python3 -c '
 import json
 import sys
@@ -187,6 +211,73 @@ assert package["versionInfo"] == "0.1.2"
 assert package["checksums"] == [{"algorithm": "SHA256", "checksumValue": sys.argv[2]}]
 assert sys.argv[3] in package["sourceInfo"]
 ' "$sbom" "$dmg_sha256" "$source_commit"
+
+snapshot_candidate_root="$scratch_root/snapshot-candidate"
+/bin/cp -R "$candidate_root" "$snapshot_candidate_root"
+snapshot_manifest="$snapshot_candidate_root/IdleScreenR1ReleaseCandidateV1.txt"
+snapshot_dmg="$snapshot_candidate_root/Distribution/idlescreen-0.1.2-build64.dmg"
+snapshot_sbom="$scratch_root/snapshot-bound.spdx.json"
+IDLESCREEN_SBOM_RACE_MANIFEST="$snapshot_manifest" \
+  IDLESCREEN_SBOM_RACE_DMG="$snapshot_dmg" \
+  generate_fixture_sbom "$snapshot_manifest" "$snapshot_sbom"
+/usr/bin/python3 -c '
+import json
+import sys
+
+document = json.load(open(sys.argv[1], encoding="utf-8"))
+package = next(item for item in document["packages"] if item["name"] == "idlescreen")
+assert package["checksums"] == [{"algorithm": "SHA256", "checksumValue": sys.argv[2]}]
+' "$snapshot_sbom" "$dmg_sha256"
+
+escaping_candidate_root="$scratch_root/escaping-candidate"
+/bin/cp -R "$candidate_root" "$escaping_candidate_root"
+/bin/rm -rf "$escaping_candidate_root/Distribution"
+/bin/ln -s "$distribution_root" "$escaping_candidate_root/Distribution"
+escaping_verifier_marker="$scratch_root/escaping-verifier-arguments.txt"
+if IDLESCREEN_SBOM_FIXTURE_MODE=YES \
+  IDLESCREEN_SBOM_CANDIDATE_VERIFIER="$verifier" \
+  IDLESCREEN_HOMEBREW_VERIFIER_MARKER="$escaping_verifier_marker" \
+  "$sbom_generator" \
+    "$escaping_candidate_root/IdleScreenR1ReleaseCandidateV1.txt" \
+    "$scratch_root/escaping.spdx.json" >/dev/null 2>&1; then
+  echo "FAIL: the SBOM generator accepted a candidate snapshot with an escaping symlink." >&2
+  exit 1
+fi
+if [[ -e "$escaping_verifier_marker" ]]; then
+  echo "FAIL: the SBOM generator verified a candidate snapshot with an escaping symlink." >&2
+  exit 1
+fi
+
+cleanup_failure_output="$scratch_root/cleanup-failure.spdx.json"
+set +e
+IDLESCREEN_SBOM_FIXTURE_CLEANUP_GUARD=YES \
+  generate_fixture_sbom "$manifest" "$cleanup_failure_output" >/dev/null 2>&1
+cleanup_failure_status=$?
+set -e
+cleanup_failure_manifest="$(/usr/bin/sed -n '2p' "$verifier_marker")"
+cleanup_failure_root="$(/usr/bin/dirname "$(/usr/bin/dirname "$cleanup_failure_manifest")")"
+/usr/bin/chflags nouchg "$(/usr/bin/dirname "$cleanup_failure_manifest")/.cleanup-guard"
+/bin/rm -rf "$cleanup_failure_root"
+if [[ "$cleanup_failure_status" -eq 0 ]]; then
+  echo "FAIL: the SBOM generator reported success after snapshot cleanup failed." >&2
+  exit 1
+fi
+
+cleanup_preserved_output="$scratch_root/cleanup-preserved.spdx.json"
+set +e
+IDLESCREEN_SBOM_FIXTURE_CLEANUP_GUARD=YES \
+  IDLESCREEN_SBOM_FIXTURE_VERIFIER_EXIT=73 \
+  generate_fixture_sbom "$manifest" "$cleanup_preserved_output" >/dev/null 2>&1
+cleanup_preserved_status=$?
+set -e
+cleanup_preserved_manifest="$(/usr/bin/sed -n '2p' "$verifier_marker")"
+cleanup_preserved_root="$(/usr/bin/dirname "$(/usr/bin/dirname "$cleanup_preserved_manifest")")"
+/usr/bin/chflags nouchg "$(/usr/bin/dirname "$cleanup_preserved_manifest")/.cleanup-guard"
+/bin/rm -rf "$cleanup_preserved_root"
+if [[ "$cleanup_preserved_status" -ne 73 ]]; then
+  echo "FAIL: snapshot cleanup replaced the original verifier failure status." >&2
+  exit 1
+fi
 
 if generate_fixture_sbom "$manifest" "$sbom" >/dev/null 2>&1; then
   echo "FAIL: the SBOM generator overwrote an existing output." >&2
