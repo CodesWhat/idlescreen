@@ -5,7 +5,7 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
-## [0.1.2] - 2026-08-27
+## [0.1.2] - 2026-08-29
 
 ### Added
 
