@@ -41,12 +41,11 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
     // It does not connect XPC, bootstrap preview, register, prompt, or open UI.
     _ = cameraClient
     let arguments = ProcessInfo.processInfo.arguments
+    let showsMainWindow = IdleScreenLaunchPolicy.shouldShowMainWindow(arguments: arguments)
     // Decided once, before anything opens: settling the policy here and not
     // per-branch keeps a normal launch from flipping .regular twice, which
     // flickers the Dock tile.
-    applyDockPresentation(
-      showsMainWindow: IdleScreenLaunchPolicy.shouldShowMainWindow(arguments: arguments)
-    )
+    applyDockPresentation(showsMainWindow: showsMainWindow)
     let backgroundProbe = IdleScreenLaunchPolicy.backgroundProbe(arguments: arguments)
     if case .cameraAgentRebind(let resultPath, let previousProcessIdentifier) =
       backgroundProbe
@@ -58,11 +57,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
       )
       return
     }
-    guard
-      IdleScreenLaunchPolicy.shouldShowMainWindow(
-        arguments: arguments
-      )
-    else {
+    guard showsMainWindow else {
       logger.info("Background lifecycle probe will not activate or reveal the main window")
       if case .configurationContrast(let contrast) = backgroundProbe {
         logger.info("Applying background configuration delivery probe")
@@ -218,7 +213,21 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
     guard let window = notification.object as? NSWindow,
       window === mainWindow
     else { return }
-    applyDockPresentation(showsMainWindow: false)
+    // AppKit does not deliver windowDidExitFullScreen to a window that closes
+    // out of full screen, and the window is reused, so leaving the latch set
+    // disables every later resize and screen-change normalization.
+    mainWindowIsEnteringFullScreen = false
+    // Deferred on purpose: changing the process type inside the close, and
+    // inside a full-screen Space teardown, is what strands the Space. The next
+    // turn also never arrives during NSApp.terminate, so quitting no longer
+    // pops the tile on the way out.
+    DispatchQueue.main.async { [weak self] in
+      guard let self, let window = self.mainWindow else { return }
+      // isVisible is false for a miniaturized window, so both are required:
+      // an accessory app loses the minimized tile too, stranding the window.
+      guard !window.isVisible, !window.isMiniaturized else { return }
+      self.applyDockPresentation(showsMainWindow: false)
+    }
   }
 
   private func applyDockPresentation(showsMainWindow: Bool) {
@@ -226,7 +235,15 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
       showsMainWindow: showsMainWindow
     )
     guard NSApp.activationPolicy() != policy else { return }
-    _ = NSApp.setActivationPolicy(policy)
+    guard NSApp.setActivationPolicy(policy) else {
+      // A refused .regular transition leaves the app with no Dock tile and no
+      // menu bar, so the window opens non-key and the camera preview never
+      // starts. The guard above re-attempts it on the next call.
+      logger.error(
+        "Dock presentation refused showsMainWindow=\(showsMainWindow, privacy: .public)"
+      )
+      return
+    }
     logger.info("Dock presentation set showsMainWindow=\(showsMainWindow, privacy: .public)")
   }
 
