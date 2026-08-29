@@ -13,8 +13,8 @@ pipeline, or web runtime.
 
 | Control | Expected state | Current state | Verdict |
 | --- | --- | --- | --- |
-| Default branch | `main` is the latest GA tag | `main` is two commits past v0.1.1; v0.1.2 promotion will close the drift | Open until release |
-| Development line | One active protected `dev/vX.Y` branch | `dev/v0.1` exists with deletion and force-push protection | Pass |
+| Default branch | `main` is the latest GA tag | `main` exactly matches the v0.1.2 GA tag at `1d357b82` | Pass |
+| Development line | One active protected `dev/vX.Y` branch | `dev/v0.1` requires PRs, two approvals, current-head approval, the six stable checks, and CodeQL, with no bypass actors | Pass |
 | Release tags | `v*` tags cannot be deleted, updated, or force-pushed | Active tag ruleset, no bypass actors | Pass |
 | Main protection | PRs, two approvals, code owners, current head approval, required checks, CodeQL | Active no-bypass ruleset requires the six stable PR contexts proven by the representative review | Pass |
 | Contributor files | Repo-specific AGENTS, CONTRIBUTING, SECURITY, ownership, license | Present on protected `dev/v0.1` and aligned with the exact local gates | Pass |
@@ -25,7 +25,7 @@ pipeline, or web runtime.
 | Public security | Private reporting, secret scanning, push protection, Dependabot | Enabled live; no open CodeQL or Dependabot alerts at audit time | Pass |
 | Review automation | CodeRabbit on dev PRs; Greptile only by label | CodeRabbit reviewed and rechecked the corrected head; the label-gated Greptile path was exercised, but bot silence was not counted as review evidence | Pass |
 | README | Product shape, live badges, install path, community routing | Product shape adopted; Scorecard and Codecov badges require their first default-branch run | Verify after release |
-| Release engineering | Clean immutable candidate, Developer ID, notarization, Gatekeeper, manifest-derived cask | The clean development source, signing identity, and all three Developer ID profiles pass the builder preflight; the retained Apple ID notarization credential is locked and unused, while the team-scoped App Store Connect API key authenticates against submission history, and the Developer ID Application certificate is valid through 2027-02-01 | Ready for candidate creation |
+| Release engineering | Clean immutable candidate, Developer ID, notarization, Gatekeeper, manifest-derived cask | The clean development source, signing identity, and all three Developer ID profiles pass the builder preflight; the team-scoped App Store Connect API key authenticates against submission history, the stale Apple ID notary profile has been removed so one working credential remains, and the Developer ID Application certificate is valid through 2027-02-01 | v0.1.2 candidate built, notarized, stapled and published |
 | Build provenance | SBOM and workflow identity for shipped artifacts | A manifest-bound SPDX 2.3 SBOM is generated for the shipped DMG; GitHub Actions migration would require moving Apple signing and notary credentials | Local SBOM passes; Actions attestation tracked |
 | Repository metadata | Public product description, topics, Discussions, detected MIT license | Description, topics, Discussions, and MIT license detection are live | Pass |
 
