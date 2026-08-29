@@ -5,6 +5,25 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+### Changed
+
+- Pointed the Codecov upload at the coverage reports the preceding job writes,
+  so a failed upload can no longer pass silently.
+- Described the Homebrew integration as installing the signed, notarized DMG
+  rather than calling the generated cask itself signed.
+- Documented the exact SBOM attachment name the published download URL depends
+  on, and stopped recommending that the Qlty installer be piped into a shell.
+
+### Added
+
+- Added `scripts/check-tool-versions.sh`, reporting where locally installed gate
+  tools disagree with the versions `docs/BUILDING.md` declares.
+
+### Fixed
+
+- Staged the generated SBOM through a temporary file so an interrupted run
+  cannot leave a short `.spdx.json` that blocks every later generation.
+
 ## [0.1.2] - 2026-08-29
 
 ### Added
