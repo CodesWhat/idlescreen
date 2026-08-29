@@ -9,6 +9,8 @@ All notable changes to idlescreen are documented here. The project follows
 
 - Kept the companion in the menu bar and dropped its Dock tile when the main
   window closes, so the tile no longer outlives the window it belongs to.
+- Gave the app icon a phosphor background so the silver CRT chassis reads
+  against it at Dock size instead of sitting on the system's default fill.
 
 ## [0.1.2] - 2026-08-29
 

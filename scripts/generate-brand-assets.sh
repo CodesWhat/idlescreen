@@ -35,8 +35,32 @@ render() {
     "PNG32:$destination"
 }
 
+# The app icon is the one place the CRT needs a background. macOS 26 masks a
+# legacy icon into the system shape, so this renders full bleed and lets the
+# system round it. The phosphor radial reads as a CRT lit in a dark room and
+# keeps the silver chassis off the background at Dock size, where the screen
+# detail is gone and only the colour still carries.
+icon_background_center="#123A2A"
+icon_background_edge="#050A08"
+icon_artwork_percent=82
+
+render_app_icon() {
+  local source="$1"
+  local size="$2"
+  local destination="$3"
+  local artwork=$((size * icon_artwork_percent / 100))
+
+  magick -size "${size}x${size}" \
+    "radial-gradient:${icon_background_center}-${icon_background_edge}" \
+    \( -background none "$source" -resize "${artwork}x${artwork}!" \) \
+    -gravity center -composite \
+    -strip \
+    -define png:exclude-chunks=date,time \
+    "PNG32:$destination"
+}
+
 for size in 16 32 64 128 256 512 1024; do
-  render "$icon_source" "$size" "$size" "$asset_tmp/AppIcon-$size.png"
+  render_app_icon "$icon_source" "$size" "$asset_tmp/AppIcon-$size.png"
 done
 render "$saver_source" 107 65 "$asset_tmp/thumbnail.png"
 render "$saver_source" 214 130 "$asset_tmp/thumbnail@2x.png"
