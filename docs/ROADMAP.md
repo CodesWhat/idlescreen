@@ -11,8 +11,11 @@ useful after it ships.
 ## v0.1.2 patch release
 
 Status: implementation and reviewed development merges are complete, and
-notarization authentication is renewed and verified against submission history.
-Artifact creation, promotion, and publication remain.
+notarization authentication is verified against submission history. The
+retained Apple ID notarization credential is locked and unused; the team-scoped
+App Store Connect API key authenticates, and the Developer ID Application
+certificate is valid through February 1, 2027. Artifact creation, promotion,
+and publication remain.
 
 - Enforce the generated fail-closed saver camera activation policy.
 - Move procedural glyph generation from the main actor to bounded Metal
