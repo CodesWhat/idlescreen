@@ -17,7 +17,7 @@ set -uo pipefail
 
 # Keep in step with the tool list in docs/BUILDING.md.
 expected_xcodegen="2.46.0"
-expected_lefthook="2.1.11"
+expected_lefthook="2.1.12"
 expected_qlty="0.618.0"
 expected_actionlint="1.7.12"
 expected_zizmor="1.29.0"
