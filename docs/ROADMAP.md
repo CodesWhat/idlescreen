@@ -1,6 +1,6 @@
 # IdleScreen roadmap
 
-Last updated: August 27, 2026
+Last updated: August 28, 2026
 
 IdleScreen 0.1 is a released public product. The companion app, modern
 screen-saver extension, Metal renderer, camera agent, multi-display planner,
@@ -10,9 +10,9 @@ useful after it ships.
 
 ## v0.1.2 patch release
 
-Status: implementation and reviewed development merge complete. Publication is
-blocked before artifact creation until Apple notarization authentication is
-renewed.
+Status: implementation and reviewed development merges are complete, and
+notarization authentication is renewed and verified against submission history.
+Artifact creation, promotion, and publication remain.
 
 - Enforce the generated fail-closed saver camera activation policy.
 - Move procedural glyph generation from the main actor to bounded Metal
