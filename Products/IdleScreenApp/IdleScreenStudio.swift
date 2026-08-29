@@ -334,19 +334,19 @@ struct StudioView: View {
     }
     .onAppear {
       studioClockStartedAt = Date()
-      reconcileCameraPreviewSurface(for: model.configuration.source)
+      reconcileCameraPreviewSurface()
     }
-    .onChange(of: model.configuration.source) { _, source in
-      reconcileCameraPreviewSurface(for: source)
+    .onChange(of: model.configuration.source) { _, _ in
+      reconcileCameraPreviewSurface()
     }
     .onChange(of: navigation.previewDisplayIdentifier) { _, _ in
-      reconcileCameraPreviewSurface(for: model.configuration.source)
+      reconcileCameraPreviewSurface()
     }
     .onChange(of: previewUsesCamera) { _, _ in
-      reconcileCameraPreviewSurface(for: model.configuration.source)
+      reconcileCameraPreviewSurface()
     }
     .onChange(of: cameraClient.canStartCameraPreview) { _, canStart in
-      guard cameraSourceSelected, canStart else { return }
+      guard previewUsesCamera, canStart else { return }
       cameraClient.startCameraPreview()
     }
     .onDisappear {
@@ -555,8 +555,8 @@ struct StudioView: View {
     return .checking
   }
 
-  private func reconcileCameraPreviewSurface(for source: IdleScreenSource) {
-    if source == .generative || !previewUsesCamera {
+  private func reconcileCameraPreviewSurface() {
+    if !previewUsesCamera {
       endCameraPreviewSurface()
     } else {
       cameraClient.studioCameraPreviewDidAppear()
