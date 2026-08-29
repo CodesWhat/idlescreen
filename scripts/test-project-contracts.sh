@@ -1661,6 +1661,25 @@ fi
 
 echo "PASS: controlled C8 soak planning is inert and completion claims are fail-closed."
 
+controlled_soak_runner="$project_root/scripts/run-controlled-physical-soak.py"
+controlled_soak_module="$project_root/scripts/controlled_physical_soak.py"
+controlled_soak_fixtures="$project_root/scripts/test-controlled-physical-soak.py"
+if [[ ! -x "$controlled_soak_runner" || ! -x "$controlled_soak_fixtures" ]] ||
+   ! python3 -m py_compile "$controlled_soak_runner" "$controlled_soak_module" "$controlled_soak_fixtures" ||
+   ! grep -Fq 'IdleScreenControlledSoakPlan/v1' "$controlled_soak_module" ||
+   ! grep -Fq 'IdleScreenControlledSoakEnergy/v1' "$controlled_soak_module" ||
+   ! grep -Fq 'IdleScreenControlledSoakResult/v1' "$controlled_soak_module" ||
+   ! grep -Fq 'c8_evidence_completed' "$controlled_soak_module" ||
+   grep -Fq 'run-camera-gate-c8-row.py' "$controlled_soak_runner"; then
+  echo "FAIL: controlled attended soak runner contracts are missing or unsafe." >&2
+  exit 1
+fi
+"$controlled_soak_fixtures" >/dev/null || {
+  echo "FAIL: deterministic controlled attended soak fixtures failed." >&2
+  exit 1
+}
+echo "PASS: controlled attended soak planning and process-scoped energy observation are bounded and consent-gated."
+
 r1_builder="$project_root/scripts/build-r1-release-candidate.sh"
 r1_verifier="$project_root/scripts/verify-r1-release-candidate.sh"
 r1_fixtures="$project_root/scripts/test-r1-release-candidate-fixtures.sh"

@@ -93,24 +93,30 @@ Never run a physical script by copying an opt-in from a fixture or another test
 session. Read the script's refusal message, confirm the exact candidate and
 scope, and authorize only the action being performed.
 
-The controlled C8 soak planner currently provides scheduling only. It validates the pending
-same-candidate matrix row and writes a short-lived inert plan with an exact
-300-second TTL; it never starts a lifecycle transition or performance process.
-The legacy `--execute-plan` option is intentionally fail-closed because this
-repository does not yet have a canonical installed-candidate soak and evidence
-collector. The planner cannot claim row completion, update a matrix, or emit
-verifier-valid evidence.
+The controlled C8 soak planner provides scheduling only. The separate
+`run-controlled-physical-soak.py` entry point consumes a short-lived
+signed-candidate plan after both physical-test and class-scoped authorization,
+requires an attended TTY confirmation, bounds observation of an operator-driven
+camera lifecycle, and records process-scoped energy samples. It starts only its
+own log collector and sampler process groups. It never starts or stops a product
+process and never sleeps, reboots, logs out, locks, changes displays, changes
+TCC, installs, registers, or terminates a product process.
+The planner and attended runner cannot claim C8 row completion, update a C8
+matrix, or emit verifier-valid C8 evidence. The runner emits distinct
+`IdleScreenControlledSoakPlan/v1`, `IdleScreenControlledSoakEnergy/v1`, and
+`IdleScreenControlledSoakResult/v1` artifacts, with
+`c8_evidence_completed:false`. C8 release evidence remains a separate
+operator-collected and verified workflow.
+Lifecycle evidence contains exactly one ordered `start` and `stop` event for
+the same privacy-safe saver instance; reversed or cross-instance log records
+are rejected.
 Plan creation claims the final output name directly with an exclusive no-follow
 open, keeping the inode at mode `000` until its content and durability checks
 finish. A failed write may strand a mode-`000` partial file at that name; it is
 not a valid plan and must be discarded before retrying. Every resolved output
 ancestor must be owned by root or the current user, have no group/other write
-permission, and have no extended ACL. No C8 schedule command initiates sleep, reboot, logout, display,
-registration, installation, TCC, or process changes. A future executor must
-probe the live console immediately before confirmation and at its action
-boundary, bind the installed signed candidate, collect all six canonical C8
-artifacts, transition the row and matrix atomically, and replay
-`verify-camera-gate-c8-evidence.py` before reporting success.
+permission, and have no extended ACL. No C8 schedule command initiates sleep,
+reboot, logout, display, registration, installation, TCC, or process changes.
 
 ## Release candidates
 

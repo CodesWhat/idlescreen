@@ -52,7 +52,9 @@ remain useful coverage and product work:
   matrix on additional physical Mac configurations.
 - Smoke-test the next macOS beta and Intel hardware while universal support is
   advertised.
-- Add a controlled physical runner for scheduled lifecycle and energy soaks.
+- A consent-gated attended runner consumes short-lived signed-candidate plans,
+  bounds camera lifecycle soaks, and records process-scoped energy samples. C8
+  release evidence remains a separate operator-collected and verified workflow.
 - Move signed-release construction and artifact attestations into GitHub Actions
   after Apple signing and notary credentials have an approved enrollment path.
 - Consider the optional custom-pet importer only with explicit user-owned art
