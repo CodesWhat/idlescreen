@@ -10,12 +10,12 @@ useful after it ships.
 
 ## v0.1.2 patch release
 
-Status: implementation and reviewed development merges are complete, and
-notarization authentication is verified against submission history. The
-retained Apple ID notarization credential is locked and unused; the team-scoped
-App Store Connect API key authenticates, and the Developer ID Application
-certificate is valid through February 1, 2027. Artifact creation, promotion,
-and publication remain.
+Status: shipped August 29, 2026. `v0.1.2` tags `main` exactly, the signed DMG,
+candidate manifest and SPDX SBOM are attached to the release, and the Homebrew
+cask is published at `0.1.2,64`. The candidate was notarized through the
+team-scoped App Store Connect API key; the stale Apple ID notary profile has
+since been removed, leaving one working credential. The Developer ID
+Application certificate is valid through February 1, 2027.
 
 - Enforce the generated fail-closed saver camera activation policy.
 - Move procedural glyph generation from the main actor to bounded Metal
@@ -30,6 +30,26 @@ and publication remain.
 - Build, sign, notarize, verify, publish, and install one immutable candidate.
 - Generate an SPDX 2.3 SBOM from the accepted candidate manifest.
 - Update the Homebrew cask from the verified candidate manifest.
+
+## Carried into the next patch
+
+Landed on the development branch after v0.1.2 was tagged, so they ship with
+whatever comes next:
+
+- Keep the companion in the menu bar and drop its Dock tile when the main
+  window closes.
+- Give the app icon a phosphor background so the CRT chassis reads at Dock size.
+- Point the Codecov upload at the reports the preceding job writes, which it
+  was never finding.
+- Stage the generated SBOM through a temporary file so an interrupted run
+  cannot strand a partial `.spdx.json`.
+- Scope the renderer zero-drop budget to the named benchmark host, matching the
+  camera duplicate-copy benchmark.
+
+Still open, raised as a TOCTOU finding during the v0.1.2 promotion review and
+tracked as X48 in the ops execution plan: bind the candidate verifier and the
+SBOM generator to a single immutable snapshot, so the two cannot be pointed at
+different bytes between steps.
 
 ## Completed product foundation
 
