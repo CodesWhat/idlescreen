@@ -69,6 +69,8 @@ camera access, open System Settings, or change power state:
 ./scripts/test-companion-compile-gate.sh
 python3 ./scripts/test_performance_r1_report.py
 ./scripts/test-run-performance-r1.sh
+./scripts/test-camera-gate-c8-soak-planner.py
+./scripts/test-controlled-physical-soak.py
 ./scripts/test-idlescreenctl-runtime.sh
 ./scripts/test-camera-agent-product-fixtures.sh
 ./scripts/test-synthetic-gate-product-fixtures.sh
@@ -91,6 +93,34 @@ separately consent-gated. Their default behavior is to refuse the action.
 Never run a physical script by copying an opt-in from a fixture or another test
 session. Read the script's refusal message, confirm the exact candidate and
 scope, and authorize only the action being performed.
+
+The controlled C8 soak planner provides scheduling only. The separate
+`run-controlled-physical-soak.py` entry point consumes a short-lived
+signed-candidate plan after both physical-test and class-scoped authorization,
+requires an attended TTY confirmation, bounds observation of an operator-driven
+camera lifecycle, and records process-scoped energy samples. It starts only its
+own log collector and sampler process groups. It never starts or stops a product
+process and never sleeps, reboots, logs out, locks, changes displays, changes
+TCC, installs, registers, or terminates a product process.
+The planner and attended runner cannot claim C8 row completion, update a C8
+matrix, or emit verifier-valid C8 evidence. The runner emits distinct
+`IdleScreenControlledSoakPlan/v1`, `IdleScreenControlledSoakEnergy/v1`, and
+`IdleScreenControlledSoakResult/v1` artifacts, with
+`c8_evidence_completed:false`. C8 release evidence remains a separate
+operator-collected and verified workflow.
+
+Run `./scripts/test-controlled-physical-soak.py` after the C8 planner fixture
+to verify the attended runner contracts.
+Lifecycle evidence contains exactly one ordered `start` and `stop` event for
+the same privacy-safe saver instance; reversed or cross-instance log records
+are rejected.
+Plan creation claims the final output name directly with an exclusive no-follow
+open, keeping the inode at mode `000` until its content and durability checks
+finish. A failed write may strand a mode-`000` partial file at that name; it is
+not a valid plan and must be discarded before retrying. Every resolved output
+ancestor must be owned by root or the current user, have no group/other write
+permission, and have no extended ACL. No C8 schedule command initiates sleep,
+reboot, logout, display, registration, installation, TCC, or process changes.
 
 ## Release candidates
 
