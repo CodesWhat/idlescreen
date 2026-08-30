@@ -549,6 +549,43 @@ def main() -> int:
         assert not orphan_energy_path.exists()
         assert orphan_result_path.is_file()
 
+        interrupt_plan = fixtures.plan("authorization-result-interrupt")
+        interrupt_plan_path = Path(value) / "result-interrupt-plan.json"
+        interrupt_result_path = Path(value) / "result-interrupt-result.json"
+        interrupt_energy_path = Path(value) / "result-interrupt-energy.json"
+        runner.write_json_atomic(interrupt_plan_path, interrupt_plan)
+        original_publish_reserved = runner._publish_reserved
+
+        def interrupt_after_completed_publish(reservation, document):
+            original_publish_reserved(reservation, document)
+            if isinstance(document, dict) and document.get("status") == "completed":
+                raise KeyboardInterrupt()
+
+        runner._publish_reserved = interrupt_after_completed_publish
+        os.environ["IDLESCREEN_ALLOW_PHYSICAL_TESTS"] = "YES"
+        os.environ["IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK"] = "YES"
+        try:
+            try:
+                runner.execute_plan(
+                    interrupt_plan_path,
+                    interrupt_result_path,
+                    interrupt_energy_path,
+                    now=fixtures.now + timedelta(seconds=1),
+                    dependencies=fixtures.dependencies(),
+                    tty_available=True,
+                    confirmation=lambda prompt: prompt,
+                )
+            except KeyboardInterrupt:
+                pass
+            else:
+                raise AssertionError("post-publication interrupt was swallowed")
+        finally:
+            runner._publish_reserved = original_publish_reserved
+            os.environ.pop("IDLESCREEN_ALLOW_PHYSICAL_TESTS", None)
+            os.environ.pop("IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK", None)
+        assert json.loads(interrupt_result_path.read_text(encoding="utf-8"))["status"] == "completed"
+        assert interrupt_energy_path.exists()
+
         runner.verify_energy_document(
             {
                 "schema": runner.ENERGY_SCHEMA,

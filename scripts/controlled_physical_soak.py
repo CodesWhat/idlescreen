@@ -168,6 +168,7 @@ class _Reservation:
     descriptor: int
     parent_descriptors: list[int]
     published: bool = False
+    completed_commit: bool = False
 
 
 @dataclass
@@ -216,6 +217,11 @@ def _publish_reserved(reservation: _Reservation, value: object) -> None:
             reservation.parent_descriptors[-1], reservation.path.name, reservation.descriptor
         )
         reservation.published = True
+        reservation.completed_commit = (
+            isinstance(value, dict)
+            and value.get("schema") == RESULT_SCHEMA
+            and value.get("status") == "completed"
+        )
     except BaseException:
         try:
             _C8._poison_descriptor(reservation.descriptor)
@@ -1478,7 +1484,11 @@ def execute_plan(
         for reservation in (energy_reservation, result_reservation):
             if reservation is None:
                 continue
-            if not reservation.published or (reservation is energy_reservation and not success):
+            if not reservation.published or (
+                reservation is energy_reservation
+                and not success
+                and not (result_reservation and result_reservation.completed_commit)
+            ):
                 try:
                     _discard_reservation(reservation)
                 except ControlledSoakError as error:
