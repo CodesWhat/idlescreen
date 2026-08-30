@@ -1364,8 +1364,6 @@ def execute_plan(
     try:
         if result_path.resolve() == energy_path.resolve():
             raise ControlledSoakError("result and energy outputs must be distinct")
-        result_reservation = _reserve_output(result_path)
-        energy_reservation = _reserve_output(energy_path)
         plan_handle = _open_plan(plan_path)
         plan = _read_plan_handle(plan_handle)
         deps = _deps_or_default(dependencies)
@@ -1379,6 +1377,8 @@ def execute_plan(
         _opt_in_refusal()
         if not tty_available:
             raise ControlledSoakError("a controlling TTY is required")
+        result_reservation = _reserve_output(result_path)
+        energy_reservation = _reserve_output(energy_path)
         if deps.console_probe().get("state") != "unlocked":
             raise ControlledSoakError("live console probe is not unlocked")
         _validate_candidate(deps.candidate_probe(), plan)
@@ -1478,7 +1478,7 @@ def execute_plan(
         for reservation in (energy_reservation, result_reservation):
             if reservation is None:
                 continue
-            if not reservation.published:
+            if not reservation.published or (reservation is energy_reservation and not success):
                 try:
                     _discard_reservation(reservation)
                 except ControlledSoakError as error:

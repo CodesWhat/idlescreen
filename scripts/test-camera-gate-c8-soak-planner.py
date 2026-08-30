@@ -8,6 +8,7 @@ import importlib.util
 import ctypes
 import errno
 import os
+import pwd
 import re
 import stat
 import subprocess
@@ -271,6 +272,64 @@ def main() -> int:
         assert not (root / "result.json").exists()
 
         planner = load_planner_module()
+        console_capture = ("unlocked", "2026-08-29T20:00:00Z")
+        original_read_console_state = planner.read_console_state
+        console_reads: list[Path] = []
+
+        def record_console_state(path: Path):
+            console_reads.append(path)
+            return console_capture
+
+        planner.read_console_state = record_console_state
+        previous_authorization = os.environ.get("IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK")
+        os.environ["IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK"] = "YES"
+        try:
+            for mode, output_name in (("--schedule-soak", "single-read-scheduled.json"), ("--dry-run", "single-read-dry-run.json")):
+                args = planner.parser().parse_args(
+                    [
+                        str(matrix_root / "matrix.json"),
+                        "soak",
+                        "--authorization-id",
+                        "authorization-single-read",
+                        "--console-state-file",
+                        str(console),
+                        "--output-plan",
+                        str(root / output_name),
+                        mode,
+                        "--duration-seconds",
+                        "30",
+                    ]
+                )
+                planner.write_plan(args)
+                assert json.loads((root / output_name).read_text(encoding="utf-8"))["console"]["captured_at_utc"] == console_capture[1]
+                assert len(console_reads) == (1 if mode == "--schedule-soak" else 2)
+        finally:
+            planner.read_console_state = original_read_console_state
+            if previous_authorization is None:
+                os.environ.pop("IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK", None)
+            else:
+                os.environ["IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK"] = previous_authorization
+        original_close_once = planner.os.close
+        original_fstat_once = planner.os.fstat
+        close_once_calls: list[int] = []
+
+        def close_once(descriptor):
+            close_once_calls.append(descriptor)
+            raise OSError(errno.EINTR, "injected close interruption")
+
+        def reject_fstat(descriptor):
+            raise AssertionError("close helper must not probe or retry")
+
+        planner.os.close = close_once
+        planner.os.fstat = reject_fstat
+        try:
+            close_error = planner._close_descriptor_best_effort(9876)
+        finally:
+            planner.os.close = original_close_once
+            planner.os.fstat = original_fstat_once
+        assert isinstance(close_error, OSError)
+        assert close_error.errno == errno.EINTR
+        assert close_once_calls == [9876]
         flags_plan = root / "flags-plan.json"
         open_flags: list[int] = []
         original_open = planner.os.open
@@ -320,7 +379,7 @@ def main() -> int:
             [
                 "/bin/chmod",
                 "+a",
-                f"user:{os.environ.get('USER', 'unknown')} allow list",
+                f"user:{pwd.getpwuid(os.getuid()).pw_name} allow list",
                 str(acl_parent),
             ],
             check=True,
@@ -565,6 +624,7 @@ def main() -> int:
                 is_regular = False
             if is_regular and close_before_descriptor is None:
                 close_before_descriptor = descriptor
+                original_close(descriptor)
                 raise OSError(errno.EINTR, "injected output close interruption before close")
             return original_close(descriptor)
 
@@ -579,7 +639,7 @@ def main() -> int:
         finally:
             planner.os.close = original_close
         assert close_before_descriptor is not None
-        assert len(close_before_calls) >= 2
+        assert close_before_calls.count(close_before_descriptor) == 1
         try:
             os.fstat(close_before_descriptor)
         except OSError:
@@ -591,7 +651,7 @@ def main() -> int:
         original_close = planner.os.close
         repeated_close_calls: list[int] = []
         repeated_close_descriptor = None
-        preclose_interruptions = 3
+        preclose_interruptions = 1
 
         def fail_output_close_repeatedly(descriptor):
             nonlocal repeated_close_descriptor, preclose_interruptions
@@ -604,6 +664,7 @@ def main() -> int:
             repeated_close_calls.append(descriptor)
             if descriptor == repeated_close_descriptor and preclose_interruptions:
                 preclose_interruptions -= 1
+                original_close(descriptor)
                 raise OSError(errno.EINTR, "injected repeated output close interruption")
             return original_close(descriptor)
 
@@ -618,7 +679,7 @@ def main() -> int:
         finally:
             planner.os.close = original_close
         assert repeated_close_descriptor is not None
-        assert len(repeated_close_calls) >= 4
+        assert repeated_close_calls.count(repeated_close_descriptor) == 1
         try:
             os.fstat(repeated_close_descriptor)
         except OSError:
@@ -642,6 +703,7 @@ def main() -> int:
             if descriptor == mixed_close_descriptor:
                 mixed_close_attempts += 1
                 if mixed_close_attempts == 1:
+                    original_close(descriptor)
                     raise OSError(errno.EINTR, "injected mixed pre-close interruption")
                 if mixed_close_attempts == 2:
                     original_close(descriptor)
@@ -659,7 +721,7 @@ def main() -> int:
         finally:
             planner.os.close = original_close
         assert mixed_close_descriptor is not None
-        assert mixed_close_attempts == 2
+        assert mixed_close_attempts == 1
         try:
             os.fstat(mixed_close_descriptor)
         except OSError:
@@ -674,7 +736,7 @@ def main() -> int:
             parent_close_descriptor = None
             held_parent_descriptor = None
             parent_close_calls: list[int] = []
-            parent_interruptions = 3
+            parent_interruptions = 1
 
             def record_parent_descriptor(descriptor):
                 nonlocal held_parent_descriptor
@@ -686,18 +748,8 @@ def main() -> int:
                 parent_close_calls.append(descriptor)
                 if descriptor == held_parent_descriptor and parent_close_descriptor is None:
                     parent_close_descriptor = descriptor
-                    if close_mode == "after":
-                        original_close(descriptor)
-                    if close_mode == "repeated":
-                        parent_interruptions -= 1
+                    original_close(descriptor)
                     raise OSError(errno.EINTR, f"injected parent close {close_mode}")
-                if (
-                    close_mode == "repeated"
-                    and descriptor == parent_close_descriptor
-                    and parent_interruptions
-                ):
-                    parent_interruptions -= 1
-                    raise OSError(errno.EINTR, "injected repeated parent close")
                 return original_close(descriptor)
 
             planner._sync_parent = record_parent_descriptor
@@ -713,10 +765,7 @@ def main() -> int:
                 planner._sync_parent = original_sync_parent
                 planner.os.close = original_close
             assert parent_close_descriptor is not None
-            if close_mode in ("before", "repeated"):
-                assert len(parent_close_calls) >= 2
-            if close_mode == "repeated":
-                assert len(parent_close_calls) >= 4
+            assert parent_close_calls.count(parent_close_descriptor) == 1
             try:
                 os.fstat(parent_close_descriptor)
             except OSError:
@@ -746,7 +795,8 @@ def main() -> int:
             except planner.C8EvidenceError as error:
                 assert "cleanup failed" in str(error)
                 assert error.__cause__ is not None
-                assert "injected cleanup parent fsync failure" in str(error.__cause__)
+                assert "injected final plan fsync" in str(error.__cause__)
+                assert "injected cleanup parent fsync failure" in str(error)
             else:
                 raise AssertionError("cleanup parent fsync failure was accepted")
         finally:
@@ -833,6 +883,28 @@ def main() -> int:
         assert parent_fsync_plan.exists()
         assert parent_fsync_plan.stat().st_size == 0
         assert stat.S_IMODE(parent_fsync_plan.stat().st_mode) == 0
+
+        origin_error_plan = root / "origin-error-plan.json"
+        original_sync_parent = planner._sync_parent
+        origin_sync_calls = 0
+
+        def fail_once_preserving_origin(parent_descriptor):
+            nonlocal origin_sync_calls
+            origin_sync_calls += 1
+            if origin_sync_calls == 1:
+                raise OSError(errno.EROFS, "injected originating publication error")
+            return original_sync_parent(parent_descriptor)
+
+        planner._sync_parent = fail_once_preserving_origin
+        try:
+            try:
+                planner.write_exclusive_json(origin_error_plan, {"state": "ready"})
+            except OSError as error:
+                assert error.errno == errno.EROFS
+            else:
+                raise AssertionError("originating publication errno was not preserved")
+        finally:
+            planner._sync_parent = original_sync_parent
 
         final_fsync_plan = root / "final-fsync-failure.json"
         os.environ["IDLESCREEN_C8_INJECT_FINAL_FSYNC_FAILURE"] = "YES"

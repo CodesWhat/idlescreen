@@ -248,16 +248,6 @@ def _close_descriptor_best_effort(descriptor: int):
     try:
         os.close(descriptor)
     except OSError as error:
-        for _ in range(CLOSE_RETRY_LIMIT):
-            try:
-                os.fstat(descriptor)
-            except OSError:
-                return error
-            try:
-                os.close(descriptor)
-            except OSError:
-                continue
-            return error
         return error
     return None
 
@@ -376,6 +366,7 @@ def write_exclusive_json(path: Path, value: object) -> None:
     parent_descriptor, parent_descriptors = _open_trusted_parent(path)
     descriptor = None
     operation_error = None
+    operation_cause = None
     try:
         output_name = path.name
         if output_name in ("", ".", ".."):
@@ -411,23 +402,25 @@ def write_exclusive_json(path: Path, value: object) -> None:
         if descriptor is not None:
             try:
                 _poison_descriptor(descriptor)
-            except OSError as error:
+            except OSError as poison_error:
                 removed = False
                 try:
                     removed = _remove_owned_entry(
                         parent_descriptor, output_name, descriptor
                     )
                 except (OSError, C8EvidenceError) as cleanup_error:
-                    operation_error = C8EvidenceError(
-                        "plan refusal cleanup failed"
+                    refusal_error = C8EvidenceError(
+                        f"plan refusal cleanup failed: {cleanup_error}"
                     )
-                    operation_error.__cause__ = cleanup_error
+                    operation_error = refusal_error
+                    operation_cause = error
                 else:
                     if not removed:
-                        operation_error = C8EvidenceError(
+                        refusal_error = C8EvidenceError(
                             "plan refusal cleanup could not remove owned inode"
                         )
-                        operation_error.__cause__ = error
+                        refusal_error.__cause__ = error
+                        operation_error = refusal_error
     close_error = None
     if descriptor is not None:
         close_error = _close_output_descriptor(descriptor)
@@ -439,6 +432,8 @@ def write_exclusive_json(path: Path, value: object) -> None:
     if operation_error is not None:
         if close_error is not None:
             raise C8EvidenceError("plan refusal descriptor close failed") from operation_error
+        if operation_cause is not None:
+            raise operation_error from operation_cause
         raise operation_error
     if close_error is not None:
         raise C8EvidenceError("durable plan committed but descriptor close failed") from close_error
@@ -475,12 +470,15 @@ def validate_authorization(row: RowDefinition, authorization_id: str) -> None:
 
 
 def scheduled_plan(
-    args: argparse.Namespace, definition: MatrixDefinition, row: RowDefinition
+    args: argparse.Namespace,
+    definition: MatrixDefinition,
+    row: RowDefinition,
+    console_state: str,
+    console_captured_at: str,
 ) -> dict[str, object]:
     validate_soak_duration(args.duration_seconds)
     created = datetime.now(timezone.utc).replace(microsecond=0)
     expires = created + timedelta(seconds=SCHEDULE_TTL_SECONDS)
-    console_state, console_captured_at = read_console_state(args.console_state_file)
     return {
         "schema": PLAN_SCHEMA,
         "mode": "scheduled-no-action",
@@ -587,9 +585,10 @@ def write_plan(args: argparse.Namespace) -> Path:
     if args.schedule_soak:
         if row.row_id != "soak":
             raise C8EvidenceError("controlled soak planning is limited to the C8 soak row")
-        plan = scheduled_plan(args, definition, row)
+        plan = scheduled_plan(
+            args, definition, row, console_state, console_captured_at
+        )
     else:
-        console_state, console_captured_at = read_console_state(args.console_state_file)
         plan = {
             "schema": PLAN_SCHEMA,
             "mode": "dry-run-no-action",

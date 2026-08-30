@@ -68,7 +68,7 @@ def main() -> int:
         )
         print(json.dumps(result, sort_keys=True))
         return 0 if result["status"] == "completed" else 1
-    except (ControlledSoakError, OSError, UnicodeError, ValueError) as error:
+    except (ControlledSoakError, OSError, UnicodeError, ValueError, EOFError, KeyboardInterrupt) as error:
         print(f"REFUSED: {error}", file=sys.stderr)
         return 65
 

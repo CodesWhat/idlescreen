@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PREPARER = ROOT / "scripts/prepare-camera-gate-c8-evidence.py"
 RUNNER = ROOT / "scripts/run-controlled-physical-soak.py"
 MODULE = ROOT / "scripts/controlled_physical_soak.py"
+CLI = ROOT / "scripts/run-controlled-physical-soak.py"
 
 
 def load_runner():
@@ -28,6 +29,15 @@ def load_runner():
         raise AssertionError("could not load controlled soak runner")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_cli():
+    spec = importlib.util.spec_from_file_location("controlled_physical_soak_cli", CLI)
+    if spec is None or spec.loader is None:
+        raise AssertionError("could not load controlled soak CLI")
+    module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
@@ -138,6 +148,7 @@ def expect_failure(function, text):
 
 def main() -> int:
     runner = load_runner()
+    cli = load_cli()
     with tempfile.TemporaryDirectory(prefix="idlescreen-controlled-soak-") as value:
         fixtures = Fixtures(Path(value), runner)
 
@@ -210,6 +221,24 @@ def main() -> int:
         result_path = Path(value) / "result.json"
         energy_path = Path(value) / "energy.json"
         runner.write_json_atomic(plan_path, plan)
+        original_cli_argv = sys.argv[:]
+        original_cli_execute = cli.execute_plan
+        try:
+            for raised, suffix in ((EOFError, "eof"), (KeyboardInterrupt, "interrupt")):
+                cli.execute_plan = lambda *args, raised=raised, **kwargs: (_ for _ in ()).throw(raised())
+                sys.argv = [
+                    str(CLI),
+                    "--execute-plan",
+                    str(plan_path),
+                    "--output-result",
+                    str(Path(value) / f"cli-{suffix}-result.json"),
+                    "--output-energy",
+                    str(Path(value) / f"cli-{suffix}-energy.json"),
+                ]
+                assert cli.main() == 65
+        finally:
+            sys.argv = original_cli_argv
+            cli.execute_plan = original_cli_execute
         os.environ["IDLESCREEN_ALLOW_PHYSICAL_TESTS"] = "YES"
         os.environ["IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK"] = "YES"
         try:
@@ -235,18 +264,24 @@ def main() -> int:
         occupied.write_text("operator-owned\n", encoding="utf-8")
         before = occupied.read_bytes()
         observed = []
-        occupied_result = runner.execute_plan(
-            plan_path,
-            occupied,
-            Path(value) / "occupied-energy.json",
-            now=fixtures.now + timedelta(seconds=1),
-            dependencies=fixtures.dependencies(
-                lifecycle=lambda deadline: observed.append("lifecycle") or {},
-                sampler=lambda pids, deadline: observed.append("energy") or {},
-            ),
-            tty_available=True,
-            confirmation=lambda prompt: prompt,
-        )
+        os.environ["IDLESCREEN_ALLOW_PHYSICAL_TESTS"] = "YES"
+        os.environ["IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK"] = "YES"
+        try:
+            occupied_result = runner.execute_plan(
+                plan_path,
+                occupied,
+                Path(value) / "occupied-energy.json",
+                now=fixtures.now + timedelta(seconds=1),
+                dependencies=fixtures.dependencies(
+                    lifecycle=lambda deadline: observed.append("lifecycle") or {},
+                    sampler=lambda pids, deadline: observed.append("energy") or {},
+                ),
+                tty_available=True,
+                confirmation=lambda prompt: prompt,
+            )
+        finally:
+            os.environ.pop("IDLESCREEN_ALLOW_PHYSICAL_TESTS", None)
+            os.environ.pop("IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK", None)
         assert occupied_result["status"] == "failed"
         assert "occupied" in occupied_result["failure_reasons"][0]
         assert occupied.read_bytes() == before
@@ -255,7 +290,7 @@ def main() -> int:
         supervisor_events = []
         def subprocess_lifecycle(deadline):
             process = subprocess.Popen(
-                [sys.executable, "-c", "import time; print('Animation started', flush=True); time.sleep(.5)"],
+                [sys.executable, "-c", "import time; print('Animation started', flush=True); time.sleep(2)"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
@@ -273,7 +308,7 @@ def main() -> int:
 
         def subprocess_energy(pids, deadline):
             process = subprocess.Popen(
-                [sys.executable, "-c", "import time; print('4242 1.0 2.0 3M', flush=True); time.sleep(.5)"],
+                [sys.executable, "-c", "import time; print('4242 1.0 2.0 3M', flush=True); time.sleep(2)"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
@@ -293,7 +328,7 @@ def main() -> int:
                 assert runner._group_gone(process)
 
         realistic = runner.supervise_observation(
-            0.2, [4242], subprocess_lifecycle, subprocess_energy
+            0.75, [4242], subprocess_lifecycle, subprocess_energy
         )
         assert realistic["energy"]["sample_count"] == 1
 
@@ -375,6 +410,8 @@ def main() -> int:
             ),
             "TTY",
         )
+        assert not (Path(value) / "no-tty-result.json").exists()
+        assert not (Path(value) / "no-tty-energy.json").exists()
 
         decline_plan = fixtures.plan()
         decline_path = Path(value) / "decline-plan.json"
@@ -478,6 +515,39 @@ def main() -> int:
             os.environ.pop("IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK", None)
         assert cleanup_result["status"] == "failed"
         assert "cleanup" in cleanup_result["failure_reasons"][0]
+
+        orphan_plan = fixtures.plan("authorization-orphan-energy")
+        orphan_plan_path = Path(value) / "orphan-plan.json"
+        orphan_result_path = Path(value) / "orphan-result.json"
+        orphan_energy_path = Path(value) / "orphan-energy.json"
+        runner.write_json_atomic(orphan_plan_path, orphan_plan)
+        original_verify_result = runner.verify_result_document
+
+        def fail_completed_result(value, plan_digest):
+            if isinstance(value, dict) and value.get("status") == "completed":
+                raise runner.ControlledSoakError("injected result verification failure")
+            return original_verify_result(value, plan_digest)
+
+        runner.verify_result_document = fail_completed_result
+        os.environ["IDLESCREEN_ALLOW_PHYSICAL_TESTS"] = "YES"
+        os.environ["IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK"] = "YES"
+        try:
+            orphan_result = runner.execute_plan(
+                orphan_plan_path,
+                orphan_result_path,
+                orphan_energy_path,
+                now=fixtures.now + timedelta(seconds=1),
+                dependencies=fixtures.dependencies(),
+                tty_available=True,
+                confirmation=lambda prompt: prompt,
+            )
+        finally:
+            runner.verify_result_document = original_verify_result
+            os.environ.pop("IDLESCREEN_ALLOW_PHYSICAL_TESTS", None)
+            os.environ.pop("IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK", None)
+        assert orphan_result["status"] == "failed"
+        assert not orphan_energy_path.exists()
+        assert orphan_result_path.is_file()
 
         runner.verify_energy_document(
             {

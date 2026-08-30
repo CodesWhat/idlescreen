@@ -70,6 +70,7 @@ camera access, open System Settings, or change power state:
 python3 ./scripts/test_performance_r1_report.py
 ./scripts/test-run-performance-r1.sh
 ./scripts/test-camera-gate-c8-soak-planner.py
+./scripts/test-controlled-physical-soak.py
 ./scripts/test-idlescreenctl-runtime.sh
 ./scripts/test-camera-agent-product-fixtures.sh
 ./scripts/test-synthetic-gate-product-fixtures.sh
@@ -107,6 +108,9 @@ matrix, or emit verifier-valid C8 evidence. The runner emits distinct
 `IdleScreenControlledSoakResult/v1` artifacts, with
 `c8_evidence_completed:false`. C8 release evidence remains a separate
 operator-collected and verified workflow.
+
+Run `./scripts/test-controlled-physical-soak.py` after the C8 planner fixture
+to verify the attended runner contracts.
 Lifecycle evidence contains exactly one ordered `start` and `stop` event for
 the same privacy-safe saver instance; reversed or cross-instance log records
 are rejected.
