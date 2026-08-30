@@ -193,6 +193,15 @@ def _reserve_output(path: Path) -> _Reservation:
     return _Reservation(path, descriptor, parent_descriptors)
 
 
+def _mark_publication_committed(reservation: _Reservation, value: object) -> None:
+    reservation.published = True
+    reservation.completed_commit = (
+        isinstance(value, dict)
+        and value.get("schema") == RESULT_SCHEMA
+        and value.get("status") == "completed"
+    )
+
+
 def _publish_reserved(reservation: _Reservation, value: object) -> None:
     payload = _canonical(value)
     try:
@@ -216,13 +225,10 @@ def _publish_reserved(reservation: _Reservation, value: object) -> None:
         _C8._verify_published_inode(
             reservation.parent_descriptors[-1], reservation.path.name, reservation.descriptor
         )
-        reservation.published = True
-        reservation.completed_commit = (
-            isinstance(value, dict)
-            and value.get("schema") == RESULT_SCHEMA
-            and value.get("status") == "completed"
-        )
+        _mark_publication_committed(reservation, value)
     except BaseException:
+        reservation.published = False
+        reservation.completed_commit = False
         try:
             _C8._poison_descriptor(reservation.descriptor)
         finally:

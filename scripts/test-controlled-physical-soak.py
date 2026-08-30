@@ -586,6 +586,43 @@ def main() -> int:
         assert json.loads(interrupt_result_path.read_text(encoding="utf-8"))["status"] == "completed"
         assert interrupt_energy_path.exists()
 
+        internal_interrupt_plan = fixtures.plan("authorization-internal-result-interrupt")
+        internal_plan_path = Path(value) / "internal-result-interrupt-plan.json"
+        internal_result_path = Path(value) / "internal-result-interrupt-result.json"
+        internal_energy_path = Path(value) / "internal-result-interrupt-energy.json"
+        runner.write_json_atomic(internal_plan_path, internal_interrupt_plan)
+        original_mark_publication_committed = runner._mark_publication_committed
+
+        def interrupt_after_publication_marker(reservation, document):
+            original_mark_publication_committed(reservation, document)
+            if isinstance(document, dict) and document.get("status") == "completed":
+                raise KeyboardInterrupt()
+
+        runner._mark_publication_committed = interrupt_after_publication_marker
+        os.environ["IDLESCREEN_ALLOW_PHYSICAL_TESTS"] = "YES"
+        os.environ["IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK"] = "YES"
+        try:
+            try:
+                runner.execute_plan(
+                    internal_plan_path,
+                    internal_result_path,
+                    internal_energy_path,
+                    now=fixtures.now + timedelta(seconds=1),
+                    dependencies=fixtures.dependencies(),
+                    tty_available=True,
+                    confirmation=lambda prompt: prompt,
+                )
+            except KeyboardInterrupt:
+                pass
+            else:
+                raise AssertionError("internal publication interrupt was swallowed")
+        finally:
+            runner._mark_publication_committed = original_mark_publication_committed
+            os.environ.pop("IDLESCREEN_ALLOW_PHYSICAL_TESTS", None)
+            os.environ.pop("IDLESCREEN_C8_AUTHORIZE_EXTENDED_SOAK", None)
+        assert not internal_result_path.exists()
+        assert not internal_energy_path.exists()
+
         runner.verify_energy_document(
             {
                 "schema": runner.ENERGY_SCHEMA,
