@@ -66,6 +66,7 @@ camera access, open System Settings, or change power state:
 ```sh
 ./scripts/test-repository-layout.sh
 ./scripts/test-project-contracts.sh
+python3 ./scripts/test_xccov_to_lcov.py
 ./scripts/test-companion-compile-gate.sh
 python3 ./scripts/test_performance_r1_report.py
 ./scripts/test-run-performance-r1.sh
@@ -83,6 +84,18 @@ CI also runs the modern Xcode unit and integration schemes with Swift warnings
 treated as errors, CodeQL, workflow security, Qlty, and Codecov coverage. The
 companion compile gate prints the temporary directory
 containing its disposable build log.
+
+On trusted pushes, the coverage job exports each tested scheme's Xcode archive
+line counts and converts them with `scripts/xccov_to_lcov.py` to one explicit
+LCOV report. It includes instrumented files under `Sources/` and `Products/`,
+excluding tests, support executables and build output. Across schemes, each
+line keeps its highest execution count, so duplicate instrumentation does not
+inflate counts and an uncovered line stays visible until exercised elsewhere.
+Every input must contain executable production lines; malformed or empty data
+fails before uploading. Codecov receives only that report, with automatic Xcode
+rediscovery disabled and upload errors failing the job. This makes generation
+and upload failures visible without imposing a numeric coverage target or
+replacing provider-side project/patch settings.
 
 ## Physical checks
 
