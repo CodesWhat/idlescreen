@@ -62,7 +62,7 @@ activity_signature() {
 
 watch_for_stall() {
   local target_pid="$1" log="$2" derived="$3" flag="$4"
-  local last current idle=0 victim
+  local last current idle=0 victim victims
   last="$(activity_signature "$log" "$derived")"
   while kill -0 "$target_pid" 2>/dev/null; do
     sleep 2
@@ -76,11 +76,15 @@ watch_for_stall() {
     if [[ "$idle" -ge "$stall_seconds" ]]; then
       : >"$flag"
       echo "no test output or build activity for ${idle}s, stopping the run" >>"$log"
-      for victim in $(descendants "$target_pid") "$target_pid"; do
+      victims="$(descendants "$target_pid") $target_pid"
+      for victim in $victims; do
         kill -TERM "$victim" 2>/dev/null || true
       done
       sleep 5
-      for victim in $(descendants "$target_pid") "$target_pid"; do
+      # Re-collect: a child spawned after the first sweep, or one the dying
+      # parent's exit orphaned, is not in the first list.
+      victims="$victims $(descendants "$target_pid")"
+      for victim in $victims; do
         kill -KILL "$victim" 2>/dev/null || true
       done
       return 0
@@ -126,7 +130,9 @@ run_scheme() {
   fi
   wait "$xcodebuild_pid" || status=$?
   if [[ -n "$watchdog_pid" ]]; then
-    kill "$watchdog_pid" 2>/dev/null || true
+    # A stalled run must let the watchdog finish its KILL sweep, or a child
+    # that ignored TERM outlives the script.
+    [[ -e "$flag" ]] || kill "$watchdog_pid" 2>/dev/null || true
     wait "$watchdog_pid" 2>/dev/null || true
   fi
   sleep 1

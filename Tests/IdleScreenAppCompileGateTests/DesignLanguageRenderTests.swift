@@ -137,8 +137,11 @@ struct DesignLanguageRenderTests {
 
     harness.navigation.destination = .status
     view.layoutSubtreeIfNeeded()
-    RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-    #expect(!window.effectiveAppearance.isDarkAqua)
+    let deadline = Date().addingTimeInterval(2)
+    while window.appearance != nil && Date() < deadline {
+      RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+    }
+    #expect(window.appearance == nil)  // the window follows the system again; the host's own appearance is not ours to assert
   }
 
   @Test("the palette resolves from the appearance it is given, with no workspace state")

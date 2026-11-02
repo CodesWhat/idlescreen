@@ -84,6 +84,21 @@ struct SetupFlowRenderTests {
     #expect(!card.primaryEnabled)
   }
 
+  @Test("denied camera is fixable in Privacy, restricted is a policy block with no primary action")
+  func deniedVersusRestricted() {
+    #expect(SetupFlowView.cameraAccess(.observed(.denied)) == .blocked)
+    #expect(SetupFlowView.cameraAccess(.observed(.restricted)) == .restricted)
+    let progress = SetupProgress(Self.inputs(registered: true, selected: true, camera: .restricted))
+    let denied = SetupCardModel(progress: progress, cameraAccess: .blocked, isRegistering: false)
+    let restricted = SetupCardModel(
+      progress: progress, cameraAccess: .restricted, isRegistering: false)
+    #expect(progress.current == .camera)
+    #expect(denied.primaryTitle == "Open camera privacy" && denied.primaryEnabled)
+    #expect(!restricted.primaryEnabled)
+    #expect(restricted.primaryTitle != "Open camera privacy")
+    #expect(restricted.offersSkip)
+  }
+
   @Test("registering disables the register action and says so")
   func registeringState() {
     let progress = SetupProgress(Self.inputs(registered: false, selected: false, camera: .unknown))

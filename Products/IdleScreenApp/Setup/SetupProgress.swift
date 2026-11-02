@@ -18,6 +18,8 @@ enum SetupCameraAccess: Equatable {
   case notDetermined
   case authorized
   case blocked
+  /// A policy on this Mac blocks the camera. Privacy & Security cannot fix it.
+  case restricted
 }
 
 enum SetupStepStatus: Equatable {

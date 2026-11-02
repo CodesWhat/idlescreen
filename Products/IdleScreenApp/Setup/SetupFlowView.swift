@@ -40,7 +40,8 @@ struct SetupFlowView: View {
     case .unknown: .unknown
     case .observed(.notDetermined): .notDetermined
     case .observed(.authorized): .authorized
-    case .observed(.denied), .observed(.restricted): .blocked
+    case .observed(.denied): .blocked
+    case .observed(.restricted): .restricted
     }
   }
 
@@ -68,7 +69,7 @@ struct SetupFlowView: View {
           actions: SetupFlowActions(
             register: { model.registerExtension() },
             openScreenSaverSettings: { model.openScreenSaverSettings() },
-            allowCamera: { cameraClient.performRecommendedRepair() },
+            allowCamera: { cameraClient.performSetupCameraAction() },
             skipCamera: { navigation.setupSession.skipCamera() },
             openStudio: onFinish,
             later: onLater
@@ -157,6 +158,11 @@ struct SetupCardModel: Equatable {
         detail = "Camera access is off. Turn it on in Privacy & Security, or skip this for now."
         primaryTitle = "Open camera privacy"
         primaryEnabled = true
+      case .restricted:
+        detail =
+          "A policy on this Mac blocks the camera. Ask whoever manages it, or skip this for now."
+        primaryTitle = "Camera restricted"
+        primaryEnabled = false
       case .unknown:
         detail = optional
         primaryTitle = "Checking camera…"
@@ -286,6 +292,7 @@ struct SetupFlowContent: View {
   private var cameraHint: String {
     switch cameraAccess {
     case .blocked: "Opens camera privacy settings."
+    case .restricted: "Camera access is restricted by a policy on this Mac."
     case .unknown: "Waiting for macOS to report camera access."
     case .notDetermined, .authorized: "Asks macOS for camera access."
     }
@@ -306,6 +313,8 @@ struct SetupFlowContent: View {
           let status = progress.status(step)
           if step == .camera, status == .current, cameraAccess == .blocked {
             DesignStatus(kind: .attention, text: "Blocked")
+          } else if step == .camera, status == .current, cameraAccess == .restricted {
+            DesignStatus(kind: .attention, text: "Restricted")
           } else {
             DesignStatus(kind: Self.kind(status), text: Self.word(status))
           }

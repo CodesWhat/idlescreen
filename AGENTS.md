@@ -48,7 +48,7 @@ or Homebrew behavior:
 `./scripts/verify.sh` runs the full former pre-push list in order (clean tree,
 swift-format, Qlty, workflow security, repository contracts, Xcode tests,
 release fixtures, Release build), fails fast, and prints a per-step summary.
-Run it before opening a pull request; CI runs the same checks.
+Run it before opening a pull request; CI runs separate verification checks.
 
 The installed Lefthook pipeline enforces Conventional Commits and formats
 staged Swift files. Pre-push is deliberately slim: clean tree, swift-format on

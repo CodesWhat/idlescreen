@@ -25,6 +25,11 @@ pre-push:
       run: ./scripts/verify-workflows.sh
     - name: shellcheck
       glob: "*.sh"
-      run: shellcheck --severity=error {push_files}
+      run: |
+        if command -v shellcheck >/dev/null 2>&1; then
+          shellcheck --severity=error {push_files}
+        else
+          echo "SKIP: shellcheck is not installed (brew install shellcheck)."
+        fi
     - name: debug-build
       run: xcodebuild build -quiet -project IdleScreen.xcodeproj -scheme IdleScreenApp -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
