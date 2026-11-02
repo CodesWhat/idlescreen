@@ -1238,7 +1238,8 @@ product_identity_test="$project_root/scripts/test-product-identity-verifier.sh"
 product_identity_verifier="$project_root/scripts/verify-product-identity.sh"
 if [[ ! -x "$product_identity_test" ]] ||
    [[ ! -x "$product_identity_verifier" ]] ||
-   ! bash -n "$product_identity_test" "$product_identity_verifier" ||
+   ! bash -n "$product_identity_test" ||
+   ! bash -n "$product_identity_verifier" ||
    ! grep -Fq 'test-product-identity-verifier.sh' "$project_root/scripts/test-phase1.sh"; then
   echo "FAIL: the Phase 1 gate must reject evidence from a different product binary." >&2
   exit 1
