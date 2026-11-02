@@ -24,12 +24,21 @@ and `/Applications/idlescreen.app`.
 ## Screenshots
 
 The three images in `dist/assets/shots/` are real frames from IdleScreen's own
-Metal renderer, drawn offscreen at 1600x1000 with the default Ember palette, a
-fixed scene seed and fixed timestamps (Pixel Materials runs 420 steps at 30 fps).
-Glyph scale and contrast are raised from the app defaults so the frames read at
-thumbnail size. Nothing is composited or retouched. The camera image feeds the
-renderer's camera glyph path a generated head-and-shoulders luminance image: no
-camera is opened and it is not a photo. Captions say so.
+Metal renderer, drawn offscreen at 1600x1000 with a fixed scene seed (7) and fixed
+timestamps. Nothing is composited or retouched. Contrast is 1 and the scene
+brightness is the default 1 for all three. Settings per image (everything else is
+`IdleScreenRendererConfiguration.default`):
+
+| File | Pattern | Palette | Glyph scale | Other |
+| --- | --- | --- | --- | --- |
+| `warp-phosphor.webp` | Warp | Phosphor | 0.6 | procedural intensity 1, t = 20 s |
+| `pixel-materials-sand-water.webp` | Pixel Materials | Ember (the sim uses its own `canyon` material palette) | 0.9 | mixed material, terraces, cellScale 2, 3 emitters, width 8, rate 8, frame 480 at 30 fps |
+| `pulse-blueprint.webp` | Pulse | Blueprint | 0.6 | procedural intensity 1, t = 20 s |
+
+Glyph scale is above the app default (0.38), so characters are larger and the frames
+stay readable at the card's ~360px width. The camera glyph path isn't captured: the
+synthetic portrait didn't read as a face at thumbnail size, so the camera section is
+text only.
 
 Regenerate after a renderer or palette change (needs Xcode and `brew install webp`):
 

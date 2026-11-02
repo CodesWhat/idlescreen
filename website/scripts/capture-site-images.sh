@@ -2,7 +2,7 @@
 # Regenerates website/dist/assets/shots/*.webp from IdleScreen's own Metal renderer.
 # Renders offscreen through SiteCaptureTests (Tests/IdleScreenRendererTests), then
 # converts the PNGs to lossless WebP. Needs Xcode, a generated project (xcodegen)
-# and cwebp (`brew install webp`). No camera is opened; the camera frame is synthetic.
+# and cwebp (`brew install webp`).
 # Usage: website/scripts/capture-site-images.sh
 set -euo pipefail
 
@@ -11,6 +11,7 @@ raw="$(mktemp -d /tmp/idlescreen-site-capture.XXXXXX)"
 trap 'rm -rf "$raw"' EXIT
 out="$repo/website/dist/assets/shots"
 mkdir -p "$out"
+rm -f "$out"/*.webp
 
 cd "$repo"
 TEST_RUNNER_IDLESCREEN_SITE_CAPTURE_DIR="$raw" xcodebuild test \

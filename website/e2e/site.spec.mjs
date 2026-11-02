@@ -75,8 +75,12 @@ test.describe('content', () => {
       await image.scrollIntoViewIfNeeded();
       await expect.poll(() => image.evaluate(node => node.complete && node.naturalWidth)).toBe(1600);
     }
-    await expect(page.locator('.shot figcaption').nth(0)).toContainText("rendered by IdleScreen's own Metal renderer");
-    await expect(page.locator('.shot figcaption').nth(2)).toContainText('synthetic generated image');
+    await expect(page.locator('.shot figcaption')).toHaveText([
+      'Warp, Phosphor palette.',
+      'Pixel Materials: sand and water.',
+      'Pulse, Blueprint palette.',
+    ]);
+    await expect(page.locator('.shots-note')).toHaveText("Real frames from IdleScreen's renderer, captured offscreen.");
   });
 
   test('footer carries the CodesWhat entity line, Star History and the Codecov badge', async ({ page }) => {

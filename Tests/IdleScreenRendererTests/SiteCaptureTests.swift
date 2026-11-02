@@ -11,8 +11,8 @@ import UniformTypeIdentifiers
 ///
 /// Gated by `IDLESCREEN_SITE_CAPTURE_DIR` (pass it through xcodebuild as
 /// `TEST_RUNNER_IDLESCREEN_SITE_CAPTURE_DIR`). Without it the test is a no-op, so
-/// normal test runs write nothing. Output is deterministic: default palette and
-/// configuration, fixed scene seed, fixed timestamps. See `website/README.md`.
+/// normal test runs write nothing. Output is deterministic: per-shot configuration
+/// listed below, fixed scene seed, fixed timestamps. See `website/README.md`.
 @Suite("Site capture")
 struct SiteCaptureTests {
   private static let width = 1_600
@@ -41,7 +41,6 @@ struct SiteCaptureTests {
     let name: String
     let configuration: IdleScreenRendererConfiguration
     let frames: Int
-    let camera: Bool
   }
 
   @MainActor
@@ -57,27 +56,45 @@ struct SiteCaptureTests {
 
     func configuration(
       _ pattern: String,
+      palette: String,
+      glyphScale: Double,
+      intensity: Double = 0.5,
       materials: IdleScreenPixelMaterialsRendererSettings = .init()
     ) -> IdleScreenRendererConfiguration {
       var value = IdleScreenRendererConfiguration.default
       value.patternRawValue = pattern
       value.sceneSeed = 7
-      // Larger, higher-contrast glyphs than the app default (a 2x drawable over an
-      // 800x500 view) so the frames stay legible at thumbnail size. The palette stays the default.
-      value.glyphScale = 0.9
+      value.palette = palette
+      // Smaller glyphs than a preview and full contrast so the frames fill the card
+      // and still read at ~360px wide.
+      value.glyphScale = glyphScale
       value.contrast = 1
+      value.proceduralSettings.intensity = intensity
       value.pixelMaterialsSettings = materials
       return value
     }
 
+    // Pixel Materials: sand and water together on terraces, coarser cells (cellScale 2),
+    // three wide emitters, captured mid-flow (frame 480 at 30 fps, 16 seconds in).
+    let sandAndWater = IdleScreenPixelMaterialsRendererSettings(
+      material: .mixed, terrainStyle: .terraces,
+      emitterCount: 3, emitterWidth: 8, emitterRate: 8,
+      cellScale: 2, paletteRawValue: "canyon")
+
     let shots = [
-      Shot(name: "aurora", configuration: configuration("aurora"), frames: 1, camera: false),
       Shot(
-        name: "pixel-materials-sand",
-        configuration: configuration("pixelMaterials", materials: .init(material: .sand)),
-        frames: 420, camera: false),
+        name: "warp-phosphor",
+        configuration: configuration("warp", palette: "Phosphor", glyphScale: 0.6, intensity: 1),
+        frames: 1),
       Shot(
-        name: "camera-synthetic", configuration: configuration("perlin"), frames: 1, camera: true),
+        name: "pixel-materials-sand-water",
+        configuration: configuration(
+          "pixelMaterials", palette: "Ember", glyphScale: 0.9, materials: sandAndWater),
+        frames: 480),
+      Shot(
+        name: "pulse-blueprint",
+        configuration: configuration("pulse", palette: "Blueprint", glyphScale: 0.6, intensity: 1),
+        frames: 1),
     ]
     for shot in shots {
       try render(shot, to: outputURL.appendingPathComponent("\(shot.name).png"))
@@ -95,7 +112,7 @@ struct SiteCaptureTests {
     let renderer = try IdleScreenRenderer(
       metalView: view,
       configuration: shot.configuration,
-      mode: shot.camera ? .camera : .generative,
+      mode: .generative,
       automaticallyDraws: false,
       pixelMaterialsCoordinator: .init(),
       performanceObserver: counter
@@ -105,18 +122,6 @@ struct SiteCaptureTests {
     #expect(Int(view.drawableSize.width) == Self.width)
     (view.layer as? CAMetalLayer)?.drawableSize = .init(width: Self.width, height: Self.height)
 
-    if shot.camera {
-      let pixels = Self.syntheticPortrait(width: 1_280, height: 720)
-      let frame = pixels.withUnsafeBytes { buffer in
-        IdleScreenRendererCameraFrame.samplingBGRA(
-          producerStreamEpoch: 1, sequence: 1, width: 1_280, height: 720,
-          bytesPerRow: 1_280 * 4, pixels: buffer,
-          columns: IdleScreenRendererCameraFrame.productionColumns,
-          rows: IdleScreenRendererCameraFrame.productionRows)
-      }
-      renderer.submit(cameraFrame: try #require(frame))
-    }
-
     var lastTexture: (any MTLTexture)?
     for index in 0..<shot.frames {
       let drawable = try #require(view.currentDrawable)
@@ -125,7 +130,7 @@ struct SiteCaptureTests {
         drawable.texture.width == Self.width,
         "drawable \(drawable.texture.width)x\(drawable.texture.height)")
       let before = counter.count
-      let time = shot.frames == 1 ? 30.0 : Double(index) / 30
+      let time = shot.frames == 1 ? 20.0 : Double(index) / 30
       #expect(renderer.draw(at: time))
       let deadline = Date().addingTimeInterval(10)
       while counter.count == before, Date() < deadline {
@@ -162,34 +167,5 @@ struct SiteCaptureTests {
         url as CFURL, UTType.png.identifier as CFString, 1, nil))
     CGImageDestinationAddImage(destination, image, nil)
     #expect(CGImageDestinationFinalize(destination))
-  }
-
-  /// A generated head-and-shoulders luminance image: a lit ellipse for the head,
-  /// a wider one for the shoulders, a soft window glow behind. Not a real person.
-  private static func syntheticPortrait(width: Int, height: Int) -> [UInt8] {
-    var pixels = [UInt8](repeating: 0, count: width * height * 4)
-    func clamp(_ value: Double) -> Double { max(0, min(1, value)) }
-    for y in 0..<height {
-      for x in 0..<width {
-        let u = Double(x) / Double(width - 1)
-        let v = Double(y) / Double(height - 1)
-        var light = 0.10 + 0.22 * exp(-(pow(u - 0.82, 2) / 0.02 + pow(v - 0.25, 2) / 0.05))
-        let head = pow((u - 0.5) / 0.14, 2) + pow((v - 0.38) / 0.24, 2)
-        let shoulders = pow((u - 0.5) / 0.34, 2) + pow((v - 1.02) / 0.34, 2)
-        let side = 0.75 + 0.25 * (1 - clamp((u - 0.38) / 0.24))
-        if head < 1 {
-          light = 0.35 + 0.55 * side * clamp(1.2 - head)
-        } else if shoulders < 1 {
-          light = 0.25 + 0.35 * clamp(1.2 - shoulders)
-        }
-        let value = UInt8(clamp(light) * 255)
-        let offset = (y * width + x) * 4
-        pixels[offset] = value
-        pixels[offset + 1] = value
-        pixels[offset + 2] = value
-        pixels[offset + 3] = 255
-      }
-    }
-    return pixels
   }
 }
