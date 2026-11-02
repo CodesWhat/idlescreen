@@ -22,7 +22,7 @@ pre-push:
     - name: workflow-security
       run: ./scripts/verify-workflows.sh
     - name: repository-contracts
-      run: ./scripts/test-repository-layout.sh && ./scripts/test-project-contracts.sh
+      run: ./scripts/test-repository-layout.sh && ./scripts/test-project-contracts.sh && ./scripts/test-app-accessibility-labels.sh
     - name: xcode-tests
       run: ./scripts/test-modern-schemes.sh
     - name: release-fixtures
