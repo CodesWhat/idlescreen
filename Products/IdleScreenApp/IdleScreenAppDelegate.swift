@@ -167,7 +167,6 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
       .environment(navigation)
       .environment(displayCoordinator)
       .frame(minWidth: 900, minHeight: 600)
-      .preferredColorScheme(.dark)
     let hostingController = NSHostingController(rootView: rootView)
     let window = NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 1040, height: 680),

@@ -77,13 +77,15 @@ struct ContentView: View {
       railView
       Divider().opacity(0.4)
       switch navigation.destination {
-      case .studio: StudioView()
+      // The Studio preview is a dark canvas in both appearances. The other pages follow the system.
+      case .studio: StudioView().environment(\.colorScheme, .dark)
       case .displays: DisplaysView()
       case .integrations: IntegrationsView()
       case .system: SystemView()
       }
     }
     .background(Color(nsColor: .windowBackgroundColor))
+    .windowAppearance(Self.windowAppearance(for: navigation.destination))
     .ignoresSafeArea()
     .onChange(of: model.configuration.revision, initial: true) {
       _, revision in
@@ -98,6 +100,11 @@ struct ContentView: View {
         try? await Task.sleep(for: .seconds(1))
       }
     }
+  }
+
+  /// Studio is a dark canvas in both system appearances, so its window goes dark with it. The settings pages follow the system.
+  static func windowAppearance(for destination: Destination) -> NSAppearance? {
+    destination == .studio ? NSAppearance(named: .darkAqua) : nil
   }
 
   private var railView: some View {

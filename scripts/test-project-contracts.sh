@@ -660,7 +660,7 @@ if ! grep -Fq 'registrationClient.assessment(' "$project_root/Products/IdleScree
    ! grep -Fq 'registrationClient.repair(' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
    ! grep -Fq 'registrationClient.forceRepair(' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
    ! grep -Fq 'registrationAssessment.location' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
-   ! grep -Fq 'Repair Screen Saver' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
+   ! grep -Fq 'Repair IdleScreen' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
    ! grep -Fq 'Different copy' "$project_root/Products/IdleScreenApp/SystemViews.swift"; then
   echo "FAIL: the companion must diagnose and repair a stale screen saver registration." >&2
   exit 1
@@ -1464,7 +1464,7 @@ if ! grep -Fq 'isProcessReportLive' "$project_root/Products/IdleScreenApp/IdleSc
    ! grep -Fq 'proc_pidpath' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
    ! grep -Fq 'matchesExecutablePath' "$project_root/Sources/IdleScreenCore/Health.swift" ||
    ! grep -Fq 'isLive: model.isProcessReportLive(report)' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
-   ! grep -Fq 'Text(isLive ? report.lifecycle.rawValue.capitalized : "Exited")' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
+   ! grep -Fq 'guard isLive else { return "Exited" }' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
    ! grep -Fq 'wrong executable identity' "$project_root/scripts/verify-shared-state.sh"; then
   echo "FAIL: companion diagnostics must not present exited process reports as live." >&2
   exit 1

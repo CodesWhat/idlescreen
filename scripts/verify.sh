@@ -40,7 +40,8 @@ run_step() {
 clean_tree() { test -z "$(git status --porcelain)"; }
 
 repository_contracts() {
-  ./scripts/test-repository-layout.sh && ./scripts/test-project-contracts.sh
+  ./scripts/test-repository-layout.sh && ./scripts/test-project-contracts.sh &&
+    ./scripts/test-app-accessibility-labels.sh
 }
 
 release_fixtures() {
