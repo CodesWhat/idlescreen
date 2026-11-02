@@ -75,7 +75,8 @@ struct ContentView: View {
       railView
       Divider().opacity(0.4)
       switch navigation.destination {
-      case .studio: StudioView()
+      // The Studio preview is a dark canvas in both appearances. The other pages follow the system.
+      case .studio: StudioView().environment(\.colorScheme, .dark)
       case .displays: DisplaysView()
       case .integrations: IntegrationsView()
       case .system: SystemView()
