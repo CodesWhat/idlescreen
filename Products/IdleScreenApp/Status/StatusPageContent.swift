@@ -44,7 +44,7 @@ struct StatusPageContent<Technical: View>: View {
     HStack(spacing: 12) {
       Image(systemName: verdictKind.symbol).font(.system(size: 22, weight: .semibold))
         .foregroundStyle(verdictKind.color).accessibilityHidden(true)
-      Text(summary.verdict).font(DesignFont.sans(20, .semibold)).foregroundStyle(DesignPalette.ink)
+      Text(summary.verdict).font(DesignFont.display(22)).foregroundStyle(DesignPalette.ink)
         .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
       Spacer(minLength: 0)
       if let action = summary.primaryAction {

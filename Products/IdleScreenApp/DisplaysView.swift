@@ -333,7 +333,7 @@ private struct DisplayArrangementCard: View {
       VStack(spacing: 5) {
         if showsIdentification {
           Text("\(index + 1)")
-            .font(DesignFont.mono(32, .semibold))
+            .font(DesignFont.display(33))
         } else {
           Text(roleLabel)
             .font(DesignFont.sans(DesignFont.body, .semibold))

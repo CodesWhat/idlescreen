@@ -5,14 +5,16 @@ import SwiftUI
 /// view never checks the colour scheme. `DesignPalette.bg` is a SwiftUI `Color`; `DesignPalette.NS.bg` is the same colour as an
 /// `NSColor` for AppKit code.
 ///
-/// Identity: the accent is the phosphor green of the app icon's CRT glass (about #5CE07C at its brightest), used as a fill only.
-/// Text and strokes in the accent hue use `accentMark`, which is darker in light mode so it clears the contrast floor.
+/// Identity: the accent is cobalt, #3B6CF0, used as a fill. Text and strokes in the accent hue use `accentMark`, which is darker
+/// in light mode and lighter in dark mode so each clears the contrast floor on its ground.
 ///
 /// Contrast, measured as WCAG 2.x ratios (4.5:1 text, 3:1 non-text):
-///   accent #5CE07C       with onAccent #0B2412 9.7:1 (button labels); on dark bg #1F1F21 9.7:1, on dark surface #2A2A2C 8.5:1;
-///                        on white only 1.7:1, so a light-mode accent shape that must be seen carries an accentMark edge
-///   accentMark light     #0F6B2E on white 6.6:1, on bg #F3F3F5 6.0:1 (text and strokes)
-///   accentMark dark      #5CE07C, same ratios as the accent fill on the dark ground
+///   accent #3B6CF0       with onAccent #FFFFFF 4.6:1 (button labels); on white 4.6:1, on bg #F3F3F5 4.1:1 (shape, needs 3:1);
+///                        on dark bg #1F1F21 3.6:1, on dark surface #2A2A2C 3.1:1 (shape, needs 3:1)
+///   accentMark light     #2B54C8 on white 6.6:1, on bg #F3F3F5 5.9:1 (text and strokes)
+///   accentMark dark      #6C93FF on dark bg #1F1F21 5.7:1, on dark surface #2A2A2C 5.0:1 (text and strokes)
+///   Increase Contrast    accent light #2B54C8 with onAccent 6.6:1; accentMark light #1D3FA0 on bg 8.3:1;
+///                        accentMark dark #A9C0FF on dark surface 8.0:1
 ///   ink light #1D1D1F    on bg 15.2:1;  ink2 #5C5C61 on bg 6.0:1;  ink3 #6B6B70 on bg 4.8:1, on white 5.3:1
 ///   ink2 dark #B0B0B5    on dark surface 6.6:1;  ink3 #9A9A9F on dark surface 5.1:1
 ///   success light #1E7A3C on bg 4.9:1, dark #4CC76A on surface 6.6:1
@@ -37,14 +39,15 @@ enum DesignPalette {
     static let hair2 = pair(
       light: (0, 0, 0, 0.07), dark: (1, 1, 1, 0.08), contrastLight: (0, 0, 0, 0.3),
       contrastDark: (1, 1, 1, 0.34))
-    /// Phosphor green, a fill only. See the contrast notes above.
-    static let accent = pair(light: 0x5CE07C, dark: 0x5CE07C)
+    /// Cobalt, a fill. See the contrast notes above.
+    static let accent = pair(light: 0x3B6CF0, dark: 0x3B6CF0, contrastLight: 0x2B54C8)
     /// A quiet accent wash for selected and highlighted cells. Never carries text on its own.
     static let accentSoft = pair(
-      light: (0x5C, 0xE0, 0x7C, 0.28), dark: (0x5C, 0xE0, 0x7C, 0.16), bytes: true)
+      light: (0x3B, 0x6C, 0xF0, 0.14), dark: (0x3B, 0x6C, 0xF0, 0.22), bytes: true)
     /// Non-text accent: edges, dots, strokes, and accent-hue text.
-    static let accentMark = pair(light: 0x0F6B2E, dark: 0x5CE07C)
-    static let onAccent = pair(light: 0x0B2412, dark: 0x0B2412)
+    static let accentMark = pair(
+      light: 0x2B54C8, dark: 0x6C93FF, contrastLight: 0x1D3FA0, contrastDark: 0xA9C0FF)
+    static let onAccent = pair(light: 0xFFFFFF, dark: 0xFFFFFF)
     static let success = pair(light: 0x1E7A3C, dark: 0x4CC76A)
     /// Warnings only. Pair it with a symbol and a word.
     static let warning = pair(light: 0xA85A00, dark: 0xF19A4B)

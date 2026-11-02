@@ -36,6 +36,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    DesignFontRegistry.registerAtLaunch()
     logger.info("Application did finish launching")
     // Construction performs one read-only SMAppService status observation.
     // It does not connect XPC, bootstrap preview, register, prompt, or open UI.
