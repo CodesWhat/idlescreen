@@ -45,9 +45,20 @@ or Homebrew behavior:
 ./scripts/test-public-release-contract.sh
 ```
 
-The installed Lefthook pipeline enforces Conventional Commits, formats staged
-Swift files, requires a clean pre-push tree, and mirrors the source, test,
-workflow-security, fixture, and Release build gates.
+`./scripts/verify.sh` runs the full former pre-push list in order (clean tree,
+swift-format, Qlty, workflow security, repository contracts, Xcode tests,
+release fixtures, Release build), fails fast, and prints a per-step summary.
+Run it before opening a pull request; CI runs the same checks.
+
+The installed Lefthook pipeline enforces Conventional Commits and formats
+staged Swift files. Pre-push is deliberately slim: clean tree, swift-format on
+changed files, actionlint and zizmor when workflows are pushed, shellcheck on
+pushed shell scripts, and one warnings-as-errors Debug build. Everything heavier
+lives in `scripts/verify.sh`.
+
+`scripts/test-modern-schemes.sh` fails a scheme that stalls with no output for
+`IDLESCREEN_TEST_STALL_SECONDS` (default 300, 0 disables), prints failure
+markers even on exit 0, or whose xcresult reports 0 tests.
 
 ## Test conventions
 
