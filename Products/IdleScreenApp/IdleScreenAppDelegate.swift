@@ -170,7 +170,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
       backing: .buffered,
       defer: false
     )
-    window.title = "idlescreen"
+    window.title = "IdleScreen"
     window.identifier = NSUserInterfaceItemIdentifier("main")
     window.titleVisibility = .hidden
     window.titlebarAppearsTransparent = true

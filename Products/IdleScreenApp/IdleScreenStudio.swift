@@ -303,7 +303,7 @@ struct StudioView: View {
           Button {
             model.startScreenSaver()
           } label: {
-            Label("Start idlescreen", systemImage: "play.fill")
+            Label("Start IdleScreen", systemImage: "play.fill")
               .font(.system(size: 12, weight: .semibold))
           }
           .buttonStyle(.borderedProminent)
@@ -657,7 +657,7 @@ struct StudioView: View {
     case .observed(.notDetermined):
       return CameraSetupGuidance(
         title: "Allow camera access",
-        detail: "Open System and allow idlescreen to use the camera."
+        detail: "Open System and allow IdleScreen to use the camera."
       )
     case .observed(.denied):
       return CameraSetupGuidance(

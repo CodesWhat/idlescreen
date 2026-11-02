@@ -291,7 +291,7 @@ mock_hdiutil_main() {
   case "$operation" in
     create)
       [[ $# -eq 8 && "$1" == -srcfolder && -d "$2" && "$3" == -format &&
-         "$4" == UDZO && "$5" == -volname && "$6" == idlescreen &&
+         "$4" == UDZO && "$5" == -volname && "$6" == IdleScreen &&
          "$7" == -o && "$8" == *.dmg ]] || return 1
       local source="$2"
       local output="$8"

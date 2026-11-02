@@ -32,8 +32,8 @@ write_helper_info() {
   /usr/bin/plutil -create xml1 "$path"
   /usr/libexec/PlistBuddy -c 'Add :CFBundleIdentifier string com.idlescreen.camera-agent.dev' "$path"
   /usr/libexec/PlistBuddy -c 'Add :CFBundleExecutable string IdleScreenCameraAgent' "$path"
-  /usr/libexec/PlistBuddy -c 'Add :CFBundleName string idlescreen' "$path"
-  /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string idlescreen' "$path"
+  /usr/libexec/PlistBuddy -c 'Add :CFBundleName string IdleScreen' "$path"
+  /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string IdleScreen' "$path"
   /usr/libexec/PlistBuddy -c 'Add :CFBundlePackageType string APPL' "$path"
   /usr/libexec/PlistBuddy -c 'Add :LSBackgroundOnly bool true' "$path"
   /usr/libexec/PlistBuddy -c 'Add :LSUIElement bool true' "$path"
@@ -41,7 +41,7 @@ write_helper_info() {
   /usr/libexec/PlistBuddy -c "Add :IdleScreenCameraAgentMachServiceName string $mach_service" "$path"
   /usr/libexec/PlistBuddy -c 'Add :IdleScreenCameraAgentMailboxFileName string camera-frames-v1.mailbox' "$path"
   /usr/libexec/PlistBuddy -c 'Add :IdleScreenCameraAgentTeamIdentifier string 3524374A2S' "$path"
-  /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string idlescreen uses the camera only for camera-based screen saver effects you explicitly enable.' "$path"
+  /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable.' "$path"
   /usr/libexec/PlistBuddy -c 'Add :NSCameraUseContinuityCameraDeviceType bool true' "$path"
 }
 
@@ -144,7 +144,7 @@ make_valid_fixture() {
 
   write_bundle_info "$app_path/Contents/Info.plist" com.idlescreen.app.dev IdleScreen APPL
   /usr/libexec/PlistBuddy \
-    -c 'Add :NSCameraUsageDescription string idlescreen uses the camera only for camera-based screen saver effects you explicitly enable.' \
+    -c 'Add :NSCameraUsageDescription string IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable.' \
     "$app_path/Contents/Info.plist"
   write_bundle_info "$extension_path/Contents/Info.plist" \
     com.idlescreen.app.dev.screensaver IdleScreenScreenSaver XPC!
