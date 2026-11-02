@@ -1,46 +1,32 @@
 # IdleScreen roadmap
 
-Last updated: August 29, 2026
+Last updated: November 2, 2026
 
 IdleScreen 0.1 is a released public product. The companion app, modern
 screen-saver extension, Metal renderer, camera agent, multi-display planner,
 Pixel Materials, Saved Looks, and optional local agent signals are implemented.
-This roadmap tracks the current patch and the compatibility work that remains
+This roadmap tracks the current release and the compatibility work that remains
 useful after it ships.
 
-## v0.1.2 patch release
+## v0.2.0
 
-Status: shipped August 29, 2026. `v0.1.2` tags `main` exactly, the signed DMG,
-candidate manifest and SPDX SBOM are attached to the release, and the Homebrew
-cask is published at `0.1.2,64`. The candidate was notarized through the
-team-scoped App Store Connect API key; the stale Apple ID notary profile has
-since been removed, leaving one working credential. The Developer ID
-Application certificate is valid through February 1, 2027.
+Status: in progress. The last GA is `v0.1.2` (build 64, August 29, 2026). This
+release is prepared as `0.2.0` build 65.
 
-- Enforce the generated fail-closed saver camera activation policy.
-- Move procedural glyph generation from the main actor to bounded Metal
-  compute while preserving deterministic CPU parity.
-- Avoid copying duplicate camera payloads and preserve safe transient-frame
-  behavior in the shared saver pump.
-- Cover WallpaperAgent refresh, registration repair, and the initial saver
-  frame with direct regression tests.
-- Align contributor docs, hooks, CI, code scanning, coverage, dependency
-  review, secret scanning, Scorecard, release-tag protection, and review
-  automation with the current CodesWhat standards.
-- Build, sign, notarize, verify, publish, and install one immutable candidate.
-- Generate an SPDX 2.3 SBOM from the accepted candidate manifest.
-- Update the Homebrew cask from the verified candidate manifest.
-
-## Carried into the next patch
-
-Landed on the development branch after v0.1.2 was tagged, so they ship with
-whatever comes next:
-
+- Add a CRT menu bar icon with setup, attention, camera preview, running and
+  idle states, and pin a frame under Reduce Motion.
+- Add a first-run setup flow: register the saver, choose it in Screen Saver
+  settings, then optionally set up a camera.
+- Rebuild the Displays, Integrations and System settings pages on a shared
+  design language that follows the system appearance and Increase Contrast.
+- Show "IdleScreen" as the app, saver and camera agent name in macOS. The
+  installed path stays `/Applications/idlescreen.app`.
 - Keep the companion in the menu bar and drop its Dock tile when the main
   window closes.
 - Give the app icon a phosphor background so the CRT chassis reads at Dock size.
-- Point the Codecov upload at the reports the preceding job writes, which it
-  was never finding.
+- Fix the Codecov upload, run syntax checks per file, let the CI contract accept
+  Renovate action pin bumps, and slim the pre-push hook down to
+  `scripts/verify.sh` with a stall and zero-test guard on the scheme runner.
 - Stage the generated SBOM through a temporary file so an interrupted run
   cannot strand a partial `.spdx.json`.
 - Scope the renderer zero-drop budget to the named benchmark host, matching the
@@ -50,8 +36,10 @@ whatever comes next:
   review.
 - Add a consent-gated attended runner that consumes short-lived
   signed-candidate plans, bounds camera lifecycle soaks, and records
-  process-scoped energy samples. C8 release evidence remains a separate
-  operator-collected and verified workflow.
+  process-scoped energy samples.
+
+The physical lifecycle matrix does not gate this release. The README lists what
+was not verified on a device instead.
 
 ## Completed product foundation
 
@@ -67,9 +55,14 @@ whatever comes next:
 
 ## Compatibility and product follow-up
 
-These are not required to withhold a corrective patch from existing users, but
-remain useful coverage and product work:
+These are not required to withhold a release from existing users, but remain
+useful coverage and product work:
 
+- Run the physical lifecycle matrix (sleep/wake, reboot, Background Items,
+  app replacement, camera permission, contention and device changes, multiple
+  views, displays, Spaces and users, crash recovery, soak) on a device and move
+  each row out of the README's not-verified list.
+- Rename the installed app path to IdleScreen.app with a cask migration.
 - Repeat the full mixed-scale multi-display, hot-plug, Spaces, and sleep/wake
   matrix on additional physical Mac configurations.
 - Smoke-test the next macOS beta and Intel hardware while universal support is
