@@ -279,7 +279,7 @@ struct IntegrationsView: View {
             .textSelection(.enabled)
             .padding(10)
         }
-        .background(DesignPalette.bg, in: RoundedRectangle(cornerRadius: 8))
+        .background(DesignPalette.bg, in: RoundedRectangle(cornerRadius: 3))
         .accessibilityLabel("\(name) hook config")
         Text(
           provider == .codex

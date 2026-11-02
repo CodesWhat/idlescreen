@@ -5,37 +5,40 @@ import SwiftUI
 /// view never checks the colour scheme. `DesignPalette.bg` is a SwiftUI `Color`; `DesignPalette.NS.bg` is the same colour as an
 /// `NSColor` for AppKit code.
 ///
-/// Identity: the accent is the phosphor green of the app icon's CRT glass (about #5CE07C at its brightest), used as a fill only.
+/// Identity (blueprint): a spec sheet. Off-white (light) or graphite (dark) ground with a faint dot grid, square corners, ASCII rules
+/// and corner ticks instead of shadows, mono for labels and values, phosphor green used sparingly. The accent is the phosphor green of the app icon's CRT glass (about #5CE07C at its brightest), used as a fill only.
 /// Text and strokes in the accent hue use `accentMark`, which is darker in light mode so it clears the contrast floor.
 ///
-/// Contrast, measured as WCAG 2.x ratios (4.5:1 text, 3:1 non-text):
-///   accent #5CE07C       with onAccent #0B2412 9.7:1 (button labels); on dark bg #1F1F21 9.7:1, on dark surface #2A2A2C 8.5:1;
-///                        on white only 1.7:1, so a light-mode accent shape that must be seen carries an accentMark edge
-///   accentMark light     #0F6B2E on white 6.6:1, on bg #F3F3F5 6.0:1 (text and strokes)
-///   accentMark dark      #5CE07C, same ratios as the accent fill on the dark ground
-///   ink light #1D1D1F    on bg 15.2:1;  ink2 #5C5C61 on bg 6.0:1;  ink3 #6B6B70 on bg 4.8:1, on white 5.3:1
-///   ink2 dark #B0B0B5    on dark surface 6.6:1;  ink3 #9A9A9F on dark surface 5.1:1
-///   success light #1E7A3C on bg 4.9:1, dark #4CC76A on surface 6.6:1
-///   warning light #A85A00 on bg 4.6:1, dark #F19A4B on surface 6.5:1
-///   danger  light #D70015 on bg 4.9:1, dark #FF564C on surface 4.6:1
+/// Contrast, measured as WCAG 2.x ratios (4.5:1 text, 3:1 non-text). Ratios are on bg / surface:
+///   accent #5CE07C       with onAccent #0B2412 9.7:1 (button labels); on dark 10.6 / 9.7;
+///                        on light only ~1.6:1, so a light-mode accent shape that must be seen carries an accentMark edge
+///   accentMark light     #0F6B2E 6.0 / 6.4 (text and strokes);  dark #5CE07C 10.6 / 9.7
+///   ink   light #111418  16.7 / 17.8;   dark #E8ECE9 15.1 / 13.7
+///   ink2  light #4A4F55  7.5 / 8.0;     dark #A9B0B5 8.2 / 7.5
+///   ink3  light #5C636A  5.5 / 5.9;     dark #8F979C 6.1 / 5.5
+///   success light #1E7A3C 4.9 / 5.2;    dark #4CC76A 8.3 / 7.6
+///   warning light #A85A00 4.6 / 4.9;    dark #F19A4B 8.1 / 7.4
+///   danger  light #D70015 4.9 / 5.2;    dark #FF564C 5.7 / 5.2
+/// Status chips put the word in ink and the glyph in the status hue; the chip edge in that hue is non-text and clears 3:1 on
+/// surface in every row above except the accent in light mode, which uses accentMark.
 /// hair and hair2 are dividers and card edges. With Increase Contrast on they step up to about 3:1 against their ground, and the
 /// secondary inks step up further.
 enum DesignPalette {
   // MARK: Adaptive colours
 
   enum NS {
-    static let bg = pair(light: 0xF3F3F5, dark: 0x1F1F21)
-    static let surface = pair(light: 0xFFFFFF, dark: 0x2A2A2C)
-    static let ink = pair(light: 0x1D1D1F, dark: 0xF2F2F2)
+    static let bg = pair(light: 0xF4F4F0, dark: 0x151718)
+    static let surface = pair(light: 0xFBFBF8, dark: 0x1D2022)
+    static let ink = pair(light: 0x111418, dark: 0xE8ECE9)
     static let ink2 = pair(
-      light: 0x5C5C61, dark: 0xB0B0B5, contrastLight: 0x3A3A3E, contrastDark: 0xD8D8DC)
+      light: 0x4A4F55, dark: 0xA9B0B5, contrastLight: 0x30343A, contrastDark: 0xD4DADD)
     static let ink3 = pair(
-      light: 0x6B6B70, dark: 0x9A9A9F, contrastLight: 0x45454A, contrastDark: 0xC8C8CC)
+      light: 0x5C636A, dark: 0x8F979C, contrastLight: 0x3C4248, contrastDark: 0xC4CBCF)
     static let hair = pair(
-      light: (0, 0, 0, 0.12), dark: (1, 1, 1, 0.14), contrastLight: (0, 0, 0, 0.45),
+      light: (0, 0, 0, 0.22), dark: (1, 1, 1, 0.20), contrastLight: (0, 0, 0, 0.45),
       contrastDark: (1, 1, 1, 0.5))
     static let hair2 = pair(
-      light: (0, 0, 0, 0.07), dark: (1, 1, 1, 0.08), contrastLight: (0, 0, 0, 0.3),
+      light: (0, 0, 0, 0.14), dark: (1, 1, 1, 0.12), contrastLight: (0, 0, 0, 0.3),
       contrastDark: (1, 1, 1, 0.34))
     /// Phosphor green, a fill only. See the contrast notes above.
     static let accent = pair(light: 0x5CE07C, dark: 0x5CE07C)
@@ -50,8 +53,12 @@ enum DesignPalette {
     static let warning = pair(light: 0xA85A00, dark: 0xF19A4B)
     static let danger = pair(light: 0xD70015, dark: 0xFF564C)
     static let sel = pair(light: (0, 0, 0, 0.08), dark: (1, 1, 1, 0.10))
-    static let track = pair(light: 0xD9D9DE, dark: 0x3C3C40)
+    static let track = pair(light: 0xD6D8D4, dark: 0x363B3E)
     /// The ground under saver previews. The saver draws on black in both appearances, so this does not adapt.
+    /// The dot grid on the page ground. Decorative, so it carries no contrast requirement; text sits on opaque surfaces or clear ground.
+    static let grid = pair(
+      light: (0, 0, 0, 0.13), dark: (1, 1, 1, 0.09), contrastLight: (0, 0, 0, 0.0),
+      contrastDark: (1, 1, 1, 0.0))
     static let previewGround = pair(light: 0x0B0F0C, dark: 0x0B0F0C)
   }
 
@@ -71,10 +78,8 @@ enum DesignPalette {
   static let danger = Color(nsColor: NS.danger)
   static let sel = Color(nsColor: NS.sel)
   static let track = Color(nsColor: NS.track)
+  static let grid = Color(nsColor: NS.grid)
   static let previewGround = Color(nsColor: NS.previewGround)
-
-  /// The card drop shadow.
-  static func shadowColor(dark: Bool) -> Color { Color.black.opacity(dark ? 0.3 : 0.05) }
 
   // MARK: Builders
 

@@ -202,11 +202,22 @@ struct DesignLanguageRenderTests {
     guard let ground = bitmap.colorAt(x: 2, y: 2) else { return 0 }
     for y in stride(from: bitmap.pixelsHigh - 1, through: 0, by: -1) {
       for x in stride(from: 0, to: bitmap.pixelsWide, by: 4)
-      where bitmap.colorAt(x: x, y: y) != ground {
+      where Self.isContent(bitmap.colorAt(x: x, y: y), ground: ground) {
         return y
       }
     }
     return 0
+  }
+
+  /// Anything clearly off the ground. The page ground carries a faint dot grid, so a small difference is not content.
+  private static func isContent(_ color: NSColor?, ground: NSColor) -> Bool {
+    guard let a = color?.usingColorSpace(.sRGB), let b = ground.usingColorSpace(.sRGB) else {
+      return false
+    }
+    let delta = max(
+      abs(a.redComponent - b.redComponent), abs(a.greenComponent - b.greenComponent),
+      abs(a.blueComponent - b.blueComponent))
+    return delta > 0.16
   }
 
   private static func averageLuma(_ bitmap: NSBitmapImageRep) -> Double {

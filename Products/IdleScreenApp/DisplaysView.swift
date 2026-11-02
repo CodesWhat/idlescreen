@@ -323,9 +323,9 @@ private struct DisplayArrangementCard: View {
 
   var body: some View {
     ZStack {
-      RoundedRectangle(cornerRadius: 10)
+      RoundedRectangle(cornerRadius: 3)
         .fill(fill)
-      RoundedRectangle(cornerRadius: 10)
+      RoundedRectangle(cornerRadius: 3)
         .strokeBorder(
           isSelected ? DesignPalette.accentMark : DesignPalette.hair,
           lineWidth: isSelected ? 3 : 1

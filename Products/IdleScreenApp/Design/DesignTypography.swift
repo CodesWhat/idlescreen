@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// The companion-app type scale. System fonts only, nothing bundled: SF for text, SF Mono for the eyebrow and readouts, which
-/// carries the CRT identity. 10 pt is the floor anywhere in the app.
+/// The companion-app type scale. System fonts only, nothing bundled: SF for sentences, SF Mono for every label, eyebrow, status,
+/// key and value, which carries the blueprint (spec sheet) identity. 10 pt is the floor anywhere in the app.
 enum DesignFont {
   /// Page headline.
-  static let headline: CGFloat = 28
+  static let headline: CGFloat = 27
   static let body: CGFloat = 13
   static let detail: CGFloat = 12
   static let caption: CGFloat = 11.5
@@ -17,7 +17,7 @@ enum DesignFont {
   enum Weight { case regular, medium, semibold }
 
   static func headlineFont(_ size: CGFloat = headline) -> Font {
-    .system(size: size, weight: .semibold)
+    .system(size: size, weight: .bold)
   }
 
   static func sans(_ size: CGFloat, _ weight: Weight = .regular) -> Font {

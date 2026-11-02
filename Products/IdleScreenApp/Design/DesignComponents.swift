@@ -6,11 +6,12 @@ import SwiftUI
 //   DesignPage          scrolling page body: headline and one summary line over stacked sections
 //   DesignPageHeader    the headline, a summary line and optional trailing status
 //   DesignSection       eyebrow label over a card, with an optional footer note
-//   DesignEyebrow       SF Mono 10 uppercase label, .12em tracking, marked as a heading
-//   DesignCard          surface, 1 pt hair2 border, radius 12; puts a hairline between its rows automatically
+//   DesignEyebrow       `── LABEL ────` SF Mono 10 uppercase with a trailing rule, marked as a heading
+//   DesignCard          surface, 1 pt hair border, radius 3, corner ticks, no shadow; dashed rule between its rows
+//   DesignGround        the page ground: bg with a faint dot grid
 //   DesignRow           48 pt minimum row: title and detail left, controls right, wraps instead of truncating
 //   DesignDetails       a collapsed "Details" section for diagnostics and raw values
-//   DesignStatus        a status as symbol plus word, never colour alone
+//   DesignStatus        a glyph chip (● OK, ▲ WARN, ✕ FAIL, ○ OFF): glyph plus word, never colour alone
 //   DesignNotice        an inline warning or error banner
 //   DesignSwitchStyle   42x24 switch: `.toggleStyle(.designSwitch)`
 //   DesignPopup         28 pt popup, radius 7, with a checkmarked menu
@@ -23,13 +24,66 @@ import SwiftUI
 
 // MARK: Layout
 
-/// Hairline between card rows.
+/// A horizontal dashed rule, the ASCII `- - -` between card rows.
+private struct DashedRule: Shape {
+  func path(in rect: CGRect) -> Path {
+    var path = Path()
+    path.move(to: CGPoint(x: rect.minX, y: rect.midY))
+    path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+    return path
+  }
+}
+
+/// Dashed hairline between card rows.
 struct DesignHairline: View {
-  var body: some View { Rectangle().fill(DesignPalette.hair2).frame(height: 1) }
+  var body: some View {
+    DashedRule().stroke(DesignPalette.hair2, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+      .frame(height: 1)
+  }
+}
+
+/// L-shaped ticks at the four corners of a rect, drawn just outside it like registration marks on a drawing.
+private struct CornerTicks: Shape {
+  var length: CGFloat
+  func path(in rect: CGRect) -> Path {
+    var path = Path()
+    for (x, dx) in [(rect.minX, length), (rect.maxX, -length)] {
+      for (y, dy) in [(rect.minY, length), (rect.maxY, -length)] {
+        path.move(to: CGPoint(x: x + dx, y: y))
+        path.addLine(to: CGPoint(x: x, y: y))
+        path.addLine(to: CGPoint(x: x, y: y + dy))
+      }
+    }
+    return path
+  }
+}
+
+/// The page ground: `bg` with a dot every 16 pt. Decorative and hidden from accessibility; Increase Contrast drops the dots.
+struct DesignGround: View {
+  var body: some View {
+    ZStack {
+      DesignPalette.bg
+      Canvas { context, size in
+        let pitch = DesignMetrics.gridPitch
+        let dot = DesignPalette.grid
+        var path = Path()
+        var y = pitch / 2
+        while y < size.height {
+          var x = pitch / 2
+          while x < size.width {
+            path.addRect(CGRect(x: x - 0.5, y: y - 0.5, width: 1.5, height: 1.5))
+            x += pitch
+          }
+          y += pitch
+        }
+        context.fill(path, with: .color(dot))
+      }
+    }
+    .accessibilityHidden(true)
+  }
 }
 
 struct DesignCard<Content: View>: View {
-  @Environment(\.colorScheme) private var scheme
   @ViewBuilder var content: () -> Content
 
   var body: some View {
@@ -42,16 +96,23 @@ struct DesignCard<Content: View>: View {
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .clipShape(RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
-    .background(
-      RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous)
-        .fill(DesignPalette.surface)
-    )
-    .overlay(
-      RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous)
-        .strokeBorder(DesignPalette.hair2, lineWidth: 1)
-    )
-    .shadow(color: DesignPalette.shadowColor(dark: scheme == .dark), radius: 0.5, y: 1)
+    .designCardChrome()
+  }
+}
+
+extension View {
+  /// The blueprint card surface: opaque fill, 1 pt hair border, near-square corners, corner ticks, no shadow.
+  func designCardChrome() -> some View {
+    let shape = RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous)
+    return
+      self
+      .clipShape(shape)
+      .background(shape.fill(DesignPalette.surface))
+      .overlay(shape.strokeBorder(DesignPalette.hair, lineWidth: 1))
+      .overlay(
+        CornerTicks(length: DesignMetrics.tickLength)
+          .stroke(DesignPalette.ink3, style: StrokeStyle(lineWidth: 1.5, lineCap: .square))
+          .padding(-3).allowsHitTesting(false).accessibilityHidden(true))
   }
 }
 
@@ -60,8 +121,15 @@ struct DesignEyebrow: View {
   init(_ text: String) { self.text = text }
 
   var body: some View {
-    Text(text).designEyebrow().padding(.leading, 4).fixedSize(horizontal: false, vertical: true)
-      .accessibilityAddTraits(.isHeader)
+    HStack(spacing: 6) {
+      Text("──").font(DesignFont.mono(DesignFont.eyebrow)).foregroundStyle(DesignPalette.accentMark)
+        .accessibilityHidden(true)
+      Text(text).designEyebrow().fixedSize(horizontal: false, vertical: true)
+      Rectangle().fill(DesignPalette.hair2).frame(height: 1).accessibilityHidden(true)
+    }
+    .padding(.leading, 2)
+    .accessibilityElement(children: .combine)
+    .accessibilityAddTraits(.isHeader)
   }
 }
 
@@ -72,7 +140,7 @@ struct DesignSection<Content: View>: View {
   @ViewBuilder var content: () -> Content
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
+    VStack(alignment: .leading, spacing: 10) {
       DesignEyebrow(eyebrow)
       DesignCard(content: content)
       if let footer {
@@ -129,6 +197,8 @@ struct DesignPageHeader<Trailing: View>: View {
       VStack(alignment: .leading, spacing: 4) {
         Text(title).font(DesignFont.headlineFont()).foregroundStyle(DesignPalette.ink)
           .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+        Rectangle().fill(DesignPalette.accentMark).frame(width: 28, height: 3)
+          .padding(.vertical, 2).accessibilityHidden(true)
         if let summary {
           Text(summary).font(DesignFont.sans(DesignFont.body)).foregroundStyle(DesignPalette.ink2)
             .fixedSize(horizontal: false, vertical: true)
@@ -159,7 +229,7 @@ struct DesignPage<Trailing: View, Content: View>: View {
       .frame(maxWidth: DesignMetrics.pageMaxWidth, alignment: .leading)
       .frame(maxWidth: .infinity, alignment: .center)
     }
-    .background(DesignPalette.bg)
+    .background(DesignGround())
   }
 }
 
@@ -223,6 +293,17 @@ enum DesignStatusKind {
     }
   }
 
+  /// The chip glyph, plain Unicode so it reads in SF Mono: ● ▲ ✕ ○ ▸.
+  var glyph: String {
+    switch self {
+    case .ok: "●"
+    case .attention: "▲"
+    case .error: "✕"
+    case .pending, .neutral: "○"
+    case .current: "▸"
+    }
+  }
+
   var color: Color {
     switch self {
     case .ok: DesignPalette.success
@@ -234,36 +315,36 @@ enum DesignStatusKind {
   }
 }
 
-/// A status as symbol plus word. The word is in the primary ink so it holds contrast; the symbol carries the hue.
+/// A status as a glyph chip: glyph plus word in SF Mono, `● READY`. The word is in the primary ink so it holds contrast; the
+/// glyph and the chip edge carry the hue.
 struct DesignStatus: View {
   let kind: DesignStatusKind
   let text: String
 
   var body: some View {
-    HStack(spacing: 5) {
-      Image(systemName: kind.symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(
-        kind.color
-      )
-      .accessibilityHidden(true)
-      Text(text).font(DesignFont.sans(DesignFont.detail, .medium)).foregroundStyle(
-        DesignPalette.ink
-      )
-      .fixedSize(horizontal: false, vertical: true)
+    HStack(spacing: 6) {
+      Text(kind.glyph).font(DesignFont.mono(DesignFont.eyebrow + 1, .semibold))
+        .foregroundStyle(kind.color).accessibilityHidden(true)
+      Text(text).font(DesignFont.mono(DesignFont.eyebrow + 1, .semibold)).textCase(.uppercase)
+        .tracking(0.6).foregroundStyle(DesignPalette.ink)
+        .fixedSize(horizontal: false, vertical: true)
     }
+    .padding(.horizontal, 7).padding(.vertical, 3)
+    .overlay(
+      RoundedRectangle(cornerRadius: DesignMetrics.controlRadius)
+        .strokeBorder(kind.color.opacity(0.7), lineWidth: 1)
+    )
     .accessibilityElement(children: .ignore).accessibilityLabel(text)
   }
 }
 
-/// A status pill for page headers.
+/// A status chip for page headers.
 struct DesignStatusPill: View {
   let kind: DesignStatusKind
   let text: String
 
   var body: some View {
     DesignStatus(kind: kind, text: text)
-      .padding(.horizontal, 10).padding(.vertical, 5)
-      .background(Capsule().fill(DesignPalette.surface))
-      .overlay(Capsule().strokeBorder(DesignPalette.hair, lineWidth: 1))
   }
 }
 
@@ -274,7 +355,10 @@ struct DesignNotice: View {
 
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 8) {
-      Image(systemName: kind.symbol).foregroundStyle(kind.color).accessibilityHidden(true)
+      Text(kind.glyph).font(DesignFont.mono(DesignFont.detail, .semibold)).foregroundStyle(
+        kind.color
+      )
+      .accessibilityHidden(true)
       Text(text).font(DesignFont.sans(DesignFont.detail)).foregroundStyle(DesignPalette.ink)
         .fixedSize(horizontal: false, vertical: true)
       Spacer(minLength: 0)
@@ -292,13 +376,13 @@ struct DesignNotice: View {
   }
 }
 
-/// A right-aligned readout: SF Mono, selectable, wrapping.
+/// A right-aligned readout, the value half of a key/value row: SF Mono, selectable, wrapping.
 struct DesignValueText: View {
   let text: String
   init(_ text: String) { self.text = text }
 
   var body: some View {
-    Text(text).font(DesignFont.mono(DesignFont.detail)).foregroundStyle(DesignPalette.ink2)
+    Text(text).font(DesignFont.mono(DesignFont.detail)).foregroundStyle(DesignPalette.ink)
       .multilineTextAlignment(.trailing).textSelection(.enabled)
       .fixedSize(horizontal: false, vertical: true)
   }
@@ -306,7 +390,7 @@ struct DesignValueText: View {
 
 // MARK: Controls
 
-/// 42x24 switch. A button underneath, so Space toggles it under Full Keyboard Access; VoiceOver sees a native toggle.
+/// 42x24 square-cornered switch. A button underneath, so Space toggles it under Full Keyboard Access; VoiceOver sees a native toggle.
 struct DesignSwitchStyle: ToggleStyle {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.isEnabled) private var isEnabled
@@ -320,13 +404,17 @@ struct DesignSwitchStyle: ToggleStyle {
     } label: {
       ZStack(alignment: configuration.isOn ? .trailing : .leading) {
         if configuration.isOn {
-          Capsule().fill(DesignPalette.accentMark)
-          Capsule().fill(DesignPalette.accent).padding(1)
+          RoundedRectangle(cornerRadius: DesignMetrics.controlRadius).fill(DesignPalette.accentMark)
+          RoundedRectangle(cornerRadius: 1).fill(DesignPalette.accent).padding(1)
         } else {
-          Capsule().fill(DesignPalette.track)
+          RoundedRectangle(cornerRadius: DesignMetrics.controlRadius).fill(DesignPalette.track)
+          RoundedRectangle(cornerRadius: DesignMetrics.controlRadius)
+            .strokeBorder(DesignPalette.hair, lineWidth: 1)
         }
-        Circle().fill(Color.white).frame(width: knob, height: knob)
-          .shadow(color: .black.opacity(0.25), radius: 0.5, y: 1).padding(2)
+        RoundedRectangle(cornerRadius: 1).fill(
+          configuration.isOn ? DesignPalette.onAccent : DesignPalette.ink2
+        )
+        .frame(width: knob - 2, height: knob).padding(2)
       }
       .frame(width: width, height: height)
       .opacity(isEnabled ? 1 : 0.45)
@@ -368,7 +456,7 @@ struct DesignPopup<Value: Hashable>: View {
       .pickerStyle(.inline).labelsHidden().accessibilityLabel(title)
     } label: {
       HStack(spacing: 8) {
-        Text(current).font(DesignFont.sans(DesignFont.detail)).foregroundStyle(DesignPalette.ink)
+        Text(current).font(DesignFont.mono(DesignFont.detail)).foregroundStyle(DesignPalette.ink)
         Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold))
           .foregroundStyle(DesignPalette.ink2).accessibilityHidden(true)
       }
@@ -400,27 +488,29 @@ struct DesignSegmented<Value: Hashable>: View {
         Button {
           selection = choice.value
         } label: {
-          Text(choice.label).font(DesignFont.sans(DesignFont.detail, selected ? .medium : .regular))
-            .foregroundStyle(selected ? DesignPalette.ink : DesignPalette.ink2).fixedSize()
-            .padding(.horizontal, 12).frame(minHeight: 24)
-            .background {
-              if selected {
-                RoundedRectangle(cornerRadius: DesignMetrics.segmentRadius).fill(
-                  DesignPalette.surface
-                )
-                .overlay(
-                  RoundedRectangle(cornerRadius: DesignMetrics.segmentRadius)
-                    .strokeBorder(DesignPalette.hair, lineWidth: 1))
-              }
+          Text(choice.label).font(
+            DesignFont.mono(DesignFont.detail - 0.5, selected ? .semibold : .regular)
+          )
+          .foregroundStyle(selected ? DesignPalette.ink : DesignPalette.ink2).fixedSize()
+          .padding(.horizontal, 12).frame(minHeight: 24)
+          .background {
+            if selected {
+              RoundedRectangle(cornerRadius: DesignMetrics.segmentRadius).fill(
+                DesignPalette.surface
+              )
+              .overlay(
+                RoundedRectangle(cornerRadius: DesignMetrics.segmentRadius)
+                  .strokeBorder(DesignPalette.hair, lineWidth: 1))
             }
-            .contentShape(RoundedRectangle(cornerRadius: DesignMetrics.segmentRadius))
+          }
+          .contentShape(RoundedRectangle(cornerRadius: DesignMetrics.segmentRadius))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(choice.label).accessibilityAddTraits(selected ? .isSelected : [])
       }
     }
     .padding(2)
-    .background(RoundedRectangle(cornerRadius: 8).fill(DesignPalette.sel))
+    .background(RoundedRectangle(cornerRadius: DesignMetrics.cardRadius).fill(DesignPalette.sel))
     .onKeyPress(.leftArrow) { step(-1) }
     .onKeyPress(.rightArrow) { step(1) }
     .accessibilityElement(children: .contain).accessibilityLabel(title)
@@ -443,7 +533,7 @@ struct DesignButtonStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
     let shape = RoundedRectangle(cornerRadius: DesignMetrics.controlRadius)
     configuration.label
-      .font(DesignFont.sans(DesignFont.detail, .medium))
+      .font(DesignFont.mono(DesignFont.detail - 0.5, .semibold))
       .foregroundStyle(
         kind == .primary
           ? DesignPalette.onAccent : kind == .destructive ? DesignPalette.danger : DesignPalette.ink

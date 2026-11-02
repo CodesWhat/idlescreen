@@ -75,7 +75,7 @@ struct SetupFlowView: View {
           )
         )
       } else {
-        DesignPalette.bg.overlay {
+        DesignGround().overlay {
           Text("Checking your Mac…").font(DesignFont.sans(DesignFont.body))
             .foregroundStyle(DesignPalette.ink2)
         }
@@ -225,7 +225,7 @@ struct SetupFlowContent: View {
       .frame(maxWidth: .infinity)
       .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: progress.current)
     }
-    .background(DesignPalette.bg)
+    .background(DesignGround())
   }
 
   // MARK: Current step
@@ -248,14 +248,7 @@ struct SetupFlowContent: View {
     .multilineTextAlignment(.center)
     .padding(.horizontal, 28).padding(.vertical, 28)
     .frame(maxWidth: .infinity)
-    .background(
-      RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous).fill(
-        DesignPalette.surface)
-    )
-    .overlay(
-      RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous)
-        .strokeBorder(DesignPalette.hair2, lineWidth: 1)
-    )
+    .designCardChrome()
     .accessibilityElement(children: .contain)
   }
 
@@ -356,12 +349,14 @@ struct SetupStepDots: View {
     HStack(spacing: 6) {
       ForEach(SetupStep.allCases) { step in
         let status = progress.status(step)
-        Capsule().fill(fill(status)).frame(width: status == .current ? 18 : 5, height: 5)
-          .overlay {
-            if status == .current {
-              Capsule().strokeBorder(DesignPalette.accentMark, lineWidth: 1)
-            }
+        RoundedRectangle(cornerRadius: 1).fill(fill(status)).frame(
+          width: status == .current ? 18 : 5, height: 5
+        )
+        .overlay {
+          if status == .current {
+            RoundedRectangle(cornerRadius: 1).strokeBorder(DesignPalette.accentMark, lineWidth: 1)
           }
+        }
       }
     }
     .accessibilityElement(children: .ignore)

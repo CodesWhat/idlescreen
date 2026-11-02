@@ -42,8 +42,15 @@ struct StatusPageContent<Technical: View>: View {
 
   private var verdict: some View {
     HStack(spacing: 12) {
-      Image(systemName: verdictKind.symbol).font(.system(size: 22, weight: .semibold))
-        .foregroundStyle(verdictKind.color).accessibilityHidden(true)
+      Text(verdictKind.glyph).font(DesignFont.mono(20, .semibold)).foregroundStyle(
+        verdictKind.color
+      )
+      .frame(width: 36, height: 36)
+      .overlay(
+        RoundedRectangle(cornerRadius: DesignMetrics.controlRadius)
+          .strokeBorder(verdictKind.color, lineWidth: 1.5)
+      )
+      .accessibilityHidden(true)
       Text(summary.verdict).font(DesignFont.sans(20, .semibold)).foregroundStyle(DesignPalette.ink)
         .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
       Spacer(minLength: 0)
@@ -55,14 +62,7 @@ struct StatusPageContent<Technical: View>: View {
     }
     .padding(.horizontal, 18).padding(.vertical, 16)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(
-      RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous).fill(
-        DesignPalette.surface)
-    )
-    .overlay(
-      RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous)
-        .strokeBorder(DesignPalette.hair2, lineWidth: 1)
-    )
+    .designCardChrome()
     .accessibilityElement(children: .contain)
   }
 
