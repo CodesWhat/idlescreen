@@ -395,7 +395,7 @@ package_root="$scratch_root/package-root"
   fail "could not stage the DMG app with ditto"
 /bin/ln -s /Applications "$package_root/Applications"
 dmg_path="$output_root/Distribution/idlescreen-$bundle_short_version-build$bundle_version.dmg"
-"$hdiutil_command" create -srcfolder "$package_root" -format UDZO -volname idlescreen -o "$dmg_path" ||
+"$hdiutil_command" create -srcfolder "$package_root" -format UDZO -volname IdleScreen -o "$dmg_path" ||
   fail "could not create the UDZO release DMG"
 [[ -f "$dmg_path" && ! -L "$dmg_path" ]] || fail "DMG creation produced no regular file"
 "$codesign_command" --force --sign "$identity_sha1" --timestamp \

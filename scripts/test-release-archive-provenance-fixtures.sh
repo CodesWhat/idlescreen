@@ -179,7 +179,7 @@ write_helper_info() {
   /usr/libexec/PlistBuddy -c 'Add :IdleScreenCameraAgentAppGroupIdentifier string group.com.idlescreen.shared' "$plist"
   /usr/libexec/PlistBuddy -c 'Add :IdleScreenCameraAgentMachServiceName string group.com.idlescreen.shared.camera-agent' "$plist"
   /usr/libexec/PlistBuddy -c 'Add :IdleScreenCameraAgentTeamIdentifier string 3524374A2S' "$plist"
-  /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string idlescreen uses the camera only for camera-based screen saver effects you explicitly enable.' "$plist"
+  /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable.' "$plist"
 }
 
 add_identity_entitlements() {
@@ -317,7 +317,7 @@ make_valid_archive() {
   /usr/libexec/PlistBuddy -c 'Add :ApplicationProperties:CFBundleIdentifier string com.idlescreen.app' "$archive/Info.plist"
 
   write_bundle_info "$app/Contents/Info.plist" com.idlescreen.app IdleScreen APPL
-  /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string idlescreen uses the camera only for camera-based screen saver effects you explicitly enable.' "$app/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable.' "$app/Contents/Info.plist"
   write_bundle_info "$extension/Contents/Info.plist" com.idlescreen.app.screensaver IdleScreenScreenSaver XPC!
   write_helper_info "$helper/Contents/Info.plist"
   write_bundle_info "$renderer/Resources/Info.plist" com.idlescreen.renderer IdleScreenRenderer FMWK

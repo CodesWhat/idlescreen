@@ -567,29 +567,29 @@ fi
 
 echo "PASS: companion health copy attributes authorization to verified live evidence."
 
-if [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenApp/Info.plist" 2>/dev/null || true)" != "idlescreen" ]] ||
-   [[ "$(plutil -extract CFBundleName raw "$project_root/Products/IdleScreenApp/Info.plist")" != "idlescreen" ]] ||
-   [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenScreenSaver/Info.plist")" != "idlescreen" ]]; then
-  echo "FAIL: every user-visible modern product name must be lowercase idlescreen." >&2
+if [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenApp/Info.plist" 2>/dev/null || true)" != "IdleScreen" ]] ||
+   [[ "$(plutil -extract CFBundleName raw "$project_root/Products/IdleScreenApp/Info.plist")" != "IdleScreen" ]] ||
+   [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenScreenSaver/Info.plist")" != "IdleScreen" ]]; then
+  echo "FAIL: every user-visible modern product name must be IdleScreen." >&2
   exit 1
 fi
 
 for forbidden_brand in \
-  'Start IdleScreen' \
-  'Open IdleScreen' \
-  'Quit IdleScreen' \
-  'Select IdleScreen' \
-  'IdleScreen.app' \
-  'IDLESCREEN  /'; do
+  'Start idlescreen' \
+  'Open idlescreen' \
+  'Quit idlescreen' \
+  'Select idlescreen' \
+  '/idlescreen.app' \
+  'idlescreen  /'; do
   if grep -RqsF "$forbidden_brand" \
     "$project_root/Products/IdleScreenApp" \
     "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift"; then
-    echo "FAIL: user-facing modern copy contains non-lowercase brand '$forbidden_brand'." >&2
+    echo "FAIL: user-facing modern copy contains lowercase brand '$forbidden_brand'." >&2
     exit 1
   fi
 done
 
-echo "PASS: modern app, screen saver tile, and UI copy use lowercase idlescreen branding."
+echo "PASS: modern app, screen saver tile, and UI copy use IdleScreen branding."
 
 if ! grep -Fq '@NSApplicationDelegateAdaptor(IdleScreenAppDelegate.self)' "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift" ||
    ! grep -Fq 'NSHostingController' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||

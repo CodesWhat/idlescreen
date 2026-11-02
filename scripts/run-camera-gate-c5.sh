@@ -440,7 +440,7 @@ if $record_tcc_reset; then
   require_action_confirmation \
     IDLESCREEN_C5_TCC_RESET_AUTHORIZATION_ID AUTHORIZE_TCC_RESET \
     "the separately performed targeted Camera TCC reset" >/dev/null
-  echo "ACTION: perform the separately authorized targeted Camera TCC reset for idlescreen now."
+  echo "ACTION: perform the separately authorized targeted Camera TCC reset for IdleScreen now."
   echo "This runner deliberately does not choose or execute a reset command. Type RESET_DONE after it completes."
   IFS= read -r reset_confirmation
   [[ "$reset_confirmation" == RESET_DONE ]] || fail "targeted TCC reset was not explicitly witnessed"
@@ -458,7 +458,7 @@ app_launch_authorized_at_utc="$(require_action_confirmation \
 permission_phase_first_line=$(( $(line_count) + 1 ))
 app_launched_at_utc="$(utc_now)"
 /usr/bin/open -n "$app_path" || fail "authorized companion launch failed"
-echo "ACTION: navigate to Camera in idlescreen. Do not request permission or start preview yet."
+echo "ACTION: navigate to Camera in IdleScreen. Do not request permission or start preview yet."
 wait_for_pattern "$permission_phase_first_line" \
   'authorization_status status=not-determined source=(startup|status-refresh)' \
   150 "fresh not-determined helper authorization"
@@ -480,10 +480,10 @@ permission_authorized_at_utc="$(event_timestamp "$permission_request_first_line"
 assert_no_capture_or_lease "$permission_phase_first_line"
 permission_zero_lease_at_utc="$(utc_now)"
 
-echo "WITNESS: type the exact visible app label from the Camera prompt (expected: idlescreen)."
+echo "WITNESS: type the exact visible app label from the Camera prompt (expected: IdleScreen)."
 IFS= read -r visible_permission_label
-[[ "$visible_permission_label" == idlescreen ]] ||
-  fail "fresh permission prompt did not visibly attribute to idlescreen"
+[[ "$visible_permission_label" == IdleScreen ]] ||
+  fail "fresh permission prompt did not visibly attribute to IdleScreen"
 assert_unlocked
 
 if $open_camera_settings; then
@@ -492,13 +492,13 @@ if $open_camera_settings; then
     "opening Camera Privacy Settings" >/dev/null
   /usr/bin/open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera' ||
     fail "authorized Camera Privacy Settings open failed"
-  echo "WITNESS: confirm the idlescreen Camera entry is visible by typing idlescreen."
+  echo "WITNESS: confirm the idlescreen Camera entry is visible by typing IdleScreen."
   IFS= read -r settings_label
-  [[ "$settings_label" == idlescreen ]] || fail "Camera Settings did not show idlescreen"
+  [[ "$settings_label" == IdleScreen ]] || fail "Camera Settings did not show IdleScreen"
   assert_unlocked
   tcc_settings_action=performed
   tcc_settings_authorization=yes
-  echo "ACTION: return to the already-running idlescreen Camera page without starting preview."
+  echo "ACTION: return to the already-running IdleScreen Camera page without starting preview."
 else
   tcc_settings_action=not-performed
   tcc_settings_authorization=not-used
@@ -507,7 +507,7 @@ fi
 {
   printf 'format=IdleScreenCameraGateC5AttributionV1\n'
   printf 'fresh_authorization_state=not-determined\n'
-  printf 'visible_permission_label=idlescreen\n'
+  printf 'visible_permission_label=IdleScreen\n'
   printf 'permission_action=companion-explicit-request\n'
   printf 'authorized_bundle_identifier=com.idlescreen.camera-agent\n'
   printf 'preview_lease_during_permission=absent\n'

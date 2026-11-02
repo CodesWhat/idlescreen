@@ -764,7 +764,7 @@ final class IdleScreenAppModel {
         eventID: "test-\(nonce)",
         state: .needsAttention,
         title: provider == .codex ? "Codex needs attention" : "Claude needs attention",
-        message: "This is an idlescreen integration test.",
+        message: "This is an IdleScreen integration test.",
         temporaryLookID: nil,
         priority: 50,
         createdAt: date,
@@ -1123,14 +1123,14 @@ final class IdleScreenAppModel {
       hasFreshSaverStatus = true
       saverActionStatus =
         openedSettings
-        ? "The extension is registered. Setup is complete once idlescreen is selected in Screen Saver Settings."
-        : "idlescreen is registered and selected. Setup is complete."
+        ? "The extension is registered. Setup is complete once IdleScreen is selected in Screen Saver Settings."
+        : "IdleScreen is registered and selected. Setup is complete."
       lastError = nil
     case .saverStarted(let registration, let status):
       registrationAssessment = registration
       selection = status
       hasFreshSaverStatus = true
-      saverActionStatus = "macOS accepted the request to start idlescreen."
+      saverActionStatus = "macOS accepted the request to start IdleScreen."
       lastError = nil
     case .saverRepaired(let registration, let status):
       registrationAssessment = registration

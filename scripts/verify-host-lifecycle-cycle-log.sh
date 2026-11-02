@@ -27,7 +27,7 @@ end_line=""
 process_exit_matches_for_pid() {
   local extension_pid="$1"
   grep -nF 'launchservicesd[' "$log_path" |
-    grep -E 'com\.idlescreen\.app(\.dev)?\.screensaver|idlescreen \(Wallpaper\)' |
+    grep -E 'com\.idlescreen\.app(\.dev)?\.screensaver|[Ii]dle[Ss]creen \(Wallpaper\)' |
     grep -E "pid\"?[=:][[:space:]]*${extension_pid}([^0-9]|$)|pid:${extension_pid}([^0-9]|$)" || true
 }
 
