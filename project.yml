@@ -1205,6 +1205,7 @@ targets:
     platform: macOS
     sources:
       - path: Products/IdleScreenApp
+      - path: design/icon/AppIcon.icon
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
       - path: THIRD_PARTY_NOTICES.md
         buildPhase: resources
@@ -1297,6 +1298,7 @@ targets:
     platform: macOS
     sources:
       - path: Products/IdleScreenApp
+      - path: design/icon/AppIcon.icon
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
       - path: Sources/IdleScreenCameraAgent/LaunchAgents
         buildPhase:
