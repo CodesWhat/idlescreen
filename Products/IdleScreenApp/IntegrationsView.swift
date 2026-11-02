@@ -17,6 +17,9 @@ struct IntegrationsView: View {
       summary:
         "Show short-lived Codex and Claude status on IdleScreen. Prompt, transcript, tool, command, assistant, credential, and error content is never imported."
     ) {
+      if let status = model.agentIntegrationStatus {
+        DesignNotice(kind: Self.statusKind(status), text: status)
+      }
       preview
       providerSection(.codex)
       providerSection(.claude)
@@ -28,6 +31,14 @@ struct IntegrationsView: View {
       model.refreshAgentHookInstallationStatus()
       model.refreshAgentSignals()
     }
+  }
+
+  /// Failures and unavailable states read as errors, the rest as a plain result.
+  static func statusKind(_ status: String) -> DesignStatusKind {
+    let lower = status.lowercased()
+    if lower.contains("failed") || lower.contains("unavailable") { return .error }
+    if lower.hasPrefix("enable this provider") { return .attention }
+    return .ok
   }
 
   private var preview: some View {
@@ -76,13 +87,15 @@ struct IntegrationsView: View {
             model.uninstallAgentHooks(for: provider)
           }
           .buttonStyle(.designDestructive)
-          .accessibilityLabel("Uninstall \(name) hooks")
+          .accessibilityLabel("Uninstall hooks")
+          .accessibilityHint("Removes IdleScreen's \(name) hooks")
         } else {
           Button("Install hooks") {
             model.installAgentHooks(for: provider)
           }
           .buttonStyle(.designPrimary)
-          .accessibilityLabel("Install \(name) hooks")
+          .accessibilityLabel("Install hooks")
+          .accessibilityHint("Adds IdleScreen's \(name) hooks")
           .disabled(!enabled || !model.hasSharedContainer)
         }
       }
@@ -92,7 +105,8 @@ struct IntegrationsView: View {
       ) {
         Button("Send test") { model.testAgentSignal(for: provider) }
           .buttonStyle(.designSecondary)
-          .accessibilityLabel("Send a test \(name) status")
+          .accessibilityLabel("Send test")
+          .accessibilityHint("Sends a sample \(name) status")
           .disabled(!enabled)
       }
     }
@@ -235,7 +249,8 @@ struct IntegrationsView: View {
           model.clearAgentSignals()
         }
         .buttonStyle(.designDestructive)
-        .accessibilityLabel("Clear all agent signals")
+        .accessibilityLabel("Clear all signals")
+        .accessibilityHint("Removes every active agent status")
       }
     }
   }
@@ -252,7 +267,8 @@ struct IntegrationsView: View {
         expandedSnippet = isExpanded ? nil : provider
       }
       .buttonStyle(.designSecondary)
-      .accessibilityLabel(isExpanded ? "Hide \(name) hook config" : "Show \(name) hook config")
+      .accessibilityLabel(isExpanded ? "Hide hook config" : "Show hook config")
+      .accessibilityHint("\(name) hook entries")
     }
     if isExpanded {
       VStack(alignment: .leading, spacing: 8) {

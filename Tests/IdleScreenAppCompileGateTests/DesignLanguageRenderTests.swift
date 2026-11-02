@@ -26,32 +26,32 @@ struct DesignLanguageRenderTests {
 
   private static let width: CGFloat = 980
 
-  @Test("each page renders non-empty in light and dark, collapsed and with details open")
+  @Test(
+    "each page renders in light and dark, and opening Details adds content below the collapsed page"
+  )
   func pagesRender() throws {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
 
     for page in Page.allCases {
       for dark in [false, true] {
-        for expanded in [false, true] {
-          let height = page.collapsedHeight + (expanded ? 700 : 0)
-          let bitmap = try harness.render(
-            page: page,
-            dark: dark,
-            detailsExpanded: expanded,
-            size: NSSize(width: Self.width, height: height)
-          )
-          #expect(bitmap.pixelsWide > 0)
-          #expect(bitmap.pixelsHigh > 0)
-          #expect(
-            Self.hasVisibleContent(bitmap),
-            "\(page.rawValue) rendered a blank image"
-          )
-          try Self.save(
-            bitmap,
-            name: "\(page.rawValue)-\(dark ? "dark" : "light")\(expanded ? "-details" : "")"
-          )
-        }
+        // Same tall canvas for both, so the only difference is what Details adds.
+        let size = NSSize(width: Self.width, height: page.collapsedHeight + 900)
+        let collapsed = try harness.render(
+          page: page, dark: dark, detailsExpanded: false, size: size)
+        let expanded = try harness.render(page: page, dark: dark, detailsExpanded: true, size: size)
+        let name = "\(page.rawValue)-\(dark ? "dark" : "light")"
+        #expect(Self.hasVisibleContent(collapsed), "\(name) rendered a blank image")
+        #expect(
+          Self.contentBottom(expanded) > Self.contentBottom(collapsed) + 40,
+          "\(name): expanded Details should be taller than collapsed"
+        )
+        #expect(
+          Self.differingFraction(collapsed, expanded) > 0.005,
+          "\(name): detailsInitiallyExpanded changed nothing"
+        )
+        try Self.save(collapsed, name: name)
+        try Self.save(expanded, name: "\(name)-details")
       }
     }
   }
@@ -66,6 +66,93 @@ struct DesignLanguageRenderTests {
     #expect(Self.averageLuma(light) > Self.averageLuma(dark) + 0.25)
   }
 
+  @Test("an action failure shows a notice outside Details")
+  func integrationsFailureNoticeIsVisible() throws {
+    let harness = try RenderHarness()
+    defer { harness.removeScratchDirectory() }
+    let size = NSSize(width: Self.width, height: Page.integrations.collapsedHeight)
+    let plain = try harness.render(
+      page: .integrations, dark: false, detailsExpanded: false, size: size)
+    harness.model.agentIntegrationStatus = "Hook installation failed: permission denied"
+    let failed = try harness.render(
+      page: .integrations, dark: false, detailsExpanded: false, size: size)
+    #expect(Self.differingFraction(plain, failed) > 0.005)
+    #expect(IntegrationsView.statusKind("Hook installation failed: x") == .error)
+    #expect(IntegrationsView.statusKind("Agent signal inbox unavailable: x") == .error)
+    #expect(IntegrationsView.statusKind("Test signal sent.") == .ok)
+    try Self.save(failed, name: "integrations-failure-light")
+  }
+
+  @Test("Studio forces a dark window under a light system appearance; the pages follow the system")
+  func studioWindowIsDark() throws {
+    #expect(ContentView.windowAppearance(for: .studio)?.isDarkAqua == true)
+    for destination in [Destination.displays, .integrations, .system] {
+      #expect(ContentView.windowAppearance(for: destination) == nil)
+    }
+
+    let window = NSWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [], backing: .buffered,
+      defer: false)
+    window.appearance = NSAppearance(named: .aqua)
+    #expect(window.effectiveAppearance.isDarkAqua == false)
+    let host = NSHostingView(
+      rootView: Color.clear.windowAppearance(ContentView.windowAppearance(for: .studio)))
+    window.contentView = host
+    host.layoutSubtreeIfNeeded()
+    #expect(window.effectiveAppearance.isDarkAqua)
+    #expect(host.effectiveAppearance.isDarkAqua)
+
+  }
+
+  @Test("Studio rendered under a light system window comes out dark")
+  func studioRendersDarkUnderLightSystem() throws {
+    let harness = try RenderHarness()
+    defer { harness.removeScratchDirectory() }
+    harness.navigation.destination = .studio
+    let size = NSSize(width: 1_200, height: 800)
+    let view = NSHostingView(
+      rootView: AnyView(
+        ContentView()
+          .environment(harness.model)
+          .environment(harness.cameraClient)
+          .environment(harness.navigation)
+          .environment(harness.coordinator)
+          .frame(width: size.width, height: size.height)
+      )
+    )
+    let window = NSWindow(
+      contentRect: NSRect(origin: .zero, size: size), styleMask: [], backing: .buffered,
+      defer: false)
+    window.appearance = NSAppearance(named: .aqua)
+    window.contentView = view
+    view.setFrameSize(size)
+    view.layoutSubtreeIfNeeded()
+    #expect(window.effectiveAppearance.isDarkAqua)
+    let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+    view.cacheDisplay(in: view.bounds, to: bitmap)
+    #expect(Self.averageLuma(bitmap) < 0.5)
+    try Self.save(bitmap, name: "studio-under-light-system")
+
+    harness.navigation.destination = .system
+    view.layoutSubtreeIfNeeded()
+    RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+    #expect(!window.effectiveAppearance.isDarkAqua)
+  }
+
+  @Test("the palette resolves from the appearance it is given, with no workspace state")
+  func paletteFollowsAppearance() {
+    let light = NSAppearance(named: .aqua)!
+    let dark = NSAppearance(named: .darkAqua)!
+    #expect(!light.isDarkAqua && !light.isHighContrast)
+    #expect(dark.isDarkAqua && !dark.isHighContrast)
+    func resolve(_ color: NSColor, _ appearance: NSAppearance) -> NSColor {
+      var out = color
+      appearance.performAsCurrentDrawingAppearance { out = color.usingColorSpace(.sRGB) ?? color }
+      return out
+    }
+    #expect(resolve(DesignPalette.NS.ink2, light) != resolve(DesignPalette.NS.ink2, dark))
+  }
+
   private static func hasVisibleContent(_ bitmap: NSBitmapImageRep) -> Bool {
     guard let first = bitmap.colorAt(x: 0, y: 0) else { return false }
     let stepX = max(1, bitmap.pixelsWide / 40)
@@ -76,6 +163,31 @@ struct DesignLanguageRenderTests {
       }
     }
     return false
+  }
+
+  /// Fraction of sampled pixels that differ between two same-sized renders.
+  private static func differingFraction(_ a: NSBitmapImageRep, _ b: NSBitmapImageRep) -> Double {
+    var different = 0.0
+    var total = 0.0
+    for y in stride(from: 0, to: min(a.pixelsHigh, b.pixelsHigh), by: 3) {
+      for x in stride(from: 0, to: min(a.pixelsWide, b.pixelsWide), by: 3) {
+        total += 1
+        if a.colorAt(x: x, y: y) != b.colorAt(x: x, y: y) { different += 1 }
+      }
+    }
+    return total == 0 ? 0 : different / total
+  }
+
+  /// The lowest row holding anything other than the page ground.
+  private static func contentBottom(_ bitmap: NSBitmapImageRep) -> Int {
+    guard let ground = bitmap.colorAt(x: 2, y: 2) else { return 0 }
+    for y in stride(from: bitmap.pixelsHigh - 1, through: 0, by: -1) {
+      for x in stride(from: 0, to: bitmap.pixelsWide, by: 4)
+      where bitmap.colorAt(x: x, y: y) != ground {
+        return y
+      }
+    }
+    return 0
   }
 
   private static func averageLuma(_ bitmap: NSBitmapImageRep) -> Double {

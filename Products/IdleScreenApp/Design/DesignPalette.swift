@@ -98,7 +98,7 @@ enum DesignPalette {
     let (l, d) = (hex(light), hex(dark))
     let (cl, cd) = (contrastLight.map(hex) ?? l, contrastDark.map(hex) ?? d)
     return NSColor(name: nil) { appearance in
-      let high = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+      let high = appearance.isHighContrast
       return appearance.isDarkAqua ? (high ? cd : d) : (high ? cl : l)
     }
   }
@@ -113,12 +113,29 @@ enum DesignPalette {
       contrastDark.map { rgba($0, bytes: bytes) } ?? d
     )
     return NSColor(name: nil) { appearance in
-      let high = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+      let high = appearance.isHighContrast
       return appearance.isDarkAqua ? (high ? cd : d) : (high ? cl : l)
     }
   }
 }
 
 extension NSAppearance {
-  var isDarkAqua: Bool { bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
+  private static let variants: [NSAppearance.Name] = [
+    .accessibilityHighContrastDarkAqua, .accessibilityHighContrastAqua, .darkAqua, .aqua,
+  ]
+
+  /// The closest of the four Aqua variants, high-contrast ones first so they are not collapsed into their base.
+  private var variant: NSAppearance.Name? {
+    if Self.variants.contains(name) { return name }
+    return bestMatch(from: Self.variants)
+  }
+
+  var isDarkAqua: Bool {
+    variant == .darkAqua || variant == .accessibilityHighContrastDarkAqua
+  }
+
+  /// Increase Contrast, read from the appearance the colour is resolved for so it needs no main-actor state and follows live changes.
+  var isHighContrast: Bool {
+    variant == .accessibilityHighContrastAqua || variant == .accessibilityHighContrastDarkAqua
+  }
 }

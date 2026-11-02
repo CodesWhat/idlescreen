@@ -31,6 +31,11 @@ struct SystemView: View {
         HStack(spacing: 8) {
           DesignStatusPill(kind: saverSummaryKind, text: saverSummaryTitle)
           DesignStatusPill(kind: cameraSummaryKind, text: cameraSummaryTitle)
+          Button("Refresh") { model.refresh() }
+            .buttonStyle(.designSecondary)
+            .accessibilityLabel("Refresh")
+            .accessibilityHint("Reads the process reports again")
+            .disabled(model.isRefreshing)
         }
       }
     ) {
@@ -178,7 +183,8 @@ struct SystemView: View {
         cameraClient.openCameraPrivacySettings()
       }
       .buttonStyle(.designSecondary)
-      .accessibilityLabel("Open camera privacy settings")
+      .accessibilityLabel("Camera privacy")
+      .accessibilityHint("Opens camera privacy settings")
 
       Button {
         cameraClient.retryCameraDiagnostics()
@@ -190,7 +196,8 @@ struct SystemView: View {
         }
       }
       .buttonStyle(.designSecondary)
-      .accessibilityLabel(cameraDiagnosticsAreLoading ? "Checking the camera" : "Run camera checks")
+      .accessibilityLabel(cameraDiagnosticsAreLoading ? "Checking" : "Run checks")
+      .accessibilityHint("Runs the camera checks again")
       .disabled(
         cameraDiagnosticsAreLoading
           || cameraClient.cameraAgentRepairState.isInProgress
@@ -207,10 +214,6 @@ struct SystemView: View {
         : "Lifecycle reports shared by IdleScreen's processes."
     ) {
       DesignValueText(processReportSummary)
-      Button("Refresh") { model.refresh() }
-        .buttonStyle(.designSecondary)
-        .accessibilityLabel("Refresh process reports")
-        .disabled(model.isRefreshing)
     }
     ForEach(model.processHealth, id: \.reportIdentifier) { report in
       ProcessHealthRow(

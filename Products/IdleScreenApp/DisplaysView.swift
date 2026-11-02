@@ -24,7 +24,8 @@ struct DisplaysView: View {
           Label("Refresh", systemImage: "arrow.clockwise")
         }
         .buttonStyle(.designSecondary)
-        .accessibilityLabel("Refresh display layout")
+        .accessibilityLabel("Refresh")
+        .accessibilityHint("Reads the display layout again")
       }
     ) {
       DesignSection(
@@ -107,7 +108,8 @@ struct DisplaysView: View {
             navigation.destination = .studio
           }
           .buttonStyle(.designSecondary)
-          .accessibilityLabel("Open selected display in Studio")
+          .accessibilityLabel("Open in Studio")
+          .accessibilityHint("Shows the selected display in the Studio preview")
           .disabled(navigation.previewDisplayIdentifier == nil)
         }
       }
