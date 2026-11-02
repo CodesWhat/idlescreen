@@ -12,12 +12,11 @@ enum IdleScreenMenuBarState: CaseIterable, Equatable {
   /// The facts the glyph depends on, already reduced to booleans so the
   /// precedence stays a pure function.
   struct Inputs: Equatable {
-    /// The extension is not registered or embedded, the saver is not selected,
-    /// or the camera service failed.
+    /// The extension is not registered or embedded, or the saver is not selected.
     var needsSetup = false
     /// An agent signal is waiting on the user.
     var needsAttention = false
-    /// The companion camera client has a live preview stream.
+    /// The Studio camera preview lease is attached and showing frames.
     var cameraStreaming = false
     /// The screen saver is running or starting.
     var running = false
@@ -30,6 +29,36 @@ enum IdleScreenMenuBarState: CaseIterable, Equatable {
     if inputs.cameraStreaming { return .camera }
     if inputs.running { return .running }
     return .idle
+  }
+
+  /// The model facts behind the setup verdict, matching what the menu's
+  /// `isReady` reads.
+  struct SetupFacts: Equatable {
+    var isExtensionEmbedded = true
+    var isRefreshing = false
+    var hasFreshSaverStatus = false
+    var isCurrentBuild = false
+    var isSelectedEverywhere = false
+    /// A refresh failed: no selection and an error is recorded.
+    var refreshFailed = false
+  }
+
+  /// Whether setup is needed. Fresh status decides on its own. While a refresh
+  /// is in flight the last known verdict stands, and before any verdict the
+  /// menu's `isReady` (false until fresh) decides. A failed refresh is setup.
+  static func needsSetup(_ facts: SetupFacts, previous: Bool?) -> Bool {
+    if !facts.isExtensionEmbedded { return true }
+    if facts.hasFreshSaverStatus {
+      return !(facts.isCurrentBuild && facts.isSelectedEverywhere)
+    }
+    if facts.refreshFailed { return true }
+    return previous ?? true
+  }
+
+  /// The saver is running when it is starting or a live report says it is
+  /// animating. A non-live report is stale however its lifecycle reads.
+  static func isRunning(starting: Bool, reportIsLive: Bool, reportIsAnimating: Bool) -> Bool {
+    starting || (reportIsLive && reportIsAnimating)
   }
 
   /// Seconds between the two frames of an animated state.
@@ -59,9 +88,9 @@ enum IdleScreenMenuBarState: CaseIterable, Equatable {
     switch self {
     case .idle: "IdleScreen, ready"
     case .running: "IdleScreen, screen saver running"
-    case .camera: "IdleScreen, camera on"
+    case .camera: "IdleScreen, camera preview on"
     case .attention: "IdleScreen, needs attention"
-    case .setup: "IdleScreen needs setup"
+    case .setup: "IdleScreen, needs setup"
     }
   }
 }

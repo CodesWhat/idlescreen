@@ -40,6 +40,59 @@ struct IdleScreenMenuBarStateTests {
     }
   }
 
+  private func setup(
+    _ previous: Bool? = nil, embedded: Bool = true, refreshing: Bool = false, fresh: Bool = false,
+    current: Bool = false, selected: Bool = false, failed: Bool = false
+  ) -> Bool {
+    IdleScreenMenuBarState.needsSetup(
+      .init(
+        isExtensionEmbedded: embedded, isRefreshing: refreshing, hasFreshSaverStatus: fresh,
+        isCurrentBuild: current, isSelectedEverywhere: selected, refreshFailed: failed),
+      previous: previous)
+  }
+
+  @Test("fresh status decides setup on its own")
+  func freshSetup() {
+    #expect(!setup(true, fresh: true, current: true, selected: true))
+    #expect(setup(false, fresh: true, current: true, selected: false))
+    #expect(setup(false, fresh: true, current: false, selected: true))
+    #expect(setup(false, embedded: false, fresh: true, current: true, selected: true))
+  }
+
+  @Test("a refresh in flight keeps the prior verdict, and launch follows isReady")
+  func refreshInFlight() {
+    #expect(!setup(false, refreshing: true))
+    #expect(setup(true, refreshing: true))
+    #expect(setup(nil, refreshing: true))
+  }
+
+  @Test("a failed refresh is setup")
+  func failedRefresh() {
+    #expect(setup(false, failed: true))
+    #expect(setup(nil, failed: true))
+  }
+
+  @Test("a camera diagnostic is not a setup input, so a ready app stays out of setup")
+  func cameraDiagnosticIgnored() {
+    #expect(!setup(false, fresh: true, current: true, selected: true))
+  }
+
+  @Test("a stale non-live animating report is not running")
+  func staleReportNotRunning() {
+    #expect(
+      !IdleScreenMenuBarState.isRunning(
+        starting: false, reportIsLive: false, reportIsAnimating: true))
+    #expect(
+      IdleScreenMenuBarState.isRunning(starting: false, reportIsLive: true, reportIsAnimating: true)
+    )
+    #expect(
+      !IdleScreenMenuBarState.isRunning(
+        starting: false, reportIsLive: true, reportIsAnimating: false))
+    #expect(
+      IdleScreenMenuBarState.isRunning(
+        starting: true, reportIsLive: false, reportIsAnimating: false))
+  }
+
   @Test("only running and camera animate, and never under Reduce Motion")
   func animation() {
     for state in IdleScreenMenuBarState.allCases {
@@ -75,10 +128,11 @@ struct IdleScreenMenuBarStateTests {
     #expect(IdleScreenMenuBarState.idle.accessibilityDescription == "IdleScreen, ready")
     #expect(
       IdleScreenMenuBarState.running.accessibilityDescription == "IdleScreen, screen saver running")
-    #expect(IdleScreenMenuBarState.camera.accessibilityDescription == "IdleScreen, camera on")
+    #expect(
+      IdleScreenMenuBarState.camera.accessibilityDescription == "IdleScreen, camera preview on")
     #expect(
       IdleScreenMenuBarState.attention.accessibilityDescription == "IdleScreen, needs attention")
-    #expect(IdleScreenMenuBarState.setup.accessibilityDescription == "IdleScreen needs setup")
+    #expect(IdleScreenMenuBarState.setup.accessibilityDescription == "IdleScreen, needs setup")
   }
 
   @Test("every glyph asset is a checked-in template imageset with both scales")

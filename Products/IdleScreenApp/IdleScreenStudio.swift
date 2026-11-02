@@ -26,8 +26,10 @@ struct IdleScreenApp: App {
         .environment(model)
     } label: {
       let glyph = appDelegate.menuBarGlyph
+      let assetName = glyph.assetName
       Image(nsImage: glyph.image)
         .accessibilityLabel(glyph.state.accessibilityDescription)
+        .id(assetName)
     }
     .menuBarExtraStyle(.menu)
   }

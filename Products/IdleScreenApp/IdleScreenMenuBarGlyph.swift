@@ -30,12 +30,24 @@ final class IdleScreenMenuBarGlyph {
 
   static let pointSize = NSSize(width: 16, height: 15)
 
+  @ObservationIgnored private var imageCache: [String: NSImage] = [:]
+  @ObservationIgnored private var lastSetupVerdict: Bool?
+
+  var assetName: String {
+    state.assetName(frame: frame, reduceMotion: reduceMotion)
+  }
+
+  /// One configured copy per asset, so the shared `NSImage(named:)` instance
+  /// is never mutated.
   var image: NSImage {
-    let name = state.assetName(frame: frame, reduceMotion: reduceMotion)
-    let image = NSImage(named: name) ?? NSImage(size: Self.pointSize)
+    let name = assetName
+    if let cached = imageCache[name] { return cached }
+    let image =
+      (NSImage(named: name)?.copy() as? NSImage) ?? NSImage(size: Self.pointSize)
     image.size = Self.pointSize
     image.isTemplate = true
     image.accessibilityDescription = state.accessibilityDescription
+    imageCache[name] = image
     return image
   }
 
@@ -72,23 +84,37 @@ final class IdleScreenMenuBarGlyph {
       needsSetup: needsSetup,
       needsAttention: model.activeAgentSignal?.state == .needsAttention,
       cameraStreaming: cameraClient.isPreviewLeaseAttached && cameraClient.previewImage != nil,
-      running: model.isStartingScreenSaver
-        || model.extensionHealth?.lifecycle == .animating
+      running: isRunning
     )
   }
 
-  /// Not registered or embedded, not selected once the status is fresh, or a
-  /// camera service failure. A refresh in flight is not a failure.
+  /// Only a live report counts. `extensionHealth` falls back to the newest
+  /// report when none is live, which would keep a crashed saver animating.
+  private var isRunning: Bool {
+    let report = model.extensionHealth
+    return IdleScreenMenuBarState.isRunning(
+      starting: model.isStartingScreenSaver,
+      reportIsLive: report.map(model.isProcessReportLive) ?? false,
+      reportIsAnimating: report?.lifecycle == .animating
+    )
+  }
+
+  /// Same facts as the menu's `isReady`, plus the embed check. A refresh in
+  /// flight keeps the last verdict.
   private var needsSetup: Bool {
-    if !model.isExtensionEmbedded { return true }
-    if model.hasFreshSaverStatus {
-      let ready =
-        model.registrationAssessment.isCurrentBuild
-        && model.selection?.isSelectedEverywhere == true
-      if !ready { return true }
+    let facts = IdleScreenMenuBarState.SetupFacts(
+      isExtensionEmbedded: model.isExtensionEmbedded,
+      isRefreshing: model.isRefreshing,
+      hasFreshSaverStatus: model.hasFreshSaverStatus,
+      isCurrentBuild: model.registrationAssessment.isCurrentBuild,
+      isSelectedEverywhere: model.selection?.isSelectedEverywhere == true,
+      refreshFailed: model.selection == nil && model.lastError != nil
+    )
+    let verdict = IdleScreenMenuBarState.needsSetup(facts, previous: lastSetupVerdict)
+    if facts.isExtensionEmbedded, facts.hasFreshSaverStatus || facts.refreshFailed {
+      lastSetupVerdict = verdict
     }
-    if case .unavailable = cameraClient.cameraAgentDiagnosticState { return true }
-    return false
+    return verdict
   }
 
   /// Re-evaluates whenever anything read by `inputs` changes.
