@@ -663,7 +663,7 @@ struct StudioView: View {
     case .openSetup:
       navigation.setupSession.reopenFromCameraCard()
     case .allowAccess, .openCameraPrivacy:
-      cameraClient.performRecommendedRepair()
+      cameraClient.performSetupCameraAction()
     case .openStatus:
       navigation.destination = .status
     case .none:

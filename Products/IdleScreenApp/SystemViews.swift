@@ -78,7 +78,9 @@ struct StatusView: View {
     case .openSetup:
       navigation.setupSession.reopenFromCameraCard()
       navigation.destination = .studio
-    case .allowCamera, .openCameraPrivacy, .fixCamera: cameraClient.performRecommendedRepair()
+    case .allowCamera: cameraClient.performSetupCameraAction()
+    case .openCameraPrivacy: cameraClient.openCameraPrivacySettings()
+    case .fixCamera: cameraClient.performRecommendedRepair()
     case .openAgents: navigation.destination = .integrations
     }
   }

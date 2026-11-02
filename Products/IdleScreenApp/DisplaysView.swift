@@ -246,7 +246,7 @@ struct DisplaysView: View {
   private func displayLabel(
     _ identifier: DisplayTopology.PersistentDisplayIdentifier
   ) -> String {
-    let index = renderingDisplays.firstIndex {
+    let index = coordinator.latestSnapshot?.topology.displays.firstIndex {
       $0.persistentIdentifier == identifier
     }.map { $0 + 1 }
     return index.map { "Display \($0)" } ?? "Display"
