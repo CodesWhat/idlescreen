@@ -56,8 +56,14 @@ enum Destination: String, CaseIterable, Identifiable {
 @Observable
 final class IdleScreenCompanionNavigation {
   var destination: Destination = .studio
+  /// Setup progress that survives navigating away and back: the camera skip, the one-time upgrade auto-skip, the last fresh
+  /// macOS answer, and "Set up later".
+  var setupSession = SetupSession()
   /// Set by "Set up later". Studio shows instead of the setup flow until setup is reopened.
-  var isSetupDeferred = false
+  var isSetupDeferred: Bool {
+    get { setupSession.isDeferred }
+    set { setupSession.isDeferred = newValue }
+  }
   var displayAspectRatio: CGFloat = 16 / 9
   var previewDisplayIdentifier: DisplayTopology.PersistentDisplayIdentifier?
 
@@ -85,7 +91,7 @@ struct ContentView: View {
         } else {
           SetupFlowView(
             onFinish: { setupCompleted = true },
-            onLater: { navigation.isSetupDeferred = true }
+            onLater: { navigation.setupSession.deferSetup() }
           )
         }
       case .displays: DisplaysView()
@@ -262,11 +268,6 @@ struct StudioView: View {
     }
   }
 
-  private struct CameraSetupGuidance {
-    let title: String
-    let detail: String
-  }
-
   var body: some View {
     ZStack {
       previewCanvas
@@ -341,6 +342,11 @@ struct StudioView: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 14)
+
+        if showsSetupBanner {
+          setupBanner
+            .padding(.horizontal, 16)
+        }
 
         if isSaverChooserExpanded {
           saverChooser
@@ -590,7 +596,7 @@ struct StudioView: View {
   }
 
   @ViewBuilder
-  private func cameraSetupOverlay(_ guidance: CameraSetupGuidance) -> some View {
+  private func cameraSetupOverlay(_ guidance: CameraCardGuidance) -> some View {
     VStack(spacing: 8) {
       Image(systemName: "camera.fill")
         .font(.system(size: 22, weight: .semibold))
@@ -601,11 +607,13 @@ struct StudioView: View {
         .font(.caption)
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
-      Button(cameraSetupActionTitle) {
-        performCameraSetupAction()
+      if let actionTitle = guidance.actionTitle {
+        Button(actionTitle) {
+          performCameraSetupAction(guidance.action)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.small)
       }
-      .buttonStyle(.borderedProminent)
-      .controlSize(.small)
     }
     .padding(.horizontal, 20)
     .padding(.vertical, 16)
@@ -618,38 +626,54 @@ struct StudioView: View {
     .shadow(color: .black.opacity(0.45), radius: 22, y: 12)
   }
 
-  private var cameraSetupActionTitle: String {
-    if !setupCompleted { return "Open setup" }
-    switch cameraClient.readinessSnapshot.authorization {
-    case .observed(.notDetermined): return "Allow Camera Access"
-    case .observed(.denied), .observed(.restricted): return "Open Camera Privacy"
-    case .unknown, .observed(.authorized): return "Camera Setup"
-    }
+  /// The required steps as macOS last reported them, ignoring a refresh that is in flight or failed.
+  private var showsSetupBanner: Bool {
+    let live = SetupInputs(
+      registrationCurrent: model.registrationAssessment.isCurrentBuild,
+      selectedEverywhere: model.selection?.isSelectedEverywhere == true,
+      cameraAccess: .unknown,
+      cameraSkipped: false
+    )
+    let inputs = SetupInputs.settled(
+      live: live, lastFresh: navigation.setupSession.lastFreshInputs,
+      isFresh: model.hasFreshSaverStatus)
+    return SetupGate.showsStudioBanner(
+      setupCompleted: setupCompleted,
+      requiredStepsDone: SetupProgress(inputs).requiredStepsDone)
   }
 
-  private func performCameraSetupAction() {
-    if !setupCompleted {
-      navigation.isSetupDeferred = false
-      return
+  private var setupBanner: some View {
+    HStack(spacing: 10) {
+      Image(systemName: "checklist").foregroundStyle(.secondary)
+      Text("Finish setting up IdleScreen").font(.caption.weight(.semibold))
+      Spacer()
+      Button("Continue setup") { navigation.setupSession.continueSetup() }
+        .buttonStyle(.borderless).controlSize(.small)
+        .accessibilityHint("Returns to the setup steps.")
     }
-    switch cameraClient.readinessSnapshot.authorization {
-    case .observed(.notDetermined),
-      .observed(.denied),
-      .observed(.restricted):
+    .padding(.horizontal, 12).padding(.vertical, 7)
+    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+    .accessibilityElement(children: .contain)
+  }
+
+  private func performCameraSetupAction(_ action: CameraCardGuidance.Action) {
+    switch action {
+    case .openSetup:
+      navigation.setupSession.reopenFromCameraCard()
+    case .allowAccess, .openCameraPrivacy:
       cameraClient.performRecommendedRepair()
-    case .unknown, .observed(.authorized):
+    case .openSystem:
       navigation.destination = .system
+    case .none:
+      break
     }
   }
 
   /// Studio only reports a camera that stopped working. First-run permission and agent setup lives in the setup flow and System.
-  private var cameraSetupGuidance: CameraSetupGuidance? {
+  private var cameraSetupGuidance: CameraCardGuidance? {
     guard cameraHasRuntimeFailure else { return nil }
-    return CameraSetupGuidance(
-      title: "The camera isn't working",
-      detail: setupCompleted
-        ? "Open System to check it." : "Finish setup to turn the camera on."
-    )
+    return CameraCardGuidance.make(
+      authorization: cameraClient.readinessSnapshot.authorization, setupCompleted: setupCompleted)
   }
 
   private var cameraHasRuntimeFailure: Bool {

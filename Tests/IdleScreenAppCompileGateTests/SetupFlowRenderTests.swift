@@ -12,43 +12,41 @@ struct SetupFlowRenderTests {
     let inputs: SetupInputs
     var status: String?
     var error: String?
+    let current: SetupStep?
+    let primary: String
+    var offersSkip = false
+  }
+
+  private static func inputs(
+    registered: Bool, selected: Bool, camera: SetupCameraAccess
+  ) -> SetupInputs {
+    SetupInputs(
+      registrationCurrent: registered, selectedEverywhere: selected, cameraAccess: camera,
+      cameraSkipped: false)
   }
 
   private static let scenes: [Scene] = [
     Scene(
-      name: "1-register",
-      inputs: SetupInputs(
-        registrationCurrent: false, selectedEverywhere: false, cameraAccess: .unknown,
-        cameraSkipped: false)),
+      name: "1-register", inputs: inputs(registered: false, selected: false, camera: .unknown),
+      current: .register, primary: "Register IdleScreen"),
     Scene(
-      name: "2-choose",
-      inputs: SetupInputs(
-        registrationCurrent: true, selectedEverywhere: false, cameraAccess: .unknown,
-        cameraSkipped: false),
+      name: "2-choose", inputs: inputs(registered: true, selected: false, camera: .unknown),
       status:
-        "The extension is registered. Setup is complete once idlescreen is selected in Screen Saver Settings."
-    ),
+        "The extension is registered. Setup is complete once idlescreen is selected in Screen Saver Settings.",
+      current: .choose, primary: "Open Screen Saver settings"),
     Scene(
-      name: "3-camera",
-      inputs: SetupInputs(
-        registrationCurrent: true, selectedEverywhere: true, cameraAccess: .notDetermined,
-        cameraSkipped: false)),
+      name: "3-camera", inputs: inputs(registered: true, selected: true, camera: .notDetermined),
+      current: .camera, primary: "Allow camera", offersSkip: true),
     Scene(
-      name: "3-camera-blocked",
-      inputs: SetupInputs(
-        registrationCurrent: true, selectedEverywhere: true, cameraAccess: .blocked,
-        cameraSkipped: false)),
+      name: "3-camera-blocked", inputs: inputs(registered: true, selected: true, camera: .blocked),
+      current: .camera, primary: "Open camera privacy", offersSkip: true),
     Scene(
-      name: "4-done",
-      inputs: SetupInputs(
-        registrationCurrent: true, selectedEverywhere: true, cameraAccess: .authorized,
-        cameraSkipped: false)),
+      name: "4-done", inputs: inputs(registered: true, selected: true, camera: .authorized),
+      current: nil, primary: "Open Studio"),
     Scene(
-      name: "error",
-      inputs: SetupInputs(
-        registrationCurrent: false, selectedEverywhere: false, cameraAccess: .unknown,
-        cameraSkipped: false),
-      error: "The embedded screen saver extension is missing from this app build."),
+      name: "error", inputs: inputs(registered: false, selected: false, camera: .unknown),
+      error: "The embedded screen saver extension is missing from this app build.",
+      current: .register, primary: "Register IdleScreen"),
   ]
 
   @Test("each step renders non-empty in light and dark")
@@ -61,6 +59,37 @@ struct SetupFlowRenderTests {
         try Self.save(bitmap, name: "\(scene.name)-\(dark ? "dark" : "light")")
       }
     }
+  }
+
+  @Test("each scene lands on the right step with the right actions")
+  func cardModelMatchesScene() {
+    for scene in Self.scenes {
+      let progress = SetupProgress(scene.inputs)
+      let card = SetupCardModel(
+        progress: progress, cameraAccess: scene.inputs.cameraAccess, isRegistering: false)
+      #expect(progress.current == scene.current, "\(scene.name) current step")
+      #expect(card.primaryTitle == scene.primary, "\(scene.name) primary action")
+      #expect(card.primaryEnabled, "\(scene.name) primary enabled")
+      #expect(card.offersSkip == scene.offersSkip, "\(scene.name) skip")
+      #expect(card.offersLater == (scene.current != nil), "\(scene.name) later")
+    }
+  }
+
+  @Test("the camera step waits for macOS to report access before offering Allow")
+  func cameraUnknownDisablesAllow() {
+    let progress = SetupProgress(Self.inputs(registered: true, selected: true, camera: .unknown))
+    let card = SetupCardModel(progress: progress, cameraAccess: .unknown, isRegistering: false)
+    #expect(progress.current == .camera)
+    #expect(card.primaryTitle == "Checking camera…")
+    #expect(!card.primaryEnabled)
+  }
+
+  @Test("registering disables the register action and says so")
+  func registeringState() {
+    let progress = SetupProgress(Self.inputs(registered: false, selected: false, camera: .unknown))
+    let card = SetupCardModel(progress: progress, cameraAccess: .unknown, isRegistering: true)
+    #expect(card.primaryTitle == "Registering…")
+    #expect(!card.primaryEnabled)
   }
 
   @Test("light and dark renders differ")

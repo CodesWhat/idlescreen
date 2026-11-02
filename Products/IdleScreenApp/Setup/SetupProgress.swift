@@ -79,3 +79,80 @@ struct SetupProgress: Equatable {
 enum IdleScreenSetupStore {
   static let completedKey = "IdleScreenSetupCompleted"
 }
+
+extension SetupInputs {
+  /// The inputs setup should draw from. Registration and selection come from a refresh that can fail or be in flight; while the
+  /// status is not fresh, the last fresh answer stands, so a failed refresh cannot push a finished step back. Camera facts are
+  /// observed separately and always pass through.
+  static func settled(live: SetupInputs, lastFresh: SetupInputs?, isFresh: Bool) -> SetupInputs {
+    guard !isFresh, let lastFresh else { return live }
+    var result = live
+    result.registrationCurrent = lastFresh.registrationCurrent
+    result.selectedEverywhere = lastFresh.selectedEverywhere
+    return result
+  }
+}
+
+/// What the main window should do about setup right now, decided from the session and what macOS has reported.
+struct SetupGateDecision: Equatable {
+  /// Draw the steps (otherwise the "Checking your Mac" placeholder).
+  var showsFlow: Bool
+  /// This pass is the one upgrade auto-skip judgement; it must be recorded so it never runs again.
+  var evaluatesAutoSkip: Bool
+  /// A Mac that already has the required steps done: store completion without showing setup.
+  var finishesSetup: Bool
+}
+
+enum SetupGate {
+  /// The upgrade auto-skip judges once, on the first fresh status. A stale error shows the flow (so the error is visible) but
+  /// never consumes the judgement, and nothing else ever finishes setup without the user.
+  static func decide(
+    session: SetupSession,
+    hasFreshStatus: Bool,
+    hasError: Bool,
+    requiredStepsDone: Bool
+  ) -> SetupGateDecision {
+    if !session.autoSkipEvaluated, hasFreshStatus {
+      return SetupGateDecision(
+        showsFlow: !requiredStepsDone, evaluatesAutoSkip: true, finishesSetup: requiredStepsDone)
+    }
+    return SetupGateDecision(
+      showsFlow: session.autoSkipEvaluated || hasError, evaluatesAutoSkip: false,
+      finishesSetup: false)
+  }
+
+  /// The quiet Studio row that leads back into setup after "Set up later".
+  static func showsStudioBanner(setupCompleted: Bool, requiredStepsDone: Bool) -> Bool {
+    !setupCompleted && !requiredStepsDone
+  }
+}
+
+/// Setup state that has to outlive the setup view, because the view is rebuilt whenever the user navigates away and back.
+struct SetupSession: Equatable {
+  var cameraSkipped = false
+  var isDeferred = false
+  var autoSkipEvaluated = false
+  var lastFreshInputs: SetupInputs?
+
+  mutating func skipCamera() { cameraSkipped = true }
+
+  mutating func deferSetup() { isDeferred = true }
+
+  /// "Continue setup" from the Studio banner.
+  mutating func continueSetup() { isDeferred = false }
+
+  /// "Open setup" from the Studio camera card: land on the camera step and never auto-finish.
+  mutating func reopenFromCameraCard() {
+    isDeferred = false
+    cameraSkipped = false
+    autoSkipEvaluated = true
+  }
+
+  mutating func apply(_ decision: SetupGateDecision) {
+    if decision.evaluatesAutoSkip { autoSkipEvaluated = true }
+  }
+
+  mutating func record(live: SetupInputs, isFresh: Bool) {
+    if isFresh { lastFreshInputs = live }
+  }
+}

@@ -14,16 +14,24 @@ struct SetupFlowView: View {
   var onFinish: () -> Void
   var onLater: () -> Void
 
-  @State private var cameraSkipped = false
-  @State private var resolved = false
+  @Environment(IdleScreenCompanionNavigation.self) private var navigation
 
-  private var inputs: SetupInputs {
+  private var session: SetupSession { navigation.setupSession }
+
+  /// What macOS reports right now, stale or not.
+  private var liveInputs: SetupInputs {
     SetupInputs(
       registrationCurrent: model.registrationAssessment.isCurrentBuild,
       selectedEverywhere: model.selection?.isSelectedEverywhere == true,
       cameraAccess: Self.cameraAccess(cameraClient.readinessSnapshot.authorization),
-      cameraSkipped: cameraSkipped
+      cameraSkipped: session.cameraSkipped
     )
+  }
+
+  /// What setup draws from: the live facts while fresh, the last fresh ones while a refresh is in flight or has failed.
+  private var inputs: SetupInputs {
+    SetupInputs.settled(
+      live: liveInputs, lastFresh: session.lastFreshInputs, isFresh: model.hasFreshSaverStatus)
   }
 
   static func cameraAccess(_ observation: CameraAgentAuthorizationObservation) -> SetupCameraAccess
@@ -36,10 +44,19 @@ struct SetupFlowView: View {
     }
   }
 
+  private var decision: SetupGateDecision {
+    SetupGate.decide(
+      session: session,
+      hasFreshStatus: model.hasFreshSaverStatus,
+      hasError: model.lastError != nil,
+      requiredStepsDone: SetupProgress(inputs).requiredStepsDone
+    )
+  }
+
   var body: some View {
     let progress = SetupProgress(inputs)
     Group {
-      if resolved {
+      if decision.showsFlow {
         SetupFlowContent(
           progress: progress,
           cameraAccess: inputs.cameraAccess,
@@ -50,7 +67,7 @@ struct SetupFlowView: View {
             register: { model.registerExtension() },
             openScreenSaverSettings: { model.openScreenSaverSettings() },
             allowCamera: { cameraClient.performRecommendedRepair() },
-            skipCamera: { cameraSkipped = true },
+            skipCamera: { navigation.setupSession.skipCamera() },
             openStudio: onFinish,
             later: onLater
           )
@@ -63,9 +80,10 @@ struct SetupFlowView: View {
       }
     }
     .onAppear { model.refresh() }
-    .onChange(of: model.hasFreshSaverStatus, initial: true) { resolveIfReady() }
-    .onChange(of: model.lastError) { resolveIfReady() }
-    .onChange(of: progress.current) { _, current in
+    .onChange(of: model.hasFreshSaverStatus, initial: true) { settleSession() }
+    .onChange(of: model.lastError) { settleSession() }
+    .onChange(of: liveInputs) { settleSession() }
+    .onChange(of: progress.current, initial: true) { _, current in
       if current == .camera {
         cameraClient.cameraDiagnosticsDidAppear()
       } else {
@@ -79,12 +97,15 @@ struct SetupFlowView: View {
     }
   }
 
-  /// The first answer from macOS decides whether this is a first run. A Mac that is already registered and selected has nothing
-  /// to set up, so setup finishes without showing itself.
-  private func resolveIfReady() {
-    guard !resolved, model.hasFreshSaverStatus || model.lastError != nil else { return }
-    resolved = true
-    if SetupProgress(inputs).requiredStepsDone { onFinish() }
+  /// Records the last fresh answer and runs the upgrade auto-skip once, on the first fresh status. A Mac that is already
+  /// registered and selected has nothing to set up, so setup finishes without showing itself. Nothing else finishes setup
+  /// for the user; the done card's "Open Studio" does the rest.
+  private func settleSession() {
+    navigation.setupSession.record(live: liveInputs, isFresh: model.hasFreshSaverStatus)
+    let decision = decision
+    guard decision.evaluatesAutoSkip else { return }
+    navigation.setupSession.apply(decision)
+    if decision.finishesSetup { onFinish() }
   }
 }
 
@@ -97,6 +118,62 @@ struct SetupFlowActions {
   var later: () -> Void = {}
 }
 
+/// What the current step's card says and offers, from plain values so tests can assert it without drawing pixels.
+struct SetupCardModel: Equatable {
+  let title: String
+  let detail: String
+  let caption: String
+  let primaryTitle: String
+  let primaryEnabled: Bool
+  let offersSkip: Bool
+  let offersLater: Bool
+
+  init(progress: SetupProgress, cameraAccess: SetupCameraAccess, isRegistering: Bool) {
+    switch progress.current {
+    case .register:
+      title = "Register IdleScreen"
+      detail = "Tell macOS that IdleScreen is here. It only takes a moment."
+      primaryTitle = isRegistering ? "Registering…" : "Register IdleScreen"
+      primaryEnabled = !isRegistering
+    case .choose:
+      title = "Choose IdleScreen"
+      detail = "Pick IdleScreen as your screen saver in Screen Saver settings."
+      primaryTitle = "Open Screen Saver settings"
+      primaryEnabled = true
+    case .camera:
+      title = "Add your camera"
+      let optional =
+        "Optional. Some looks react to you. The camera is processed on this Mac and never leaves it."
+      switch cameraAccess {
+      case .blocked:
+        detail = "Camera access is off. Turn it on in Privacy & Security, or skip this for now."
+        primaryTitle = "Open camera privacy"
+        primaryEnabled = true
+      case .unknown:
+        detail = optional
+        primaryTitle = "Checking camera…"
+        primaryEnabled = false
+      case .notDetermined, .authorized:
+        detail = optional
+        primaryTitle = "Allow camera"
+        primaryEnabled = true
+      }
+    case nil:
+      title = "You're all set"
+      detail = "IdleScreen is ready. Pick a look in Studio."
+      primaryTitle = "Open Studio"
+      primaryEnabled = true
+    }
+    if let current = progress.current {
+      caption = "Step \(current.rawValue + 1) of \(SetupStep.allCases.count)"
+    } else {
+      caption = "Setup complete"
+    }
+    offersSkip = progress.current == .camera
+    offersLater = !progress.isComplete
+  }
+}
+
 /// The setup screen, drawn from plain values so it renders without a model.
 struct SetupFlowContent: View {
   let progress: SetupProgress
@@ -105,6 +182,10 @@ struct SetupFlowContent: View {
   var statusMessage: String?
   var errorMessage: String?
   var actions = SetupFlowActions()
+
+  private var cardModel: SetupCardModel {
+    SetupCardModel(progress: progress, cameraAccess: cameraAccess, isRegistering: isRegistering)
+  }
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -119,10 +200,11 @@ struct SetupFlowContent: View {
           DesignNotice(kind: .error, text: errorMessage)
         }
         stepList
-        if !progress.isComplete {
+        if cardModel.offersLater {
           Button("Set up later", action: actions.later).buttonStyle(.plain)
             .font(DesignFont.sans(DesignFont.detail)).foregroundStyle(DesignPalette.ink2)
-            .accessibilityHint("Closes setup. You can finish it from Studio.")
+            .accessibilityHint(
+              "Closes setup for now. Studio keeps a Continue setup button until you finish.")
         }
       }
       .frame(maxWidth: 460)
@@ -139,16 +221,18 @@ struct SetupFlowContent: View {
 
   private var card: some View {
     VStack(spacing: 10) {
-      Text(title).font(DesignFont.headlineFont()).foregroundStyle(DesignPalette.ink)
+      Text(cardModel.title).font(DesignFont.headlineFont()).foregroundStyle(DesignPalette.ink)
         .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-      Text(detail).font(DesignFont.sans(DesignFont.body)).foregroundStyle(DesignPalette.ink2)
-        .fixedSize(horizontal: false, vertical: true)
+      Text(cardModel.detail).font(DesignFont.sans(DesignFont.body)).foregroundStyle(
+        DesignPalette.ink2
+      )
+      .fixedSize(horizontal: false, vertical: true)
       controls.padding(.top, 6)
       if let message = visibleStatusMessage {
         Text(message).font(DesignFont.sans(DesignFont.caption)).foregroundStyle(DesignPalette.ink2)
           .fixedSize(horizontal: false, vertical: true)
       }
-      Text(caption).designEyebrow().padding(.top, 4).accessibilityHidden(true)
+      Text(cardModel.caption).designEyebrow().padding(.top, 4).accessibilityHidden(true)
     }
     .multilineTextAlignment(.center)
     .padding(.horizontal, 28).padding(.vertical, 28)
@@ -164,62 +248,36 @@ struct SetupFlowContent: View {
     .accessibilityElement(children: .contain)
   }
 
-  private var title: String {
-    switch progress.current {
-    case .register: "Register IdleScreen"
-    case .choose: "Choose IdleScreen"
-    case .camera: "Add your camera"
-    case nil: "You're all set"
-    }
-  }
-
-  private var detail: String {
-    switch progress.current {
-    case .register: "Tell macOS that IdleScreen is here. It only takes a moment."
-    case .choose: "Pick IdleScreen as your screen saver in Screen Saver settings."
-    case .camera:
-      switch cameraAccess {
-      case .blocked:
-        "Camera access is off. Turn it on in Privacy & Security, or skip this for now."
-      default:
-        "Optional. Some looks react to you. The camera is processed on this Mac and never leaves it."
-      }
-    case nil: "IdleScreen is ready. Pick a look in Studio."
-    }
-  }
-
   @ViewBuilder private var controls: some View {
     switch progress.current {
     case .register:
-      Button(isRegistering ? "Registering…" : "Register IdleScreen", action: actions.register)
-        .buttonStyle(.designPrimary).disabled(isRegistering)
+      Button(cardModel.primaryTitle, action: actions.register)
+        .buttonStyle(.designPrimary).disabled(!cardModel.primaryEnabled)
         .accessibilityHint("Tells macOS that IdleScreen is installed.")
     case .choose:
-      Button("Open Screen Saver settings", action: actions.openScreenSaverSettings)
+      Button(cardModel.primaryTitle, action: actions.openScreenSaverSettings)
         .buttonStyle(.designPrimary)
         .accessibilityHint("Opens macOS settings so you can pick IdleScreen.")
     case .camera:
       HStack(spacing: 8) {
-        Button(
-          cameraAccess == .blocked ? "Open camera privacy" : "Allow camera",
-          action: actions.allowCamera
-        )
-        .buttonStyle(.designPrimary)
-        .accessibilityHint(
-          cameraAccess == .blocked
-            ? "Opens camera privacy settings." : "Asks macOS for camera access.")
+        Button(cardModel.primaryTitle, action: actions.allowCamera)
+          .buttonStyle(.designPrimary).disabled(!cardModel.primaryEnabled)
+          .accessibilityHint(cameraHint)
         Button("Skip for now", action: actions.skipCamera).buttonStyle(.designSecondary)
           .accessibilityHint("Skips the camera step. You can turn it on later in System.")
       }
     case nil:
-      Button("Open Studio", action: actions.openStudio).buttonStyle(.designPrimary)
+      Button(cardModel.primaryTitle, action: actions.openStudio).buttonStyle(.designPrimary)
         .keyboardShortcut(.defaultAction)
     }
   }
 
-  private var caption: String {
-    guard let current = progress.current else { return "Setup complete" }
-    return "Step \(current.rawValue + 1) of \(SetupStep.allCases.count)"
+  private var cameraHint: String {
+    switch cameraAccess {
+    case .blocked: "Opens camera privacy settings."
+    case .unknown: "Waiting for macOS to report camera access."
+    case .notDetermined, .authorized: "Asks macOS for camera access."
+    }
   }
 
   /// The model's last action message, in the app's name. Shown under the step it belongs to.
