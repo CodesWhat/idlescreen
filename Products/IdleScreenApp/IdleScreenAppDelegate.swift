@@ -29,6 +29,11 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
   private lazy var cameraClient = Self.makeCameraClient(
     navigation: navigation
   )
+  lazy var menuBarGlyph = IdleScreenMenuBarGlyph(
+    model: IdleScreenAppModel.shared,
+    cameraClient: cameraClient,
+    displayCoordinator: displayCoordinator
+  )
 
   override init() {
     super.init()
@@ -40,6 +45,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
     // Construction performs one read-only SMAppService status observation.
     // It does not connect XPC, bootstrap preview, register, prompt, or open UI.
     _ = cameraClient
+    menuBarGlyph.start()
     let arguments = ProcessInfo.processInfo.arguments
     let showsMainWindow = IdleScreenLaunchPolicy.shouldShowMainWindow(arguments: arguments)
     // Decided once, before anything opens: settling the policy here and not
