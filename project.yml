@@ -1180,6 +1180,9 @@ targets:
           - "**/*.swift"
         excludes:
           - "Info.plist"
+      - path: Products/IdleScreenApp/Resources/Fonts
+        type: folder
+        buildPhase: resources
       - path: Tests/IdleScreenAppCompileGateTests
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
     settings:
@@ -1205,6 +1208,11 @@ targets:
     platform: macOS
     sources:
       - path: Products/IdleScreenApp
+        excludes:
+          - "Resources/Fonts/**"
+      - path: Products/IdleScreenApp/Resources/Fonts
+        type: folder
+        buildPhase: resources
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
       - path: THIRD_PARTY_NOTICES.md
         buildPhase: resources
@@ -1297,6 +1305,11 @@ targets:
     platform: macOS
     sources:
       - path: Products/IdleScreenApp
+        excludes:
+          - "Resources/Fonts/**"
+      - path: Products/IdleScreenApp/Resources/Fonts
+        type: folder
+        buildPhase: resources
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
       - path: Sources/IdleScreenCameraAgent/LaunchAgents
         buildPhase:

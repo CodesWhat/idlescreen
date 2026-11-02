@@ -38,10 +38,10 @@ struct IdleScreenApp: App {
 enum Destination: String, CaseIterable, Identifiable {
   case studio = "Studio"
   case displays = "Displays"
-  case integrations = "Integrations"
-  case system = "System"
+  case integrations = "Agents"
+  case status = "Status"
 
-  static let primaryCases: [Destination] = [.studio, .displays, .integrations, .system]
+  static let primaryCases: [Destination] = [.studio, .displays, .integrations, .status]
 
   var id: String { rawValue }
   var symbol: String {
@@ -49,7 +49,7 @@ enum Destination: String, CaseIterable, Identifiable {
     case .studio: "play.rectangle"
     case .displays: "rectangle.3.group"
     case .integrations: "point.3.connected.trianglepath.dotted"
-    case .system: "waveform.path.ecg"
+    case .status: "waveform.path.ecg"
     }
   }
 }
@@ -70,7 +70,7 @@ final class IdleScreenCompanionNavigation {
   var previewDisplayIdentifier: DisplayTopology.PersistentDisplayIdentifier?
 
   func showCameraDiagnostics() {
-    destination = .system
+    destination = .status
   }
 }
 
@@ -98,7 +98,7 @@ struct ContentView: View {
         }
       case .displays: DisplaysView()
       case .integrations: IntegrationsView()
-      case .system: SystemView()
+      case .status: StatusView()
       }
     }
     .background(Color(nsColor: .windowBackgroundColor))
@@ -180,7 +180,7 @@ struct ContentView: View {
       ZStack(alignment: .topTrailing) {
         Image(systemName: symbol)
           .font(.system(size: 16, weight: .medium))
-        if title == Destination.system.rawValue {
+        if title == Destination.status.rawValue {
           Circle()
             .fill(healthSummary.tint)
             .frame(width: 6, height: 6)
@@ -664,14 +664,14 @@ struct StudioView: View {
       navigation.setupSession.reopenFromCameraCard()
     case .allowAccess, .openCameraPrivacy:
       cameraClient.performRecommendedRepair()
-    case .openSystem:
-      navigation.destination = .system
+    case .openStatus:
+      navigation.destination = .status
     case .none:
       break
     }
   }
 
-  /// Studio only reports a camera that stopped working. First-run permission and agent setup lives in the setup flow and System.
+  /// Studio only reports a camera that stopped working. First-run permission and agent setup lives in the setup flow and Status.
   private var cameraSetupGuidance: CameraCardGuidance? {
     guard cameraHasRuntimeFailure else { return nil }
     return CameraCardGuidance.make(
@@ -1131,7 +1131,7 @@ struct StudioView: View {
         )
 
         Button("Camera setup…") {
-          navigation.destination = .system
+          navigation.destination = .status
         }
       }
     } label: {
@@ -1217,7 +1217,7 @@ struct StudioView: View {
           .controlSize(.small)
 
           Button {
-            navigation.destination = .system
+            navigation.destination = .status
           } label: {
             Label("Camera Settings…", systemImage: "gearshape")
           }

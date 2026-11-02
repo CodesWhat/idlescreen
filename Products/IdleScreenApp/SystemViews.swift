@@ -3,10 +3,13 @@ import IdleScreenCamera
 import IdleScreenCore
 import SwiftUI
 
+/// The Status page: a verdict, three cards and a collapsed Technical details section. The wording and the decisions live in
+/// `StatusSummary`; this view reads the model, hands over the facts and runs the action the summary names.
 @MainActor
-struct SystemView: View {
+struct StatusView: View {
   @Environment(IdleScreenAppModel.self) private var model
   @Environment(IdleScreenCompanionCameraClient.self) private var cameraClient
+  @Environment(IdleScreenCompanionNavigation.self) private var navigation
 
   private let detailsInitiallyExpanded: Bool
 
@@ -23,126 +26,37 @@ struct SystemView: View {
     case control
   }
 
+  private var inputs: StatusInputs {
+    StatusInputs(
+      saverStatusKnown: model.hasFreshSaverStatus,
+      extensionEmbedded: model.isExtensionEmbedded,
+      macOSCompatible: model.compatibility.isCompatible,
+      registrationLocation: model.registrationAssessment.location,
+      selectedEverywhere: model.selection?.isSelectedEverywhere == true,
+      sharedContainerAvailable: model.hasSharedContainer
+        && cameraClient.bootstrapStatus != .appGroupContainerUnavailable,
+      setupCompleted: setupCompleted,
+      cameraInUse: model.configuration.source == .camera,
+      cameraAuthorization: cameraClient.readinessSnapshot.authorization,
+      cameraHasFault: StatusCameraFault.hasFault(
+        snapshot: cameraClient.readinessSnapshot, bootstrap: cameraClient.bootstrapStatus,
+        control: cameraClient.controlReachability),
+      codexHooksInstalled: model.codexHooksInstalled,
+      claudeHooksInstalled: model.claudeHooksInstalled)
+  }
+
+  @AppStorage(IdleScreenSetupStore.completedKey) private var setupCompleted = false
+
   var body: some View {
-    DesignPage(
-      title: "System",
-      summary: pageSummary,
-      trailing: {
-        HStack(spacing: 8) {
-          DesignStatusPill(kind: saverSummaryKind, text: saverSummaryTitle)
-          DesignStatusPill(kind: cameraSummaryKind, text: cameraSummaryTitle)
-          Button("Refresh") { model.refresh() }
-            .buttonStyle(.designSecondary)
-            .accessibilityLabel("Refresh")
-            .accessibilityHint("Reads the process reports again")
-            .disabled(model.isRefreshing)
-        }
-      }
+    StatusPageContent(
+      summary: StatusSummary(inputs),
+      lastError: model.lastError,
+      isRefreshing: model.isRefreshing,
+      detailsInitiallyExpanded: detailsInitiallyExpanded,
+      perform: perform,
+      refresh: { model.refresh() }
     ) {
-      if let lastError = model.lastError {
-        DesignNotice(kind: .attention, text: lastError)
-      }
-
-      DesignSection(eyebrow: "Screen saver") {
-        checkRow(
-          title: "Saver extension",
-          value: model.isExtensionEmbedded ? "Ready" : "Missing",
-          detail: model.embeddedExtensionVersion.map { "Version \($0)." }
-            ?? "This app doesn't include the screen saver.",
-          kind: model.isExtensionEmbedded ? .ok : .error
-        )
-        checkRow(
-          title: "Registration",
-          value: registrationValue,
-          detail: registrationDetail,
-          kind: registrationKind,
-          actionTitle: registrationRepairTitle,
-          action: registrationRepairAction
-        )
-        checkRow(
-          title: "Selected in macOS",
-          value: selectionValue,
-          detail: selectionDetail,
-          kind: selectionKind,
-          actionTitle: selectionRepairTitle,
-          action: selectionRepairAction
-        )
-        checkRow(
-          title: "macOS compatibility",
-          value: model.compatibility.isCompatible ? "Compatible" : "Blocked",
-          detail: compatibilityDetail,
-          kind: model.compatibility.isCompatible ? .ok : .error
-        )
-        checkRow(
-          title: "Shared data",
-          value: model.hasSharedContainer ? "Connected" : "Unavailable",
-          detail: model.hasSharedContainer
-            ? "The app and the saver can share settings."
-            : "IdleScreen's shared storage isn't available. Reinstall the app.",
-          kind: model.hasSharedContainer ? .ok : .attention
-        )
-      }
-
-      DesignSection(eyebrow: "Camera") {
-        checkRow(
-          title: "Camera runtime",
-          value: cameraClientValue,
-          detail: cameraClientDetail,
-          kind: cameraClientKind,
-          actionTitle: cameraRepairTitle(for: .client),
-          action: cameraRepairAction(for: .client)
-        )
-        checkRow(
-          title: "Camera agent",
-          value: cameraServiceValue,
-          detail: cameraServiceDetail,
-          kind: cameraServiceKind,
-          actionTitle: cameraRepairTitle(for: .service),
-          action: cameraRepairAction(for: .service)
-        )
-        checkRow(
-          title: "Identity",
-          value: identityValue,
-          detail: identityDetail,
-          kind: identityKind,
-          actionTitle: cameraRepairTitle(for: .identity),
-          action: cameraRepairAction(for: .identity)
-        )
-        checkRow(
-          title: "Status check",
-          value: liveSnapshotValue,
-          detail: liveSnapshotDetail,
-          kind: liveSnapshotKind,
-          actionTitle: cameraRepairTitle(for: .snapshot),
-          action: cameraRepairAction(for: .snapshot)
-        )
-        checkRow(
-          title: "Camera access",
-          value: authorizationValue,
-          detail: authorizationDetail,
-          kind: authorizationKind,
-          actionTitle: cameraRepairTitle(for: .authorization),
-          action: cameraRepairAction(for: .authorization)
-        )
-        checkRow(
-          title: "Camera service",
-          value: controlValue,
-          detail: controlDetail,
-          kind: controlKind,
-          actionTitle: cameraRepairTitle(for: .control),
-          action: cameraRepairAction(for: .control)
-        )
-        DesignRow(
-          title: "Camera checks",
-          detail: "Open camera privacy settings, or check the camera again."
-        ) {
-          cameraCheckButtons
-        }
-      }
-
-      DesignDetails(initiallyExpanded: detailsInitiallyExpanded) {
-        detailRows
-      }
+      technicalRows
     }
     .onAppear {
       model.refresh()
@@ -155,6 +69,117 @@ struct SystemView: View {
     { _ in
       model.refresh()
     }
+  }
+
+  private func perform(_ action: StatusAction) {
+    switch action {
+    case .registerSaver, .repairSaver: model.registerExtension()
+    case .openScreenSaverSettings: model.openScreenSaverSettings()
+    case .openSetup:
+      navigation.setupSession.reopenFromCameraCard()
+      navigation.destination = .studio
+    case .allowCamera, .openCameraPrivacy, .fixCamera: cameraClient.performRecommendedRepair()
+    case .openAgents: navigation.destination = .integrations
+    }
+  }
+
+  /// Every raw row the old System page showed, unchanged, for when something needs a closer look.
+  @ViewBuilder
+  private var technicalRows: some View {
+    // Screen saver
+    checkRow(
+      title: "Saver extension",
+      value: model.isExtensionEmbedded ? "Ready" : "Missing",
+      detail: model.embeddedExtensionVersion.map { "Version \($0)." }
+        ?? "This app doesn't include the screen saver.",
+      kind: model.isExtensionEmbedded ? .ok : .error
+    )
+    checkRow(
+      title: "Registration",
+      value: registrationValue,
+      detail: registrationDetail,
+      kind: registrationKind,
+      actionTitle: registrationRepairTitle,
+      action: registrationRepairAction
+    )
+    checkRow(
+      title: "Selected in macOS",
+      value: selectionValue,
+      detail: selectionDetail,
+      kind: selectionKind,
+      actionTitle: selectionRepairTitle,
+      action: selectionRepairAction
+    )
+    checkRow(
+      title: "macOS compatibility",
+      value: model.compatibility.isCompatible ? "Compatible" : "Blocked",
+      detail: compatibilityDetail,
+      kind: model.compatibility.isCompatible ? .ok : .error
+    )
+    checkRow(
+      title: "Shared data",
+      value: model.hasSharedContainer ? "Connected" : "Unavailable",
+      detail: model.hasSharedContainer
+        ? "The app and the saver can share settings."
+        : "IdleScreen's shared storage isn't available. Reinstall the app.",
+      kind: model.hasSharedContainer ? .ok : .attention
+    )
+    // Camera
+    checkRow(
+      title: "Camera runtime",
+      value: cameraClientValue,
+      detail: cameraClientDetail,
+      kind: cameraClientKind,
+      actionTitle: cameraRepairTitle(for: .client),
+      action: cameraRepairAction(for: .client)
+    )
+    checkRow(
+      title: "Camera agent",
+      value: cameraServiceValue,
+      detail: cameraServiceDetail,
+      kind: cameraServiceKind,
+      actionTitle: cameraRepairTitle(for: .service),
+      action: cameraRepairAction(for: .service)
+    )
+    checkRow(
+      title: "Identity",
+      value: identityValue,
+      detail: identityDetail,
+      kind: identityKind,
+      actionTitle: cameraRepairTitle(for: .identity),
+      action: cameraRepairAction(for: .identity)
+    )
+    checkRow(
+      title: "Status check",
+      value: liveSnapshotValue,
+      detail: liveSnapshotDetail,
+      kind: liveSnapshotKind,
+      actionTitle: cameraRepairTitle(for: .snapshot),
+      action: cameraRepairAction(for: .snapshot)
+    )
+    checkRow(
+      title: "Camera access",
+      value: authorizationValue,
+      detail: authorizationDetail,
+      kind: authorizationKind,
+      actionTitle: cameraRepairTitle(for: .authorization),
+      action: cameraRepairAction(for: .authorization)
+    )
+    checkRow(
+      title: "Camera service",
+      value: controlValue,
+      detail: controlDetail,
+      kind: controlKind,
+      actionTitle: cameraRepairTitle(for: .control),
+      action: cameraRepairAction(for: .control)
+    )
+    DesignRow(
+      title: "Camera checks",
+      detail: "Open camera privacy settings, or check the camera again."
+    ) {
+      cameraCheckButtons
+    }
+    detailRows
   }
 
   // MARK: Rows
@@ -246,29 +271,6 @@ struct SystemView: View {
     }
   }
 
-  // MARK: Summary
-
-  private var pageSummary: String {
-    if saverIsReady {
-      return cameraIsAvailable
-        ? "IdleScreen is ready."
-        : "The screen saver is ready. Set up the camera to use camera scenes."
-    }
-    return "The screen saver needs setup. Use the buttons below to finish."
-  }
-
-  private var saverIsReady: Bool {
-    model.isExtensionEmbedded && registrationIsCurrent && selectionIsCurrent
-  }
-
-  private var saverSummaryTitle: String {
-    saverIsReady ? "Screen saver ready" : "Screen saver needs setup"
-  }
-
-  private var saverSummaryKind: DesignStatusKind {
-    saverIsReady ? .ok : .attention
-  }
-
   private var registrationIsCurrent: Bool {
     model.registrationAssessment.isCurrentBuild
   }
@@ -355,34 +357,6 @@ struct SystemView: View {
     return missingSymbols.isEmpty
       ? "This version of macOS has what IdleScreen needs."
       : missingSymbols.joined(separator: ", ")
-  }
-
-  private var cameraSummaryTitle: String {
-    if cameraIsAvailable { return "Camera ready" }
-    if cameraDiagnosticsAreLoading { return "Checking camera…" }
-    if cameraClient.readinessSnapshot.serviceRegistration == .unknown {
-      return "Camera not checked"
-    }
-    return "Camera needs attention"
-  }
-
-  private var cameraSummaryKind: DesignStatusKind {
-    if cameraIsAvailable { return .ok }
-    if cameraDiagnosticsAreLoading
-      || cameraClient.readinessSnapshot.serviceRegistration == .unknown
-    {
-      return .pending
-    }
-    return .attention
-  }
-
-  private var cameraIsAvailable: Bool {
-    cameraClient.bootstrapStatus == .ready
-      && cameraClient.readinessSnapshot.serviceRegistration == .enabled
-      && cameraClient.readinessSnapshot.identity == .current
-      && cameraClient.readinessSnapshot.liveSnapshot == .accepted
-      && cameraClient.readinessSnapshot.authorization == .observed(.authorized)
-      && cameraClient.controlReachability == .reachable
   }
 
   private var cameraDiagnosticsAreLoading: Bool {

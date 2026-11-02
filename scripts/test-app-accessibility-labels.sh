@@ -15,7 +15,7 @@ dir_is_app=0
 
 filter() {
   if [[ "$default_scope" == 1 && "$dir_is_app" == 1 ]]; then
-    /usr/bin/grep -E '/(Design/|Setup/|DisplaysView|IntegrationsView|SystemViews)' || true
+    /usr/bin/grep -E '/(Design/|Setup/|Status/|DisplaysView|IntegrationsView|SystemViews)' || true
   else
     /bin/cat
   fi

@@ -6,7 +6,7 @@ struct CameraCardGuidance: Equatable {
     case openSetup
     case allowAccess
     case openCameraPrivacy
-    case openSystem
+    case openStatus
     /// Nothing the user can do from here (a managed Mac), so no button.
     case none
   }
@@ -18,9 +18,9 @@ struct CameraCardGuidance: Equatable {
   var actionTitle: String? {
     switch action {
     case .openSetup: "Open setup"
-    case .allowAccess: "Allow Camera Access"
-    case .openCameraPrivacy: "Open Camera Privacy"
-    case .openSystem: "Open System"
+    case .allowAccess: "Allow camera access"
+    case .openCameraPrivacy: "Open camera privacy"
+    case .openStatus: "Open status"
     case .none: nil
     }
   }
@@ -48,8 +48,8 @@ struct CameraCardGuidance: Equatable {
     case .unknown, .observed(.authorized):
       return CameraCardGuidance(
         title: "The camera isn't working",
-        detail: setupCompleted ? "Open System to check it." : finishSetup,
-        action: setupCompleted ? .openSystem : .openSetup)
+        detail: setupCompleted ? "Open Status to check it." : finishSetup,
+        action: setupCompleted ? .openStatus : .openSetup)
     }
   }
 }
