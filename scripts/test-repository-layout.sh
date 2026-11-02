@@ -62,6 +62,7 @@ for public_file in \
   scripts/test-public-release-contract.sh \
   greptile.json \
   lefthook.yml \
+  scripts/verify.sh \
   renovate.json; do
   [[ -f "$public_file" ]] ||
     fail "required public repository file is missing: $public_file"
