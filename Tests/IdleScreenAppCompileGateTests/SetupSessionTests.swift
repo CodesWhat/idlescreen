@@ -194,14 +194,14 @@ struct CameraCardGuidanceTests {
       authorization: .observed(.notDetermined), setupCompleted: true)
     #expect(card.title == "Allow camera access")
     #expect(card.action == .allowAccess)
-    #expect(card.actionTitle == "Allow Camera Access")
+    #expect(card.actionTitle == "Allow camera access")
   }
 
   @Test("denied opens camera privacy")
   func denied() {
     let card = CameraCardGuidance.make(authorization: .observed(.denied), setupCompleted: true)
     #expect(card.action == .openCameraPrivacy)
-    #expect(card.actionTitle == "Open Camera Privacy")
+    #expect(card.actionTitle == "Open camera privacy")
   }
 
   @Test("restricted explains the policy and offers nothing futile, even before setup is done")
@@ -215,12 +215,12 @@ struct CameraCardGuidanceTests {
     }
   }
 
-  @Test("a runtime fault with access granted or unknown opens System")
+  @Test("a runtime fault with access granted or unknown opens Status")
   func runtimeFault() {
     for authorization in [CameraAgentAuthorizationObservation.unknown, .observed(.authorized)] {
       let card = CameraCardGuidance.make(authorization: authorization, setupCompleted: true)
       #expect(card.title == "The camera isn't working")
-      #expect(card.action == .openSystem)
+      #expect(card.action == .openStatus)
     }
   }
 

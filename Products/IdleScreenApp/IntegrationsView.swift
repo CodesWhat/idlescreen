@@ -13,7 +13,7 @@ struct IntegrationsView: View {
 
   var body: some View {
     DesignPage(
-      title: "Agent integrations",
+      title: "Agents",
       summary:
         "Show short-lived Codex and Claude status on IdleScreen. Prompt, transcript, tool, command, assistant, credential, and error content is never imported."
     ) {

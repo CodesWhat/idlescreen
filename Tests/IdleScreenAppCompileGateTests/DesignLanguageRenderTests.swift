@@ -13,13 +13,13 @@ struct DesignLanguageRenderTests {
   private enum Page: String, CaseIterable {
     case displays
     case integrations
-    case system
+    case status
 
     var collapsedHeight: CGFloat {
       switch self {
       case .displays: 900
       case .integrations: 1_500
-      case .system: 1_300
+      case .status: 1_300
       }
     }
   }
@@ -60,9 +60,9 @@ struct DesignLanguageRenderTests {
   func appearanceChangesPixels() throws {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
-    let size = NSSize(width: Self.width, height: Page.system.collapsedHeight)
-    let light = try harness.render(page: .system, dark: false, detailsExpanded: false, size: size)
-    let dark = try harness.render(page: .system, dark: true, detailsExpanded: false, size: size)
+    let size = NSSize(width: Self.width, height: Page.status.collapsedHeight)
+    let light = try harness.render(page: .status, dark: false, detailsExpanded: false, size: size)
+    let dark = try harness.render(page: .status, dark: true, detailsExpanded: false, size: size)
     #expect(Self.averageLuma(light) > Self.averageLuma(dark) + 0.25)
   }
 
@@ -87,7 +87,7 @@ struct DesignLanguageRenderTests {
   func studioWindowIsDark() throws {
     #expect(ContentView.windowAppearance(for: .studio)?.isDarkAqua == true)
     #expect(ContentView.windowAppearance(for: .studio, showsSetup: true) == nil)
-    for destination in [Destination.displays, .integrations, .system] {
+    for destination in [Destination.displays, .integrations, .status] {
       #expect(ContentView.windowAppearance(for: destination) == nil)
     }
 
@@ -135,7 +135,7 @@ struct DesignLanguageRenderTests {
     #expect(Self.averageLuma(bitmap) < 0.5)
     try Self.save(bitmap, name: "studio-under-light-system")
 
-    harness.navigation.destination = .system
+    harness.navigation.destination = .status
     view.layoutSubtreeIfNeeded()
     RunLoop.current.run(until: Date().addingTimeInterval(0.2))
     #expect(!window.effectiveAppearance.isDarkAqua)
@@ -303,7 +303,7 @@ struct DesignLanguageRenderTests {
       case .displays: content = AnyView(DisplaysView(detailsInitiallyExpanded: detailsExpanded))
       case .integrations:
         content = AnyView(IntegrationsView(detailsInitiallyExpanded: detailsExpanded))
-      case .system: content = AnyView(SystemView(detailsInitiallyExpanded: detailsExpanded))
+      case .status: content = AnyView(StatusView(detailsInitiallyExpanded: detailsExpanded))
       }
       let view = NSHostingView(
         rootView: AnyView(
