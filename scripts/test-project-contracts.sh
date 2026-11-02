@@ -77,17 +77,20 @@ fi
 
 echo "PASS: CI preserves and prints actionable Xcode test diagnostics for every modern scheme."
 
-checkout_sha='3d3c42e5aac5ba805825da76410c181273ba90b1'
-codecov_sha='fb8b3582c8e4def4969c97caa2f19720cb33a72f'
-harden_runner_sha='05e31511f85b41b11d1cf0ef85d0992719546e2c'
+# Pins are checked by shape (owner/repo@<40-hex> # vX), not exact SHAs, so
+# Renovate digest bumps pass while unpinned or tag refs still fail.
+pin_comment='[0-9a-f]{40}[[:space:]]+#[[:space:]]+v[0-9]'
+checkout_pin="uses: actions/checkout@$pin_comment"
+codecov_pin="uses: codecov/codecov-action@$pin_comment"
+harden_runner_pin="uses: step-security/harden-runner@$pin_comment"
 ci_coverage_block="$(sed -n '/^  coverage:$/,/^  qlty:$/p' "$ci_workflow")"
-if [[ "$(grep -Fc "uses: actions/checkout@$checkout_sha" "$ci_workflow" || true)" -ne 3 ]] ||
-   [[ "$(grep -Fc "uses: step-security/harden-runner@$harden_runner_sha" "$ci_workflow" || true)" -ne 3 ]] ||
+if [[ "$(grep -Ec "$checkout_pin" "$ci_workflow" || true)" -ne 3 ]] ||
+   [[ "$(grep -Ec "$harden_runner_pin" "$ci_workflow" || true)" -ne 3 ]] ||
    [[ "$(grep -Fc 'persist-credentials: false' "$ci_workflow" || true)" -ne 3 ]] ||
    ! grep -Fq 'permissions:' <<<"$ci_coverage_block" ||
    ! grep -Fq 'contents: read' <<<"$ci_coverage_block" ||
    ! grep -Fq 'id-token: write' <<<"$ci_coverage_block" ||
-   ! grep -Fq "uses: codecov/codecov-action@$codecov_sha" <<<"$ci_coverage_block" ||
+   ! grep -Eq "$codecov_pin" <<<"$ci_coverage_block" ||
    ! grep -Fq "if: github.event_name == 'push'" <<<"$ci_coverage_block" ||
    ! grep -Fq 'keybase.io:443' <<<"$ci_coverage_block" ||
    ! grep -Fq -- '-enableCodeCoverage YES' <<<"$ci_coverage_block" ||
