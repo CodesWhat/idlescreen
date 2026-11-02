@@ -94,14 +94,20 @@ if [[ "$(grep -Fc "uses: actions/checkout@$checkout_sha" "$ci_workflow" || true)
    ! grep -Fq -- '-resultBundlePath "$result_bundle"' <<<"$ci_coverage_block" ||
    ! grep -Fq 'xcrun xccov view --archive --json "$result_bundle"' <<<"$ci_coverage_block" ||
    ! grep -Fq 'use_oidc: true' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'plugins: xcode' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'swift_project: IdleScreen' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'fail_ci_if_error: false' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'python3 ./scripts/xccov_to_lcov.py' <<<"$ci_coverage_block" ||
+   ! grep -Fq -- '--source-root "$GITHUB_WORKSPACE"' <<<"$ci_coverage_block" ||
+   ! grep -Fq -- '--output "$coverage_root/coverage.lcov" "$coverage_root"/*.json' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'files: ${{ runner.temp }}/idlescreen-coverage/coverage.lcov' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'disable_search: true' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'plugins: noop' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'fail_ci_if_error: true' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'python3 ./scripts/test_xccov_to_lcov.py' "$ci_workflow" ||
+   grep -Fq 'plugins: xcode' <<<"$ci_coverage_block" ||
    ! grep -Fq 'IdleScreenAppCompileGate; do' <<<"$ci_coverage_block" ||
    grep -Eq '^[[:space:]]+token:' <<<"$ci_coverage_block" ||
    grep -Fq 'QLTY_COVERAGE_TOKEN' "$ci_workflow" ||
    grep -Eq 'uses: [^[:space:]]+@v[0-9]' "$ci_workflow"; then
-  echo "FAIL: CI must harden and pin actions, discard checkout credentials, minimize permissions, and upload trusted-push Xcode coverage through Codecov OIDC." >&2
+  echo "FAIL: CI must pin/harden actions and upload validated production LCOV through trusted-push Codecov OIDC with failures visible." >&2
   exit 1
 fi
 
@@ -122,7 +128,7 @@ if [[ "$(grep -Ec '^[[:space:]]+id-token: write$' "$ci_workflow" || true)" -ne 1
   exit 1
 fi
 
-echo "PASS: CI actions are pinned and hardened, and the trusted-push Codecov coverage job uses least-privilege OIDC without a stored credential."
+echo "PASS: CI pins and hardens actions; trusted-push Codecov uses explicit validated production LCOV, visible failures, and least-privilege OIDC."
 
 qlty_config="$project_root/.qlty/qlty.toml"
 if ! grep -Fq '[coverage]' "$qlty_config" ||
