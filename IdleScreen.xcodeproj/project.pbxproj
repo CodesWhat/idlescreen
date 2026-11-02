@@ -252,6 +252,7 @@
 		782E3D49CF1D2403C89513BE /* IdleScreenCamera.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9068229D1CD3299655B7C94 /* IdleScreenCamera.framework */; };
 		78A9DBD63207D257E2C34156 /* CameraAgentRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C79653E756704B2B6169121 /* CameraAgentRegistration.swift */; };
 		795C9B3CC26A0F075D2CE31E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D3C33C07A092B6AE369F1FF0 /* Assets.xcassets */; };
+		7A126FA6F157C96E944604A9 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 458DDD28016EB7C25F90388A /* AppIcon.icon */; };
 		7B0A275594A94BD0C21CC69A /* CameraAgentProcessRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D225441C0BA1F58798F9CA86 /* CameraAgentProcessRuntimeTests.swift */; };
 		7B195B0BEEE27CE9BC63F23A /* CameraClientRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9C2190347E1D4A1AB00CBC /* CameraClientRuntimeTests.swift */; };
 		7B35AAC179F57806DAFE563B /* CameraAgentRuntimeDriverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 513A99507011112E62CAAC8F /* CameraAgentRuntimeDriverTests.swift */; };
@@ -328,6 +329,7 @@
 		A5C130144AA86E01CB339224 /* CameraFrameMailboxWriterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C7E92F6408A7E1B8E6387D1 /* CameraFrameMailboxWriterTests.swift */; };
 		A60BB29F081267CEF8C5D126 /* IdleScreenSystem.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61F132022B69FDCF99049744 /* IdleScreenSystem.framework */; };
 		A628D22B9A0EA255A089AA6C /* CameraDeviceInventory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34EC82DE199EDE2DBF99D678 /* CameraDeviceInventory.swift */; };
+		A7E7BAEB14D63F54904F06EB /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 458DDD28016EB7C25F90388A /* AppIcon.icon */; };
 		A8F79D3CFF20FC61E905D4E7 /* SyntheticCameraCompositionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 698CE37E59E4508C27D18986 /* SyntheticCameraCompositionTests.swift */; };
 		A90F38276166709DD9AAFF86 /* PerformanceContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F34CBEF95068C792F5E7EDE /* PerformanceContract.swift */; };
 		A9691168DB8C825782625A4C /* IdleScreenCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 36B2E35EB7EC8E7688BC3B4B /* IdleScreenCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -1457,6 +1459,7 @@
 		428B7C6DADFF9A7B5AE6FD80 /* IdleScreenCreativePatternPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenCreativePatternPresentation.swift; sourceTree = "<group>"; };
 		4492351994BE823F4EBFD07A /* DisplaySceneCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaySceneCoordinatorTests.swift; sourceTree = "<group>"; };
 		44A7FB2F974B64C2DC5DD11C /* IdleScreenDockPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenDockPresentationTests.swift; sourceTree = "<group>"; };
+		458DDD28016EB7C25F90388A /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		45B9BC13EDE40A2C427D0E72 /* IdleScreenRendererTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IdleScreenRendererTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		477CB66EB2F18645D4A4A974 /* SavedLook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedLook.swift; sourceTree = "<group>"; };
 		49513F6F72B66CEC5743AFEC /* IdleScreenC3CameraAgentArchiveBundle.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IdleScreenC3CameraAgentArchiveBundle.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2037,6 +2040,7 @@
 				5A219DDB172F17530AF87554 /* THIRD_PARTY_NOTICES.md */,
 				6E4590B1C0338052DF93A214 /* Core */,
 				D2A4AB690431ECFB4F868FDF /* Executable */,
+				91EB4D2DAFE31FB621A2DB77 /* icon */,
 				F6F39BA687E9732510A3D28D /* IdleScreenAgent */,
 				3B4C38CDEE828FCAF1F876CE /* IdleScreenAgentExecutable */,
 				B8E7F2A3CBE27F7E04E1A36E /* IdleScreenAgentTests */,
@@ -2326,6 +2330,15 @@
 			path = Tests/IdleScreenCoreTestSupport;
 			sourceTree = "<group>";
 		};
+		91EB4D2DAFE31FB621A2DB77 /* icon */ = {
+			isa = PBXGroup;
+			children = (
+				458DDD28016EB7C25F90388A /* AppIcon.icon */,
+			);
+			name = icon;
+			path = design/icon;
+			sourceTree = "<group>";
+		};
 		943C8B4FF8A0260020FD0F08 /* LaunchAgents */ = {
 			isa = PBXGroup;
 			children = (
@@ -2572,7 +2585,7 @@
 			path = Products/IdleScreenCameraAgentExecutable;
 			sourceTree = "<group>";
 		};
-		"TEMP_6C8576B4-16CF-466B-9009-891945D9207C" /* Resources */ = {
+		"TEMP_270D65B5-5EA1-4460-BF8E-F9A38706C9C1" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -3412,6 +3425,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A7E7BAEB14D63F54904F06EB /* AppIcon.icon in Resources */,
 				C206ADF12AEE43CFE1384277 /* Assets.xcassets in Resources */,
 				027DF9A57D8AF1DD24EB9F74 /* Fonts in Resources */,
 				2CB81653C643BE3B8105547F /* THIRD_PARTY_NOTICES.md in Resources */,
@@ -3446,6 +3460,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7A126FA6F157C96E944604A9 /* AppIcon.icon in Resources */,
 				795C9B3CC26A0F075D2CE31E /* Assets.xcassets in Resources */,
 				AD707DFC25F514E28AD4C87D /* Fonts in Resources */,
 			);

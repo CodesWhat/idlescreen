@@ -1213,6 +1213,7 @@ targets:
       - path: Products/IdleScreenApp/Resources/Fonts
         type: folder
         buildPhase: resources
+      - path: design/icon/AppIcon.icon
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
       - path: THIRD_PARTY_NOTICES.md
         buildPhase: resources
@@ -1310,6 +1311,7 @@ targets:
       - path: Products/IdleScreenApp/Resources/Fonts
         type: folder
         buildPhase: resources
+      - path: design/icon/AppIcon.icon
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
       - path: Sources/IdleScreenCameraAgent/LaunchAgents
         buildPhase:
