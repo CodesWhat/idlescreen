@@ -1209,7 +1209,7 @@ targets:
     sources:
       - path: Products/IdleScreenApp
         excludes:
-          - "Resources/Fonts/**"
+          - "Resources/**"
       - path: Products/IdleScreenApp/Resources/Fonts
         type: folder
         buildPhase: resources
@@ -1307,7 +1307,7 @@ targets:
     sources:
       - path: Products/IdleScreenApp
         excludes:
-          - "Resources/Fonts/**"
+          - "Resources/**"
       - path: Products/IdleScreenApp/Resources/Fonts
         type: folder
         buildPhase: resources

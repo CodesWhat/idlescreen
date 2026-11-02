@@ -2585,13 +2585,6 @@
 			path = Products/IdleScreenCameraAgentExecutable;
 			sourceTree = "<group>";
 		};
-		"TEMP_331E0D3D-9261-49D1-8105-41CC8F411DA8" /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
