@@ -16,7 +16,7 @@ test('JSON-LD parses as a SoftwareApplication with the required fields', () => {
   const data = jsonLd();
   assert.equal(data['@context'], 'https://schema.org');
   assert.equal(data['@type'], 'SoftwareApplication');
-  assert.equal(data.name, 'idlescreen');
+  assert.equal(data.name, 'IdleScreen');
   assert.equal(data.operatingSystem, 'macOS 26 or later');
   assert.equal(data.url, CANONICAL);
   assert.equal(data.downloadUrl, 'https://github.com/CodesWhat/idlescreen/releases/latest');
@@ -49,7 +49,7 @@ test('canonical link, sitemap and robots agree', async () => {
 
 test('llms.txt names the product, the install command and the source', async () => {
   const llms = await read('llms.txt');
-  assert.match(llms, /^# idlescreen/);
+  assert.match(llms, /^# IdleScreen/);
   assert.match(llms, /brew install --cask codeswhat\/tap\/idlescreen/);
   assert.match(llms, /github\.com\/CodesWhat\/idlescreen/);
 });

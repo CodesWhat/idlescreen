@@ -90,8 +90,7 @@ p { margin: 0 0 1rem; }
 
 .shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .shot { margin: 0; }
-.shot img, .placeholder-box { width: 100%; aspect-ratio: 428 / 260; border-radius: 12px; display: block; }
-.placeholder-box { display: grid; place-items: center; border: 1px dashed var(--muted); color: var(--muted); font: 400 0.85rem var(--mono); background: var(--bg); }
+.shot img { width: 100%; height: auto; aspect-ratio: 16 / 10; border-radius: 12px; display: block; background: #0a0804; }
 .shot figcaption { font-size: 0.88rem; color: var(--muted); margin-top: 10px; }
 
 .note { margin-top: 28px; padding: 18px 20px; border-radius: 8px; background: var(--bg); }

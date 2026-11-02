@@ -65,10 +65,18 @@ test.describe('content', () => {
     await expect(page.locator('#not-verified a')).toHaveAttribute('href', 'https://github.com/CodesWhat/idlescreen#not-verified-on-a-device');
   });
 
-  test('screenshot placeholders are marked and not presented as captures', async ({ page }) => {
+  test('screenshots are real renderer frames with honest captions', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('[data-placeholder]')).toHaveCount(2);
-    await expect(page.locator('[data-placeholder]').first()).toContainText('Placeholder');
+    await expect(page.locator('[data-placeholder]')).toHaveCount(0);
+    await expect(page.locator('.shots')).not.toContainText('Capture to come');
+    const shots = page.locator('.shot img');
+    await expect(shots).toHaveCount(3);
+    for (const image of await shots.all()) {
+      await image.scrollIntoViewIfNeeded();
+      await expect.poll(() => image.evaluate(node => node.complete && node.naturalWidth)).toBe(1600);
+    }
+    await expect(page.locator('.shot figcaption').nth(0)).toContainText("rendered by IdleScreen's own Metal renderer");
+    await expect(page.locator('.shot figcaption').nth(2)).toContainText('synthetic generated image');
   });
 
   test('footer carries the CodesWhat entity line, Star History and the Codecov badge', async ({ page }) => {

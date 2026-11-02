@@ -1,6 +1,6 @@
-# idlescreen
+# IdleScreen
 
-> idlescreen is a free, MIT-licensed, signed and notarized macOS screen saver with a native companion app. It turns procedural scenes or a live camera into a Metal-rendered field of animated characters. It needs macOS 26 Tahoe or newer and is a universal build for Apple silicon and Intel, from CodesWhat.
+> IdleScreen is a free, MIT-licensed, signed and notarized macOS screen saver with a native companion app. It turns procedural scenes or a live camera into a Metal-rendered field of animated characters. It needs macOS 26 Tahoe or newer and is a universal build for Apple silicon and Intel, from CodesWhat.
 
 Install the signed DMG from the latest release or with Homebrew: `brew install --cask codeswhat/tap/idlescreen`. Camera access is requested only when you choose a camera effect. A separately signed, sandboxed camera agent owns the camera. Frames stay in a local mailbox and aren't sent over the network or written to logs.
 

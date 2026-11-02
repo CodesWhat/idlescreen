@@ -5,30 +5,30 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#3B6CF0">
-  <title>idlescreen · A Mac screen saver made of animated characters</title>
-  <meta name="description" content="idlescreen is a signed and notarized macOS screen saver that turns procedural scenes or a live camera into a Metal-rendered field of animated characters. Free and open source, from CodesWhat.">
+  <title>IdleScreen · A Mac screen saver made of animated characters</title>
+  <meta name="description" content="IdleScreen is a signed and notarized macOS screen saver that turns procedural scenes or a live camera into a Metal-rendered field of animated characters. Free and open source, from CodesWhat.">
   <link rel="canonical" href="https://idlescreen.codeswhat.com/">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="idlescreen · A Mac screen saver made of animated characters">
+  <meta property="og:title" content="IdleScreen · A Mac screen saver made of animated characters">
   <meta property="og:description" content="Turn procedural scenes or a live camera into a Metal-rendered field of animated characters. Free and open source, for macOS 26 or newer.">
   <meta property="og:url" content="https://idlescreen.codeswhat.com/">
-  <meta property="og:site_name" content="idlescreen">
+  <meta property="og:site_name" content="IdleScreen">
   <meta property="og:image" content="https://idlescreen.codeswhat.com/assets/social-card.png">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="idlescreen: a pixel CRT logo on cobalt, next to the name and the line &quot;A screen saver made of animated characters.&quot;">
+  <meta property="og:image:alt" content="IdleScreen: a pixel CRT logo on cobalt, next to the name and the line &quot;A screen saver made of animated characters.&quot;">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="idlescreen · A Mac screen saver made of animated characters">
+  <meta name="twitter:title" content="IdleScreen · A Mac screen saver made of animated characters">
   <meta name="twitter:description" content="Turn procedural scenes or a live camera into a Metal-rendered field of animated characters. Free and open source, for macOS 26 or newer.">
   <meta name="twitter:image" content="https://idlescreen.codeswhat.com/assets/social-card.png">
-  <meta name="twitter:image:alt" content="idlescreen: a pixel CRT logo on cobalt, next to the name and the line &quot;A screen saver made of animated characters.&quot;">
+  <meta name="twitter:image:alt" content="IdleScreen: a pixel CRT logo on cobalt, next to the name and the line &quot;A screen saver made of animated characters.&quot;">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "idlescreen",
-    "description": "idlescreen is a free, open-source, signed and notarized macOS screen saver with a native companion app. It renders procedural scenes or a live camera as a Metal-rendered field of animated characters.",
+    "name": "IdleScreen",
+    "description": "IdleScreen is a free, open-source, signed and notarized macOS screen saver with a native companion app. It renders procedural scenes or a live camera as a Metal-rendered field of animated characters.",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "macOS 26 or later",
     "url": "https://idlescreen.codeswhat.com/",
@@ -59,7 +59,7 @@
   <a class="skip" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="wrap header-row">
-      <a class="brand" href="./" aria-label="idlescreen home"><img src="./assets/logo.png" alt="" width="32" height="32"><span>idlescreen</span></a>
+      <a class="brand" href="./" aria-label="IdleScreen home"><img src="./assets/logo.png" alt="" width="32" height="32"><span>IdleScreen</span></a>
       <nav aria-label="Main navigation">
         <a href="#patterns">Patterns</a>
         <a href="#camera">Camera</a>
@@ -88,7 +88,7 @@
         <p class="fine">Signed and notarized. Gatekeeper and System Integrity Protection stay enabled.</p>
       </div>
       <div class="hero-art">
-        <img src="./assets/logo.png" alt="idlescreen logo: a pixel-art cream CRT with a green dithered glow on a cobalt background" width="512" height="512">
+        <img src="./assets/logo.png" alt="IdleScreen logo: a pixel-art cream CRT with a green dithered glow on a cobalt background" width="512" height="512">
       </div>
     </section>
 
@@ -100,16 +100,16 @@
         </div>
         <div class="shots">
           <figure class="shot">
-            <img src="./assets/saver-thumbnail.svg" alt="Thumbnail artwork of a screen saver scene: a field of colored character cells around a bright pixel glyph" width="428" height="260">
-            <figcaption>Thumbnail artwork from the repository. Not a capture.</figcaption>
+            <img src="./assets/shots/aurora.webp" alt="Aurora pattern: bands of amber characters drifting across a dark screen" width="1600" height="1000">
+            <figcaption>Aurora pattern, rendered by IdleScreen's own Metal renderer offscreen with the default Ember palette.</figcaption>
           </figure>
-          <figure class="shot placeholder" data-placeholder>
-            <div class="placeholder-box" role="img" aria-label="Placeholder for a screen saver capture of a procedural pattern"><span>Capture to come</span></div>
-            <figcaption>Placeholder: a procedural pattern, full screen.</figcaption>
+          <figure class="shot">
+            <img src="./assets/shots/pixel-materials-sand.webp" alt="Pixel Materials sand: a pile of falling sand drawn as amber characters" width="1600" height="1000" loading="lazy">
+            <figcaption>Pixel Materials sand, rendered by the same renderer after 14 seconds of simulation.</figcaption>
           </figure>
-          <figure class="shot placeholder" data-placeholder>
-            <div class="placeholder-box" role="img" aria-label="Placeholder for a screen saver capture of camera mode"><span>Capture to come</span></div>
-            <figcaption>Placeholder: camera mode.</figcaption>
+          <figure class="shot">
+            <img src="./assets/shots/camera-synthetic.webp" alt="Camera mode drawn from a generated head-and-shoulders image: a round lit head and shoulders in amber characters" width="1600" height="1000" loading="lazy">
+            <figcaption>Camera mode glyph path, fed a synthetic generated image. No camera was opened and this is not a photo of a person.</figcaption>
           </figure>
         </div>
       </div>
@@ -188,7 +188,7 @@
             <code id="brew-command-2">brew install --cask codeswhat/tap/idlescreen</code>
             <button type="button" class="copy" data-copy="#brew-command-2" aria-label="Copy the Homebrew install command">Copy</button>
           </div>
-          <p>Open idlescreen once, then select it in System Settings under Wallpaper and Screen Saver. Upgrade with <code>brew upgrade --cask idlescreen</code> or remove it with <code>brew uninstall --cask idlescreen</code>.</p>
+          <p>Open IdleScreen once, then select it in System Settings under Wallpaper and Screen Saver. Upgrade with <code>brew upgrade --cask idlescreen</code> or remove it with <code>brew uninstall --cask idlescreen</code>.</p>
           <h3>Requirements</h3>
           <ul class="plain">
             <li>macOS 26 Tahoe or newer.</li>
@@ -219,8 +219,8 @@
           <p>No. The camera is asked for only when you choose a camera effect. The procedural patterns and Pixel Materials don't need it.</p>
         </details>
         <details>
-          <summary>Why does macOS call it IdleScreen?</summary>
-          <p>macOS lists the app, the screen saver and the camera agent as IdleScreen in System Settings. The installed path is still <code>/Applications/idlescreen.app</code>.</p>
+          <summary>Why is the install path lowercase?</summary>
+          <p>macOS lists the app, the screen saver and the camera agent as IdleScreen in System Settings. The installed path and the Homebrew cask name stay lowercase: <code>/Applications/idlescreen.app</code>.</p>
         </details>
         <details>
           <summary>Does it run on Intel Macs?</summary>
@@ -259,7 +259,7 @@
   <footer class="site-footer">
     <div class="wrap footer-grid">
       <div>
-        <a class="brand" href="./" aria-label="idlescreen home"><img src="./assets/logo.png" alt="" width="32" height="32"><span>idlescreen</span></a>
+        <a class="brand" href="./" aria-label="IdleScreen home"><img src="./assets/logo.png" alt="" width="32" height="32"><span>IdleScreen</span></a>
         <p class="footer-note"><a href="https://codeswhat.com">CodesWhat</a>: small, sharp tools from one developer and a lot of agents.</p>
         <p class="footer-note">Free software under the <a href="https://github.com/CodesWhat/idlescreen/blob/main/LICENSE">MIT License</a>.</p>
       </div>

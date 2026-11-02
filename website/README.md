@@ -1,4 +1,4 @@
-# idlescreen website
+# IdleScreen website
 
 Static site for https://idlescreen.codeswhat.com. It's plain HTML, CSS and one small
 JavaScript module. `dist/` is the whole artifact: serve it from any static host.
@@ -17,9 +17,29 @@ OFL texts sit next to them in `dist/assets/fonts/`.
 ## Content rules
 
 Every claim comes from the README, `docs/ARCHITECTURE.md`, `SECURITY.md` or the
-code. The screenshot slots marked "Capture to come" are placeholders for real
-screen saver captures. Replace them when captures exist; the thumbnail beside
-them is the repo's artwork, not a capture.
+code. The product name is IdleScreen in prose. Lowercase `idlescreen` stays only
+where it is a literal identifier: the cask name, URLs, repo paths, `idlescreenctl`
+and `/Applications/idlescreen.app`.
+
+## Screenshots
+
+The three images in `dist/assets/shots/` are real frames from IdleScreen's own
+Metal renderer, drawn offscreen at 1600x1000 with the default Ember palette, a
+fixed scene seed and fixed timestamps (Pixel Materials runs 420 steps at 30 fps).
+Glyph scale and contrast are raised from the app defaults so the frames read at
+thumbnail size. Nothing is composited or retouched. The camera image feeds the
+renderer's camera glyph path a generated head-and-shoulders luminance image: no
+camera is opened and it is not a photo. Captions say so.
+
+Regenerate after a renderer or palette change (needs Xcode and `brew install webp`):
+
+```sh
+website/scripts/capture-site-images.sh
+```
+
+It runs `SiteCaptureTests` (`Tests/IdleScreenRendererTests`), which is a no-op
+unless `TEST_RUNNER_IDLESCREEN_SITE_CAPTURE_DIR` is set, then converts the PNGs to
+lossless WebP. Two runs produce identical files.
 
 ## Headers
 
