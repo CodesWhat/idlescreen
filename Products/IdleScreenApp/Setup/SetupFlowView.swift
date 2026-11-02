@@ -49,7 +49,8 @@ struct SetupFlowView: View {
       session: session,
       hasFreshStatus: model.hasFreshSaverStatus,
       hasError: model.lastError != nil,
-      requiredStepsDone: SetupProgress(inputs).requiredStepsDone
+      requiredStepsDone: SetupProgress(inputs).requiredStepsDone,
+      isRefreshing: model.isRefreshing
     )
   }
 
@@ -61,6 +62,7 @@ struct SetupFlowView: View {
           progress: progress,
           cameraAccess: inputs.cameraAccess,
           isRegistering: model.isRegistering,
+          extensionMissing: !model.isExtensionEmbedded,
           statusMessage: model.saverActionStatus,
           errorMessage: model.lastError,
           actions: SetupFlowActions(
@@ -128,13 +130,19 @@ struct SetupCardModel: Equatable {
   let offersSkip: Bool
   let offersLater: Bool
 
-  init(progress: SetupProgress, cameraAccess: SetupCameraAccess, isRegistering: Bool) {
+  init(
+    progress: SetupProgress, cameraAccess: SetupCameraAccess, isRegistering: Bool,
+    extensionMissing: Bool = false
+  ) {
     switch progress.current {
     case .register:
       title = "Register IdleScreen"
-      detail = "Tell macOS that IdleScreen is here. It only takes a moment."
+      detail =
+        extensionMissing
+        ? "This copy of IdleScreen is missing its screen saver. Reinstall IdleScreen."
+        : "Tell macOS that IdleScreen is here. It only takes a moment."
       primaryTitle = isRegistering ? "Registering…" : "Register IdleScreen"
-      primaryEnabled = !isRegistering
+      primaryEnabled = !isRegistering && !extensionMissing
     case .choose:
       title = "Choose IdleScreen"
       detail = "Pick IdleScreen as your screen saver in Screen Saver settings."
@@ -179,12 +187,15 @@ struct SetupFlowContent: View {
   let progress: SetupProgress
   var cameraAccess: SetupCameraAccess = .unknown
   var isRegistering = false
+  var extensionMissing = false
   var statusMessage: String?
   var errorMessage: String?
   var actions = SetupFlowActions()
 
   private var cardModel: SetupCardModel {
-    SetupCardModel(progress: progress, cameraAccess: cameraAccess, isRegistering: isRegistering)
+    SetupCardModel(
+      progress: progress, cameraAccess: cameraAccess, isRegistering: isRegistering,
+      extensionMissing: extensionMissing)
   }
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion

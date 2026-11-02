@@ -105,19 +105,21 @@ struct SetupGateDecision: Equatable {
 
 enum SetupGate {
   /// The upgrade auto-skip judges once, on the first fresh status. A stale error shows the flow (so the error is visible) but
-  /// never consumes the judgement, and nothing else ever finishes setup without the user.
+  /// never consumes the judgement, and nothing else ever finishes setup without the user. A refresh that is over without a
+  /// fresh status (the model had nothing to ask) also shows the flow, so the window never sits on "Checking your Mac".
   static func decide(
     session: SetupSession,
     hasFreshStatus: Bool,
     hasError: Bool,
-    requiredStepsDone: Bool
+    requiredStepsDone: Bool,
+    isRefreshing: Bool = true
   ) -> SetupGateDecision {
     if !session.autoSkipEvaluated, hasFreshStatus {
       return SetupGateDecision(
         showsFlow: !requiredStepsDone, evaluatesAutoSkip: true, finishesSetup: requiredStepsDone)
     }
     return SetupGateDecision(
-      showsFlow: session.autoSkipEvaluated || hasError, evaluatesAutoSkip: false,
+      showsFlow: session.autoSkipEvaluated || hasError || !isRefreshing, evaluatesAutoSkip: false,
       finishesSetup: false)
   }
 

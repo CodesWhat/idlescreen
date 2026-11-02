@@ -23,6 +23,40 @@ struct SetupSessionTests {
         == SetupGateDecision(showsFlow: false, evaluatesAutoSkip: false, finishesSetup: false))
   }
 
+  @Test("a finished refresh with no fresh status and no error shows the flow, auto-skip unspent")
+  func idleWithoutStatusShowsFlow() {
+    var session = SetupSession()
+    let decision = SetupGate.decide(
+      session: session, hasFreshStatus: false, hasError: false, requiredStepsDone: false,
+      isRefreshing: false)
+    #expect(decision.showsFlow)
+    #expect(!decision.evaluatesAutoSkip)
+    #expect(!decision.finishesSetup)
+    session.apply(decision)
+    #expect(!session.autoSkipEvaluated)
+  }
+
+  @Test("a refresh in flight with no fresh status is still checking")
+  func refreshingWithoutStatusIsChecking() {
+    let decision = SetupGate.decide(
+      session: SetupSession(), hasFreshStatus: false, hasError: false, requiredStepsDone: false,
+      isRefreshing: true)
+    #expect(
+      decision
+        == SetupGateDecision(showsFlow: false, evaluatesAutoSkip: false, finishesSetup: false))
+  }
+
+  @Test("a missing screen saver tells the user to reinstall and disables registering")
+  func missingExtensionCard() {
+    let progress = SetupProgress(inputs())
+    let card = SetupCardModel(
+      progress: progress, cameraAccess: .unknown, isRegistering: false, extensionMissing: true)
+    #expect(
+      card.detail == "This copy of IdleScreen is missing its screen saver. Reinstall IdleScreen.")
+    #expect(!card.primaryEnabled)
+    #expect(card.offersLater)
+  }
+
   @Test("an upgrader with the required steps done finishes silently on the first fresh status")
   func upgradeAutoSkip() {
     let decision = SetupGate.decide(
