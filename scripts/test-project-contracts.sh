@@ -77,31 +77,40 @@ fi
 
 echo "PASS: CI preserves and prints actionable Xcode test diagnostics for every modern scheme."
 
-checkout_sha='3d3c42e5aac5ba805825da76410c181273ba90b1'
-codecov_sha='fb8b3582c8e4def4969c97caa2f19720cb33a72f'
-harden_runner_sha='05e31511f85b41b11d1cf0ef85d0992719546e2c'
+# Pins are checked by shape (owner/repo@<40-hex> # vX), not exact SHAs, so
+# Renovate digest bumps pass while unpinned or tag refs still fail.
+pin_comment='[0-9a-f]{40}[[:space:]]+#[[:space:]]+v[0-9]'
+checkout_pin="uses: actions/checkout@$pin_comment"
+codecov_pin="uses: codecov/codecov-action@$pin_comment"
+harden_runner_pin="uses: step-security/harden-runner@$pin_comment"
 ci_coverage_block="$(sed -n '/^  coverage:$/,/^  qlty:$/p' "$ci_workflow")"
-if [[ "$(grep -Fc "uses: actions/checkout@$checkout_sha" "$ci_workflow" || true)" -ne 3 ]] ||
-   [[ "$(grep -Fc "uses: step-security/harden-runner@$harden_runner_sha" "$ci_workflow" || true)" -ne 3 ]] ||
+if [[ "$(grep -Ec "$checkout_pin" "$ci_workflow" || true)" -ne 3 ]] ||
+   [[ "$(grep -Ec "$harden_runner_pin" "$ci_workflow" || true)" -ne 3 ]] ||
    [[ "$(grep -Fc 'persist-credentials: false' "$ci_workflow" || true)" -ne 3 ]] ||
    ! grep -Fq 'permissions:' <<<"$ci_coverage_block" ||
    ! grep -Fq 'contents: read' <<<"$ci_coverage_block" ||
    ! grep -Fq 'id-token: write' <<<"$ci_coverage_block" ||
-   ! grep -Fq "uses: codecov/codecov-action@$codecov_sha" <<<"$ci_coverage_block" ||
+   ! grep -Eq "$codecov_pin" <<<"$ci_coverage_block" ||
    ! grep -Fq "if: github.event_name == 'push'" <<<"$ci_coverage_block" ||
    ! grep -Fq 'keybase.io:443' <<<"$ci_coverage_block" ||
    ! grep -Fq -- '-enableCodeCoverage YES' <<<"$ci_coverage_block" ||
    ! grep -Fq -- '-resultBundlePath "$result_bundle"' <<<"$ci_coverage_block" ||
    ! grep -Fq 'xcrun xccov view --archive --json "$result_bundle"' <<<"$ci_coverage_block" ||
    ! grep -Fq 'use_oidc: true' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'plugins: xcode' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'swift_project: IdleScreen' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'fail_ci_if_error: false' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'python3 ./scripts/xccov_to_lcov.py' <<<"$ci_coverage_block" ||
+   ! grep -Fq -- '--source-root "$GITHUB_WORKSPACE"' <<<"$ci_coverage_block" ||
+   ! grep -Fq -- '--output "$coverage_root/coverage.lcov" "$coverage_root"/*.json' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'files: ${{ runner.temp }}/idlescreen-coverage/coverage.lcov' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'disable_search: true' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'plugins: noop' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'fail_ci_if_error: true' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'python3 ./scripts/test_xccov_to_lcov.py' "$ci_workflow" ||
+   grep -Fq 'plugins: xcode' <<<"$ci_coverage_block" ||
    ! grep -Fq 'IdleScreenAppCompileGate; do' <<<"$ci_coverage_block" ||
    grep -Eq '^[[:space:]]+token:' <<<"$ci_coverage_block" ||
    grep -Fq 'QLTY_COVERAGE_TOKEN' "$ci_workflow" ||
    grep -Eq 'uses: [^[:space:]]+@v[0-9]' "$ci_workflow"; then
-  echo "FAIL: CI must harden and pin actions, discard checkout credentials, minimize permissions, and upload trusted-push Xcode coverage through Codecov OIDC." >&2
+  echo "FAIL: CI must pin/harden actions and upload validated production LCOV through trusted-push Codecov OIDC with failures visible." >&2
   exit 1
 fi
 
@@ -122,7 +131,7 @@ if [[ "$(grep -Ec '^[[:space:]]+id-token: write$' "$ci_workflow" || true)" -ne 1
   exit 1
 fi
 
-echo "PASS: CI actions are pinned and hardened, and the trusted-push Codecov coverage job uses least-privilege OIDC without a stored credential."
+echo "PASS: CI pins and hardens actions; trusted-push Codecov uses explicit validated production LCOV, visible failures, and least-privilege OIDC."
 
 qlty_config="$project_root/.qlty/qlty.toml"
 if ! grep -Fq '[coverage]' "$qlty_config" ||
