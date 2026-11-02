@@ -38,6 +38,7 @@ lifecycle.
 ## Contents
 
 - [Quick Start](#quick-start)
+- [Not verified on a device](#not-verified-on-a-device)
 - [Recent Updates](#recent-updates)
 - [Screenshot](#screenshot)
 - [Why idlescreen](#why-idlescreen)
@@ -62,13 +63,36 @@ camera effect. Gatekeeper and System Integrity Protection stay enabled.
 Upgrade with `brew upgrade --cask idlescreen` or remove it with
 `brew uninstall --cask idlescreen`.
 
+macOS lists the app, the screen saver and the camera agent as IdleScreen in
+System Settings. The installed path is still `/Applications/idlescreen.app`.
+
+## Not verified on a device
+
+Not verified on a device for 0.2.0:
+
+- Sleep and wake.
+- Reboot and login.
+- Turning Background Items off and back on.
+- Replacing the app with a newer copy while the old one is running.
+- Granting and revoking camera permission.
+- Camera contention with another app.
+- Disconnecting and reconnecting the selected camera.
+- Multiple screen saver views, displays, Spaces and users at once.
+- Helper and extension crash recovery.
+- A long soak run.
+- Intel Macs.
+- Mixed-scale multi-display hot-plug beyond the maintainer's own setup.
+
+These paths have automated or fixture coverage only. If one of them breaks for
+you, please open an issue.
+
 ## Recent Updates
 
-Version 0.1.2 moves procedural glyph generation to a bounded Metal
-compute path, prevents unverified saver surfaces from starting the camera,
-avoids duplicate frame payload copies, and strengthens camera-pump and
-ScreenSaverEngine recovery coverage. See the [changelog](CHANGELOG.md) for the
-complete release notes.
+Version 0.2.0 adds a CRT menu bar icon that shows setup, attention, camera
+preview, running and idle states, a first-run setup flow, and rebuilt Displays,
+Integrations and System settings pages that follow the system appearance and
+Increase Contrast. macOS now shows IdleScreen as the app, saver and camera
+agent name. See the [changelog](CHANGELOG.md) for the complete release notes.
 
 ## Screenshot
 
