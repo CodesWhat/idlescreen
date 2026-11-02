@@ -33,7 +33,7 @@ fail() {
 
 [[ -x "$runner" && -x "$verifier" && -x "$process_guard" && -f "$parser" ]] ||
   fail "missing executable runner/verifier or ordered parser"
-/bin/bash -n "$runner" "$verifier" || fail "camera gate shell syntax failed"
+/bin/bash -n "$runner" && /bin/bash -n "$verifier" || fail "camera gate shell syntax failed"
 /usr/bin/env PYTHONPYCACHEPREFIX="$fixture_root/pycache" \
   /usr/bin/python3 -m py_compile "$parser" || fail "camera gate parser syntax failed"
 
