@@ -72,6 +72,7 @@ jobs:
 
       - name: Run deterministic product fixtures
         run: |
+          python3 ./scripts/test_xccov_to_lcov.py
           python3 ./scripts/test_performance_r1_report.py
           ./scripts/test-run-performance-r1.sh
           ./scripts/test-camera-gate-c8-soak-planner.py
@@ -162,18 +163,18 @@ jobs:
             xcrun xccov view --archive --json "$result_bundle" \
               >"$coverage_root/$scheme.json"
           done
+          python3 ./scripts/xccov_to_lcov.py \
+            --source-root "$GITHUB_WORKSPACE" \
+            --output "$coverage_root/coverage.lcov" "$coverage_root"/*.json
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           use_oidc: true
-          # The report step writes to $RUNNER_TEMP/idlescreen-coverage, which is
-          # outside the workspace the action searches by default. Without this
-          # the upload finds nothing and fail_ci_if_error keeps the job green.
-          directory: ${{ runner.temp }}/idlescreen-coverage
-          plugins: xcode
-          swift_project: IdleScreen
-          fail_ci_if_error: false
+          files: ${{ runner.temp }}/idlescreen-coverage/coverage.lcov
+          disable_search: true
+          plugins: noop
+          fail_ci_if_error: true
 
   qlty:
     name: qlty
