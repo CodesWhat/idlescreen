@@ -1,0 +1,15 @@
+{
+  "name": "idlescreen-website",
+  "private": true,
+  "description": "Static site for idlescreen.codeswhat.com (dist/) and its tests. Nothing here is published to npm.",
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "node --test tests/*.test.mjs",
+    "test:e2e": "playwright test",
+    "render:social": "node social/render-card.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}
