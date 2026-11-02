@@ -80,7 +80,7 @@ struct ContentView: View {
       switch navigation.destination {
       // The Studio preview is a dark canvas in both appearances. The other pages follow the system.
       case .studio:
-        if setupCompleted || navigation.isSetupDeferred {
+        if !showsSetup {
           StudioView().environment(\.colorScheme, .dark)
         } else {
           SetupFlowView(
@@ -94,7 +94,7 @@ struct ContentView: View {
       }
     }
     .background(Color(nsColor: .windowBackgroundColor))
-    .windowAppearance(Self.windowAppearance(for: navigation.destination))
+    .windowAppearance(Self.windowAppearance(for: navigation.destination, showsSetup: showsSetup))
     .ignoresSafeArea()
     .onChange(of: model.configuration.revision, initial: true) {
       _, revision in
@@ -111,9 +111,14 @@ struct ContentView: View {
     }
   }
 
-  /// Studio is a dark canvas in both system appearances, so its window goes dark with it. The settings pages follow the system.
-  static func windowAppearance(for destination: Destination) -> NSAppearance? {
-    destination == .studio ? NSAppearance(named: .darkAqua) : nil
+  private var showsSetup: Bool { !(setupCompleted || navigation.isSetupDeferred) }
+
+  /// Studio is a dark canvas in both system appearances, so its window goes dark with it. The settings pages and the setup
+  /// flow, which takes Studio's place until it is finished, follow the system.
+  static func windowAppearance(for destination: Destination, showsSetup: Bool = false)
+    -> NSAppearance?
+  {
+    destination == .studio && !showsSetup ? NSAppearance(named: .darkAqua) : nil
   }
 
   private var railView: some View {

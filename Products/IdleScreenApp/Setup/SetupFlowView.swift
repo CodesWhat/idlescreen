@@ -122,7 +122,6 @@ struct SetupFlowContent: View {
         if !progress.isComplete {
           Button("Set up later", action: actions.later).buttonStyle(.plain)
             .font(DesignFont.sans(DesignFont.detail)).foregroundStyle(DesignPalette.ink2)
-            .accessibilityLabel("Set up later")
             .accessibilityHint("Closes setup. You can finish it from Studio.")
         }
       }
@@ -194,11 +193,11 @@ struct SetupFlowContent: View {
     case .register:
       Button(isRegistering ? "Registering…" : "Register IdleScreen", action: actions.register)
         .buttonStyle(.designPrimary).disabled(isRegistering)
-        .accessibilityLabel(isRegistering ? "Registering IdleScreen" : "Register IdleScreen")
+        .accessibilityHint("Tells macOS that IdleScreen is installed.")
     case .choose:
       Button("Open Screen Saver settings", action: actions.openScreenSaverSettings)
         .buttonStyle(.designPrimary)
-        .accessibilityLabel("Open Screen Saver settings")
+        .accessibilityHint("Opens macOS settings so you can pick IdleScreen.")
     case .camera:
       HStack(spacing: 8) {
         Button(
@@ -206,14 +205,15 @@ struct SetupFlowContent: View {
           action: actions.allowCamera
         )
         .buttonStyle(.designPrimary)
-        .accessibilityLabel(
-          cameraAccess == .blocked ? "Open camera privacy settings" : "Allow camera access")
+        .accessibilityHint(
+          cameraAccess == .blocked
+            ? "Opens camera privacy settings." : "Asks macOS for camera access.")
         Button("Skip for now", action: actions.skipCamera).buttonStyle(.designSecondary)
-          .accessibilityLabel("Skip the camera step")
+          .accessibilityHint("Skips the camera step. You can turn it on later in System.")
       }
     case nil:
       Button("Open Studio", action: actions.openStudio).buttonStyle(.designPrimary)
-        .keyboardShortcut(.defaultAction).accessibilityLabel("Open Studio")
+        .keyboardShortcut(.defaultAction)
     }
   }
 
@@ -234,8 +234,12 @@ struct SetupFlowContent: View {
     DesignSection(eyebrow: "Steps") {
       ForEach(SetupStep.allCases) { step in
         DesignRow(title: Self.name(step), detail: Self.summary(step)) {
-          let word = Self.word(progress.status(step))
-          DesignStatus(kind: Self.kind(progress.status(step)), text: word)
+          let status = progress.status(step)
+          if step == .camera, status == .current, cameraAccess == .blocked {
+            DesignStatus(kind: .attention, text: "Blocked")
+          } else {
+            DesignStatus(kind: Self.kind(status), text: Self.word(status))
+          }
         }
       }
     }
@@ -269,7 +273,7 @@ struct SetupFlowContent: View {
   static func kind(_ status: SetupStepStatus) -> DesignStatusKind {
     switch status {
     case .done: .ok
-    case .current: .attention
+    case .current: .current
     case .upcoming, .skipped: .neutral
     }
   }

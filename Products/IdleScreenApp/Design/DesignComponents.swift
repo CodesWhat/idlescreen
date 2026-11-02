@@ -210,7 +210,7 @@ struct DesignDetails<Content: View>: View {
 
 /// What a status means, which sets its symbol and colour. The word always travels with the symbol.
 enum DesignStatusKind {
-  case ok, attention, error, pending, neutral
+  case ok, attention, error, pending, neutral, current
 
   var symbol: String {
     switch self {
@@ -219,6 +219,7 @@ enum DesignStatusKind {
     case .error: "xmark.octagon.fill"
     case .pending: "ellipsis.circle.fill"
     case .neutral: "minus.circle.fill"
+    case .current: "arrow.right.circle.fill"
     }
   }
 
@@ -228,6 +229,7 @@ enum DesignStatusKind {
     case .attention: DesignPalette.warning
     case .error: DesignPalette.danger
     case .pending, .neutral: DesignPalette.ink3
+    case .current: DesignPalette.accentMark
     }
   }
 }

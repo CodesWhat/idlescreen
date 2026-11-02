@@ -86,6 +86,7 @@ struct DesignLanguageRenderTests {
   @Test("Studio forces a dark window under a light system appearance; the pages follow the system")
   func studioWindowIsDark() throws {
     #expect(ContentView.windowAppearance(for: .studio)?.isDarkAqua == true)
+    #expect(ContentView.windowAppearance(for: .studio, showsSetup: true) == nil)
     for destination in [Destination.displays, .integrations, .system] {
       #expect(ContentView.windowAppearance(for: destination) == nil)
     }
@@ -109,6 +110,7 @@ struct DesignLanguageRenderTests {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
     harness.navigation.destination = .studio
+    harness.navigation.isSetupDeferred = true  // otherwise Studio's place shows setup, which follows the system
     let size = NSSize(width: 1_200, height: 800)
     let view = NSHostingView(
       rootView: AnyView(
