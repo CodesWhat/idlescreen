@@ -153,6 +153,23 @@ struct DesignLanguageRenderTests {
     #expect(resolve(DesignPalette.NS.ink2, light) != resolve(DesignPalette.NS.ink2, dark))
   }
 
+  @Test("every Aqua variant resolves through bestMatch, never by name alone")
+  func appearanceVariantsResolveThroughBestMatch() {
+    #expect(NSAppearance(named: .aqua)!.variant == .aqua)
+    #expect(NSAppearance(named: .darkAqua)!.variant == .darkAqua)
+    for name in NSAppearance.variants {
+      let appearance = NSAppearance(named: name)!
+      let variant = appearance.variant
+      #expect(variant == appearance.bestMatch(from: NSAppearance.variants))
+      #expect(variant != nil)
+      let high =
+        variant == .accessibilityHighContrastAqua || variant == .accessibilityHighContrastDarkAqua
+      #expect(appearance.isHighContrast == high)
+      let dark = variant == .darkAqua || variant == .accessibilityHighContrastDarkAqua
+      #expect(appearance.isDarkAqua == dark)
+    }
+  }
+
   private static func hasVisibleContent(_ bitmap: NSBitmapImageRep) -> Bool {
     guard let first = bitmap.colorAt(x: 0, y: 0) else { return false }
     let stepX = max(1, bitmap.pixelsWide / 40)

@@ -120,13 +120,12 @@ enum DesignPalette {
 }
 
 extension NSAppearance {
-  private static let variants: [NSAppearance.Name] = [
+  static let variants: [NSAppearance.Name] = [
     .accessibilityHighContrastDarkAqua, .accessibilityHighContrastAqua, .darkAqua, .aqua,
   ]
 
   /// The closest of the four Aqua variants, high-contrast ones first so they are not collapsed into their base.
-  private var variant: NSAppearance.Name? {
-    if Self.variants.contains(name) { return name }
+  var variant: NSAppearance.Name? {
     return bestMatch(from: Self.variants)
   }
 
