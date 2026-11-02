@@ -58,6 +58,14 @@ enum Destination: String, CaseIterable, Identifiable {
 @Observable
 final class IdleScreenCompanionNavigation {
   var destination: Destination = .studio
+  /// Setup progress that survives navigating away and back: the camera skip, the one-time upgrade auto-skip, the last fresh
+  /// macOS answer, and "Set up later".
+  var setupSession = SetupSession()
+  /// Set by "Set up later". Studio shows instead of the setup flow until setup is reopened.
+  var isSetupDeferred: Bool {
+    get { setupSession.isDeferred }
+    set { setupSession.isDeferred = newValue }
+  }
   var displayAspectRatio: CGFloat = 16 / 9
   var previewDisplayIdentifier: DisplayTopology.PersistentDisplayIdentifier?
 
@@ -71,6 +79,7 @@ struct ContentView: View {
   @Environment(IdleScreenCompanionCameraClient.self) private var cameraClient
   @Environment(IdleScreenCompanionNavigation.self) private var navigation
   @Environment(DisplaySceneCoordinator.self) private var displayCoordinator
+  @AppStorage(IdleScreenSetupStore.completedKey) private var setupCompleted = false
 
   var body: some View {
     HStack(spacing: 0) {
@@ -78,14 +87,22 @@ struct ContentView: View {
       Divider().opacity(0.4)
       switch navigation.destination {
       // The Studio preview is a dark canvas in both appearances. The other pages follow the system.
-      case .studio: StudioView().environment(\.colorScheme, .dark)
+      case .studio:
+        if !showsSetup {
+          StudioView().environment(\.colorScheme, .dark)
+        } else {
+          SetupFlowView(
+            onFinish: { setupCompleted = true },
+            onLater: { navigation.setupSession.deferSetup() }
+          )
+        }
       case .displays: DisplaysView()
       case .integrations: IntegrationsView()
       case .system: SystemView()
       }
     }
     .background(Color(nsColor: .windowBackgroundColor))
-    .windowAppearance(Self.windowAppearance(for: navigation.destination))
+    .windowAppearance(Self.windowAppearance(for: navigation.destination, showsSetup: showsSetup))
     .ignoresSafeArea()
     .onChange(of: model.configuration.revision, initial: true) {
       _, revision in
@@ -102,9 +119,14 @@ struct ContentView: View {
     }
   }
 
-  /// Studio is a dark canvas in both system appearances, so its window goes dark with it. The settings pages follow the system.
-  static func windowAppearance(for destination: Destination) -> NSAppearance? {
-    destination == .studio ? NSAppearance(named: .darkAqua) : nil
+  private var showsSetup: Bool { !(setupCompleted || navigation.isSetupDeferred) }
+
+  /// Studio is a dark canvas in both system appearances, so its window goes dark with it. The settings pages and the setup
+  /// flow, which takes Studio's place until it is finished, follow the system.
+  static func windowAppearance(for destination: Destination, showsSetup: Bool = false)
+    -> NSAppearance?
+  {
+    destination == .studio && !showsSetup ? NSAppearance(named: .darkAqua) : nil
   }
 
   private var railView: some View {
@@ -217,6 +239,7 @@ struct StudioView: View {
   @State private var lookNameDraft = ""
   @State private var lookBeingRenamed: IdleScreenSavedLook?
   @State private var pendingLookDeletion: IdleScreenSavedLook?
+  @AppStorage(IdleScreenSetupStore.completedKey) private var setupCompleted = false
 
   private let saverColumns = [
     GridItem(.flexible(), spacing: 8),
@@ -245,11 +268,6 @@ struct StudioView: View {
       case .unavailable: .orange
       }
     }
-  }
-
-  private struct CameraSetupGuidance {
-    let title: String
-    let detail: String
   }
 
   var body: some View {
@@ -326,6 +344,11 @@ struct StudioView: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 14)
+
+        if showsSetupBanner {
+          setupBanner
+            .padding(.horizontal, 16)
+        }
 
         if isSaverChooserExpanded {
           saverChooser
@@ -575,7 +598,7 @@ struct StudioView: View {
   }
 
   @ViewBuilder
-  private func cameraSetupOverlay(_ guidance: CameraSetupGuidance) -> some View {
+  private func cameraSetupOverlay(_ guidance: CameraCardGuidance) -> some View {
     VStack(spacing: 8) {
       Image(systemName: "camera.fill")
         .font(.system(size: 22, weight: .semibold))
@@ -586,11 +609,13 @@ struct StudioView: View {
         .font(.caption)
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
-      Button(cameraSetupActionTitle) {
-        performCameraSetupAction()
+      if let actionTitle = guidance.actionTitle {
+        Button(actionTitle) {
+          performCameraSetupAction(guidance.action)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.small)
       }
-      .buttonStyle(.borderedProminent)
-      .controlSize(.small)
     }
     .padding(.horizontal, 20)
     .padding(.vertical, 16)
@@ -603,108 +628,88 @@ struct StudioView: View {
     .shadow(color: .black.opacity(0.45), radius: 22, y: 12)
   }
 
-  private var cameraSetupActionTitle: String {
-    switch cameraClient.readinessSnapshot.authorization {
-    case .observed(.notDetermined): "Allow Camera Access"
-    case .observed(.denied), .observed(.restricted): "Open Camera Privacy"
-    case .unknown, .observed(.authorized): "Camera Setup"
-    }
+  /// The required steps as macOS last reported them, ignoring a refresh that is in flight or failed.
+  private var showsSetupBanner: Bool {
+    let live = SetupInputs(
+      registrationCurrent: model.registrationAssessment.isCurrentBuild,
+      selectedEverywhere: model.selection?.isSelectedEverywhere == true,
+      cameraAccess: .unknown,
+      cameraSkipped: false
+    )
+    let inputs = SetupInputs.settled(
+      live: live, lastFresh: navigation.setupSession.lastFreshInputs,
+      isFresh: model.hasFreshSaverStatus)
+    return SetupGate.showsStudioBanner(
+      setupCompleted: setupCompleted,
+      requiredStepsDone: SetupProgress(inputs).requiredStepsDone)
   }
 
-  private func performCameraSetupAction() {
-    switch cameraClient.readinessSnapshot.authorization {
-    case .observed(.notDetermined),
-      .observed(.denied),
-      .observed(.restricted):
+  private var setupBanner: some View {
+    HStack(spacing: 10) {
+      Image(systemName: "checklist").foregroundStyle(.secondary)
+      Text("Finish setting up IdleScreen").font(.caption.weight(.semibold))
+      Spacer()
+      Button("Continue setup") { navigation.setupSession.continueSetup() }
+        .buttonStyle(.borderless).controlSize(.small)
+        .accessibilityHint("Returns to the setup steps.")
+    }
+    .padding(.horizontal, 12).padding(.vertical, 7)
+    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+    .accessibilityElement(children: .contain)
+  }
+
+  private func performCameraSetupAction(_ action: CameraCardGuidance.Action) {
+    switch action {
+    case .openSetup:
+      navigation.setupSession.reopenFromCameraCard()
+    case .allowAccess, .openCameraPrivacy:
       cameraClient.performRecommendedRepair()
-    case .unknown, .observed(.authorized):
+    case .openSystem:
       navigation.destination = .system
+    case .none:
+      break
     }
   }
 
-  private var cameraSetupGuidance: CameraSetupGuidance? {
-    if let bootstrapStatus = cameraClient.bootstrapStatus,
-      bootstrapStatus != .ready
-    {
-      return CameraSetupGuidance(
-        title: "Camera runtime needs attention",
-        detail: "Open System to repair the camera runtime."
-      )
-    }
+  /// Studio only reports a camera that stopped working. First-run permission and agent setup lives in the setup flow and System.
+  private var cameraSetupGuidance: CameraCardGuidance? {
+    guard cameraHasRuntimeFailure else { return nil }
+    return CameraCardGuidance.make(
+      authorization: cameraClient.readinessSnapshot.authorization, setupCompleted: setupCompleted)
+  }
 
-    switch cameraClient.readinessSnapshot.serviceRegistration {
-    case .notRegistered, .notFound, .requiresApproval, .failed:
-      return CameraSetupGuidance(
-        title: "Camera agent needs setup",
-        detail: "Open System to enable or repair the camera agent."
-      )
-    case .unknown, .enabled:
-      break
+  private var cameraHasRuntimeFailure: Bool {
+    let snapshot = cameraClient.readinessSnapshot
+    if let bootstrapStatus = cameraClient.bootstrapStatus, bootstrapStatus != .ready {
+      return true
     }
-
-    switch cameraClient.readinessSnapshot.identity {
-    case .absent, .stale, .mismatched:
-      return CameraSetupGuidance(
-        title: "Camera agent needs repair",
-        detail: "Open System to replace the camera agent with this app's copy."
-      )
-    case .unknown, .current:
-      break
+    switch snapshot.serviceRegistration {
+    case .notRegistered, .notFound, .requiresApproval, .failed: return true
+    case .unknown, .enabled: break
     }
-
-    switch cameraClient.readinessSnapshot.liveSnapshot {
-    case .unavailable, .rejected:
-      return CameraSetupGuidance(
-        title: "Camera check failed",
-        detail: "Open System to reconnect or repair the camera agent."
-      )
-    case .unknown, .accepted:
-      break
+    switch snapshot.identity {
+    case .absent, .stale, .mismatched: return true
+    case .unknown, .current: break
     }
-
-    switch cameraClient.readinessSnapshot.authorization {
-    case .observed(.notDetermined):
-      return CameraSetupGuidance(
-        title: "Allow camera access",
-        detail: "Open System and allow IdleScreen to use the camera."
-      )
-    case .observed(.denied):
-      return CameraSetupGuidance(
-        title: "Camera access is off",
-        detail: "Open System to restore access in Privacy & Security."
-      )
-    case .observed(.restricted):
-      return CameraSetupGuidance(
-        title: "Camera access is restricted",
-        detail: "System policy is preventing camera access."
-      )
-    case .unknown, .observed(.authorized):
-      break
+    switch snapshot.liveSnapshot {
+    case .unavailable, .rejected: return true
+    case .unknown, .accepted: break
     }
-
+    switch snapshot.authorization {
+    case .observed(.notDetermined), .observed(.denied), .observed(.restricted): return true
+    case .unknown, .observed(.authorized): break
+    }
     switch cameraClient.controlReachability {
-    case .unreachable, .timedOut:
-      return CameraSetupGuidance(
-        title: "Camera agent is unavailable",
-        detail: "Open System to reconnect or repair the camera agent."
-      )
-    case .unknown, .reachable:
-      break
+    case .unreachable, .timedOut: return true
+    case .unknown, .reachable: break
     }
-
     if cameraClient.isPreviewLeaseRequested {
-      switch cameraClient.frameReadiness {
-      case .unavailable, .stalled:
-        return CameraSetupGuidance(
-          title: "Camera feed is unavailable",
-          detail: "Open System to check the camera and its connection."
-        )
-      case .unknown, .awaitingFirstFrame, .ready:
-        break
+      switch snapshot.frame {
+      case .unavailable, .stalled: return true
+      case .unknown, .awaitingFirstFrame, .ready: break
       }
     }
-
-    return nil
+    return false
   }
 
   private func endCameraPreviewSurface() {
