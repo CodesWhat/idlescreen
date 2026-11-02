@@ -25,9 +25,11 @@ struct IdleScreenApp: App {
       IdleScreenMenuBar()
         .environment(model)
     } label: {
-      Text("is")
-        .font(.system(size: 13, weight: .heavy, design: .monospaced))
-        .tracking(-0.5)
+      let glyph = appDelegate.menuBarGlyph
+      let assetName = glyph.assetName
+      Image(nsImage: glyph.image)
+        .accessibilityLabel(glyph.state.accessibilityDescription)
+        .id(assetName)
     }
     .menuBarExtraStyle(.menu)
   }
