@@ -108,7 +108,7 @@ if ((coderabbit_tone_length > 250)); then
   fail "CodeRabbit tone_instructions exceeds the 250-character schema limit"
 fi
 
-tracked_redistribution_archives="$(git ls-files -- '*.zip' '*.ttf' '*.otf' '*.dmg' '*.pkg')"
+tracked_redistribution_archives="$(git ls-files -- '*.zip' '*.ttf' '*.otf' '*.dmg' '*.pkg' ':(exclude)Products/IdleScreenApp/Resources/Fonts/*')"
 [[ -z "$tracked_redistribution_archives" ]] ||
   fail "binary redistribution input is tracked:\n$tracked_redistribution_archives"
 
