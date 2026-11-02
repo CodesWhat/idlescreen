@@ -1,10 +1,9 @@
 import AppKit
 import IdleScreenCore
-import IdleScreenDisplay
 import Observation
 
-/// Drives the menu bar glyph: resolves the state from the model, the companion
-/// camera client and the display coordinator, and alternates frames only while
+/// Drives the menu bar glyph: resolves the state from the model and the companion
+/// camera client, and alternates frames only while
 /// the state animates. There is no timer in idle, setup or attention, or under
 /// Reduce Motion.
 @MainActor
@@ -16,19 +15,16 @@ final class IdleScreenMenuBarGlyph {
 
   @ObservationIgnored private let model: IdleScreenAppModel
   @ObservationIgnored private let cameraClient: IdleScreenCompanionCameraClient
-  @ObservationIgnored private let displayCoordinator: DisplaySceneCoordinator
   @ObservationIgnored private var frameTimer: Timer?
   @ObservationIgnored private var started = false
   @ObservationIgnored private var observers: [NSObjectProtocol] = []
 
   init(
     model: IdleScreenAppModel,
-    cameraClient: IdleScreenCompanionCameraClient,
-    displayCoordinator: DisplaySceneCoordinator
+    cameraClient: IdleScreenCompanionCameraClient
   ) {
     self.model = model
     self.cameraClient = cameraClient
-    self.displayCoordinator = displayCoordinator
     reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
   }
 
@@ -78,7 +74,6 @@ final class IdleScreenMenuBarGlyph {
       cameraStreaming: cameraClient.isPreviewLeaseAttached && cameraClient.previewImage != nil,
       running: model.isStartingScreenSaver
         || model.extensionHealth?.lifecycle == .animating
-        || displayCoordinator.latestPlan != nil
     )
   }
 

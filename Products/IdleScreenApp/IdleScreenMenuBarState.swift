@@ -19,7 +19,7 @@ enum IdleScreenMenuBarState: CaseIterable, Equatable {
     var needsAttention = false
     /// The companion camera client has a live preview stream.
     var cameraStreaming = false
-    /// The screen saver is running or Studio is previewing.
+    /// The screen saver is running or starting.
     var running = false
   }
 

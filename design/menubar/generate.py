@@ -60,7 +60,7 @@ SCREENS = {
 }
 ORDER = ["idle", "running0", "running1", "camera0", "camera1", "attention", "setup"]
 MEANING = {
-    "idle": "ready, nothing running", "running0": "saver running / previewing (still)",
+    "idle": "ready, nothing running", "running0": "saver running (still)",
     "running1": "saver running frame 2", "camera0": "camera watching (still)",
     "camera1": "camera watching frame 2", "attention": "agent signal needs attention",
     "setup": "needs setup / unavailable",

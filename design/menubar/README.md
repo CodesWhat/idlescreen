@@ -12,7 +12,7 @@ in, so the app builds without Python.
 | Glyph | Imageset | Meaning |
 | --- | --- | --- |
 | idle | `MenuBarCRTIdle` | Ready. Three scanlines. |
-| running0, running1 | `MenuBarCRTRunning0`, `MenuBarCRTRunning1` | The screen saver is running or Studio is previewing. Rain streaks fall one row between frames. |
+| running0, running1 | `MenuBarCRTRunning0`, `MenuBarCRTRunning1` | The screen saver is running or starting. Rain streaks fall one row between frames. |
 | camera0, camera1 | `MenuBarCRTCamera0`, `MenuBarCRTCamera1` | The companion camera preview is streaming. An eye dot glances left to right. |
 | attention | `MenuBarCRTAttention` | An agent signal needs attention. A bang. |
 | setup | `MenuBarCRTSetup` | Needs setup or unavailable: extension not embedded, registered or selected, or the camera service failed. The tube is struck through. |

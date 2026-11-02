@@ -31,8 +31,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
   )
   lazy var menuBarGlyph = IdleScreenMenuBarGlyph(
     model: IdleScreenAppModel.shared,
-    cameraClient: cameraClient,
-    displayCoordinator: displayCoordinator
+    cameraClient: cameraClient
   )
 
   override init() {
