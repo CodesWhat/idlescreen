@@ -24,6 +24,10 @@ const test = base.extend({
         console.error(`CSP violation: ${event.violatedDirective} blocked ${event.blockedURI}`);
       });
     });
+    // The marketing page loads third-party images; CI blocks that egress, so stub them as site.spec.mjs does.
+    for (const host of ['api.star-history.com', 'codecov.io']) {
+      await page.route(`https://${host}/**`, route => route.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>' }));
+    }
     await use(undefined);
     expect(problems).toEqual([]);
   }, { auto: true }],
