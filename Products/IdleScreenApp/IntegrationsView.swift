@@ -20,11 +20,13 @@ struct IntegrationsView: View {
       if let status = model.agentIntegrationStatus {
         DesignNotice(kind: Self.statusKind(status), text: status)
       }
-      preview
-      providerSection(.codex)
-      providerSection(.claude)
-      presentationControls
-      stateStyles
+      DesignColumns {
+        preview
+        providerSection(.codex)
+        providerSection(.claude)
+        presentationControls
+        stateStyles
+      }
       details
     }
     .onAppear {

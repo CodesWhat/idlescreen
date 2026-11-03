@@ -115,8 +115,33 @@ struct SetupFlowRenderTests {
     #expect(Self.averageLuma(light) > Self.averageLuma(dark) + 0.25)
   }
 
-  private static func render(_ scene: Scene, dark: Bool) throws -> NSBitmapImageRep {
-    let size = NSSize(width: 980, height: 760)
+  /// The main window's content area at 1900x950 (minus the 81 pt rail) and at the 900x600 minimum.
+  private static let windowSizes: [(name: String, size: NSSize)] = [
+    ("1900x950", NSSize(width: 1_819, height: 950)),
+    ("min", NSSize(width: 819, height: 600)),
+  ]
+
+  @Test("each step renders at the default and minimum window sizes, one or two columns")
+  func stepsRenderAtWindowSizes() throws {
+    for scene in Self.scenes {
+      for (sizeName, size) in Self.windowSizes {
+        let bitmap = try Self.render(scene, dark: false, size: size)
+        #expect(Self.hasVisibleContent(bitmap), "\(scene.name) \(sizeName) rendered a blank image")
+        try Self.save(bitmap, name: "setup-\(scene.name)-\(sizeName)")
+      }
+    }
+  }
+
+  @Test("the left column is 38% of the window, held between 420 and 560 pt")
+  func leadingColumnWidthIsClamped() {
+    #expect(SetupFlowContent.leadingColumnWidth(in: 900) == 420)
+    #expect(SetupFlowContent.leadingColumnWidth(in: 1_300) == 494)
+    #expect(SetupFlowContent.leadingColumnWidth(in: 1_819) == 560)
+  }
+
+  private static func render(
+    _ scene: Scene, dark: Bool, size: NSSize = NSSize(width: 980, height: 760)
+  ) throws -> NSBitmapImageRep {
     let view = NSHostingView(
       rootView: AnyView(
         SetupFlowContent(
