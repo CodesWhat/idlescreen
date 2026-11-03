@@ -64,7 +64,9 @@ Upgrade with `brew upgrade --cask idlescreen` or remove it with
 `brew uninstall --cask idlescreen`.
 
 macOS lists the app, the screen saver and the camera agent as IdleScreen in
-System Settings. The installed path is still `/Applications/idlescreen.app`.
+System Settings. The installed path is `/Applications/IdleScreen.app`. Earlier
+Homebrew installs used `/Applications/idlescreen.app`; `brew upgrade` removes
+that copy and installs the new one.
 
 ## Not verified on a device
 

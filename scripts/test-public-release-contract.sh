@@ -165,7 +165,7 @@ for required_text in \
   'skip "Auto-generated on release."' \
   'name "IdleScreen"' \
   'depends_on macos: :tahoe' \
-  'app "IdleScreen.app", target: "idlescreen.app"' \
+  '  app "IdleScreen.app"' \
   'quit: "com.idlescreen.app"' \
   'group.com.idlescreen.shared'; do
   if ! grep -Fq "$required_text" "$cask"; then
@@ -173,6 +173,13 @@ for required_text in \
     exit 1
   fi
 done
+
+# The app installs as /Applications/IdleScreen.app. A target: would rename it
+# away from the product name again.
+if grep -Eq '^  app .*target:' "$cask"; then
+  echo "FAIL: generated cask renames the installed app with target:." >&2
+  exit 1
+fi
 
 cask_has_separated_url() {
   /usr/bin/awk '

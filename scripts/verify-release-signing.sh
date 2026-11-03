@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 /absolute/path/to/idlescreen.app [expected-team-id]" >&2
+  echo "Usage: $0 /absolute/path/to/IdleScreen.app [expected-team-id]" >&2
   exit 64
 }
 

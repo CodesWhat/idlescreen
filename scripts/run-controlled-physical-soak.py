@@ -50,7 +50,7 @@ def main() -> int:
                 args.matrix,
                 args.authorization_id,
                 args.duration_seconds,
-                candidate_path=Path("/Applications/idlescreen.app"),
+                candidate_path=Path("/Applications/IdleScreen.app"),
             )
             write_json_atomic(args.output_plan, plan)
             print("PLANNED: controlled soak plan written; no physical action was performed.")

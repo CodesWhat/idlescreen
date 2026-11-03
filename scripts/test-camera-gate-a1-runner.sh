@@ -9,10 +9,10 @@ parser="$project_root/scripts/verify_camera_gate_a1_log.py"
 process_guard="$project_root/scripts/camera-gate-owned-process.sh"
 fixture_root="$(mktemp -d /tmp/idlescreen-camera-gate-a1-fixtures.XXXXXX)"
 fixture_child_pid=""
-helper_path="/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent"
-helper_marker_path="/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/Info.plist"
-extension_path="/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver"
-extension_marker_path="/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/Info.plist"
+helper_path="/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent"
+helper_marker_path="/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/Info.plist"
+extension_path="/Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver"
+extension_marker_path="/Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/Info.plist"
 helper_hash="1111111111111111111111111111111111111111"
 extension_hash="2222222222222222222222222222222222222222"
 
@@ -480,7 +480,7 @@ nonmonotonic="$fixture_root/nonmonotonic.log"
 expect_rejected "$nonmonotonic" a1t 101
 
 wrong_path_manifest="$(write_evidence_manifest a1t "$good_a1" 101)"
-/usr/bin/sed -i '' 's#helper_path=/Applications/idlescreen.app/#helper_path=/Applications/other.app/#' \
+/usr/bin/sed -i '' 's#helper_path=/Applications/IdleScreen.app/#helper_path=/Applications/other.app/#' \
   "$wrong_path_manifest"
 expect_manifest_rejected a1t "$good_a1" "$wrong_path_manifest"
 
