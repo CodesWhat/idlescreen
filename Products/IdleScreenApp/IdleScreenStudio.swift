@@ -441,17 +441,19 @@ struct StudioView: View {
           canvasSize.height > 0
         {
           ZStack(alignment: .topLeading) {
-            IdleScreenMetalPreview(
-              configuration: previewRendererConfiguration,
-              mode: previewRendererMode,
-              cameraFrame: previewUsesCamera
-                ? cameraClient.rendererCameraFrame : nil,
-              cameraFrameRelay: cameraClient.rendererFrameRelay,
-              pointerLocationDidChange: { location in
-                guard isLoupeEnabled else { return }
-                loupePointerLocation = location
-              }
-            )
+            TimelineView(.periodic(from: .now, by: 1)) { timeline in
+              IdleScreenMetalPreview(
+                configuration: previewRendererConfiguration(at: timeline.date),
+                mode: previewRendererMode,
+                cameraFrame: previewUsesCamera
+                  ? cameraClient.rendererCameraFrame : nil,
+                cameraFrameRelay: cameraClient.rendererFrameRelay,
+                pointerLocationDidChange: { location in
+                  guard isLoupeEnabled else { return }
+                  loupePointerLocation = location
+                }
+              )
+            }
             .background(.black)
 
             if isLoupeEnabled,
@@ -461,7 +463,7 @@ struct StudioView: View {
                 .animation(minimumInterval: 1 / 15)
               ) { timeline in
                 IdleScreenLoupeView(
-                  configuration: previewRendererConfiguration,
+                  configuration: previewRendererConfiguration(at: timeline.date),
                   mode: previewRendererMode,
                   cameraFrame: previewUsesCamera
                     ? cameraClient.rendererCameraFrame : nil,
@@ -488,16 +490,6 @@ struct StudioView: View {
                 )
             }
 
-            if let presentation = model.agentPresentation() {
-              AgentSignalOverlayView(presentation: presentation)
-                .frame(
-                  maxWidth: .infinity,
-                  maxHeight: .infinity,
-                  alignment: presentation.position.swiftUIAlignment
-                )
-                .padding(24)
-                .allowsHitTesting(false)
-            }
           }
           .frame(width: canvasSize.width, height: canvasSize.height)
         }
@@ -556,9 +548,13 @@ struct StudioView: View {
     previewUsesCamera ? rendererMode : .generative
   }
 
-  private var previewRendererConfiguration: IdleScreenRendererConfiguration {
-    model.configurationApplyingActiveAgentSignal()
-      .rendererConfiguration(for: previewAssignment)
+  private func previewRendererConfiguration(at date: Date) -> IdleScreenRendererConfiguration {
+    model.configurationApplyingActiveAgentSignal(at: date)
+      .rendererConfiguration(
+        for: previewAssignment,
+        agentPresentations: model.agentPresentations(at: date),
+        reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+      )
   }
 
   private var cameraSourceSelected: Bool {
@@ -1182,7 +1178,7 @@ struct StudioView: View {
 
   private var paletteMenu: some View {
     Menu {
-      ForEach(["Ember", "Phosphor", "Ivory", "Blueprint", "Signal"], id: \.self) {
+      ForEach(["Cobalt", "Ember", "Phosphor", "Ivory", "Blueprint", "Signal"], id: \.self) {
         palette in
         Button(palette) { model.updatePalette(palette) }
       }
@@ -1304,6 +1300,19 @@ struct StudioView: View {
               step: 0.05
             )
           }
+
+          Picker(
+            "Framing",
+            selection: Binding(
+              get: { model.configuration.creative.framing },
+              set: { model.updateCreativeFraming($0) }
+            )
+          ) {
+            ForEach(IdleScreenSceneFraming.allCases) { framing in
+              Text(framing.displayName).tag(framing)
+            }
+          }
+          .pickerStyle(.segmented)
         }
 
         StudioSection(title: "Pattern") {
@@ -1992,6 +2001,11 @@ struct StudioView: View {
 
   private var selectedPalettePair: (a: Color, b: Color) {
     switch model.configuration.appearance.palette.lowercased() {
+    case "cobalt":
+      (
+        Color(red: 0.016, green: 0.02, blue: 0.035),
+        Color(red: 0.231, green: 0.424, blue: 0.941)
+      )
     case "phosphor":
       (
         Color(red: 0.01, green: 0.04, blue: 0.01),
@@ -2763,6 +2777,9 @@ private struct LoupePalette {
     case "camera color":
       background = LoupeRGB(red: 0.008, green: 0.008, blue: 0.008)
       foreground = LoupeRGB(red: 0.92, green: 0.92, blue: 0.92)
+    case "cobalt":
+      background = LoupeRGB(red: 0.016, green: 0.02, blue: 0.035)
+      foreground = LoupeRGB(red: 0.70, green: 0.74, blue: 0.82)
     case "phosphor":
       background = LoupeRGB(red: 0.01, green: 0.04, blue: 0.01)
       foreground = LoupeRGB(red: 0.28, green: 1, blue: 0.38)
@@ -2788,11 +2805,15 @@ extension IdleScreenConfiguration {
   }
 
   func rendererConfiguration(
-    for assignment: DisplaySceneAssignment?
+    for assignment: DisplaySceneAssignment?,
+    agentPresentations: [IdleScreenAgentOverlayPresentation] = [],
+    reduceMotion: Bool = false
   ) -> IdleScreenRendererConfiguration {
     IdleScreenRendererConfigurationBridge.configuration(
       for: self,
-      assignment: assignment
+      assignment: assignment,
+      agentPresentations: agentPresentations,
+      reduceMotion: reduceMotion
     )
   }
 }

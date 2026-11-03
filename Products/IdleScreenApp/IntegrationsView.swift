@@ -1,10 +1,12 @@
 import Foundation
 import IdleScreenCore
+import IdleScreenRenderer
 import SwiftUI
 
 struct IntegrationsView: View {
   @Environment(IdleScreenAppModel.self) private var model
   @State private var expandedSnippet: IdleScreenAgentProvider?
+  @State private var previewStartedAt = Date()
   private let detailsInitiallyExpanded: Bool
 
   init(detailsInitiallyExpanded: Bool = false) {
@@ -46,20 +48,19 @@ struct IntegrationsView: View {
   private var preview: some View {
     DesignSection(
       eyebrow: "Saver preview",
-      footer: "A sample of how agent status appears on the saver."
+      footer:
+        "Agents run along the bottom of the scene. A sample plays until a real signal arrives."
     ) {
-      ZStack {
-        DesignPalette.previewGround
-        AgentSignalOverlayView(presentation: previewPresentation)
-          .frame(
-            maxWidth: .infinity,
-            maxHeight: .infinity,
-            alignment: previewPresentation.position.swiftUIAlignment
-          )
-          .padding(18)
+      TimelineView(.periodic(from: .now, by: 1)) { timeline in
+        IdleScreenMetalPreview(
+          configuration: previewConfiguration(at: timeline.date),
+          mode: .generative,
+          cameraFrame: nil
+        )
       }
-      .environment(\.colorScheme, .dark)
-      .frame(height: 180)
+      .frame(height: 200)
+      .clipShape(RoundedRectangle(cornerRadius: 8))
+      .accessibilityLabel("Saver preview with agent status sprites")
     }
   }
 
@@ -151,14 +152,13 @@ struct IntegrationsView: View {
           ]
         )
       }
-      DesignRow(title: "Position", detail: "Where the status sits on a display.") {
-        DesignPopup(
-          title: "Position",
-          selection: positionBinding,
-          choices: IdleScreenAgentOverlayPosition.allCases.map {
-            DesignChoice(positionName($0), $0)
-          }
-        )
+      DesignRow(
+        title: "Position",
+        detail:
+          "Agents now run along the bottom of the scene, so the corner setting no longer applies."
+      ) {
+        Text("Bottom")
+          .foregroundStyle(DesignPalette.ink2)
       }
       DesignRow(
         title: "Show provider name",
@@ -324,21 +324,47 @@ struct IntegrationsView: View {
     }
   }
 
-  private var previewPresentation: IdleScreenAgentOverlayPresentation {
-    model.agentPresentation()
-      ?? IdleScreenAgentOverlayPresentation(
-        provider: .codex,
-        state: .needsAttention,
-        providerLabel: model.configuration.agentIntegration.showsProviderLabel
-          ? "Codex" : nil,
-        title: "Codex needs attention",
-        message: model.configuration.agentIntegration.showsMessage
-          ? "Approve the next step" : nil,
-        style: model.configuration.agentIntegration.stateVisuals.needsAttention,
-        position: model.configuration.agentIntegration.overlayPosition,
-        accessibilityLabel: "Codex needs attention, Approve the next step",
-        expiresAt: Date().addingTimeInterval(120)
+  /// The shared renderer draws the same sprites the saver does. Real signals
+  /// win; otherwise a Claude run and a Codex request stand in as a sample.
+  private func previewConfiguration(at date: Date) -> IdleScreenRendererConfiguration {
+    let live = model.agentPresentations(at: date)
+    var configuration = model.configuration.rendererConfiguration(
+      for: nil,
+      agentPresentations: live.isEmpty ? samplePresentations : live,
+      reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    )
+    configuration.glyphScale = 0
+    return configuration
+  }
+
+  private var samplePresentations: [IdleScreenAgentOverlayPresentation] {
+    let integration = model.configuration.agentIntegration
+    func sample(
+      _ provider: IdleScreenAgentProvider,
+      _ state: IdleScreenAgentSignalState,
+      _ style: IdleScreenAgentVisualStyle,
+      startedAt: Date
+    ) -> IdleScreenAgentOverlayPresentation {
+      IdleScreenAgentOverlayPresentation(
+        provider: provider,
+        state: state,
+        providerLabel: nil,
+        title: "",
+        message: nil,
+        style: style,
+        position: integration.overlayPosition,
+        accessibilityLabel: "",
+        expiresAt: startedAt.addingTimeInterval(3_600),
+        startedAt: startedAt
       )
+    }
+    return [
+      sample(
+        .claude, .working, integration.stateVisuals.working, startedAt: previewStartedAt),
+      sample(
+        .codex, .needsAttention, integration.stateVisuals.needsAttention,
+        startedAt: previewStartedAt.addingTimeInterval(-30)),
+    ].filter { $0.style != .hidden }
   }
 
   private func providerEnabledBinding(
@@ -365,13 +391,6 @@ struct IntegrationsView: View {
     Binding(
       get: { model.configuration.agentIntegration.displayDestination },
       set: { value in model.updateAgentIntegration { $0.displayDestination = value } }
-    )
-  }
-
-  private var positionBinding: Binding<IdleScreenAgentOverlayPosition> {
-    Binding(
-      get: { model.configuration.agentIntegration.overlayPosition },
-      set: { value in model.updateAgentIntegration { $0.overlayPosition = value } }
     )
   }
 
@@ -469,15 +488,6 @@ struct IntegrationsView: View {
       "Start or prompt: working\nPermission: needs attention\nStop: done\nSession end: clears"
     case .claude:
       "Start or prompt: working\nPermission or notification: needs attention\nStop: done\nFailure: error\nSession end: clears"
-    }
-  }
-
-  private func positionName(_ position: IdleScreenAgentOverlayPosition) -> String {
-    switch position {
-    case .topLeading: "Top left"
-    case .topTrailing: "Top right"
-    case .bottomLeading: "Bottom left"
-    case .bottomTrailing: "Bottom right"
     }
   }
 }
