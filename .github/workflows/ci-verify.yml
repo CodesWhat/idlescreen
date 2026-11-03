@@ -99,12 +99,12 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
 
-      - name: Set up Node.js for website checks
+      - name: Set up Node.js for website and docs checks
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
 
-      - name: Website browser checks (Chromium, Firefox, WebKit)
+      - name: Website and docs build and browser checks (Chromium, Firefox, WebKit)
         run: ./scripts/verify-website-browsers.sh
 
   coverage:

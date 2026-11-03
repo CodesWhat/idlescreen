@@ -12,6 +12,7 @@ Install the signed DMG from the latest release or with Homebrew: `brew install -
 ## Learn more
 
 - [Product page](https://idlescreen.codeswhat.com/): patterns, camera mode, multiple displays, agent signals
+- [Documentation](https://idlescreen.codeswhat.com/docs): getting started, using IdleScreen, troubleshooting, building, architecture, security, changelog
 - [README](https://github.com/CodesWhat/idlescreen#readme): quick start and what hasn't been verified on a device
 - [Architecture](https://github.com/CodesWhat/idlescreen/blob/main/docs/ARCHITECTURE.md): camera lifecycle, display scenes, local agent signals, security invariants
 - [Building](https://github.com/CodesWhat/idlescreen/blob/main/docs/BUILDING.md): build and verify from source

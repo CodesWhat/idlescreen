@@ -27,7 +27,7 @@ test('vercel.json serves security.txt as text/plain', () => {
 });
 
 test('CSP is strict: self-only scripts and styles, no inline, only the two image hosts added', () => {
-  const csp = headerFor('/(.*)', 'Content-Security-Policy');
+  const csp = headerFor('/((?!docs$|docs/).*)', 'Content-Security-Policy');
   const directives = Object.fromEntries(csp.split(';').map(part => {
     const [name, ...values] = part.trim().split(/\s+/);
     return [name, values];
@@ -49,4 +49,29 @@ test('the page has no inline scripts, styles or event handlers', async () => {
   assert.doesNotMatch(html, /<style\b/);
   assert.doesNotMatch(html, /\sstyle="/);
   assert.doesNotMatch(html, /\son[a-z]+="/);
+});
+
+test('the /docs CSP leaves script-src to each page\'s own hashed meta and still locks everything else', () => {
+  const csp = headerFor('/docs/:path*', 'Content-Security-Policy');
+  const directives = Object.fromEntries(csp.split(';').map(part => {
+    const [name, ...values] = part.trim().split(/\s+/);
+    return [name, values];
+  }));
+  // A script-src here would intersect with the page's meta policy and block its hashed inline scripts.
+  assert.equal(directives['script-src'], undefined);
+  assert.equal(directives['default-src'], undefined);
+  assert.deepEqual(directives['frame-ancestors'], ["'none'"]);
+  assert.deepEqual(directives['object-src'], ["'none'"]);
+  assert.deepEqual(directives['img-src'], ["'self'", 'data:']);
+  assert.deepEqual(directives['connect-src'], ["'self'"]);
+});
+
+test('the site-wide CSP rule does not also match /docs, where the two policies would collide', () => {
+  const source = config.headers.find(item => item.source.startsWith('/((?!docs')).source;
+  const pattern = new RegExp(`^${source}$`);
+  assert.ok(pattern.test('/'));
+  assert.ok(pattern.test('/assets/logo.png'));
+  assert.ok(pattern.test('/docsify'));
+  assert.ok(!pattern.test('/docs'));
+  assert.ok(!pattern.test('/docs/studio'));
 });

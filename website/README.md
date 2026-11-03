@@ -77,5 +77,21 @@ screenshots. `npm run render:social` rebuilds `dist/assets/social-card.png`.
 
 ## Docs
 
-There's no docs site yet. The header's Docs link goes to `docs/BUILDING.md` on
-GitHub. Neither Dilated nor Mouthtype has a docs-site stack to mirror.
+The docs are a separate app in `docs-site/` (Next.js static export, Fumadocs, 1600px layout:
+logo, Docs and GitHub in the header, search and the theme picker in the sidebar). They are served
+at `https://idlescreen.codeswhat.com/docs`, the same path the other CodesWhat product sites use,
+and the header's Docs link points there. Content is MDX in `docs-site/content/docs/`, grounded in
+the README, `docs/`, `SECURITY.md` and the app's own strings. The changelog page is generated
+from `CHANGELOG.md`.
+
+`website/dist/docs/` is generated and gitignored. Build it with:
+
+```sh
+cd docs-site && npm ci && npm run build && npm run assemble
+```
+
+`vercel.json`'s `buildCommand` does the same on deploy (the Vercel project needs "Include source
+files outside of the Root Directory" on, as the root directory is `website`). Next's inline
+bootstrap scripts need a per-page CSP, so the build injects a hashed `<meta>` policy into each
+docs page and the `/docs` header rule leaves out `default-src` and `script-src`. The site-wide
+strict rule excludes `/docs`. `scripts/docs-screenshots.mjs <dir>` writes light and dark screenshots.
