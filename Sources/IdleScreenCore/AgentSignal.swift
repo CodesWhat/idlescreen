@@ -234,6 +234,29 @@ public enum IdleScreenAgentSignalArbitrator {
       .max(by: isLowerPriority)
   }
 
+  /// The strongest live signal for each provider, strongest first, at most
+  /// one per provider. The scene draws one sprite per agent, so a Codex
+  /// signal never hides a Claude one.
+  public static func activeSignalsPerProvider(
+    in signals: [IdleScreenAgentSignal],
+    at date: Date
+  ) -> [IdleScreenAgentSignal] {
+    let live = signals.filter { signal in
+      signal.expiresAt > date
+        && signal.state != .idle
+        && !(signal.state == .done && signal.acknowledgedAt != nil)
+    }
+    var best: [IdleScreenAgentSignal] = []
+    for provider in [IdleScreenAgentProvider.claude, .codex] {
+      if let signal = live.filter({ $0.provider == provider })
+        .max(by: isLowerPriority)
+      {
+        best.append(signal)
+      }
+    }
+    return best.sorted { isLowerPriority($1, $0) }
+  }
+
   private static func isLowerPriority(
     _ lhs: IdleScreenAgentSignal,
     _ rhs: IdleScreenAgentSignal

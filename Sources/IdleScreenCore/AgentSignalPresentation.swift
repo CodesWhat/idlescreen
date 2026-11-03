@@ -20,6 +20,9 @@ public struct IdleScreenAgentOverlayPresentation: Equatable, Sendable {
   public let position: IdleScreenAgentOverlayPosition
   public let accessibilityLabel: String
   public let expiresAt: Date
+  /// When the signal that produced this presentation began. The scene's
+  /// sprites animate from here.
+  public let startedAt: Date?
 
   public init(
     provider: IdleScreenAgentProvider,
@@ -30,7 +33,8 @@ public struct IdleScreenAgentOverlayPresentation: Equatable, Sendable {
     style: IdleScreenAgentVisualStyle,
     position: IdleScreenAgentOverlayPosition,
     accessibilityLabel: String,
-    expiresAt: Date
+    expiresAt: Date,
+    startedAt: Date? = nil
   ) {
     self.provider = provider
     self.state = state
@@ -41,6 +45,7 @@ public struct IdleScreenAgentOverlayPresentation: Equatable, Sendable {
     self.position = position
     self.accessibilityLabel = accessibilityLabel
     self.expiresAt = expiresAt
+    self.startedAt = startedAt
   }
 }
 
@@ -81,7 +86,8 @@ public enum IdleScreenAgentPresentationPolicy {
       style: style,
       position: configuration.overlayPosition,
       accessibilityLabel: accessibilityLabel,
-      expiresAt: signal.expiresAt
+      expiresAt: signal.expiresAt,
+      startedAt: signal.createdAt
     )
   }
 
