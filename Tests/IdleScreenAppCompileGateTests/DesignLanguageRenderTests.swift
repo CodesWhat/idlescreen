@@ -179,6 +179,17 @@ struct DesignLanguageRenderTests {
     #expect(Self.differingFraction(materials, advanced) > 0.005, "opening Advanced changed nothing")
   }
 
+  @Test("the saver chooser shows most of the tiles in a tall Studio window")
+  func studioChooserShowsMoreTiles() throws {
+    let harness = try RenderHarness()
+    defer { harness.removeScratchDirectory() }
+    let bitmap = try harness.renderStudio(
+      scene: "compact", size: NSSize(width: 1_200, height: 1_900))
+    #expect(Self.hasVisibleContent(bitmap), "the tall chooser rendered a blank image")
+    #expect(Self.averageLuma(bitmap) < 0.5)
+    try Self.save(bitmap, name: "studio-chooser-tall")
+  }
+
   @Test("the Studio controls render the same dark canvas under a light system appearance")
   func studioControlsIgnoreSystemAppearance() throws {
     let harness = try RenderHarness()
