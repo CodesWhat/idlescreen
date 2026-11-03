@@ -1,0 +1,24 @@
+# IdleScreen
+
+> IdleScreen is a free, MIT-licensed, signed and notarized macOS screen saver with a native companion app. It turns procedural scenes or a live camera into a Metal-rendered field of animated characters. It needs macOS 26 Tahoe or newer and is a universal build for Apple silicon and Intel, from CodesWhat.
+
+Install the signed DMG from the latest release or with Homebrew: `brew install --cask codeswhat/tap/idlescreen`. Camera access is requested only when you choose a camera effect. A separately signed, sandboxed camera agent owns the camera. Frames stay in a local mailbox and aren't sent over the network or written to logs.
+
+## Get it
+
+- [Download the latest release](https://github.com/CodesWhat/idlescreen/releases/latest): signed, notarized DMG
+- [Releases](https://github.com/CodesWhat/idlescreen/releases): release notes and checksums
+
+## Learn more
+
+- [Product page](https://idlescreen.codeswhat.com/): patterns, camera mode, multiple displays, agent signals
+- [Documentation](https://idlescreen.codeswhat.com/docs): getting started, using IdleScreen, troubleshooting, building, architecture, security, changelog
+- [README](https://github.com/CodesWhat/idlescreen#readme): quick start and what hasn't been verified on a device
+- [Architecture](https://github.com/CodesWhat/idlescreen/blob/main/docs/ARCHITECTURE.md): camera lifecycle, display scenes, local agent signals, security invariants
+- [Building](https://github.com/CodesWhat/idlescreen/blob/main/docs/BUILDING.md): build and verify from source
+- [Roadmap](https://github.com/CodesWhat/idlescreen/blob/main/docs/ROADMAP.md)
+
+## Source
+
+- [GitHub repository](https://github.com/CodesWhat/idlescreen): source code and issues
+- [License](https://github.com/CodesWhat/idlescreen/blob/main/LICENSE): MIT

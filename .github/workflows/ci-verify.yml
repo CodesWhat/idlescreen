@@ -38,8 +38,12 @@ jobs:
             formulae.brew.sh:443
             ghcr.io:443
             github.com:443
+            nodejs.org:443
             objects.githubusercontent.com:443
             pkg-containers.githubusercontent.com:443
+            playwright.download.prss.microsoft.com:443
+            cdn.playwright.dev:443
+            registry.npmjs.org:443
             release-assets.githubusercontent.com:443
 
       - name: Checkout
@@ -116,6 +120,14 @@ jobs:
             -derivedDataPath /tmp/idlescreen-ci-product \
             CODE_SIGNING_ALLOWED=NO \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+
+      - name: Set up Node.js for website and docs checks
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      - name: Website and docs build and browser checks (Chromium, Firefox, WebKit)
+        run: ./scripts/verify-website-browsers.sh
 
   coverage:
     if: github.event_name == 'push'

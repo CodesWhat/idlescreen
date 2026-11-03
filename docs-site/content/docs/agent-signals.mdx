@@ -1,0 +1,57 @@
+---
+title: Agent signals
+description: Show what Codex and Claude are doing on your screen saver.
+---
+
+Agent signals are optional. When you turn them on, a short status overlay shows on the screen saver while Codex or Claude is working, needs your attention, finishes or hits an error. Signals expire, and no prompt, transcript, command, tool payload or response is ever read.
+
+Set them up on the **Agents** page in Studio.
+
+## Per provider
+
+For Codex and for Claude there is:
+
+- **Show status** turns the overlay on for that provider.
+- **Hooks** shows Installed or Not installed. **Install hooks** adds IdleScreen's hook entries, and **Uninstall hooks** removes them.
+- **Send test** sends a sample status so you can check the setup.
+- **Show hook config** displays the entries IdleScreen adds.
+
+Claude: installation merges the entries into `~/.claude/settings.json` and keeps your other settings.
+
+Codex: after installation, Codex asks you to review and trust non-managed command hooks with `/hooks`.
+
+Hook install needs a signed copy of IdleScreen. A development build says it isn't available. See [Troubleshooting](/troubleshooting#development-builds).
+
+## Presentation
+
+- **Message timeout** in seconds.
+- **Show on**: all displays, the primary display or the focus display.
+- **Position**: top left, top right, bottom left or bottom right.
+- **Show provider name** and **Show message text**.
+- **Quiet hours**, with a quiet-from and quiet-until time.
+
+The companion and the screen saver apply the same expiration, quiet-hours, priority and display rules. The Agents page also shows the active signal, ignored events and the last result, and **Clear signals** removes every active status.
+
+## States
+
+A signal is one of: working, needs attention, done, error or idle.
+
+## idlescreenctl
+
+`idlescreenctl` is the command-line tool bundled in the app at `/Applications/idlescreen.app/Contents/Helpers/idlescreenctl`. The hooks call it, and you can call it yourself. Options come in `--name value` pairs.
+
+```sh
+# Hook adapters read the provider's JSON payload on standard input
+idlescreenctl hook --provider codex
+
+# Set a status by hand (state: working, needsAttention, done or error)
+idlescreenctl status --provider claude --session demo --state working --message "Building"
+
+# Clear one session, or everything
+idlescreenctl clear --provider claude --session demo
+idlescreenctl clear-all
+```
+
+`status` also accepts `--title`, `--timeout` (clamped between 15 seconds and 24 hours), `--priority` (-100 to 100) and `--look` (a Saved Look identifier). `--provider` is `codex` or `claude`.
+
+The command writes a private App Group snapshot with a bounded time to live. There is no network listener.

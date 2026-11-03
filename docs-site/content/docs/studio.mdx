@@ -1,0 +1,60 @@
+---
+title: Studio and looks
+description: Pick a pattern, tune it, and keep your favorites as Saved Looks.
+---
+
+Studio is the companion window where you choose and preview what the screen saver draws. The sidebar has four pages: Studio, Displays, Agents and Status.
+
+## Patterns
+
+Each pattern is a Metal-rendered field of animated characters. The picker lists them under All Savers, with Camera first. See [Camera mode](/camera) for that one.
+
+| Pattern | Feel |
+| --- | --- |
+| Auto Cycle | Rotates every style |
+| Perlin Noise | Organic noise |
+| Plasma | Layered waves |
+| Sweep | Directional motion |
+| Rain | Falling trails |
+| Rainbow Cycle | Chromatic rhythm |
+| Fire Effect | Rising heat |
+| Ripple | Concentric waves |
+| Voronoi | Living cells |
+| Warp | Radial speed |
+| Static | Signal texture |
+| Pulse | Breathing light |
+| DVD Bounce | Classic bounce |
+| Metaballs | Liquid forms |
+| Starfield | Deep motion |
+| Spiral Galaxy | Galactic swirl |
+| Terrain | Rolling contours |
+| Rain on Glass | Wet refraction |
+| Aurora | Soft ribbons |
+| Pixel Materials | Sand and water worlds |
+
+Auto Cycle rotates through the other styles.
+
+## Controls
+
+The Studio inspector has native controls for the look of the current pattern: speed, scale, contrast and a quality level where it applies. Palettes are Ember, Phosphor, Ivory, Blueprint and Signal, plus Camera Color for camera looks.
+
+## Pixel Materials
+
+Pixel Materials runs sand and water simulations. Scene state is deterministic: the same seed gives the same world, and New draws a new seed.
+
+- **Material**: sand, water or mixed.
+- **Terrain**: watershed, terraces or caverns.
+- **Palette**: canyon, tidal or monochrome.
+- **Watershed**: basin count and the shape of the basins.
+- **Emitters**: count, position, width and rate.
+- **Flow**: cell scale, gravity, lateral flow, equalization, water pressure, spill rate, drain rate, evaporation rate, obstacle density and persistence.
+
+Pixel Materials uses the same display boundary as every other pattern, so terrain and world edges stay stable across view recreation and display changes. Edge behavior for several screens is set on the [Displays](/displays) page.
+
+## Saved Looks
+
+A Saved Look brings back an exact saver and its styling in one click. Under Your Looks:
+
+- **Save current** stores the current look. You can keep up to 32.
+- Click a look to apply it.
+- Right-click a look for **Apply**, **Update from Current**, **Rename…** and **Delete…**.

@@ -1,0 +1,4 @@
+Contact: mailto:security@codeswhat.com
+Expires: 2027-05-01T00:00:00Z
+Preferred-Languages: en
+Canonical: https://idlescreen.codeswhat.com/.well-known/security.txt

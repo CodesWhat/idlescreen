@@ -44,6 +44,7 @@ lifecycle.
 - [Why idlescreen](#why-idlescreen)
 - [Features](#features)
 - [Supported Integrations](#supported-integrations)
+- [Star History](#star-history)
 - [Roadmap](#roadmap)
 - [Built With](#built-with)
 - [Community and Support](#community-and-support)
@@ -136,6 +137,16 @@ the last valid consumer lease ends.
 | Codex | Optional local lifecycle status through bundled `idlescreenctl` |
 | Claude | Optional local lifecycle status through bundled `idlescreenctl` |
 | macOS ScreenSaverEngine | Embedded modern screen-saver extension |
+
+## Star History
+
+<a href="https://www.star-history.com/#CodesWhat/idlescreen&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=codeswhat/idlescreen&type=date&legend=top-left&theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=codeswhat/idlescreen&type=date&legend=top-left">
+    <img alt="Star history chart for CodesWhat/idlescreen" src="https://api.star-history.com/chart?repos=codeswhat/idlescreen&type=date&legend=top-left">
+  </picture>
+</a>
 
 ## Roadmap
 
