@@ -1183,6 +1183,8 @@ targets:
       - path: Products/IdleScreenApp/Resources/Fonts
         type: folder
         buildPhase: resources
+      - path: Products/IdleScreenApp/Assets.xcassets
+        buildPhase: resources
       - path: Tests/IdleScreenAppCompileGateTests
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
     settings:

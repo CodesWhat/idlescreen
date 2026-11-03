@@ -297,10 +297,14 @@ struct StudioView: View {
 
       VStack(spacing: 10) {
         HStack(spacing: 7) {
-          DesignStatusPill(
-            kind: model.registrationAssessment.isCurrentBuild ? .ok : .attention,
-            text: registrationPillLabel
-          )
+          Button {
+            navigation.destination = .status
+          } label: {
+            DesignStatusPill(kind: verdictSummary.pillKind, text: verdictSummary.pillLabel)
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(verdictSummary.pillLabel)
+          .accessibilityHint("Opens Status")
           if cameraSourceSelected {
             DesignStatusPill(kind: cameraPillStatus.kind, text: cameraPillStatus.label)
           }
@@ -807,11 +811,7 @@ struct StudioView: View {
             SaverChooserCard(
               title: "Camera",
               subtitle: "Your camera, live",
-              symbol: "camera.fill",
-              colors: [
-                Color(red: 0.12, green: 0.65, blue: 1),
-                Color(red: 1, green: 0.28, blue: 0.18),
-              ],
+              art: .camera,
               isSelected: cameraSourceSelected
             )
           }
@@ -828,8 +828,7 @@ struct StudioView: View {
               SaverChooserCard(
                 title: pattern.displayName,
                 subtitle: pattern.galleryEyebrow,
-                symbol: pattern.symbolName,
-                colors: pattern.galleryColors,
+                art: .pattern(pattern),
                 isSelected: !cameraSourceSelected
                   && model.configuration.creative.pattern == pattern
               )
@@ -1996,12 +1995,10 @@ struct StudioView: View {
     isSaveLookPresented = true
   }
 
-  private var registrationPillLabel: String {
-    switch model.registrationAssessment.location {
-    case .currentBuild: "Current Extension Registered"
-    case .differentCopy: "Stale Extension Registration"
-    case .notRegistered: "Extension Not Registered"
-    }
+  /// The same verdict the Status page shows, in its short form.
+  private var verdictSummary: StatusSummary {
+    StatusSummary(
+      StatusInputs.live(model: model, cameraClient: cameraClient, setupCompleted: setupCompleted))
   }
 
   private var selectedPalettePair: (a: Color, b: Color) {
@@ -2044,25 +2041,13 @@ struct StudioView: View {
 private struct SaverChooserCard: View {
   let title: String
   let subtitle: String
-  let symbol: String
-  let colors: [Color]
+  let art: SaverTileArt
   let isSelected: Bool
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
-      ZStack {
-        RoundedRectangle(cornerRadius: 8)
-          .fill(
-            LinearGradient(
-              colors: colors,
-              startPoint: .topLeading,
-              endPoint: .bottomTrailing
-            ))
-        Image(systemName: symbol)
-          .font(.system(size: 20, weight: .semibold))
-          .foregroundStyle(.white.opacity(0.92))
-      }
-      .frame(height: 54)
+      SaverTile(art: art, cornerRadius: 8)
+        .frame(height: 54)
 
       HStack(spacing: 4) {
         Text(title)
@@ -2102,24 +2087,12 @@ private struct SavedLookChooserCard: View {
 
   var body: some View {
     HStack(spacing: 8) {
-      RoundedRectangle(cornerRadius: 6)
-        .fill(
-          LinearGradient(
-            colors: savedLook.snapshot.creative.pattern.galleryColors,
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-          )
-        )
-        .frame(width: 34, height: 28)
-        .overlay {
-          Image(
-            systemName: savedLook.snapshot.source == .camera
-              ? "camera.fill"
-              : savedLook.snapshot.creative.pattern.symbolName
-          )
-          .font(.system(size: 10, weight: .bold))
-          .foregroundStyle(.white)
-        }
+      SaverTile(
+        art: savedLook.snapshot.source == .camera
+          ? .camera : .pattern(savedLook.snapshot.creative.pattern),
+        cornerRadius: 6
+      )
+      .frame(width: 34, height: 28)
 
       Text(savedLook.name)
         .font(DesignFont.sans(DesignFont.caption, .semibold))

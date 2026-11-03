@@ -250,6 +250,7 @@
 		770B2DF14042C6F2548573A4 /* ScreenSaver.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DEE34107949A4CA21F629B8 /* ScreenSaver.framework */; };
 		775711489BC46B148C82D985 /* IdleScreenCompanionCameraClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B4912DD2A54657439C579B /* IdleScreenCompanionCameraClient.swift */; };
 		7769630D61326AFFBC0BA632 /* CameraFrameAtomicLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 278298A64AD4EAE3A0C8DE40 /* CameraFrameAtomicLoaderTests.swift */; };
+		77B85F3D1A6261408CCC2B6A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D3C33C07A092B6AE369F1FF0 /* Assets.xcassets */; };
 		781218D82F6B0884C7D964F9 /* RendererConfigurationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE3DDFF9D16E7EA77639A3D8 /* RendererConfigurationBridge.swift */; };
 		782E3D49CF1D2403C89513BE /* IdleScreenCamera.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9068229D1CD3299655B7C94 /* IdleScreenCamera.framework */; };
 		78A9DBD63207D257E2C34156 /* CameraAgentRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C79653E756704B2B6169121 /* CameraAgentRegistration.swift */; };
@@ -345,6 +346,7 @@
 		AC9D0F450F5A8B9AC81824D2 /* IdleScreenRenderer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0FC91852518A33A8988F7FE5 /* IdleScreenRenderer.framework */; };
 		ACB27F71A5F54A6900B726A5 /* IdleScreenPerformance.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 39ACDF561B9DC1DBE755E3A3 /* IdleScreenPerformance.framework */; };
 		ACC76495FE62D873273D4BE7 /* RendererConfigurationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE3DDFF9D16E7EA77639A3D8 /* RendererConfigurationBridge.swift */; };
+		AD2B5C2416F1A05359BB4501 /* SaverThumbnailCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EC75C1F1ED53D9171D897AF /* SaverThumbnailCaptureTests.swift */; };
 		AD707DFC25F514E28AD4C87D /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = 06016EBBC34EA3D6635C7A1D /* Fonts */; };
 		AFAC03067D0DC044777FB5C9 /* SetupFlowRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07ED3F6B0BA30EA432BCBD1E /* SetupFlowRenderTests.swift */; };
 		AFD39D3E4250480CC3C8009B /* SetupFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9CEA35C6C71CDEA294028D6 /* SetupFlowView.swift */; };
@@ -1508,6 +1510,7 @@
 		6D786C3D728D99A294F921FD /* CameraCardGuidance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCardGuidance.swift; sourceTree = "<group>"; };
 		6DF5148B776EA476C5BB7324 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		6EA5541B093A9797CE067DD2 /* CameraFrameContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraFrameContractTests.swift; sourceTree = "<group>"; };
+		6EC75C1F1ED53D9171D897AF /* SaverThumbnailCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaverThumbnailCaptureTests.swift; sourceTree = "<group>"; };
 		6F0C12416BB930608EF931F5 /* IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IdleScreenSyntheticHostedGateExtensionC4Archive.entitlements; sourceTree = "<group>"; };
 		727DE97EF89086D80C42226A /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		735B888947F53A37C743118D /* ConfigurationContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationContractTests.swift; sourceTree = "<group>"; };
@@ -2426,6 +2429,7 @@
 				49601798937E6AD79DA64C04 /* PixelMaterialsReferenceTests.swift */,
 				BAAFE521AB78ED56D4F7F751 /* PixelMaterialsRendererTests.swift */,
 				CA8CF6ED371021EDB976389A /* ProceduralComputeRendererTests.swift */,
+				6EC75C1F1ED53D9171D897AF /* SaverThumbnailCaptureTests.swift */,
 			);
 			name = IdleScreenRendererTests;
 			path = Tests/IdleScreenRendererTests;
@@ -3434,6 +3438,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				77B85F3D1A6261408CCC2B6A /* Assets.xcassets in Resources */,
 				0AE87B14FBB1447BCAEB08A6 /* Fonts in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3812,6 +3817,7 @@
 				7FED9D6ED317B947E0E31D7C /* PixelMaterialsReferenceTests.swift in Sources */,
 				4DD6172F7D5F7540B2FF51C6 /* PixelMaterialsRendererTests.swift in Sources */,
 				527C29F7FA7259682B45214A /* ProceduralComputeRendererTests.swift in Sources */,
+				AD2B5C2416F1A05359BB4501 /* SaverThumbnailCaptureTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

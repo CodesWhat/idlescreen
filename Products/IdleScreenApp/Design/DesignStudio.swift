@@ -1,3 +1,4 @@
+import IdleScreenCore
 import SwiftUI
 
 // Studio's shared pieces. Studio is a dark canvas with controls floating over the art, so these are the Design components'
@@ -177,5 +178,76 @@ struct StudioSlider: View {
     .accessibilityLabel(title)
     .accessibilityValue(valueText ?? value.formatted(.number.precision(.fractionLength(2))))
     .accessibilityHint(hint ?? "")
+  }
+}
+
+/// What a saver chooser tile shows. Every pattern is a real render from IdleScreen's own renderer, checked in as the
+/// `SaverThumbnails` asset catalog (see `design/thumbnails/README.md`), so the chooser carries the product's own look and
+/// no colour of its own. The camera is a neutral tile with its symbol in cobalt, because there is nothing to render.
+enum SaverTileArt: Equatable {
+  case camera
+  case pattern(IdleScreenCreativePattern)
+
+  /// Auto Cycle rotates through the styles, so its tile is four of them.
+  static let mosaicPatterns: [IdleScreenCreativePattern] = [.metaballs, .pulse, .warp, .perlin]
+
+  static func assetName(_ pattern: IdleScreenCreativePattern) -> String {
+    "SaverThumbnails/\(pattern.rawValue)"
+  }
+}
+
+/// Resolves the bundle that holds the asset catalog: the app, or the test bundle that compiles this file for renders.
+private final class SaverTileBundleMarker {}
+
+struct SaverTile: View {
+  let art: SaverTileArt
+  let cornerRadius: CGFloat
+
+  var body: some View {
+    ZStack {
+      switch art {
+      case .camera:
+        DesignPalette.previewGround
+        Image(systemName: "camera.fill")
+          .font(.system(size: 18, weight: .semibold))
+          .foregroundStyle(DesignPalette.accentMark)
+      case .pattern(.autoCycle):
+        mosaic
+      case .pattern(let pattern):
+        thumbnail(pattern)
+      }
+    }
+    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        .strokeBorder(DesignPalette.hair2, lineWidth: 1)
+    )
+    .accessibilityHidden(true)
+  }
+
+  private var mosaic: some View {
+    let patterns = SaverTileArt.mosaicPatterns
+    return VStack(spacing: 1) {
+      HStack(spacing: 1) {
+        thumbnail(patterns[0])
+        thumbnail(patterns[1])
+      }
+      HStack(spacing: 1) {
+        thumbnail(patterns[2])
+        thumbnail(patterns[3])
+      }
+    }
+    .background(DesignPalette.previewGround)
+  }
+
+  private func thumbnail(_ pattern: IdleScreenCreativePattern) -> some View {
+    Color.clear
+      .overlay(
+        Image(SaverTileArt.assetName(pattern), bundle: Bundle(for: SaverTileBundleMarker.self))
+          .resizable()
+          .interpolation(.high)
+          .scaledToFill()
+      )
+      .clipped()
   }
 }
