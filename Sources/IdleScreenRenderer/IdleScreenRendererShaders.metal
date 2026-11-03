@@ -13,6 +13,14 @@ struct IdleScreenCharacterInstance {
     float4 foreground;
 };
 
+struct IdleScreenAgentSpriteOverride {
+    uint cell;
+    uint mode;
+    float brightness;
+    float glyph;
+    float4 color;
+};
+
 struct IdleScreenCameraUniforms {
     uint2 gridSize;
     uint2 cameraSize;
@@ -519,6 +527,31 @@ kernel void idleScreenProceduralInstances(
         float(glyphIndex)
     );
     instances[instanceIndex].foreground = uniforms.foreground;
+}
+
+// Sparse sprite pass, run after whichever kernel filled the instance buffer.
+// Mode 0 scales the scene brightness; mode 1 replaces brightness, glyph and
+// colour. Overrides are unique per cell, so threads never race.
+kernel void idleScreenAgentSpriteOverrides(
+    device IdleScreenCharacterInstance *instances [[buffer(0)]],
+    const device IdleScreenAgentSpriteOverride *overrides [[buffer(1)]],
+    constant uint2 &limits [[buffer(2)]],
+    uint index [[thread_position_in_grid]]
+) {
+    if (index >= limits.x) {
+        return;
+    }
+    const IdleScreenAgentSpriteOverride entry = overrides[index];
+    if (entry.cell >= limits.y) {
+        return;
+    }
+    if (entry.mode == 0) {
+        instances[entry.cell].gridBrightnessGlyph.z *= entry.brightness;
+    } else {
+        instances[entry.cell].gridBrightnessGlyph.z = entry.brightness;
+        instances[entry.cell].gridBrightnessGlyph.w = entry.glyph;
+        instances[entry.cell].foreground = entry.color;
+    }
 }
 
 kernel void idleScreenCameraInstances(

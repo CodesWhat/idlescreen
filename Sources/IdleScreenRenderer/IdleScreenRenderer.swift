@@ -19,6 +19,9 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
   public var sceneSeed: UInt64
   public var sceneBrightness: Double
   public var pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings
+  /// Agent sprites drawn into the scene, at most two. Empty leaves the
+  /// rendered output untouched.
+  public var agentSprites: [IdleScreenAgentSprite]
 
   public init(
     glyphScale: Double,
@@ -30,7 +33,8 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
     viewport: IdleScreenRendererViewport = .full,
     sceneSeed: UInt64 = 0,
     sceneBrightness: Double = 1,
-    pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings = .init()
+    pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings = .init(),
+    agentSprites: [IdleScreenAgentSprite] = []
   ) {
     self.glyphScale = glyphScale
     self.contrast = contrast
@@ -45,6 +49,9 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
       ? min(1, max(0, sceneBrightness))
       : 1
     self.pixelMaterialsSettings = pixelMaterialsSettings
+    self.agentSprites = Array(
+      agentSprites.prefix(IdleScreenAgentSprite.maximumCount)
+    )
   }
 
   public static let `default` = IdleScreenRendererConfiguration(
@@ -298,6 +305,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
   private let cameraComputePipelineState: MTLComputePipelineState?
   private let proceduralComputePipelineState: MTLComputePipelineState?
   private let pixelMaterialsComputePipelineState: MTLComputePipelineState?
+  private let agentSpriteComputePipelineState: MTLComputePipelineState?
   private let pixelMaterialsCoordinator: IdleScreenPixelMaterialsSceneCoordinator
   private let performanceObserver: (any IdleScreenRendererPerformanceObserving)?
   private let atlas: CharacterAtlas
@@ -307,6 +315,13 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
   private var configuration: IdleScreenRendererConfiguration
   private var mode: IdleScreenRendererMode
   private var cameraFrame: IdleScreenRendererCameraFrame?
+  /// Reference clock for agent sprite poses. Nil means the wall clock; tests
+  /// and offscreen captures pin it for deterministic frames.
+  var agentSpriteReferenceDate: Date?
+  private var agentSpriteBuffers = [MTLBuffer?](
+    repeating: nil,
+    count: maximumInFlightFrameCount
+  )
   private var instanceBuffers = [MTLBuffer?](
     repeating: nil,
     count: maximumInFlightFrameCount
@@ -476,6 +491,26 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       pixelMaterialsComputePipelineState = nil
       Self.logger.error(
         "Pixel Materials compute function idleScreenPixelMaterialInstances is missing"
+      )
+    }
+
+    if let spriteFunction = library.makeFunction(
+      name: "idleScreenAgentSpriteOverrides"
+    ) {
+      do {
+        agentSpriteComputePipelineState =
+          try device
+          .makeComputePipelineState(function: spriteFunction)
+      } catch {
+        agentSpriteComputePipelineState = nil
+        Self.logger.error(
+          "Agent sprite compute pipeline unavailable: \(error.localizedDescription, privacy: .public)"
+        )
+      }
+    } else {
+      agentSpriteComputePipelineState = nil
+      Self.logger.error(
+        "Agent sprite compute function idleScreenAgentSpriteOverrides is missing"
       )
     }
 
@@ -721,6 +756,32 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         dropReason = .encodingFailed
         return
       }
+      let spriteOverrides = agentSpriteOverrides(for: prepared)
+      var usesSpriteBuffer = false
+      if !spriteOverrides.isEmpty {
+        if prepared.populatesOnGPU {
+          if agentSpriteComputePipelineState != nil {
+            guard
+              encodeAgentSpriteOverrides(
+                spriteOverrides,
+                bufferIndex: bufferIndex,
+                instanceBuffer: instanceBuffer,
+                commandBuffer: commandBuffer
+              )
+            else {
+              dropReason = .encodingFailed
+              return
+            }
+            usesSpriteBuffer = true
+          }
+        } else {
+          applyAgentSpriteOverridesOnCPU(
+            spriteOverrides,
+            grid: grid,
+            instanceBuffer: instanceBuffer
+          )
+        }
+      }
       guard
         let encoder = commandBuffer.makeRenderCommandEncoder(
           descriptor: renderPassDescriptor
@@ -769,6 +830,11 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       {
         retainedBuffers.append(stateBuffer)
       }
+      if usesSpriteBuffer,
+        let spriteBuffer = agentSpriteBuffers[bufferIndex]
+      {
+        retainedBuffers.append(spriteBuffer)
+      }
       let bufferRetention = InFlightBufferRetention(retainedBuffers)
       let performanceObserver = self.performanceObserver
       commandBuffer.addCompletedHandler { completedBuffer in
@@ -800,6 +866,104 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
             (CACurrentMediaTime() - cpuStartedAt) * 1_000
           )
         )
+      )
+    }
+  }
+
+  /// Sparse sprite overrides for this frame. Camera mode parks the sprites
+  /// off-centre so they stay clear of the face.
+  private func agentSpriteOverrides(
+    for prepared: PreparedGrid
+  ) -> [AgentSpriteCellOverride] {
+    guard !configuration.agentSprites.isEmpty else { return [] }
+    return AgentSpriteLayout.overrides(
+      sprites: configuration.agentSprites,
+      now: agentSpriteReferenceDate ?? Date(),
+      columns: prepared.dimensions.columns,
+      rows: prepared.dimensions.rows,
+      parkFraction: prepared.cameraInput == nil
+        ? AgentSpriteLayout.centerParkFraction
+        : AgentSpriteLayout.cameraParkFraction,
+      seed: configuration.sceneSeed
+    )
+  }
+
+  private func encodeAgentSpriteOverrides(
+    _ overrides: [AgentSpriteCellOverride],
+    bufferIndex: Int,
+    instanceBuffer: any MTLBuffer,
+    commandBuffer: any MTLCommandBuffer
+  ) -> Bool {
+    guard let pipeline = agentSpriteComputePipelineState else { return false }
+    let length =
+      AgentSpriteLayout.hardCap
+      * MemoryLayout<AgentSpriteCellOverride>.stride
+    if agentSpriteBuffers[bufferIndex] == nil {
+      agentSpriteBuffers[bufferIndex] = device.makeBuffer(
+        length: length,
+        options: .storageModeShared
+      )
+    }
+    guard let spriteBuffer = agentSpriteBuffers[bufferIndex],
+      let encoder = commandBuffer.makeComputeCommandEncoder()
+    else {
+      return false
+    }
+    let count = min(overrides.count, AgentSpriteLayout.hardCap)
+    overrides.withUnsafeBytes { source in
+      spriteBuffer.contents().copyMemory(
+        from: source.baseAddress!,
+        byteCount: count * MemoryLayout<AgentSpriteCellOverride>.stride
+      )
+    }
+    var limits = SIMD2<UInt32>(
+      UInt32(count),
+      UInt32(
+        instanceBuffer.length
+          / MemoryLayout<GlyphInstance>.stride))
+    encoder.label = "IdleScreen agent sprite overrides"
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(instanceBuffer, offset: 0, index: 0)
+    encoder.setBuffer(spriteBuffer, offset: 0, index: 1)
+    encoder.setBytes(
+      &limits,
+      length: MemoryLayout<SIMD2<UInt32>>.stride,
+      index: 2
+    )
+    let width = max(1, min(count, pipeline.threadExecutionWidth))
+    encoder.dispatchThreadgroups(
+      MTLSize(width: (count + width - 1) / width, height: 1, depth: 1),
+      threadsPerThreadgroup: MTLSize(width: width, height: 1, depth: 1)
+    )
+    encoder.endEncoding()
+    return true
+  }
+
+  private func applyAgentSpriteOverridesOnCPU(
+    _ overrides: [AgentSpriteCellOverride],
+    grid: GridDimensions,
+    instanceBuffer: any MTLBuffer
+  ) {
+    let instances = instanceBuffer.contents().bindMemory(
+      to: GlyphInstance.self,
+      capacity: grid.count
+    )
+    for override in overrides where Int(override.cell) < grid.count {
+      let index = Int(override.cell)
+      let current = instances[index]
+      let result = override.applied(
+        brightness: current.gridBrightnessGlyph.z,
+        glyph: current.gridBrightnessGlyph.w,
+        color: current.foreground
+      )
+      instances[index] = GlyphInstance(
+        gridBrightnessGlyph: SIMD4<Float>(
+          current.gridBrightnessGlyph.x,
+          current.gridBrightnessGlyph.y,
+          result.brightness,
+          result.glyph
+        ),
+        foreground: result.color
       )
     }
   }
@@ -1401,6 +1565,12 @@ private struct PreparedGrid {
   let pixelMaterialsInput: PixelMaterialsComputeInput?
   let usesProceduralCompute: Bool
 
+  /// True when a GPU kernel fills the instance buffer, so sparse overrides
+  /// must follow it on the GPU rather than touch the buffer from the CPU.
+  var populatesOnGPU: Bool {
+    cameraInput != nil || pixelMaterialsInput != nil || usesProceduralCompute
+  }
+
   static let empty = PreparedGrid(
     dimensions: .empty,
     cameraInput: nil,
@@ -1432,7 +1602,8 @@ extension IdleScreenRendererConfiguration {
       viewport: viewport,
       sceneSeed: sceneSeed,
       sceneBrightness: sceneBrightness,
-      pixelMaterialsSettings: pixelMaterialsSettings
+      pixelMaterialsSettings: pixelMaterialsSettings,
+      agentSprites: agentSprites
     )
   }
 
