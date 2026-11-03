@@ -8,7 +8,9 @@ import IdleScreenRenderer
 enum IdleScreenRendererConfigurationBridge {
   static func configuration(
     for configuration: IdleScreenConfiguration,
-    assignment: DisplaySceneAssignment?
+    assignment: DisplaySceneAssignment?,
+    agentPresentations: [IdleScreenAgentOverlayPresentation] = [],
+    reduceMotion: Bool = false
   ) -> IdleScreenRendererConfiguration {
     let creative = configuration.creative
     let settings = creative.settings
@@ -83,7 +85,37 @@ enum IdleScreenRendererConfigurationBridge {
           draining: materials.phaseDurations.draining
         ),
         regenerationCadence: materials.regenerationCadence
+      ),
+      agentSprites: agentSprites(
+        from: agentPresentations,
+        reduceMotion: reduceMotion
       )
     )
+  }
+
+  /// Maps presentation-policy output to scene sprites. Every gate (expiry,
+  /// quiet hours, enablement, hidden style, display destination) has already
+  /// run in `IdleScreenAgentPresentationPolicy`; this only translates.
+  static func agentSprites(
+    from presentations: [IdleScreenAgentOverlayPresentation],
+    reduceMotion: Bool
+  ) -> [IdleScreenAgentSprite] {
+    presentations.compactMap { presentation in
+      guard let startedAt = presentation.startedAt else { return nil }
+      let state: IdleScreenAgentSpriteState
+      switch presentation.state {
+      case .working: state = .working
+      case .needsAttention: state = .needsAttention
+      case .done: state = .done
+      case .error: state = .error
+      case .idle: return nil
+      }
+      return IdleScreenAgentSprite(
+        kind: presentation.provider == .claude ? .claude : .codex,
+        state: state,
+        startedAt: startedAt,
+        reduceMotion: reduceMotion
+      )
+    }
   }
 }

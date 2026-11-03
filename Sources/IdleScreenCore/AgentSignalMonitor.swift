@@ -4,15 +4,20 @@ import OSLog
 public struct IdleScreenAgentSignalPresentationChange: Equatable, Sendable {
   public let inboxRevision: UInt64
   public let signal: IdleScreenAgentSignal?
+  /// The strongest live signal per provider, strongest first. Empty only
+  /// when `signal` is nil.
+  public let signals: [IdleScreenAgentSignal]
   public let ignoredEventCounts: [IdleScreenAgentProvider: UInt64]
 
   public init(
     inboxRevision: UInt64,
     signal: IdleScreenAgentSignal?,
+    signals: [IdleScreenAgentSignal]? = nil,
     ignoredEventCounts: [IdleScreenAgentProvider: UInt64]
   ) {
     self.inboxRevision = inboxRevision
     self.signal = signal
+    self.signals = signals ?? signal.map { [$0] } ?? []
     self.ignoredEventCounts = ignoredEventCounts
   }
 }
@@ -30,6 +35,7 @@ public struct IdleScreenAgentSignalMonitor: Sendable {
   private var nextPollAt: Date = .distantPast
   private var hasPolled = false
   private var lastSignal: IdleScreenAgentSignal?
+  private var lastSignals: [IdleScreenAgentSignal] = []
   private var lastRevision: UInt64 = 0
 
   public init(
@@ -82,15 +88,24 @@ public struct IdleScreenAgentSignalMonitor: Sendable {
       in: inbox.signals,
       at: date
     )
-    guard !hasPolled || signal != lastSignal || inbox.revision != lastRevision else {
+    let signals = IdleScreenAgentSignalArbitrator.activeSignalsPerProvider(
+      in: inbox.signals,
+      at: date
+    )
+    guard
+      !hasPolled || signal != lastSignal || signals != lastSignals
+        || inbox.revision != lastRevision
+    else {
       return nil
     }
     hasPolled = true
     lastSignal = signal
+    lastSignals = signals
     lastRevision = inbox.revision
     return IdleScreenAgentSignalPresentationChange(
       inboxRevision: inbox.revision,
       signal: signal,
+      signals: signals,
       ignoredEventCounts: inbox.ignoredEventCounts
     )
   }
