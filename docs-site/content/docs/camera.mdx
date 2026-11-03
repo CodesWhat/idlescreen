@@ -1,0 +1,32 @@
+---
+title: Camera mode
+description: How the camera effects work and what stays private.
+---
+
+Camera is one of the savers in Studio. It renders your live camera as animated characters, with a Camera Color palette and a Mirror camera toggle. You choose the camera in Studio, and IdleScreen recovers automatically after permission or device changes.
+
+## Turning it on
+
+Camera access is requested only when you explicitly choose a camera effect, or from the optional third step of [setup](/getting-started#first-run). Studio's camera card tells you where you stand:
+
+| State | What the card says | What to do |
+| --- | --- | --- |
+| Not asked yet | Allow camera access | Click Allow camera access. macOS shows its prompt. |
+| Denied | Camera access is off | Turn it on in Camera privacy settings. |
+| Restricted | Camera access is restricted | A policy on this Mac blocks the camera. Ask whoever manages it. |
+| Allowed but failing | The camera isn't working | Open Status to check it. |
+
+If setup isn't finished, the card asks you to finish setup first. The preview badge in Studio reads Camera Live, Camera Starting, Camera Unavailable or Camera Checking.
+
+If a camera frame is unavailable or stale, the renderer falls back to a procedural source.
+
+## Privacy
+
+- Camera frames stay inside the local App Group mailbox. They are not sent over the network, written to logs or retained as test evidence.
+- A separately signed camera agent is the only process allowed to open the camera.
+- Capture starts when the first valid consumer asks for it and stops after the last one ends.
+- Diagnostics never contain camera pixels.
+
+See [Architecture](/architecture#camera-lifecycle) for the lease and mailbox design, and [Security and privacy](/security).
+
+Granting and revoking permission, camera contention with another app and disconnecting the selected camera are on the [not verified on a device](/troubleshooting#not-verified-on-a-device) list.

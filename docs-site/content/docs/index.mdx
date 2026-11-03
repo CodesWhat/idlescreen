@@ -1,0 +1,33 @@
+---
+title: IdleScreen documentation
+description: A signed and notarized macOS Tahoe screen saver with a native companion Studio.
+---
+
+IdleScreen turns procedural scenes or a live camera into a Metal-rendered field of animated characters. It is a signed and notarized macOS Tahoe screen saver with a native companion called Studio. The companion controls the look, the embedded extension renders it, and a separately signed camera agent owns the whole camera lifecycle.
+
+## Start here
+
+- [Getting started](/getting-started) covers installing, the requirements and the first-run setup.
+- [Studio and looks](/studio) covers the patterns, Pixel Materials and Saved Looks.
+- [Displays](/displays), [Camera mode](/camera) and [Agent signals](/agent-signals) cover the rest of what you can set up.
+- [Troubleshooting](/troubleshooting) explains what the Status page is telling you.
+
+## For contributors
+
+- [Building from source](/building) lists the requirements, the safe checks and the release path.
+- [Architecture](/architecture) describes the product boundary, the camera lifecycle and display planning.
+- [Security and privacy](/security) covers the invariants, what never leaves your Mac and how to report a vulnerability.
+- [Changelog](/changelog) has the release notes.
+
+## What it does
+
+- 19 Metal-rendered modes, including 18 procedural patterns and live camera.
+- Pixel Materials sand and water simulations with deterministic scene state.
+- Panorama, Per Display and Focus Display layouts for several screens.
+- Saved Looks and native controls for color, scale, contrast, motion, terrain, materials, camera choice and mirroring.
+- Optional, expiring Codex and Claude status overlays that never read a prompt, transcript, command or response.
+- A universal Apple silicon and Intel build for macOS 26 Tahoe or newer.
+
+<Callout type="warn" title="Not verified on a device">
+Some paths have automated or fixture coverage only. The list is in [Troubleshooting](/troubleshooting#not-verified-on-a-device). If one breaks for you, please open an issue.
+</Callout>
