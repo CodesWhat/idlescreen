@@ -241,53 +241,6 @@ struct IdleScreenSaverViewTests {
     view.stopAnimation()
   }
 
-  @Test("backing-scale changes relayout the cached AgentSignal overlay without reapplying it")
-  func agentSignalOverlayTracksBackingScale() throws {
-    let root = FileManager.default.temporaryDirectory
-      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
-    defer { try? FileManager.default.removeItem(at: root) }
-    let now = Date(timeIntervalSince1970: 1_786_295_958)
-    let store = IdleScreenAgentSignalStore(
-      fileURL: root.appending(path: "AgentSignals/inbox-v1.json")
-    )
-    let signal = try IdleScreenAgentSignal.validated(
-      provider: .codex,
-      sessionID: "scale-session",
-      eventID: "scale-event",
-      state: .working,
-      title: "Codex is working",
-      message: nil,
-      temporaryLookID: nil,
-      priority: 10,
-      createdAt: now,
-      expiresAt: now.addingTimeInterval(120),
-      acknowledgedAt: nil,
-      nonce: "scale-nonce",
-      validatedAt: now
-    )
-    _ = try store.apply(.set(signal), at: now)
-    var configuration = IdleScreenConfiguration.default
-    configuration.agentIntegration.codexEnabled = true
-    var backingScale: CGFloat = 1
-    let view = try #require(
-      IdleScreenSaverView(
-        frame: NSRect(x: 0, y: 0, width: 640, height: 360),
-        isPreview: false,
-        cameraClient: nil,
-        configuration: configuration,
-        agentSignalStore: store,
-        agentClock: { now },
-        backingScaleProvider: { _ in backingScale }
-      ))
-
-    #expect(view.agentOverlayContentsScale == 1)
-    #expect(view.agentOverlayApplicationCount == 1)
-    backingScale = 2
-    view.viewDidChangeBackingProperties()
-    #expect(view.agentOverlayContentsScale == 2)
-    #expect(view.agentOverlayApplicationCount == 1)
-  }
-
   @Test("unchanged AgentSignal presentation is applied once while layout remains live")
   func unchangedAgentSignalPresentationIsNotReappliedPerFrame() throws {
     let root = FileManager.default.temporaryDirectory
@@ -332,16 +285,37 @@ struct IdleScreenSaverViewTests {
     }
     #expect(view.agentOverlayApplicationCount == 1)
 
-    let initialFrame = view.agentOverlayFrame
     view.setFrameSize(NSSize(width: 900, height: 500))
     view.layout()
-    #expect(view.agentOverlayFrame != initialFrame)
     #expect(view.agentOverlayApplicationCount == 1)
     view.stopAnimation()
   }
 
-  @Test("AgentSignal overlay respects the assigned display safe area")
-  func agentSignalOverlayRespectsSafeArea() throws {
+  private func agentSignal(
+    _ provider: IdleScreenAgentProvider,
+    _ state: IdleScreenAgentSignalState,
+    at now: Date,
+    expiresIn lifetime: TimeInterval = 120
+  ) throws -> IdleScreenAgentSignal {
+    try IdleScreenAgentSignal.validated(
+      provider: provider,
+      sessionID: "\(provider.rawValue)-session",
+      eventID: "\(provider.rawValue)-\(state.rawValue)",
+      state: state,
+      title: nil,
+      message: nil,
+      temporaryLookID: nil,
+      priority: 10,
+      createdAt: now,
+      expiresAt: now.addingTimeInterval(lifetime),
+      acknowledgedAt: nil,
+      nonce: "\(provider.rawValue)-nonce",
+      validatedAt: now
+    )
+  }
+
+  @Test("two live agents become two sprites for the shared renderer")
+  func agentSignalsBecomeSprites() throws {
     let root = FileManager.default.temporaryDirectory
       .appending(path: UUID().uuidString, directoryHint: .isDirectory)
     defer { try? FileManager.default.removeItem(at: root) }
@@ -349,98 +323,67 @@ struct IdleScreenSaverViewTests {
     let store = IdleScreenAgentSignalStore(
       fileURL: root.appending(path: "AgentSignals/inbox-v1.json")
     )
-    let signal = try IdleScreenAgentSignal.validated(
-      provider: .codex,
-      sessionID: "safe-area-session",
-      eventID: "safe-area-event",
-      state: .needsAttention,
-      title: "Approval needed",
-      message: nil,
-      temporaryLookID: nil,
-      priority: 50,
-      createdAt: now,
-      expiresAt: now.addingTimeInterval(120),
-      acknowledgedAt: nil,
-      nonce: "safe-area-nonce",
-      validatedAt: now
-    )
-    _ = try store.apply(.set(signal), at: now)
-    let topology = try DisplayTopology(displays: [
-      .init(
-        persistentIdentifier: .init(rawValue: "primary"),
-        logicalFrame: .init(x: 0, y: 0, width: 640, height: 360),
-        nativePixelSize: .init(width: 1_280, height: 720),
-        backingScale: 2,
-        rotationDegrees: 0,
-        refreshRateRange: nil,
-        safeAreaInsets: .init(top: 40, left: 30, bottom: 20, right: 10),
-        isPrimary: true,
-        mirrorTargetIdentifier: nil
-      )
-    ])
-    let topologyReader = LockedAgentOverlayTopologyReader(topology)
-    let coordinator = DisplaySceneCoordinator(
-      notificationCenter: NotificationCenter(),
-      notificationName: .init("agent-safe-area"),
-      readTopology: { topologyReader.read() }
-    )
+    _ = try store.apply(.set(try agentSignal(.codex, .needsAttention, at: now)), at: now)
+    _ = try store.apply(.set(try agentSignal(.claude, .working, at: now)), at: now)
     var configuration = IdleScreenConfiguration.default
     configuration.agentIntegration.codexEnabled = true
-    configuration.agentIntegration.overlayPosition = .topLeading
+    configuration.agentIntegration.claudeEnabled = true
     let view = try #require(
       IdleScreenSaverView(
         frame: NSRect(x: 0, y: 0, width: 640, height: 360),
         isPreview: false,
         cameraClient: nil,
         configuration: configuration,
-        displayCoordinator: coordinator,
-        displayHostFrame: .init(x: 0, y: 0, width: 640, height: 360),
         agentSignalStore: store,
         agentClock: { now }
       ))
 
-    view.startAnimation()
-    view.animateOneFrame()
-
-    #expect(view.agentOverlayFrame == CGRect(x: 58, y: 234, width: 380, height: 58))
-    #expect(view.agentOverlayApplicationCount == 1)
-
-    topologyReader.replace(
-      try DisplayTopology(displays: [
-        .init(
-          persistentIdentifier: .init(rawValue: "primary"),
-          logicalFrame: .init(x: 0, y: 0, width: 640, height: 360),
-          nativePixelSize: .init(width: 1_280, height: 720),
-          backingScale: 2,
-          rotationDegrees: 0,
-          refreshRateRange: nil,
-          safeAreaInsets: .init(top: 10, left: 50, bottom: 30, right: 10),
-          isPrimary: true,
-          mirrorTargetIdentifier: nil
-        )
-      ]))
-    coordinator.refreshTopology()
-    view.layout()
-
-    #expect(view.agentOverlayFrame == CGRect(x: 78, y: 264, width: 380, height: 58))
-    #expect(view.agentOverlayApplicationCount == 1)
-    view.stopAnimation()
-  }
-}
-
-private final class LockedAgentOverlayTopologyReader: @unchecked Sendable {
-  private let lock = NSLock()
-  private var topology: DisplayTopology
-
-  init(_ topology: DisplayTopology) {
-    self.topology = topology
+    let sprites = view.rendererConfiguration.agentSprites
+    #expect(sprites.count == 2)
+    #expect(Set(sprites.map(\.kind)) == [.codex, .claude])
+    #expect(sprites.first?.kind == .codex)
+    #expect(sprites.first?.state == .needsAttention)
+    #expect(sprites.allSatisfy { $0.startedAt == now })
+    #expect(view.agentOverlayPresentation?.provider == .codex)
+    #expect(view.isAccessibilityElement())
   }
 
-  func read() -> DisplayTopology {
-    lock.withLock { topology }
-  }
+  @Test("sprites obey the presentation policy gates")
+  func agentSpritesObeyPolicy() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let store = IdleScreenAgentSignalStore(
+      fileURL: root.appending(path: "AgentSignals/inbox-v1.json")
+    )
+    _ = try store.apply(.set(try agentSignal(.codex, .done, at: now)), at: now)
+    _ = try store.apply(.set(try agentSignal(.claude, .error, at: now)), at: now)
+    var configuration = IdleScreenConfiguration.default
+    configuration.agentIntegration.codexEnabled = true
+    configuration.agentIntegration.claudeEnabled = true
+    configuration.agentIntegration.stateVisuals.error = .hidden
+    let view = try #require(
+      IdleScreenSaverView(
+        frame: NSRect(x: 0, y: 0, width: 640, height: 360),
+        isPreview: false,
+        cameraClient: nil,
+        configuration: configuration,
+        agentSignalStore: store,
+        agentClock: { now }
+      ))
+    #expect(view.rendererConfiguration.agentSprites.map(\.kind) == [.codex])
 
-  func replace(_ topology: DisplayTopology) {
-    lock.withLock { self.topology = topology }
+    let quiet = IdleScreenConfiguration.default
+    let silentView = try #require(
+      IdleScreenSaverView(
+        frame: NSRect(x: 0, y: 0, width: 640, height: 360),
+        isPreview: false,
+        cameraClient: nil,
+        configuration: quiet,
+        agentSignalStore: store,
+        agentClock: { now }
+      ))
+    #expect(silentView.rendererConfiguration.agentSprites.isEmpty)
   }
 }

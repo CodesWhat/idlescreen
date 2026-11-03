@@ -491,16 +491,6 @@ struct StudioView: View {
                 )
             }
 
-            if let presentation = model.agentPresentation() {
-              AgentSignalOverlayView(presentation: presentation)
-                .frame(
-                  maxWidth: .infinity,
-                  maxHeight: .infinity,
-                  alignment: presentation.position.swiftUIAlignment
-                )
-                .padding(24)
-                .allowsHitTesting(false)
-            }
           }
           .frame(width: canvasSize.width, height: canvasSize.height)
         }
@@ -561,7 +551,11 @@ struct StudioView: View {
 
   private var previewRendererConfiguration: IdleScreenRendererConfiguration {
     model.configurationApplyingActiveAgentSignal()
-      .rendererConfiguration(for: previewAssignment)
+      .rendererConfiguration(
+        for: previewAssignment,
+        agentPresentations: model.agentPresentations(),
+        reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+      )
   }
 
   private var cameraSourceSelected: Bool {
@@ -2884,11 +2878,15 @@ extension IdleScreenConfiguration {
   }
 
   func rendererConfiguration(
-    for assignment: DisplaySceneAssignment?
+    for assignment: DisplaySceneAssignment?,
+    agentPresentations: [IdleScreenAgentOverlayPresentation] = [],
+    reduceMotion: Bool = false
   ) -> IdleScreenRendererConfiguration {
     IdleScreenRendererConfigurationBridge.configuration(
       for: self,
-      assignment: assignment
+      assignment: assignment,
+      agentPresentations: agentPresentations,
+      reduceMotion: reduceMotion
     )
   }
 }
