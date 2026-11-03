@@ -87,6 +87,55 @@ public struct IdleScreenProceduralCellSample: Equatable, Sendable {
   public static let zero = Self(brightness: 0, glyphIndex: 0)
 }
 
+/// Per-seed pattern parameters. A scene seed varies how a pattern looks
+/// (noise phase, source positions, hash streams, centres) rather than
+/// translating its cells, so a seeded display never wraps the field into
+/// seams. Seed 0 is the identity: every value is zero.
+public struct IdleScreenSceneVariation: Equatable, Sendable {
+  /// Phase and hash offset in `0..<64`, one value per axis.
+  public let offset: SIMD2<Float>
+  /// Shift of a pattern's focal centre, in `-0.12...0.12` of the scene.
+  public let center: SIMD2<Float>
+
+  public static let none = Self(offset: .zero, center: .zero)
+
+  public init(offset: SIMD2<Float>, center: SIMD2<Float>) {
+    self.offset = offset
+    self.center = center
+  }
+
+  public init(seed: UInt64) {
+    guard seed != 0 else {
+      self = .none
+      return
+    }
+    var state = seed
+    func next() -> Float {
+      state &+= 0x9E37_79B9_7F4A_7C15
+      var z = state
+      z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+      z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+      z ^= z >> 31
+      return Float(z >> 40) / 16_777_216
+    }
+    let offsetX = next() * 64
+    let offsetY = next() * 64
+    let centerX = (next() - 0.5) * 0.24
+    let centerY = (next() - 0.5) * 0.24
+    self.init(
+      offset: SIMD2(offsetX, offsetY),
+      center: SIMD2(centerX, centerY)
+    )
+  }
+}
+
+struct PatternContext {
+  let offset: SIMD2<Float>
+  let center: SIMD2<Float>
+  /// Scene width over scene height in screen units.
+  let aspect: Float
+}
+
 /// CPU cell kernels matching the legacy production Metal renderer.
 ///
 /// Every public brightness is finite and bounded to `0...1`, and every glyph
@@ -117,7 +166,7 @@ public enum IdleScreenProceduralPatterns {
 
   public static func resolvedPatternRawValue(
     _ patternRawValue: String,
-    at elapsedTime: TimeInterval,
+    at elapsedTime: TimeInterval = 0,
     autoCycleInterval: TimeInterval = 30
   ) -> String {
     guard patternRawValue == "autoCycle" else {
@@ -125,14 +174,85 @@ public enum IdleScreenProceduralPatterns {
         ? patternRawValue
         : "perlin"
     }
+    return autoCycleState(
+      at: elapsedTime,
+      autoCycleInterval: autoCycleInterval
+    ).current
+  }
 
+  /// Longest crossfade between two auto-cycle patterns.
+  public static let autoCycleCrossfadeDuration: TimeInterval = 3.5
+
+  /// Screen cell width divided by height. The renderer sizes cells with this
+  /// ratio and the patterns use it to keep radial shapes circular.
+  public static let cellAspect: Double = 0.636
+
+  /// Where Auto Cycle is at one instant: the pattern on screen, the one that
+  /// follows it, and how far the blend toward it has progressed (0 outside the
+  /// crossfade window at the end of each slot).
+  public struct AutoCycleState: Equatable, Sendable {
+    public let current: String
+    public let next: String
+    public let blend: Float
+  }
+
+  public static func autoCycleState(
+    at elapsedTime: TimeInterval,
+    autoCycleInterval: TimeInterval = 30
+  ) -> AutoCycleState {
     let interval = normalizedInterval(autoCycleInterval)
     let elapsed = elapsedTime.isFinite ? max(0, elapsedTime) : 0
+    let count = Double(patternRawValues.count)
     let cyclePosition = (elapsed / interval).truncatingRemainder(
-      dividingBy: Double(patternRawValues.count)
+      dividingBy: count
     )
     let slot = Int(cyclePosition.rounded(.down))
-    return patternRawValues[slot]
+    let next = patternRawValues[(slot + 1) % patternRawValues.count]
+    let duration = min(autoCycleCrossfadeDuration, interval / 2)
+    let positionInSlot = (cyclePosition - Double(slot)) * interval
+    let windowStart = interval - duration
+    var blend: Float = 0
+    if positionInSlot > windowStart {
+      let t = Float(min(1, (positionInSlot - windowStart) / duration))
+      blend = t * t * (3 - 2 * t)
+    }
+    return AutoCycleState(
+      current: patternRawValues[slot],
+      next: next,
+      blend: blend
+    )
+  }
+
+  /// Frame rate each pattern needs. Slow fields do not visibly gain from 30
+  /// presents a second, and the present count is the battery cost.
+  public static func framesPerSecond(
+    patternRawValue: String,
+    at elapsedTime: TimeInterval = 0,
+    autoCycleInterval: TimeInterval = 30
+  ) -> Int {
+    if patternRawValue == "autoCycle" {
+      let state = autoCycleState(
+        at: elapsedTime,
+        autoCycleInterval: autoCycleInterval
+      )
+      let current = tierFramesPerSecond(state.current)
+      return state.blend > 0
+        ? max(current, tierFramesPerSecond(state.next))
+        : current
+    }
+    return tierFramesPerSecond(patternRawValue)
+  }
+
+  private static func tierFramesPerSecond(_ pattern: String) -> Int {
+    switch pattern {
+    case "terrain":
+      return 12
+    case "perlin", "plasma", "aurora", "starfield", "voronoi", "metaballs",
+      "spiral", "warp", "rainbowCycle", "sweep", "pulse", "pixelMaterials":
+      return 20
+    default:
+      return 30
+    }
   }
 
   /// Returns the production brightness and glyph selection for one cell.
@@ -156,8 +276,7 @@ public enum IdleScreenProceduralPatterns {
       column: rawColumn,
       row: rawRow,
       columns: columns,
-      rows: rows,
-      sceneSeed: sceneSeed
+      rows: rows
     )
     let column = coordinate.column
     let row = coordinate.row
@@ -172,135 +291,177 @@ public enum IdleScreenProceduralPatterns {
       settings.intensity * settings.qualityLevel
     )
     let trailing = Float(settings.trailing)
-    let pattern = resolvedPatternRawValue(
-      patternRawValue,
-      at: elapsed,
-      autoCycleInterval: settings.autoCycleInterval
+    let variation = IdleScreenSceneVariation(seed: sceneSeed)
+    let ctx = PatternContext(
+      offset: variation.offset,
+      center: variation.center,
+      aspect: Float(Double(columns) * cellAspect / Double(rows))
     )
-
-    let value: Float
-    switch pattern {
-    case "plasma":
-      value = plasma(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
+    let pattern: String
+    let nextPattern: String
+    let blend: Float
+    if patternRawValue == "autoCycle" {
+      let state = autoCycleState(
+        at: elapsed,
+        autoCycleInterval: settings.autoCycleInterval
       )
-    case "sweep":
-      value = sweep(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "matrixRain":
-      value = matrixRain(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed,
-        trailControl: Float(settings.matrixTrailLength),
-        intensity: effectiveIntensity
-      )
-    case "rainbowCycle":
-      value = rainbowCycle(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        amplitudeControl: Float(settings.rainbowAmplitude),
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "fireEffect":
-      value = fireEffect(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        decayControl: Float(settings.fireDecay),
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "ripple":
-      value = ripple(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "voronoi":
-      value = voronoi(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "warp":
-      value = warp(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "staticNoise":
-      value = staticNoise(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "pulse":
-      value = pulse(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "dvdBounce":
-      value = dvdBounce(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        trailing: trailing
-      )
-    case "metaballs":
-      value = metaballs(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "starfield":
-      value = starfield(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "spiral":
-      value = spiral(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "terrain":
-      value = terrain(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "rainOnGlass":
-      value = rainOnGlass(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    case "aurora":
-      value = aurora(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
-    default:
-      value = perlin(
-        column: column, row: row, columns: columns, rows: rows,
-        timestamp: timestamp, speed: speed, scale: scale,
-        intensity: effectiveIntensity, trailing: trailing
-      )
+      pattern = state.current
+      nextPattern = state.next
+      blend = state.blend
+    } else {
+      pattern = resolvedPatternRawValue(patternRawValue, at: elapsed)
+      nextPattern = pattern
+      blend = 0
     }
 
+    func evaluate(_ pattern: String) -> Float {
+      switch pattern {
+      case "plasma":
+        return plasma(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "sweep":
+        return sweep(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "matrixRain":
+        return matrixRain(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed,
+          trailControl: Float(settings.matrixTrailLength),
+          intensity: effectiveIntensity
+        )
+      case "rainbowCycle":
+        return rainbowCycle(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          amplitudeControl: Float(settings.rainbowAmplitude),
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "fireEffect":
+        return fireEffect(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          decayControl: Float(settings.fireDecay),
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "ripple":
+        return ripple(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "voronoi":
+        return voronoi(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "warp":
+        return warp(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "staticNoise":
+        return staticNoise(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "pulse":
+        return pulse(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "dvdBounce":
+        return dvdBounce(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          trailing: trailing
+        )
+      case "metaballs":
+        return metaballs(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "starfield":
+        return starfield(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "spiral":
+        return spiral(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "terrain":
+        return terrain(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "rainOnGlass":
+        return rainOnGlass(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      case "aurora":
+        return aurora(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      default:
+        return perlin(
+          ctx: ctx,
+          column: column, row: row, columns: columns, rows: rows,
+          timestamp: timestamp, speed: speed, scale: scale,
+          intensity: effectiveIntensity, trailing: trailing
+        )
+      }
+
+    }
+
+    var blended = bounded(evaluate(pattern))
+    if blend > 0 {
+      blended += (bounded(evaluate(nextPattern)) - blended) * blend
+    }
+    let shuffledPattern = blend >= 0.5 ? nextPattern : pattern
     let brightnessScale =
       sceneBrightness.isFinite
       ? min(1, max(0, sceneBrightness))
       : 1
-    let brightness = bounded(value) * Float(brightnessScale)
+    let brightness = blended * Float(brightnessScale)
     let maximumGlyphIndex = min(glyphCount - 1, Int(UInt32.max))
     let glyphSignal: Float
-    if pattern == "matrixRain" {
+    if shuffledPattern == "matrixRain" {
       let shuffleRate: Float = brightness > 0.01 ? 6 : 0.5
       let rawTick = floorf(timestamp * shuffleRate)
       let tick = rawTick.isFinite ? rawTick : 0
@@ -345,14 +506,15 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func perlin(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
   ) -> Float {
     let u = Float(column) / Float(columns)
     let v = Float(row) / Float(rows)
-    let x = u * 10 * scale + timestamp * 0.3 * speed
-    let y = v * 10 * scale + timestamp * 0.3 * speed
+    let x = u * 10 * scale + timestamp * 0.3 * speed + ctx.offset.x
+    let y = v * 10 * scale + timestamp * 0.3 * speed + ctx.offset.y
     let octaves = 1 + Int(intensity * 3)
     let contrast = 0.5 + trailing * 1.5
     var noise: Float = 0
@@ -369,12 +531,13 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func plasma(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
   ) -> Float {
-    let x = Float(column) / Float(columns) * 10 * scale
-    let y = Float(row) / Float(rows) * 10 * scale
+    let x = Float(column) / Float(columns) * 10 * scale + ctx.offset.x
+    let y = Float(row) / Float(rows) * 10 * scale + ctx.offset.y
     let t = timestamp * speed
     let waveCount = 3 + Int(intensity * 5)
     let amplitude = 0.3 + trailing * 0.7
@@ -392,6 +555,7 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func sweep(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
@@ -402,11 +566,12 @@ public enum IdleScreenProceduralPatterns {
     let softness = 0.1 + trailing * 0.9
     let diagonal =
       (u + v) * Float(bandCount) * scale
-      + timestamp * 0.2 * speed
+      + timestamp * 0.2 * speed + ctx.offset.x
     return smoothstep(0, softness, positiveRemainder(diagonal, divisor: 1))
   }
 
   private static func matrixRain(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, trailControl: Float,
     intensity: Float
@@ -418,9 +583,9 @@ public enum IdleScreenProceduralPatterns {
     var brightness: Float = 0
     for drop in 0..<dropCount {
       let seed = Float(column) * 1.71 + Float(drop) * 13.37
-      let dropSpeed = (0.3 + hash2D(x: seed, y: 0) * 1.2) * speed
+      let dropSpeed = (0.3 + hash2D(x: seed, y: ctx.offset.x) * 1.2) * speed
       let offset =
-        hash2D(x: seed * 2.93, y: 1 + Float(drop))
+        hash2D(x: seed * 2.93, y: 1 + Float(drop) + ctx.offset.x)
         * totalHeight
       let head = positiveRemainder(
         timestamp * dropSpeed + offset,
@@ -439,6 +604,7 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func rainbowCycle(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     amplitudeControl: Float, intensity: Float, trailing: Float
@@ -451,7 +617,7 @@ public enum IdleScreenProceduralPatterns {
     var sum: Float = 0
     for layer in 0..<layers {
       let frequency = 1 + Float(layer) * 0.7
-      let phase = Float(layer) * 0.5
+      let phase = Float(layer) * 0.5 + ctx.offset.x
       let hue = positiveRemainder(
         (u + v) * scale * frequency + timestamp * 0.3 * speed + phase,
         divisor: 1
@@ -462,6 +628,7 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func fireEffect(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     decayControl: Float, intensity: Float, trailing: Float
@@ -472,15 +639,15 @@ public enum IdleScreenProceduralPatterns {
     let spreadWidth = 10 + trailing * 30
     let decay = 0.92 + decayControl * 0.075
     let baseHeat = smoothNoise2D(
-      x: u * spreadWidth * scale + timestamp * 2 * speed,
+      x: u * spreadWidth * scale + timestamp * 2 * speed + ctx.offset.x,
       y: 0
     )
     let turbulence1 = smoothNoise2D(
-      x: u * spreadWidth * 2 * scale + timestamp * 3 * speed,
+      x: u * spreadWidth * 2 * scale + timestamp * 3 * speed + ctx.offset.x,
       y: v * 5 + timestamp * speed
     )
     let turbulence2 = smoothNoise2D(
-      x: u * spreadWidth * 3 * scale + timestamp * 4 * speed + 7,
+      x: u * spreadWidth * 3 * scale + timestamp * 4 * speed + 7 + ctx.offset.x,
       y: v * 8 - timestamp * speed * 0.5
     )
     let combined = bounded(
@@ -503,6 +670,7 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func ripple(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
@@ -513,9 +681,9 @@ public enum IdleScreenProceduralPatterns {
     let waveWidth = 4 + trailing * 12
     var sum: Float = 0
     for source in 0..<sourceCount {
-      let centerX = hash2D(x: Float(source) * 7.13, y: 1)
-      let centerY = hash2D(x: Float(source) * 3.71, y: 2)
-      let dx = u - centerX
+      let centerX = hash2D(x: Float(source) * 7.13, y: 1 + ctx.offset.x)
+      let centerY = hash2D(x: Float(source) * 3.71, y: 2 + ctx.offset.y)
+      let dx = (u - centerX) * ctx.aspect
       let dy = v - centerY
       sum += sinf(
         sqrtf(dx * dx + dy * dy) * waveWidth * scale
@@ -525,6 +693,7 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func voronoi(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
@@ -536,15 +705,15 @@ public enum IdleScreenProceduralPatterns {
     var minimumDistanceSquared = Float.greatestFiniteMagnitude
     for seed in 0..<seedCount {
       let index = Float(seed)
-      let baseX = hash2D(x: index * 5.17, y: 3)
-      let baseY = hash2D(x: index * 9.31, y: 4)
+      let baseX = hash2D(x: index * 5.17, y: 3 + ctx.offset.x)
+      let baseY = hash2D(x: index * 9.31, y: 4 + ctx.offset.y)
       let deltaX = hash2D(x: index * 2.53, y: 5) - 0.5
       let deltaY = hash2D(x: index * 6.79, y: 6) - 0.5
       let seedX = baseX + deltaX * sinf(timestamp * speed * 0.3 + index)
       let seedY =
         baseY
         + deltaY * cosf(timestamp * speed * 0.4 + index * 1.3)
-      let dx = (u - seedX) * scale
+      let dx = (u - seedX) * ctx.aspect * scale
       let dy = (v - seedY) * scale
       minimumDistanceSquared = min(
         minimumDistanceSquared,
@@ -555,12 +724,13 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func warp(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
   ) -> Float {
-    let dx = Float(column) / Float(columns) - 0.5
-    let dy = Float(row) / Float(rows) - 0.5
+    let dx = (Float(column) / Float(columns) - (0.5 + ctx.center.x)) * ctx.aspect
+    let dy = Float(row) / Float(rows) - (0.5 + ctx.center.y)
     let radius = sqrtf(dx * dx + dy * dy) + 0.001
     let angle = atan2f(dy, dx)
     let angularFrequency = 1 + intensity * 7
@@ -573,6 +743,7 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func staticNoise(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, intensity: Float, trailing: Float
   ) -> Float {
@@ -582,21 +753,24 @@ public enum IdleScreenProceduralPatterns {
     let quantizedRow = floorf(Float(row) / bandSize) * bandSize
     let bandOffset = hash2D(
       x: quantizedRow + floorf(timestamp * glitchRate * speed),
-      y: 0
+      y: ctx.offset.y
     )
     return hash2D(
       x: Float(column) + bandOffset * Float(columns),
       y: quantizedRow + floorf(timestamp * glitchRate * 2 * speed)
+        + ctx.offset.x
     )
   }
 
   private static func pulse(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
   ) -> Float {
-    let dx = (Float(column) / Float(columns) - 0.5) * scale
-    let dy = (Float(row) / Float(rows) - 0.5) * scale
+    let dx =
+      (Float(column) / Float(columns) - (0.5 + ctx.center.x)) * ctx.aspect * scale
+    let dy = (Float(row) / Float(rows) - (0.5 + ctx.center.y)) * scale
     let distance = sqrtf(dx * dx + dy * dy)
     let ringCount = 2 + Int(intensity * 6)
     let ringWidth = 0.02 + trailing * 0.13
@@ -619,6 +793,7 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func dvdBounce(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float, trailing: Float
   ) -> Float {
@@ -626,8 +801,10 @@ public enum IdleScreenProceduralPatterns {
     let height = 0.10 / scale
     let rangeX = 1 - width
     let rangeY = 1 - height
-    var x = positiveRemainder(timestamp * speed * 0.31, divisor: rangeX * 2)
-    var y = positiveRemainder(timestamp * speed * 0.23, divisor: rangeY * 2)
+    var x = positiveRemainder(
+      (timestamp + ctx.offset.x) * speed * 0.31, divisor: rangeX * 2)
+    var y = positiveRemainder(
+      (timestamp + ctx.offset.y) * speed * 0.23, divisor: rangeY * 2)
     if x > rangeX { x = rangeX * 2 - x }
     if y > rangeY { y = rangeY * 2 - y }
     let u = Float(column) / Float(columns)
@@ -639,6 +816,7 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func metaballs(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
@@ -650,12 +828,12 @@ public enum IdleScreenProceduralPatterns {
     for blob in 0..<blobCount {
       let index = Float(blob)
       let x =
-        hash2D(x: index * 5.17, y: 3)
+        hash2D(x: index * 5.17, y: 3 + ctx.offset.x)
         + 0.3 * sinf(timestamp * speed * 0.4 + index * 2.1)
       let y =
-        hash2D(x: index * 9.31, y: 4)
+        hash2D(x: index * 9.31, y: 4 + ctx.offset.y)
         + 0.3 * cosf(timestamp * speed * 0.3 + index * 1.7)
-      let dx = (u - x) * scale
+      let dx = (u - x) * ctx.aspect * scale
       let dy = (v - y) * scale
       field += (0.005 + trailing * 0.02) / (dx * dx + dy * dy + 0.001)
     }
@@ -663,6 +841,7 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func starfield(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
@@ -679,11 +858,11 @@ public enum IdleScreenProceduralPatterns {
       let tileSize = 0.08 / (scale * depth)
       let offset = timestamp * layerSpeed * 0.1
       let sampleU = positiveRemainder(
-        u + offset * 0.3 + index * 0.13,
+        u + offset * 0.3 + index * 0.13 + ctx.offset.x,
         divisor: 1
       )
       let sampleV = positiveRemainder(
-        v + offset * 0.2 + index * 0.17,
+        v + offset * 0.2 + index * 0.17 + ctx.offset.y,
         divisor: 1
       )
       let cellX = floorf(sampleU / tileSize)
@@ -708,14 +887,15 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func spiral(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
   ) -> Float {
     let u = Float(column) / Float(columns)
     let v = Float(row) / Float(rows)
-    let dx = (u - 0.5) * scale
-    let dy = (v - 0.5) * scale
+    let dx = (u - (0.5 + ctx.center.x)) * ctx.aspect * scale
+    let dy = (v - (0.5 + ctx.center.y)) * scale
     let radius = sqrtf(dx * dx + dy * dy) + 0.001
     let angle = atan2f(dy, dx)
     let core = 0.3 / (radius * 8 + 0.1)
@@ -734,14 +914,15 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func terrain(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
   ) -> Float {
     let u = Float(column) / Float(columns)
     let v = Float(row) / Float(rows)
-    let x = u * 6 * scale + timestamp * speed * 0.05
-    let y = v * 6 * scale + timestamp * speed * 0.03
+    let x = u * 6 * scale + timestamp * speed * 0.05 + ctx.offset.x
+    let y = v * 6 * scale + timestamp * speed * 0.03 + ctx.offset.y
     let height =
       smoothNoise2D(x: x, y: y) * 0.6
       + smoothNoise2D(x: x * 2 + 5, y: y * 2 + 5) * 0.3
@@ -756,6 +937,7 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func rainOnGlass(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
@@ -767,9 +949,9 @@ public enum IdleScreenProceduralPatterns {
     var result: Float = 0
     for streak in 0..<streakCount {
       let index = Float(streak)
-      let x = hash2D(x: index * 7.13, y: 1)
-      let width = 0.01 + hash2D(x: index * 3.71, y: 2) * 0.03
-      let streakSpeed = 0.1 + hash2D(x: index * 11.37, y: 3) * 0.3
+      let x = hash2D(x: index * 7.13, y: 1 + ctx.offset.x)
+      let width = 0.01 + hash2D(x: index * 3.71, y: 2 + ctx.offset.x) * 0.03
+      let streakSpeed = 0.1 + hash2D(x: index * 11.37, y: 3 + ctx.offset.x) * 0.3
       let wobble =
         0.01
         * sinf(
@@ -778,7 +960,7 @@ public enum IdleScreenProceduralPatterns {
       let xDistance = abs(u - x - wobble)
       guard xDistance < width else { continue }
       let headY = positiveRemainder(
-        timestamp * speed * streakSpeed + hash2D(x: index * 5, y: 4),
+        timestamp * speed * streakSpeed + hash2D(x: index * 5, y: 4 + ctx.offset.x),
         divisor: 1.3
       )
       let yDistance = headY - v
@@ -798,6 +980,7 @@ public enum IdleScreenProceduralPatterns {
   }
 
   private static func aurora(
+    ctx: PatternContext,
     column: Int, row: Int, columns: Int, rows: Int,
     timestamp: Float, speed: Float, scale: Float,
     intensity: Float, trailing: Float
@@ -812,10 +995,10 @@ public enum IdleScreenProceduralPatterns {
       let waveSpeed = (0.5 + index * 0.3) * speed
       let wave =
         0.3 + index * 0.12
-        + 0.08 * sinf(u * 8 * scale + timestamp * waveSpeed + index * 2)
+        + 0.08 * sinf(u * 8 * scale + timestamp * waveSpeed + index * 2 + ctx.offset.x)
         + 0.04
         * sinf(
-          u * 15 * scale - timestamp * waveSpeed * 0.7 + index * 5
+          u * 15 * scale - timestamp * waveSpeed * 0.7 + index * 5 + ctx.offset.y
         )
         + 0.02
         * sinf(
@@ -825,7 +1008,7 @@ public enum IdleScreenProceduralPatterns {
       let shimmer =
         0.7 + 0.3
         * sinf(
-          u * 40 * scale + timestamp * speed * 3 + index * 11
+          u * 40 * scale + timestamp * speed * 3 + index * 11 + ctx.offset.x
         )
       result += curtainBrightness * shimmer * (0.6 + 0.4 / Float(curtain + 1))
     }

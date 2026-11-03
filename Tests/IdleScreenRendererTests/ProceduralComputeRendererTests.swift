@@ -26,7 +26,7 @@ struct ProceduralComputeRendererTests {
     #expect(renderer.draw(at: 1))
     let state = try #require(renderer.proceduralDebugState)
     #expect(state.usesComputePipeline)
-    #expect(state.instanceCount == 48_372)
+    #expect(state.instanceCount == 47_121)
   }
 
   @Test("GPU output matches the CPU reference for every pattern")
@@ -81,6 +81,54 @@ struct ProceduralComputeRendererTests {
       contrast: 0.93,
       sceneBrightness: 0.37
     )
+  }
+
+  @Test("GPU parity holds for every seeded pattern")
+  func seededParityForEveryPattern() throws {
+    let settings = IdleScreenProceduralPatternSettings(
+      speed: 1.1,
+      scale: 1.2,
+      intensity: 0.8,
+      trailing: 0.5,
+      matrixTrailLength: 0.4,
+      fireDecay: 0.6,
+      qualityLevel: 1
+    )
+    for pattern in IdleScreenProceduralPatterns.patternRawValues {
+      try assertParity(
+        pattern: pattern,
+        settings: settings,
+        columns: 13,
+        rows: 9,
+        elapsed: 5.5,
+        viewport: .init(x: 0.25, y: 0, width: 0.5, height: 1),
+        sceneSeed: 0xDEAD_BEEF_CAFE_F00D,
+        contrast: 0.58,
+        sceneBrightness: 1
+      )
+    }
+  }
+
+  @Test("GPU parity holds inside an Auto Cycle crossfade")
+  func crossfadeParity() throws {
+    // Interval 1 s gives a 0.5 s window; 7.8 s is 60% through it.
+    let settings = IdleScreenProceduralPatternSettings(
+      autoCycleInterval: 1,
+      qualityLevel: 0.7
+    )
+    for elapsed: Float in [7.8, 7.6, 3.9] {
+      try assertParity(
+        pattern: "autoCycle",
+        settings: settings,
+        columns: 12,
+        rows: 8,
+        elapsed: elapsed,
+        viewport: .full,
+        sceneSeed: 0,
+        contrast: 0.58,
+        sceneBrightness: 1
+      )
+    }
   }
 
   @Test("GPU and CPU hashes stay identical after long runtimes")
@@ -196,17 +244,25 @@ struct ProceduralComputeRendererTests {
       column: 0,
       row: 0,
       columns: columns,
-      rows: rows,
-      sceneSeed: sceneSeed
+      rows: rows
     )
-    let resolvedPattern = IdleScreenProceduralPatterns.resolvedPatternRawValue(
-      pattern,
+    let variation = IdleScreenSceneVariation(seed: sceneSeed)
+    let cycle = IdleScreenProceduralPatterns.autoCycleState(
       at: TimeInterval(elapsed),
       autoCycleInterval: settings.autoCycleInterval
     )
+    let isAutoCycle = pattern == "autoCycle"
+    let resolvedPattern =
+      isAutoCycle
+      ? cycle.current
+      : IdleScreenProceduralPatterns.resolvedPatternRawValue(pattern)
     let patternIndex = UInt32(
       IdleScreenProceduralPatterns.patternRawValues
         .firstIndex(of: resolvedPattern) ?? 0
+    )
+    let nextPatternIndex = UInt32(
+      IdleScreenProceduralPatterns.patternRawValues
+        .firstIndex(of: isAutoCycle ? cycle.next : resolvedPattern) ?? 0
     )
     let foreground = SIMD4<Float>(0.8, 0.6, 0.4, 1)
     let uniforms = ProceduralComputeUniforms(
@@ -225,7 +281,15 @@ struct ProceduralComputeRendererTests {
       matrixTrailLength: Float(settings.matrixTrailLength),
       rainbowAmplitude: Float(settings.rainbowAmplitude),
       fireDecay: Float(settings.fireDecay),
-      foreground: foreground
+      nextPatternIndex: nextPatternIndex,
+      blend: isAutoCycle ? cycle.blend : 0,
+      foreground: foreground,
+      seedOffset: variation.offset,
+      seedCenter: variation.center,
+      sceneAspect: Float(
+        Double(origin.columns) * IdleScreenProceduralPatterns.cellAspect
+          / Double(origin.rows)
+      )
     )
     let gpu = try gpuSamples(uniforms: uniforms)
     var maximumBrightnessDifference: Float = 0
@@ -292,7 +356,9 @@ struct ProceduralComputeRendererTests {
       maximumBrightnessDifference < 0.004,
       "brightness mismatch for \(pattern)"
     )
-    if resolvedPattern == "matrixRain" {
+    let shuffledPattern =
+      isAutoCycle && cycle.blend >= 0.5 ? cycle.next : resolvedPattern
+    if shuffledPattern == "matrixRain" {
       #expect(glyphMismatchCount == 0, "glyph mismatch for \(pattern)")
     } else {
       #expect(

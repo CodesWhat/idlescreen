@@ -299,6 +299,8 @@ targets:
     platform: macOS
     sources:
       - path: Sources/IdleScreenRenderer
+      - path: Products/IdleScreenApp/Resources/Fonts/DepartureMono-Regular.otf
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: IdleScreenRenderer

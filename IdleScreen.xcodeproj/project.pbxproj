@@ -206,6 +206,7 @@
 		5E8BFED4A73D08A7B2B64ABA /* CameraClientBootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55EA561E9283C7A70DE2FF0E /* CameraClientBootstrapTests.swift */; };
 		5EAD9877D8643B480E84304B /* SavedLook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 477CB66EB2F18645D4A4A974 /* SavedLook.swift */; };
 		5F1E958A2F06082971C7BC51 /* IdleScreenRenderer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0FC91852518A33A8988F7FE5 /* IdleScreenRenderer.framework */; };
+		5F54D59AC8EE3F0009443AE3 /* DepartureMono-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = 8C6C42BF67BEB756E5068FE8 /* DepartureMono-Regular.otf */; };
 		5FB2576965A314794C4C019E /* IdleScreenCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 36B2E35EB7EC8E7688BC3B4B /* IdleScreenCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		5FF667C851082389C9377DF3 /* DisplayTopologyPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E20B4D3808AF3DBCE5E282 /* DisplayTopologyPublisher.swift */; };
 		60A197D73BD719B29569A331 /* DesignPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22B400CE501804DCF9C8FAA /* DesignPalette.swift */; };
@@ -308,6 +309,7 @@
 		99F75B3B8FB99EECE35B8B6B /* CameraLease.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB5A9B4AB7678413228B928 /* CameraLease.swift */; };
 		9A9CCFF6821902A75736973E /* IdleScreenCameraAtomics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F4B1FC51E8292C3270CA8A6F /* IdleScreenCameraAtomics.framework */; };
 		9ADE022185EB62678B0EE621 /* IdleScreenSaverHostActivity.m in Sources */ = {isa = PBXBuildFile; fileRef = EE43FB8B5992DAA83A0C1294 /* IdleScreenSaverHostActivity.m */; };
+		9B9A80F7FD91E457D2FE717A /* IdleScreenGlyphFace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09E69246E52338E004260266 /* IdleScreenGlyphFace.swift */; };
 		9C07A49CEF530772ADB5598A /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B439A4726BCD0FC4969E4A3 /* Security.framework */; };
 		9C7A47C441006FDEF561FA6B /* PerformanceRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDF7C7F85D88E984189D158F /* PerformanceRecorderTests.swift */; };
 		9CA44AC58914C0AD6B20FCF0 /* IdleScreenCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36B2E35EB7EC8E7688BC3B4B /* IdleScreenCore.framework */; };
@@ -431,6 +433,7 @@
 		DD361F40C72183AC227DDD1D /* StudioCameraPreviewReconciliation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 058BBBFE753B432DEBB102FC /* StudioCameraPreviewReconciliation.swift */; };
 		DDD6E795427D187661FB1087 /* IdleScreenRenderer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0FC91852518A33A8988F7FE5 /* IdleScreenRenderer.framework */; };
 		DDFB8338091A55D13A2CCFE3 /* SyntheticCameraComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF20A93CF62C36B9FA6930E6 /* SyntheticCameraComposition.swift */; };
+		DF31A266A84BA08DAE9B5F4B /* GlyphToneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 802DC4553E0162FDC96FF4AF /* GlyphToneTests.swift */; };
 		DFCDC7CA068BBCE2A71931CF /* IdleScreenCameraSyntheticAgentCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3648470CCB8E584699ABE1C7 /* IdleScreenCameraSyntheticAgentCore.framework */; };
 		E0263363A4BF780B8148492F /* IdleScreenCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 36B2E35EB7EC8E7688BC3B4B /* IdleScreenCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E07F8CBE978A2F6C787BB8C8 /* AgentSignalMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03815AEEB38865008ECE7AB /* AgentSignalMonitorTests.swift */; };
@@ -1398,6 +1401,7 @@
 		0706106B33B3506D5BD92CC3 /* ScreenSaverActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenSaverActivationTests.swift; sourceTree = "<group>"; };
 		0732BE4C66EDBC6DF3DB91E7 /* IdleScreenSaverCameraClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenSaverCameraClientTests.swift; sourceTree = "<group>"; };
 		07ED3F6B0BA30EA432BCBD1E /* SetupFlowRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlowRenderTests.swift; sourceTree = "<group>"; };
+		09E69246E52338E004260266 /* IdleScreenGlyphFace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenGlyphFace.swift; sourceTree = "<group>"; };
 		0BE82B91164D90AAB7F8306C /* DisplayTopology.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayTopology.swift; sourceTree = "<group>"; };
 		0C79653E756704B2B6169121 /* CameraAgentRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentRegistration.swift; sourceTree = "<group>"; };
 		0DC713DC4152BF0045729888 /* CameraAgentControlClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentControlClientTests.swift; sourceTree = "<group>"; };
@@ -1518,6 +1522,7 @@
 		7D5030F4B167508C24A25314 /* SetupProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupProgress.swift; sourceTree = "<group>"; };
 		7E4EBEB1902D3A164A3036DF /* DesignLanguageRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignLanguageRenderTests.swift; sourceTree = "<group>"; };
 		7EE85391BE8A694AB764F34B /* CoreVideo.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreVideo.framework; path = System/Library/Frameworks/CoreVideo.framework; sourceTree = SDKROOT; };
+		802DC4553E0162FDC96FF4AF /* GlyphToneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphToneTests.swift; sourceTree = "<group>"; };
 		8726E194B125DD3AF34BD7E6 /* IdleScreenDeveloperID.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IdleScreenDeveloperID.entitlements; sourceTree = "<group>"; };
 		8799E86AB97E3F9B26E4C6D5 /* CameraClientBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraClientBootstrap.swift; sourceTree = "<group>"; };
 		88ED5845CBBA9520E6C75B3E /* ScreenSaverActivation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenSaverActivation.swift; sourceTree = "<group>"; };
@@ -1528,6 +1533,7 @@
 		8B253FA47747E739F8D9E0DD /* HookConfigurationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookConfigurationManager.swift; sourceTree = "<group>"; };
 		8BAEB5CDFF8CB4420B17218F /* DisplayScenePlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayScenePlannerTests.swift; sourceTree = "<group>"; };
 		8C3AF53BFF89848725F37787 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		8C6C42BF67BEB756E5068FE8 /* DepartureMono-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DepartureMono-Regular.otf"; sourceTree = "<group>"; };
 		8DB28EE081C9190586D115F0 /* CommandExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandExecutor.swift; sourceTree = "<group>"; };
 		8E588AD15D528AF7C1FDA477 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8E973FB985BABD59FED4222E /* IdleScreenCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenCore.swift; sourceTree = "<group>"; };
@@ -2040,6 +2046,7 @@
 				5A219DDB172F17530AF87554 /* THIRD_PARTY_NOTICES.md */,
 				6E4590B1C0338052DF93A214 /* Core */,
 				D2A4AB690431ECFB4F868FDF /* Executable */,
+				FC5D8569B51E0D8E2A996BB6 /* Fonts */,
 				91EB4D2DAFE31FB621A2DB77 /* icon */,
 				F6F39BA687E9732510A3D28D /* IdleScreenAgent */,
 				3B4C38CDEE828FCAF1F876CE /* IdleScreenAgentExecutable */,
@@ -2352,6 +2359,7 @@
 		A378ED512E4104A24A02A106 /* IdleScreenRenderer */ = {
 			isa = PBXGroup;
 			children = (
+				09E69246E52338E004260266 /* IdleScreenGlyphFace.swift */,
 				CA530F987B30C9947A4E6792 /* IdleScreenProceduralPatterns.swift */,
 				D7E828AD142BA58A34D1A54C /* IdleScreenRenderer.swift */,
 				10663171F471C4743B25D465 /* IdleScreenRendererShaders.metal */,
@@ -2417,6 +2425,7 @@
 		AF83CC36F5F0A6CC5A5CF594 /* IdleScreenRendererTests */ = {
 			isa = PBXGroup;
 			children = (
+				802DC4553E0162FDC96FF4AF /* GlyphToneTests.swift */,
 				23A5197C15CE905764FA3719 /* IdleScreenProceduralViewportTests.swift */,
 				E80E75140F72A44D42713755 /* PerformanceTelemetryTests.swift */,
 				49601798937E6AD79DA64C04 /* PixelMaterialsReferenceTests.swift */,
@@ -2573,6 +2582,15 @@
 			);
 			name = IdleScreenAgent;
 			path = Sources/IdleScreenAgent;
+			sourceTree = "<group>";
+		};
+		FC5D8569B51E0D8E2A996BB6 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				8C6C42BF67BEB756E5068FE8 /* DepartureMono-Regular.otf */,
+			);
+			name = Fonts;
+			path = Products/IdleScreenApp/Resources/Fonts;
 			sourceTree = "<group>";
 		};
 		FD6E14B9BD3DC77C35DD46C1 /* IdleScreenCameraAgentExecutable */ = {
@@ -3172,6 +3190,7 @@
 			buildConfigurationList = 8D1E7F4E473DB1C5FC806D79 /* Build configuration list for PBXNativeTarget "IdleScreenRenderer" */;
 			buildPhases = (
 				BF7FA82B0A5CD8E3CA7F4B99 /* Sources */,
+				1A2303404D86D39838050C4C /* Resources */,
 			);
 			buildRules = (
 			);
@@ -3422,6 +3441,14 @@
 				C206ADF12AEE43CFE1384277 /* Assets.xcassets in Resources */,
 				027DF9A57D8AF1DD24EB9F74 /* Fonts in Resources */,
 				2CB81653C643BE3B8105547F /* THIRD_PARTY_NOTICES.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A2303404D86D39838050C4C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F54D59AC8EE3F0009443AE3 /* DepartureMono-Regular.otf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3801,6 +3828,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DF31A266A84BA08DAE9B5F4B /* GlyphToneTests.swift in Sources */,
 				7005427BE3ED52CE88C52528 /* IdleScreenProceduralViewportTests.swift in Sources */,
 				D77B113A9A298389C9BC9BF0 /* PerformanceTelemetryTests.swift in Sources */,
 				7FED9D6ED317B947E0E31D7C /* PixelMaterialsReferenceTests.swift in Sources */,
@@ -3874,6 +3902,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9B9A80F7FD91E457D2FE717A /* IdleScreenGlyphFace.swift in Sources */,
 				B5E4B0C9BC0900AB72276620 /* IdleScreenProceduralPatterns.swift in Sources */,
 				21B6466BE769D241D973F624 /* IdleScreenRenderer.swift in Sources */,
 				961DAFE67C928EB7D4015E9E /* IdleScreenRendererShaders.metal in Sources */,

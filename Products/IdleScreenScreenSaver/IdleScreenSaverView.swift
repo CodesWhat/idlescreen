@@ -492,6 +492,17 @@ final class IdleScreenSaverView: ScreenSaverView {
       elapsed: now - animationStartedAt,
       cameraSample: lastCameraSample
     )
+    applyFramePacing(elapsed: now - animationStartedAt)
+  }
+
+  /// Each pattern declares how many presents a second it needs; slow fields
+  /// run at 12 to 20 fps, which is the battery win on laptops.
+  private func applyFramePacing(elapsed: TimeInterval) {
+    guard let renderer else { return }
+    let interval = 1 / Double(renderer.preferredFramesPerSecond(at: elapsed))
+    if abs(animationTimeInterval - interval) > 0.0005 {
+      animationTimeInterval = interval
+    }
   }
 
   override func viewDidMoveToWindow() {
