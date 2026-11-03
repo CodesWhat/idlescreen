@@ -65,6 +65,7 @@ struct SaverThumbnailCaptureTests {
       name: String, intensity: Double, speed: Double, time: Double,
       scale: Double, trailing: Double, exposure: Int
     )] = [
+      ("topograph", 1, 1, 11, 0.5, 1, 20),
       ("perlin", 0.6, 1, 38.5, 0.5, 0.5, 1),
       ("plasma", 0.25, 1, 1, 1, 1, 1),
       ("sweep", 0.25, 1, 36, 1, 0.5, 1),
