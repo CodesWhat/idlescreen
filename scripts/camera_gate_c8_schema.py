@@ -550,6 +550,7 @@ class VerifiedRow:
     row_manifest_sha256: str
     artifact_paths: tuple[str, ...]
     artifact_hashes: tuple[str, ...]
+    app_path: str = CURRENT_APP_PATH
 
 
 @dataclass(frozen=True)
@@ -810,7 +811,7 @@ def verify_identity(
     definition: RowDefinition,
     run_id: str,
     label: str,
-) -> datetime:
+) -> tuple[datetime, str]:
     value = require_object(read_json(path, label), IDENTITY_KEYS, label)
     # Evidence captured before the install-path rename names the legacy path.
     app_path = LEGACY_APP_PATH if value["app_path"] == LEGACY_APP_PATH else APP_PATH
@@ -843,7 +844,7 @@ def verify_identity(
     for pid in extension_pids:
         if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
             fail(f"{label} extension PID is malformed")
-    return parse_timestamp(value["captured_at_utc"], f"{label} timestamp")
+    return parse_timestamp(value["captured_at_utc"], f"{label} timestamp"), app_path
 
 
 def verify_final_consumer(
@@ -1146,12 +1147,14 @@ def verify_completed_row(
     if len(set(artifact_paths)) != len(artifact_paths):
         fail(f"C8 row {definition.row_id} reuses an evidence artifact")
 
-    before_time = verify_identity(
+    before_time, before_app_path = verify_identity(
         resolved["identity_before"], matrix, definition, run_id, "C8 identity before"
     )
-    after_time = verify_identity(
+    after_time, after_app_path = verify_identity(
         resolved["identity_after"], matrix, definition, run_id, "C8 identity after"
     )
+    if before_app_path != after_app_path:
+        fail(f"C8 row {definition.row_id} identity captures name different app paths")
     if not started <= before_time <= after_time <= completed:
         fail(f"C8 row {definition.row_id} identity captures are outside the row")
 
@@ -1308,6 +1311,7 @@ def verify_completed_row(
         sha256(path),
         tuple(artifact_paths),
         tuple(artifact_hashes),
+        before_app_path,
     )
 
 
@@ -1316,6 +1320,8 @@ def verify_matrix(matrix_path: Path) -> VerifiedMatrix:
     rows = tuple(verify_completed_row(matrix, definition) for definition in ROWS)
     run_ids = [row.row_run_id for row in rows]
     authorization_ids = [row.authorization_id for row in rows]
+    if len({row.app_path for row in rows}) > 1:
+        fail("C8 rows name both the current and legacy installed app paths")
     if len(set(run_ids)) != len(run_ids):
         fail("C8 rows reuse a row-run identity")
     if len(set(authorization_ids)) != len(authorization_ids):

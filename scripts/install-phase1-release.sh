@@ -65,7 +65,7 @@ if /bin/ps ax -o comm= |
   exit 65
 fi
 if /bin/ps ax -o comm= |
-   grep -Fxq '/Applications/IdleScreen.app/Contents/MacOS/IdleScreen'; then
+   grep -Fxiq '/Applications/IdleScreen.app/Contents/MacOS/IdleScreen'; then
   echo "REFUSED: the canonical companion is active; quit it before replacing its bundle." >&2
   exit 65
 fi

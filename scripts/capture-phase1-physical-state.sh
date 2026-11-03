@@ -368,7 +368,7 @@ record_command helper-launchd-observation.txt write_helper_launchd_observation
 record_command camera-helper-processes.tsv write_camera_helper_processes
 
 /bin/ps -ww -axo pid=,ppid=,etime=,comm= |
-  awk '/WallpaperAgent|ScreenSaverEngine|IdleScreenScreenSaver|IdleScreenCameraAgent|\/Applications\/idlescreen\.app\/|legacyScreenSaver|IdlescreenHelper/ { print }' \
+  awk '/WallpaperAgent|ScreenSaverEngine|IdleScreenScreenSaver|IdleScreenCameraAgent|\/Applications\/[Ii]dle[Ss]creen\.app\/|legacyScreenSaver|IdlescreenHelper/ { print }' \
     >"$snapshot_root/relevant-processes.txt"
 printf 'relevant-processes.txt\t0\n' >>"$status_path"
 
