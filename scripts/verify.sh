@@ -49,6 +49,7 @@ release_fixtures() {
     ./scripts/test-release-archive-provenance-fixtures.sh &&
     ./scripts/test-r1-release-candidate-fixtures.sh &&
     ./scripts/test-public-release-contract.sh &&
+    ./scripts/test-release-sbom-symlinks.sh &&
     ./scripts/test-camera-agent-product-fixtures.sh &&
     ./scripts/test-synthetic-gate-product-fixtures.sh &&
     ./scripts/test-idlescreenctl-runtime.sh &&
