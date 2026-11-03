@@ -117,6 +117,161 @@ struct IdleScreenCompanionCameraClientTests {
     #expect(harness.runtime.attachCalls.isEmpty)
   }
 
+  @Test("Allow clicked before the helper is up is remembered and fires once when verified")
+  func pendingAllowIntentFiresOnceWhenReady() async throws {
+    let harness = Harness(
+      registration: .notRegistered,
+      registrationAfterRegister: .enabled
+    )
+    let client = harness.makeVisibleClient()
+
+    client.performSetupCameraAction()
+    #expect(client.isAllowRequestPending)
+    #expect(harness.registerCallCount == 1)
+    #expect(
+      harness.scheduler.pendingDelays.contains(
+        IdleScreenCompanionCameraClient.pendingAllowIntentLifetime
+      ))
+
+    let session = try #require(harness.control.sessions.first)
+    session.replyToNextStatus(authorizationReply(.notDetermined))
+    await settleCallbacks()
+    // Identity and live snapshot are not verified yet: still no prompt.
+    #expect(session.authorizationRequestCount == 0)
+    #expect(client.isAllowRequestPending)
+
+    session.replyToNextDiagnostic(
+      makeDiagnosticSnapshot(
+        authorizationStatus: .notDetermined,
+        captureActive: false,
+        activeLeaseCount: 0,
+        producerStreamEpoch: 0,
+        summary: "idle",
+        processIdentifier: session.remoteProcessIdentifier,
+        processIncarnationEpoch: 70_001
+      ))
+    await settleCallbacks()
+
+    #expect(session.authorizationRequestCount == 1)
+    #expect(!client.isAllowRequestPending)
+    #expect(
+      !harness.scheduler.pendingDelays.contains(
+        IdleScreenCompanionCameraClient.pendingAllowIntentLifetime
+      ))
+
+    // A later notDetermined observation never prompts again.
+    session.replyToNextAuthorization(authorizationReply(.notDetermined))
+    await settleCallbacks()
+    #expect(
+      harness.scheduler.fireNext(
+        delay: CameraAuthorizationPollingPolicy.pollInterval
+      ))
+    #expect(session.statusRequestCount == 2)
+    session.replyToNextStatus(authorizationReply(.notDetermined))
+    await settleCallbacks()
+    #expect(session.authorizationRequestCount == 1)
+    #expect(client.isAllowRequestPending == false)
+
+    #expect(
+      harness.scheduler.fireNext(
+        delay: CameraAuthorizationPollingPolicy.pollInterval
+      ))
+    session.replyToNextStatus(authorizationReply(.authorized))
+    await settleCallbacks()
+    #expect(client.readinessSnapshot.authorization == .observed(.authorized))
+    #expect(!client.isAllowRequestPending)
+    #expect(session.authorizationRequestCount == 1)
+  }
+
+  @Test("a remembered Allow click expires and never prompts afterwards")
+  func pendingAllowIntentExpires() async throws {
+    let harness = Harness(
+      registration: .notRegistered,
+      registrationAfterRegister: .enabled
+    )
+    let client = harness.makeVisibleClient()
+
+    client.performSetupCameraAction()
+    #expect(client.isAllowRequestPending)
+    #expect(
+      harness.scheduler.fireNext(
+        delay: IdleScreenCompanionCameraClient.pendingAllowIntentLifetime
+      ))
+    #expect(!client.isAllowRequestPending)
+
+    let session = try #require(harness.control.sessions.first)
+    session.replyToNextHandshake(.notDetermined)
+    await settleCallbacks()
+
+    #expect(client.readinessSnapshot.authorization == .observed(.notDetermined))
+    #expect(session.authorizationRequestCount == 0)
+  }
+
+  @Test("a remembered Allow click is dropped when permission is already decided")
+  func pendingAllowIntentClearsOnDenial() async throws {
+    let harness = Harness(
+      registration: .notRegistered,
+      registrationAfterRegister: .enabled
+    )
+    let client = harness.makeVisibleClient()
+
+    client.performSetupCameraAction()
+    #expect(client.isAllowRequestPending)
+
+    let session = try #require(harness.control.sessions.first)
+    session.replyToNextHandshake(.denied)
+    await settleCallbacks()
+
+    #expect(!client.isAllowRequestPending)
+    #expect(session.authorizationRequestCount == 0)
+  }
+
+  @Test("without a click the helper coming up never prompts")
+  func noClickNeverPrompts() async throws {
+    let harness = Harness(
+      registration: .notRegistered,
+      registrationAfterRegister: .enabled
+    )
+    let client = harness.makeVisibleClient()
+
+    client.performRecommendedRepair()
+    #expect(!client.isAllowRequestPending)
+
+    let session = try #require(harness.control.sessions.first)
+    session.replyToNextHandshake(.notDetermined)
+    await settleCallbacks()
+
+    #expect(session.authorizationRequestCount == 0)
+  }
+
+  @Test("closing the window drops a remembered Allow click")
+  func pendingAllowIntentClearsOnWindowClose() {
+    let harness = Harness(
+      registration: .notRegistered,
+      registrationAfterRegister: .enabled
+    )
+    let client = harness.makeVisibleClient()
+
+    client.performSetupCameraAction()
+    #expect(client.isAllowRequestPending)
+    client.mainWindowWillClose()
+    #expect(!client.isAllowRequestPending)
+  }
+
+  @Test("Allow with a ready helper prompts immediately and records nothing")
+  func allowWithReadyHelperPromptsImmediately() async throws {
+    let harness = Harness(registration: .enabled)
+    let client = harness.makeVisibleClient()
+    let session = try #require(harness.control.sessions.first)
+    session.replyToNextHandshake(.notDetermined)
+    await settleCallbacks()
+
+    client.performSetupCameraAction()
+
+    #expect(session.authorizationRequestCount == 1)
+    #expect(!client.isAllowRequestPending)
+  }
+
   @Test("authorized status remains capture-free until preview is explicitly requested")
   func previewDemandRequiresExplicitAction() async throws {
     let harness = Harness(registration: .enabled)
