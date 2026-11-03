@@ -52,7 +52,13 @@ const server = createServer(async (request, response) => {
     }
     send(200, await readFile(file), types[extname(file)] ?? 'application/octet-stream', headers);
   } catch {
-    send(404, 'Not found');
+    // A missing docs page answers with the export's own 404 page, as the docs app intends.
+    const docsNotFound = await readFile(join(distRoot, 'docs', '404.html')).catch(() => null);
+    if (docsNotFound && new URL(request.url, 'http://127.0.0.1').pathname.startsWith('/docs/')) {
+      send(404, docsNotFound, types['.html'], docsHeaders);
+    } else {
+      send(404, 'Not found');
+    }
   }
 });
 

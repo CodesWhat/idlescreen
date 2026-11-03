@@ -49,6 +49,8 @@ test.describe('docs pages', () => {
   test('a page that does not exist answers 404 with the docs 404 page', async ({ page, baseURL }) => {
     const response = await page.request.get(`${baseURL}/docs/no-such-page`);
     expect(response.status()).toBe(404);
+    expect(response.headers()['content-type']).toContain('text/html');
+    expect(await response.text()).toContain('404');
   });
 
   test('the marketing site Docs link goes to /docs', async ({ page }) => {
