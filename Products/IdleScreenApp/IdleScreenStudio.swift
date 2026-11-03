@@ -79,6 +79,7 @@ struct ContentView: View {
   @Environment(IdleScreenCompanionCameraClient.self) private var cameraClient
   @Environment(IdleScreenCompanionNavigation.self) private var navigation
   @Environment(DisplaySceneCoordinator.self) private var displayCoordinator
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
   @AppStorage(IdleScreenSetupStore.completedKey) private var setupCompleted = false
 
   var body: some View {
@@ -143,7 +144,7 @@ struct ContentView: View {
         railLabel(
           title: "macOS",
           symbol: "gearshape",
-          tint: .secondary,
+          tint: DesignPalette.ink2,
           isSelected: false
         )
       }
@@ -152,7 +153,13 @@ struct ContentView: View {
       .padding(.bottom, 10)
     }
     .frame(width: StudioLayout.navigationRailWidth)
-    .background(.ultraThinMaterial)
+    .background {
+      if reduceTransparency {
+        Rectangle().fill(DesignPalette.surface)
+      } else {
+        Rectangle().fill(.ultraThinMaterial)
+      }
+    }
   }
 
   private func destinationButton(_ destination: Destination) -> some View {
@@ -162,12 +169,16 @@ struct ContentView: View {
       railLabel(
         title: destination.rawValue,
         symbol: destination.symbol,
-        tint: navigation.destination == destination ? .accentColor : .secondary,
+        tint: navigation.destination == destination
+          ? DesignPalette.accentMark : DesignPalette.ink2,
         isSelected: navigation.destination == destination
       )
     }
     .buttonStyle(.plain)
     .help(destination.rawValue)
+    .accessibilityLabel(destination.rawValue)
+    .accessibilityValue(destination == .status ? healthSummary.label : "")
+    .accessibilityAddTraits(navigation.destination == destination ? .isSelected : [])
   }
 
   private func railLabel(
@@ -181,47 +192,47 @@ struct ContentView: View {
         Image(systemName: symbol)
           .font(.system(size: 16, weight: .medium))
         if title == Destination.status.rawValue {
-          Circle()
-            .fill(healthSummary.tint)
-            .frame(width: 6, height: 6)
-            .offset(x: 5, y: -3)
+          Image(systemName: healthSummary.symbol)
+            .font(.system(size: 8, weight: .bold))
+            .foregroundStyle(healthSummary.tint)
+            .offset(x: 6, y: -3)
+            .accessibilityHidden(true)
         }
       }
       Text(title)
-        .font(.system(size: 9, weight: .semibold))
+        .font(DesignFont.sans(DesignFont.eyebrow, .medium))
         .lineLimit(1)
-        .minimumScaleFactor(0.72)
     }
     .frame(width: 58, height: 46)
     .foregroundStyle(tint)
     .background(
       RoundedRectangle(cornerRadius: 9)
-        .fill(isSelected ? Color.accentColor.opacity(0.16) : .clear)
+        .fill(isSelected ? DesignPalette.accentSoft : .clear)
     )
     .contentShape(RoundedRectangle(cornerRadius: 9))
   }
 
   private var healthSummary: (label: String, symbol: String, tint: Color) {
     if model.isRefreshing {
-      return ("Checking", "arrow.clockwise", .secondary)
+      return ("Checking", "arrow.clockwise", DesignPalette.ink2)
     }
     if model.lastError != nil
       || !model.compatibility.isCompatible
       || !model.isExtensionEmbedded
     {
-      return ("Attention", "exclamationmark.triangle.fill", .orange)
+      return ("Attention", "exclamationmark.triangle.fill", DesignPalette.warning)
     }
     if model.configuration.source != .generative,
       cameraClient.recommendedRepair != nil
     {
-      return ("Attention", "exclamationmark.triangle.fill", .orange)
+      return ("Attention", "exclamationmark.triangle.fill", DesignPalette.warning)
     }
     if !model.registrationAssessment.isCurrentBuild
       || model.selection?.isSelectedEverywhere != true
     {
-      return ("Set Up", "circle.dashed", .orange)
+      return ("Set Up", "circle.dashed", DesignPalette.warning)
     }
-    return ("Ready", "checkmark.circle.fill", .green)
+    return ("Ready", "checkmark.circle.fill", DesignPalette.success)
   }
 }
 
@@ -232,6 +243,7 @@ struct StudioView: View {
   @Environment(DisplaySceneCoordinator.self) private var displayCoordinator
   @State private var isSaverChooserExpanded = true
   @State private var isMoreExpanded = false
+  @State private var isPixelAdvancedExpanded = false
   @State private var isLoupeEnabled = false
   @State private var loupePointerLocation: CGPoint?
   @State private var studioClockStartedAt = Date()
@@ -239,7 +251,15 @@ struct StudioView: View {
   @State private var lookNameDraft = ""
   @State private var lookBeingRenamed: IdleScreenSavedLook?
   @State private var pendingLookDeletion: IdleScreenSavedLook?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @AppStorage(IdleScreenSetupStore.completedKey) private var setupCompleted = false
+
+  /// The expansion flags are parameters so a render can show the expanded dock and its Advanced controls.
+  init(initiallyMoreExpanded: Bool = false, pixelAdvancedInitiallyExpanded: Bool = false) {
+    _isMoreExpanded = State(initialValue: initiallyMoreExpanded)
+    _isSaverChooserExpanded = State(initialValue: !initiallyMoreExpanded)  // More collapses the chooser
+    _isPixelAdvancedExpanded = State(initialValue: pixelAdvancedInitiallyExpanded)
+  }
 
   private let saverColumns = [
     GridItem(.flexible(), spacing: 8),
@@ -261,11 +281,11 @@ struct StudioView: View {
       }
     }
 
-    var tint: Color {
+    var kind: DesignStatusKind {
       switch self {
-      case .live: .green
-      case .starting, .checking: .secondary
-      case .unavailable: .orange
+      case .live: .ok
+      case .starting, .checking: .pending
+      case .unavailable: .attention
       }
     }
   }
@@ -277,32 +297,24 @@ struct StudioView: View {
 
       VStack(spacing: 10) {
         HStack(spacing: 7) {
-          StatusPill(
-            label: registrationPillLabel,
-            systemImage: "display",
-            tint: model.registrationAssessment.isCurrentBuild
-              ? .green : .orange
+          DesignStatusPill(
+            kind: model.registrationAssessment.isCurrentBuild ? .ok : .attention,
+            text: registrationPillLabel
           )
           if cameraSourceSelected {
-            StatusPill(
-              label: cameraPillStatus.label,
-              systemImage: "camera.fill",
-              tint: cameraPillStatus.tint
-            )
+            DesignStatusPill(kind: cameraPillStatus.kind, text: cameraPillStatus.label)
           }
           Button {
-            withAnimation(.snappy(duration: 0.24)) {
-              isSaverChooserExpanded.toggle()
-            }
+            animate { isSaverChooserExpanded.toggle() }
           } label: {
             Label(
               "Screen Savers",
               systemImage: isSaverChooserExpanded
                 ? "chevron.up" : "chevron.down"
             )
-            .font(.system(size: 12, weight: .semibold))
           }
-          .buttonStyle(.bordered)
+          .buttonStyle(.designSecondary)
+          .accessibilityValue(isSaverChooserExpanded ? "Expanded" : "Collapsed")
 
           Spacer()
 
@@ -318,9 +330,9 @@ struct StudioView: View {
                 ? "magnifyingglass.circle.fill"
                 : "magnifyingglass"
             )
-            .font(.system(size: 12, weight: .semibold))
           }
-          .buttonStyle(.bordered)
+          .buttonStyle(.designSecondary)
+          .accessibilityValue(isLoupeEnabled ? "On" : "Off")
           .help(
             isLoupeEnabled
               ? "Turn off the pointer-following live preview loupe"
@@ -331,10 +343,8 @@ struct StudioView: View {
             model.startScreenSaver()
           } label: {
             Label("Start IdleScreen", systemImage: "play.fill")
-              .font(.system(size: 12, weight: .semibold))
           }
-          .buttonStyle(.borderedProminent)
-          .controlSize(.regular)
+          .buttonStyle(.designPrimary)
           .disabled(
             model.isRegistering
               || model.isStartingScreenSaver
@@ -352,7 +362,7 @@ struct StudioView: View {
 
         if isSaverChooserExpanded {
           saverChooser
-            .transition(.move(edge: .top).combined(with: .opacity))
+            .transition(reduceMotion ? .identity : .move(edge: .top).combined(with: .opacity))
             .padding(.horizontal, 16)
             .frame(maxHeight: .infinity, alignment: .top)
         } else {
@@ -600,32 +610,30 @@ struct StudioView: View {
   @ViewBuilder
   private func cameraSetupOverlay(_ guidance: CameraCardGuidance) -> some View {
     VStack(spacing: 8) {
-      Image(systemName: "camera.fill")
+      Image(systemName: DesignStatusKind.attention.symbol)
         .font(.system(size: 22, weight: .semibold))
-        .foregroundStyle(.orange)
+        .foregroundStyle(DesignStatusKind.attention.color)
+        .accessibilityHidden(true)
       Text(guidance.title)
-        .font(.headline)
+        .font(DesignFont.display(DesignFont.panelTitle))
+        .foregroundStyle(DesignPalette.ink)
+        .accessibilityAddTraits(.isHeader)
       Text(guidance.detail)
-        .font(.caption)
-        .foregroundStyle(.secondary)
+        .font(DesignFont.sans(DesignFont.detail))
+        .foregroundStyle(DesignPalette.ink2)
         .multilineTextAlignment(.center)
       if let actionTitle = guidance.actionTitle {
         Button(actionTitle) {
           performCameraSetupAction(guidance.action)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.small)
+        .buttonStyle(.designPrimary)
       }
     }
     .padding(.horizontal, 20)
     .padding(.vertical, 16)
     .frame(maxWidth: 310)
-    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-    .overlay {
-      RoundedRectangle(cornerRadius: 14)
-        .strokeBorder(.white.opacity(0.16), lineWidth: 0.5)
-    }
-    .shadow(color: .black.opacity(0.45), radius: 22, y: 12)
+    .studioPanel()
+    .accessibilityElement(children: .contain)
   }
 
   /// The required steps as macOS last reported them, ignoring a refresh that is in flight or failed.
@@ -646,15 +654,17 @@ struct StudioView: View {
 
   private var setupBanner: some View {
     HStack(spacing: 10) {
-      Image(systemName: "checklist").foregroundStyle(.secondary)
-      Text("Finish setting up IdleScreen").font(.caption.weight(.semibold))
+      Image(systemName: "checklist").foregroundStyle(DesignPalette.ink2)
+        .accessibilityHidden(true)
+      Text("Finish setting up IdleScreen")
+        .font(DesignFont.sans(DesignFont.detail, .semibold)).foregroundStyle(DesignPalette.ink)
       Spacer()
       Button("Continue setup") { navigation.setupSession.continueSetup() }
-        .buttonStyle(.borderless).controlSize(.small)
+        .buttonStyle(.designSecondary)
         .accessibilityHint("Returns to the setup steps.")
     }
     .padding(.horizontal, 12).padding(.vertical, 7)
-    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+    .studioPanel(radius: 10)
     .accessibilityElement(children: .contain)
   }
 
@@ -721,19 +731,19 @@ struct StudioView: View {
     VStack(alignment: .leading, spacing: 12) {
       HStack {
         Text("Your Looks")
-          .font(.caption.weight(.bold))
-          .foregroundStyle(.secondary)
+          .font(DesignFont.display(DesignFont.panelTitle))
+          .foregroundStyle(DesignPalette.ink)
+          .accessibilityAddTraits(.isHeader)
         Text("\(model.configuration.savedLooks.count)/\(IdleScreenSavedLook.maximumCount)")
-          .font(.caption2.monospacedDigit())
-          .foregroundStyle(.tertiary)
+          .font(DesignFont.sans(DesignFont.eyebrow).monospacedDigit())
+          .foregroundStyle(DesignPalette.ink3)
         Spacer()
         Button {
           beginSavingLook()
         } label: {
           Label("Save current", systemImage: "plus")
         }
-        .buttonStyle(.borderless)
-        .controlSize(.small)
+        .buttonStyle(.designSecondary)
         .disabled(
           model.configuration.savedLooks.count
             >= IdleScreenSavedLook.maximumCount
@@ -742,8 +752,8 @@ struct StudioView: View {
 
       if model.configuration.savedLooks.isEmpty {
         Text("Save a look to bring this exact saver and styling back in one click.")
-          .font(.caption)
-          .foregroundStyle(.tertiary)
+          .font(DesignFont.sans(DesignFont.caption))
+          .foregroundStyle(DesignPalette.ink2)
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.vertical, 4)
       } else {
@@ -756,6 +766,10 @@ struct StudioView: View {
                 SavedLookChooserCard(savedLook: savedLook)
               }
               .buttonStyle(.plain)
+              .accessibilityLabel(savedLook.name)
+              .accessibilityHint(
+                "Applies this saved look. Open the actions menu to rename or delete it."
+              )
               .contextMenu {
                 Button("Apply") {
                   _ = model.applySavedLook(id: savedLook.id)
@@ -778,11 +792,12 @@ struct StudioView: View {
         .scrollIndicators(.hidden)
       }
 
-      Divider().opacity(0.45)
+      DesignHairline()
 
       Text("All Savers")
-        .font(.caption.weight(.bold))
-        .foregroundStyle(.secondary)
+        .font(DesignFont.display(DesignFont.panelTitle))
+        .foregroundStyle(DesignPalette.ink)
+        .accessibilityAddTraits(.isHeader)
 
       ScrollView {
         LazyVGrid(columns: saverColumns, alignment: .leading, spacing: 10) {
@@ -801,6 +816,10 @@ struct StudioView: View {
             )
           }
           .buttonStyle(.plain)
+          .accessibilityLabel("Camera")
+          .accessibilityValue(cameraSourceSelected ? "Selected" : "")
+          .accessibilityHint("Your camera, live")
+          .accessibilityAddTraits(cameraSourceSelected ? .isSelected : [])
 
           ForEach(IdleScreenCreativePattern.allCases) { pattern in
             Button {
@@ -816,6 +835,16 @@ struct StudioView: View {
               )
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(pattern.displayName)
+            .accessibilityValue(
+              !cameraSourceSelected && model.configuration.creative.pattern == pattern
+                ? "Selected" : ""
+            )
+            .accessibilityHint(pattern.galleryEyebrow)
+            .accessibilityAddTraits(
+              !cameraSourceSelected && model.configuration.creative.pattern == pattern
+                ? .isSelected : []
+            )
           }
         }
         .padding(.top, 2)
@@ -825,12 +854,7 @@ struct StudioView: View {
     .padding(14)
     .frame(width: 278)
     .frame(maxHeight: .infinity, alignment: .top)
-    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-    .overlay {
-      RoundedRectangle(cornerRadius: 16)
-        .strokeBorder(.white.opacity(0.16), lineWidth: 0.5)
-    }
-    .shadow(color: .black.opacity(0.48), radius: 24, y: 14)
+    .studioPanel(radius: 16)
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
@@ -838,7 +862,7 @@ struct StudioView: View {
     Group {
       if isMoreExpanded {
         expandedSettingsDock
-          .transition(.move(edge: .bottom).combined(with: .opacity))
+          .transition(reduceMotion ? .identity : .move(edge: .bottom).combined(with: .opacity))
       } else {
         compactSettingsDock
       }
@@ -850,20 +874,21 @@ struct StudioView: View {
   private var compactSettingsDock: some View {
     HStack(spacing: 13) {
       Button {
-        withAnimation(.snappy(duration: 0.24)) {
-          isSaverChooserExpanded.toggle()
-        }
+        animate { isSaverChooserExpanded.toggle() }
       } label: {
         Label(selectedSaverName, systemImage: selectedSaverSymbol)
-          .font(.system(size: 12, weight: .semibold))
+          .font(DesignFont.sans(DesignFont.detail, .semibold))
+          .foregroundStyle(DesignPalette.ink)
           .frame(minHeight: 22)
           .padding(.leading, 16)
           .padding(.vertical, 10)
           .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
+      .accessibilityHint("Shows or hides the screen saver list")
+      .accessibilityValue(isSaverChooserExpanded ? "Expanded" : "Collapsed")
 
-      Divider().frame(height: 22)
+      StudioDivider()
 
       if cameraSourceSelected {
         cameraSelectionMenu(includesUtilities: true)
@@ -873,57 +898,55 @@ struct StudioView: View {
         proceduralKeyControls
       }
 
-      Divider().frame(height: 22)
+      StudioDivider()
 
       paletteMenu
 
-      Divider().frame(height: 22)
+      StudioDivider()
 
-      LabeledSlider(
+      StudioSlider(
         title: "Size",
         value: Binding(
           get: { model.configuration.appearance.glyphScale },
           set: { model.updateGlyphScale($0) }
-        ))
-      LabeledSlider(
+        ),
+        layout: .inline(width: 80))
+      StudioSlider(
         title: "Contrast",
         value: Binding(
           get: { model.configuration.appearance.contrast },
           set: { model.updateContrast($0) }
-        ))
+        ),
+        layout: .inline(width: 80))
 
       Button {
-        withAnimation(.snappy(duration: 0.24)) {
+        animate {
           isSaverChooserExpanded = false
           isMoreExpanded = true
         }
       } label: {
         HStack(spacing: 4) {
           Text("More")
-          Image(systemName: "chevron.down")
+          Image(systemName: "chevron.down").accessibilityHidden(true)
         }
-        .font(.system(size: 11.5, weight: .semibold))
-        .foregroundStyle(.secondary)
+        .font(DesignFont.sans(DesignFont.caption, .semibold))
+        .foregroundStyle(DesignPalette.ink2)
         .frame(minHeight: 22)
         .padding(.trailing, 16)
         .padding(.vertical, 10)
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
+      .accessibilityHint("Shows every control for this saver")
     }
-    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-    .overlay {
-      RoundedRectangle(cornerRadius: 14)
-        .strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
-    }
-    .shadow(color: .black.opacity(0.5), radius: 25, y: 16)
+    .studioPanel()
   }
 
   private var expandedSettingsDock: some View {
     VStack(alignment: .leading, spacing: 13) {
       expandedSettingsHeader
 
-      Divider().opacity(0.42)
+      DesignHairline()
 
       if cameraSourceSelected {
         expandedCameraSettings
@@ -935,18 +958,15 @@ struct StudioView: View {
     }
     .padding(16)
     .frame(width: 758)
-    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-    .overlay {
-      RoundedRectangle(cornerRadius: 14)
-        .strokeBorder(.white.opacity(0.14), lineWidth: 0.5)
-    }
-    .shadow(color: .black.opacity(0.5), radius: 25, y: 16)
+    .studioPanel()
   }
 
   private var expandedSettingsHeader: some View {
     HStack(spacing: 13) {
       Label(selectedSaverName, systemImage: selectedSaverSymbol)
-        .font(.system(size: 13, weight: .semibold))
+        .font(DesignFont.display(DesignFont.panelTitle))
+        .foregroundStyle(DesignPalette.ink)
+        .accessibilityAddTraits(.isHeader)
 
       Spacer(minLength: 12)
 
@@ -957,8 +977,7 @@ struct StudioView: View {
       } label: {
         Label("Save Look", systemImage: "plus")
       }
-      .buttonStyle(.bordered)
-      .controlSize(.small)
+      .buttonStyle(.designSecondary)
       .disabled(
         model.configuration.savedLooks.count
           >= IdleScreenSavedLook.maximumCount
@@ -972,8 +991,7 @@ struct StudioView: View {
             model.resetCreativeSettings()
           }
         }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
+        .buttonStyle(.designSecondary)
         .disabled(
           model.configuration.creative.pattern == .pixelMaterials
             ? model.configuration.materials == .default
@@ -982,16 +1000,14 @@ struct StudioView: View {
       }
 
       Button {
-        withAnimation(.snappy(duration: 0.24)) {
-          isMoreExpanded = false
-        }
+        animate { isMoreExpanded = false }
       } label: {
         HStack(spacing: 4) {
           Text("Less")
-          Image(systemName: "chevron.up")
+          Image(systemName: "chevron.up").accessibilityHidden(true)
         }
-        .font(.system(size: 11.5, weight: .semibold))
-        .foregroundStyle(.secondary)
+        .font(DesignFont.sans(DesignFont.caption, .semibold))
+        .foregroundStyle(DesignPalette.ink2)
         .frame(minHeight: 22)
         .padding(.leading, 13)
         .padding(.trailing, 16)
@@ -1000,29 +1016,34 @@ struct StudioView: View {
       .buttonStyle(.plain)
       .padding(.leading, -13)
       .padding(.trailing, -16)
+      .accessibilityHint("Shows the short control row")
     }
   }
 
   @ViewBuilder
   private var proceduralKeyControls: some View {
-    CompactStudioSlider(
+    StudioSlider(
       title: "Speed",
       value: Binding(
         get: { model.configuration.creative.settings.speed },
         set: { model.updateCreativeSpeed($0) }
       ),
-      range: IdleScreenCreativeSettings.minimumSpeed...IdleScreenCreativeSettings.maximumSpeed
+      range: IdleScreenCreativeSettings.minimumSpeed...IdleScreenCreativeSettings.maximumSpeed,
+      layout: .inline(width: 64)
     )
 
     if model.configuration.creative.pattern == .autoCycle {
-      CompactStudioSlider(
+      StudioSlider(
         title: "Every",
         value: Binding(
           get: { model.configuration.creative.settings.autoCycleInterval },
           set: { model.updateCreativeAutoCycleInterval($0) }
         ),
         range: 1...120,
-        suffix: "s"
+        valueText: model.configuration.creative.settings.autoCycleInterval.formatted(
+          .number.precision(.fractionLength(0))
+        ) + "s",
+        layout: .inline(width: 64)
       )
     }
   }
@@ -1040,12 +1061,13 @@ struct StudioView: View {
         model.configuration.materials.material.label,
         systemImage: "drop.triangle"
       )
-      .font(.system(size: 12, weight: .semibold))
+      .font(DesignFont.sans(DesignFont.detail, .semibold))
+      .foregroundStyle(DesignPalette.ink)
     }
     .menuStyle(.borderlessButton)
-    .accessibilityLabel("Material")
+    .accessibilityHint("Pixel material")
 
-    CompactStudioSlider(
+    StudioSlider(
       title: "Cell",
       value: Binding(
         get: { model.configuration.materials.cellScale },
@@ -1053,9 +1075,10 @@ struct StudioView: View {
           model.updatePixelMaterials { $0.cellScale = value }
         }
       ),
-      range: 0.25...4
+      range: 0.25...4,
+      layout: .inline(width: 64),
+      hint: "Cell scale"
     )
-    .accessibilityLabel("Cell scale")
   }
 
   private func cameraSelectionMenu(includesUtilities: Bool) -> some View {
@@ -1142,8 +1165,9 @@ struct StudioView: View {
         )
         .foregroundStyle(
           model.configuration.camera.preferredDeviceIdentifier == nil
-            ? Color.secondary : Color.yellow
+            ? DesignPalette.ink2 : DesignPalette.accentMark
         )
+        .accessibilityHidden(true)
         Text(selectedCameraLabel)
           .lineLimit(1)
           .truncationMode(.tail)
@@ -1152,9 +1176,13 @@ struct StudioView: View {
             alignment: .trailing
           )
       }
-      .font(.system(size: 12, weight: .semibold))
+      .font(DesignFont.sans(DesignFont.detail, .semibold))
+      .foregroundStyle(DesignPalette.ink)
     }
     .menuStyle(.borderlessButton)
+    .accessibilityHint(
+      model.configuration.camera.preferredDeviceIdentifier == nil
+        ? "Camera source" : "Camera source, a preferred camera is set")
   }
 
   private func cameraMenuLabel(
@@ -1182,54 +1210,55 @@ struct StudioView: View {
       HStack(spacing: 6) {
         PalettePair(a: selectedPalettePair.a, b: selectedPalettePair.b)
         Text(model.configuration.appearance.palette)
+          .font(DesignFont.sans(DesignFont.detail, .medium))
+          .foregroundStyle(DesignPalette.ink)
       }
     }
     .menuStyle(.borderlessButton)
     .fixedSize()
+    .accessibilityHint("Palette")
   }
 
   private var expandedCameraSettings: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .top, spacing: 12) {
-        ExpandedStudioSection(title: "Input", systemImage: "camera.fill") {
-          LabeledContent("Source") {
+        StudioSection(title: "Input") {
+          StudioField(title: "Source") {
             cameraSelectionMenu(includesUtilities: false)
           }
-          .font(.system(size: 11.5, weight: .medium))
 
           if model.configuration.camera.selection == .automatic {
-            LabeledContent("Preferred") {
+            StudioField(title: "Preferred") {
               Text(preferredCameraLabel)
+                .font(DesignFont.sans(DesignFont.caption))
                 .lineLimit(1)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignPalette.ink2)
             }
-            .font(.system(size: 11.5, weight: .medium))
           }
 
-          Toggle(
-            "Mirror camera",
-            isOn: Binding(
-              get: { model.configuration.camera.isMirrored },
-              set: { model.updateCameraMirroring($0) }
+          StudioField(title: "Mirror camera") {
+            Toggle(
+              "Mirror camera",
+              isOn: Binding(
+                get: { model.configuration.camera.isMirrored },
+                set: { model.updateCameraMirroring($0) }
+              )
             )
-          )
-          .toggleStyle(.switch)
-          .controlSize(.small)
+            .labelsHidden()
+            .accessibilityLabel("Mirror camera")
+            .toggleStyle(.designSwitch)
+          }
 
           Button {
             navigation.destination = .status
           } label: {
             Label("Camera Settings…", systemImage: "gearshape")
           }
-          .buttonStyle(.bordered)
-          .controlSize(.small)
+          .buttonStyle(.designSecondary)
         }
 
-        ExpandedStudioSection(
-          title: "Appearance",
-          systemImage: "textformat.size"
-        ) {
-          ExpandedStudioSlider(
+        StudioSection(title: "Appearance") {
+          StudioSlider(
             title: "Size",
             value: Binding(
               get: { model.configuration.appearance.glyphScale },
@@ -1239,7 +1268,7 @@ struct StudioView: View {
             valueText: percentage(model.configuration.appearance.glyphScale),
             step: 0.01
           )
-          ExpandedStudioSlider(
+          StudioSlider(
             title: "Contrast",
             value: Binding(
               get: { model.configuration.appearance.contrast },
@@ -1259,11 +1288,8 @@ struct StudioView: View {
   private var expandedProceduralSettings: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .top, spacing: 12) {
-        ExpandedStudioSection(
-          title: "Motion",
-          systemImage: "waveform.path"
-        ) {
-          ExpandedStudioSlider(
+        StudioSection(title: "Motion") {
+          StudioSlider(
             title: "Speed",
             value: Binding(
               get: { model.configuration.creative.settings.speed },
@@ -1278,7 +1304,7 @@ struct StudioView: View {
           )
 
           if expandedScaleControlApplies {
-            ExpandedStudioSlider(
+            StudioSlider(
               title: "Scale",
               value: Binding(
                 get: { model.configuration.creative.settings.scale },
@@ -1294,9 +1320,9 @@ struct StudioView: View {
           }
         }
 
-        ExpandedStudioSection(title: "Pattern", systemImage: "sparkles") {
+        StudioSection(title: "Pattern") {
           if expandedIntensityControlApplies {
-            ExpandedStudioSlider(
+            StudioSlider(
               title: "Intensity",
               value: Binding(
                 get: { model.configuration.creative.settings.intensity },
@@ -1311,7 +1337,7 @@ struct StudioView: View {
           }
 
           if expandedTrailingControlApplies {
-            ExpandedStudioSlider(
+            StudioSlider(
               title: "Trailing",
               value: Binding(
                 get: { model.configuration.creative.settings.trailing },
@@ -1328,11 +1354,8 @@ struct StudioView: View {
           expandedPatternSpecificControl
         }
 
-        ExpandedStudioSection(
-          title: "Appearance",
-          systemImage: "textformat.size"
-        ) {
-          ExpandedStudioSlider(
+        StudioSection(title: "Appearance") {
+          StudioSlider(
             title: "Size",
             value: Binding(
               get: { model.configuration.appearance.glyphScale },
@@ -1342,7 +1365,7 @@ struct StudioView: View {
             valueText: percentage(model.configuration.appearance.glyphScale),
             step: 0.01
           )
-          ExpandedStudioSlider(
+          StudioSlider(
             title: "Contrast",
             value: Binding(
               get: { model.configuration.appearance.contrast },
@@ -1362,57 +1385,51 @@ struct StudioView: View {
   private var expandedPixelMaterialsSettings: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(alignment: .top, spacing: 12) {
-        ExpandedStudioSection(
-          title: "Material",
-          systemImage: "drop.triangle"
-        ) {
-          Picker(
-            "Material",
+        StudioSection(title: "Material", minHeight: 0) {
+          DesignSegmented(
+            title: "Material",
             selection: Binding(
               get: { model.configuration.materials.material },
               set: { model.updatePixelMaterial($0) }
-            )
-          ) {
-            ForEach(IdleScreenPixelMaterial.allCases) { material in
-              Text(material.label).tag(material)
-            }
-          }
-          .pickerStyle(.segmented)
+            ),
+            choices: IdleScreenPixelMaterial.allCases.map { DesignChoice($0.label, $0) }
+          )
 
-          Picker(
-            "Terrain",
-            selection: Binding(
-              get: { model.configuration.materials.terrainFamily },
-              set: { terrain in
-                model.updatePixelMaterials {
-                  $0.terrainFamily = terrain
+          StudioField(title: "Palette") {
+            DesignPopup(
+              title: "Palette",
+              selection: Binding(
+                get: { model.configuration.materials.palette },
+                set: { palette in
+                  model.updatePixelMaterials { $0.palette = palette }
                 }
-              }
+              ),
+              choices: IdleScreenPixelMaterialsPalette.allCases.map { DesignChoice($0.label, $0) }
             )
-          ) {
-            ForEach(IdleScreenPixelTerrainFamily.allCases) { terrain in
-              Text(terrain.label).tag(terrain)
-            }
+          }
+        }
+
+        StudioSection(title: "Terrain", minHeight: 0) {
+          StudioField(title: "Terrain") {
+            DesignPopup(
+              title: "Terrain",
+              selection: Binding(
+                get: { model.configuration.materials.terrainFamily },
+                set: { terrain in
+                  model.updatePixelMaterials {
+                    $0.terrainFamily = terrain
+                  }
+                }
+              ),
+              choices: IdleScreenPixelTerrainFamily.allCases.map { DesignChoice($0.label, $0) }
+            )
           }
 
-          Picker(
-            "Palette",
-            selection: Binding(
-              get: { model.configuration.materials.palette },
-              set: { palette in
-                model.updatePixelMaterials { $0.palette = palette }
-              }
-            )
-          ) {
-            ForEach(IdleScreenPixelMaterialsPalette.allCases) { palette in
-              Text(palette.label).tag(palette)
-            }
-          }
-
-          LabeledContent("Seed") {
+          StudioField(title: "Seed") {
             HStack(spacing: 6) {
               Text(model.configuration.materials.seed.formatted())
-                .monospacedDigit()
+                .font(DesignFont.sans(DesignFont.caption).monospacedDigit())
+                .foregroundStyle(DesignPalette.ink2)
                 .lineLimit(1)
               Button("New") {
                 model.updatePixelMaterials { settings in
@@ -1421,331 +1438,339 @@ struct StudioView: View {
                     &* 6_364_136_223_846_793_005 &+ 1
                 }
               }
-              .accessibilityLabel("New deterministic seed")
+              .buttonStyle(.designSecondary)
+              .accessibilityHint("Generates a new deterministic seed")
             }
           }
-          .font(.system(size: 11.5, weight: .medium))
         }
+      }
 
-        ExpandedStudioSection(
-          title: "Watershed",
-          systemImage: "mountain.2"
-        ) {
-          materialStepper(
-            "Basin count",
-            value: Binding(
-              get: { model.configuration.materials.basinCount },
-              set: { value in
-                model.updatePixelMaterials { $0.basinCount = value }
+      StudioDisclosure(title: "Advanced", isExpanded: $isPixelAdvancedExpanded) {
+        ScrollView {
+          HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: 12) {
+              StudioSection(title: "Watershed", minHeight: 0) {
+                materialStepper(
+                  "Basin count",
+                  value: Binding(
+                    get: { model.configuration.materials.basinCount },
+                    set: { value in
+                      model.updatePixelMaterials { $0.basinCount = value }
+                    }
+                  ),
+                  range: 2...8
+                )
+                materialStepper(
+                  "Basin depth",
+                  value: Binding(
+                    get: { model.configuration.materials.basinDepth },
+                    set: { value in
+                      model.updatePixelMaterials { $0.basinDepth = value }
+                    }
+                  ),
+                  range: 3...24
+                )
+                materialStepper(
+                  "Minimum basin capacity",
+                  value: Binding(
+                    get: {
+                      model.configuration.materials
+                        .minimumBasinCapacity
+                    },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.minimumBasinCapacity = value
+                      }
+                    }
+                  ),
+                  range: 8...4096
+                )
+                materialSlider(
+                  "Channel connectivity",
+                  value: Binding(
+                    get: {
+                      model.configuration.materials
+                        .channelConnectivity
+                    },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.channelConnectivity = value
+                      }
+                    }
+                  )
+                )
+                materialStepper(
+                  "Channel width",
+                  value: Binding(
+                    get: { model.configuration.materials.channelWidth },
+                    set: { value in
+                      model.updatePixelMaterials { $0.channelWidth = value }
+                    }
+                  ),
+                  range: 1...6
+                )
+                materialSlider(
+                  "Rock ratio",
+                  value: Binding(
+                    get: { model.configuration.materials.rockRatio },
+                    set: { value in
+                      model.updatePixelMaterials { $0.rockRatio = value }
+                    }
+                  )
+                )
+                materialSlider(
+                  "Soil ratio",
+                  value: Binding(
+                    get: { model.configuration.materials.soilRatio },
+                    set: { value in
+                      model.updatePixelMaterials { $0.soilRatio = value }
+                    }
+                  )
+                )
               }
-            ),
-            range: 2...8
-          )
-          materialStepper(
-            "Basin depth",
-            value: Binding(
-              get: { model.configuration.materials.basinDepth },
-              set: { value in
-                model.updatePixelMaterials { $0.basinDepth = value }
+              StudioSection(title: "Emitters", minHeight: 0) {
+                materialStepper(
+                  "Emitter count",
+                  value: Binding(
+                    get: { model.configuration.materials.emitterCount },
+                    set: { value in
+                      model.updatePixelMaterials { $0.emitterCount = value }
+                    }
+                  ),
+                  range: 1...4
+                )
+                materialSlider(
+                  "Emitter position",
+                  value: Binding(
+                    get: {
+                      model.configuration.materials.emitterPosition
+                    },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.emitterPosition = value
+                      }
+                    }
+                  )
+                )
+                materialStepper(
+                  "Emitter width",
+                  value: Binding(
+                    get: { model.configuration.materials.emitterWidth },
+                    set: { value in
+                      model.updatePixelMaterials { $0.emitterWidth = value }
+                    }
+                  ),
+                  range: 1...8
+                )
+                materialStepper(
+                  "Emitter rate",
+                  value: Binding(
+                    get: { model.configuration.materials.emitterRate },
+                    set: { value in
+                      model.updatePixelMaterials { $0.emitterRate = value }
+                    }
+                  ),
+                  range: 1...8
+                )
               }
-            ),
-            range: 3...24
-          )
-          materialStepper(
-            "Minimum basin capacity",
-            value: Binding(
-              get: {
-                model.configuration.materials
-                  .minimumBasinCapacity
-              },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.minimumBasinCapacity = value
-                }
+            }
+            VStack(spacing: 12) {
+              StudioSection(title: "Flow", minHeight: 0) {
+                materialSlider(
+                  "Cell scale",
+                  value: Binding(
+                    get: { model.configuration.materials.cellScale },
+                    set: { value in
+                      model.updatePixelMaterials { $0.cellScale = value }
+                    }
+                  ),
+                  range: 0.25...4,
+                  step: 0.25
+                )
+                materialSlider(
+                  "Gravity",
+                  value: Binding(
+                    get: { model.configuration.materials.gravity },
+                    set: { value in
+                      model.updatePixelMaterials { $0.gravity = value }
+                    }
+                  )
+                )
+                materialSlider(
+                  "Lateral flow",
+                  value: Binding(
+                    get: { model.configuration.materials.waterLateralFlow },
+                    set: { value in
+                      model.updatePixelMaterials { $0.waterLateralFlow = value }
+                    }
+                  )
+                )
+                materialSlider(
+                  "Equalization",
+                  value: Binding(
+                    get: { model.configuration.materials.waterEqualization },
+                    set: { value in
+                      model.updatePixelMaterials { $0.waterEqualization = value }
+                    }
+                  )
+                )
+                materialSlider(
+                  "Water pressure",
+                  value: Binding(
+                    get: {
+                      model.configuration.materials.waterPressure
+                    },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.waterPressure = value
+                      }
+                    }
+                  )
+                )
+                materialSlider(
+                  "Spill rate",
+                  value: Binding(
+                    get: { model.configuration.materials.spillRate },
+                    set: { value in
+                      model.updatePixelMaterials { $0.spillRate = value }
+                    }
+                  )
+                )
+                materialSlider(
+                  "Drain rate",
+                  value: Binding(
+                    get: { model.configuration.materials.drainRate },
+                    set: { value in
+                      model.updatePixelMaterials { $0.drainRate = value }
+                    }
+                  )
+                )
+                materialSlider(
+                  "Evaporation rate",
+                  value: Binding(
+                    get: {
+                      model.configuration.materials.evaporationRate
+                    },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.evaporationRate = value
+                      }
+                    }
+                  )
+                )
+                materialSlider(
+                  "Obstacle density",
+                  value: Binding(
+                    get: {
+                      model.configuration.materials.obstacleDensity
+                    },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.obstacleDensity = value
+                      }
+                    }
+                  )
+                )
+                materialSlider(
+                  "Persistence",
+                  value: Binding(
+                    get: { model.configuration.materials.persistence },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.persistence = value
+                      }
+                    }
+                  )
+                )
               }
-            ),
-            range: 8...4096
-          )
-          materialSlider(
-            "Channel connectivity",
-            value: Binding(
-              get: {
-                model.configuration.materials
-                  .channelConnectivity
-              },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.channelConnectivity = value
-                }
+              StudioSection(title: "Phases", minHeight: 0) {
+                materialSlider(
+                  "Quiet duration",
+                  value: Binding(
+                    get: {
+                      model.configuration.materials.phaseDurations
+                        .quiet
+                    },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.phaseDurations.quiet = value
+                      }
+                    }
+                  ),
+                  range: 0.25...60,
+                  step: 0.25,
+                  suffix: "s"
+                )
+                materialSlider(
+                  "Fill duration",
+                  value: Binding(
+                    get: {
+                      model.configuration.materials.phaseDurations
+                        .filling
+                    },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.phaseDurations.filling = value
+                      }
+                    }
+                  ),
+                  range: 0.25...300,
+                  step: 0.25,
+                  suffix: "s"
+                )
+                materialSlider(
+                  "Settled duration",
+                  value: Binding(
+                    get: {
+                      model.configuration.materials.phaseDurations
+                        .settled
+                    },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.phaseDurations.settled = value
+                      }
+                    }
+                  ),
+                  range: 0.25...300,
+                  step: 0.25,
+                  suffix: "s"
+                )
+                materialSlider(
+                  "Drain duration",
+                  value: Binding(
+                    get: {
+                      model.configuration.materials.phaseDurations
+                        .draining
+                    },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.phaseDurations.draining = value
+                      }
+                    }
+                  ),
+                  range: 0.25...300,
+                  step: 0.25,
+                  suffix: "s"
+                )
+                materialSlider(
+                  "Regeneration",
+                  value: Binding(
+                    get: { model.configuration.materials.regenerationCadence },
+                    set: { value in
+                      model.updatePixelMaterials {
+                        $0.regenerationCadence = value
+                      }
+                    }
+                  ),
+                  range: 5...120,
+                  step: 1,
+                  suffix: "s"
+                )
               }
-            )
-          )
-          materialStepper(
-            "Channel width",
-            value: Binding(
-              get: { model.configuration.materials.channelWidth },
-              set: { value in
-                model.updatePixelMaterials { $0.channelWidth = value }
-              }
-            ),
-            range: 1...6
-          )
-          materialSlider(
-            "Rock ratio",
-            value: Binding(
-              get: { model.configuration.materials.rockRatio },
-              set: { value in
-                model.updatePixelMaterials { $0.rockRatio = value }
-              }
-            )
-          )
-          materialSlider(
-            "Soil ratio",
-            value: Binding(
-              get: { model.configuration.materials.soilRatio },
-              set: { value in
-                model.updatePixelMaterials { $0.soilRatio = value }
-              }
-            )
-          )
-          materialStepper(
-            "Emitter count",
-            value: Binding(
-              get: { model.configuration.materials.emitterCount },
-              set: { value in
-                model.updatePixelMaterials { $0.emitterCount = value }
-              }
-            ),
-            range: 1...4
-          )
-          materialSlider(
-            "Emitter position",
-            value: Binding(
-              get: {
-                model.configuration.materials.emitterPosition
-              },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.emitterPosition = value
-                }
-              }
-            )
-          )
-          materialStepper(
-            "Emitter width",
-            value: Binding(
-              get: { model.configuration.materials.emitterWidth },
-              set: { value in
-                model.updatePixelMaterials { $0.emitterWidth = value }
-              }
-            ),
-            range: 1...8
-          )
-          materialStepper(
-            "Emitter rate",
-            value: Binding(
-              get: { model.configuration.materials.emitterRate },
-              set: { value in
-                model.updatePixelMaterials { $0.emitterRate = value }
-              }
-            ),
-            range: 1...8
-          )
+            }
+          }
         }
-
-        ExpandedStudioSection(
-          title: "Flow",
-          systemImage: "water.waves"
-        ) {
-          materialSlider(
-            "Cell scale",
-            value: Binding(
-              get: { model.configuration.materials.cellScale },
-              set: { value in
-                model.updatePixelMaterials { $0.cellScale = value }
-              }
-            ),
-            range: 0.25...4,
-            step: 0.25
-          )
-          materialSlider(
-            "Gravity",
-            value: Binding(
-              get: { model.configuration.materials.gravity },
-              set: { value in
-                model.updatePixelMaterials { $0.gravity = value }
-              }
-            )
-          )
-          materialSlider(
-            "Lateral flow",
-            value: Binding(
-              get: { model.configuration.materials.waterLateralFlow },
-              set: { value in
-                model.updatePixelMaterials { $0.waterLateralFlow = value }
-              }
-            )
-          )
-          materialSlider(
-            "Equalization",
-            value: Binding(
-              get: { model.configuration.materials.waterEqualization },
-              set: { value in
-                model.updatePixelMaterials { $0.waterEqualization = value }
-              }
-            )
-          )
-          materialSlider(
-            "Water pressure",
-            value: Binding(
-              get: {
-                model.configuration.materials.waterPressure
-              },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.waterPressure = value
-                }
-              }
-            )
-          )
-          materialSlider(
-            "Spill rate",
-            value: Binding(
-              get: { model.configuration.materials.spillRate },
-              set: { value in
-                model.updatePixelMaterials { $0.spillRate = value }
-              }
-            )
-          )
-          materialSlider(
-            "Drain rate",
-            value: Binding(
-              get: { model.configuration.materials.drainRate },
-              set: { value in
-                model.updatePixelMaterials { $0.drainRate = value }
-              }
-            )
-          )
-          materialSlider(
-            "Evaporation rate",
-            value: Binding(
-              get: {
-                model.configuration.materials.evaporationRate
-              },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.evaporationRate = value
-                }
-              }
-            )
-          )
-          materialSlider(
-            "Obstacle density",
-            value: Binding(
-              get: {
-                model.configuration.materials.obstacleDensity
-              },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.obstacleDensity = value
-                }
-              }
-            )
-          )
-          materialSlider(
-            "Persistence",
-            value: Binding(
-              get: { model.configuration.materials.persistence },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.persistence = value
-                }
-              }
-            )
-          )
-          materialSlider(
-            "Quiet duration",
-            value: Binding(
-              get: {
-                model.configuration.materials.phaseDurations
-                  .quiet
-              },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.phaseDurations.quiet = value
-                }
-              }
-            ),
-            range: 0.25...60,
-            step: 0.25,
-            suffix: "s"
-          )
-          materialSlider(
-            "Fill duration",
-            value: Binding(
-              get: {
-                model.configuration.materials.phaseDurations
-                  .filling
-              },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.phaseDurations.filling = value
-                }
-              }
-            ),
-            range: 0.25...300,
-            step: 0.25,
-            suffix: "s"
-          )
-          materialSlider(
-            "Settled duration",
-            value: Binding(
-              get: {
-                model.configuration.materials.phaseDurations
-                  .settled
-              },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.phaseDurations.settled = value
-                }
-              }
-            ),
-            range: 0.25...300,
-            step: 0.25,
-            suffix: "s"
-          )
-          materialSlider(
-            "Drain duration",
-            value: Binding(
-              get: {
-                model.configuration.materials.phaseDurations
-                  .draining
-              },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.phaseDurations.draining = value
-                }
-              }
-            ),
-            range: 0.25...300,
-            step: 0.25,
-            suffix: "s"
-          )
-          materialSlider(
-            "Regeneration",
-            value: Binding(
-              get: { model.configuration.materials.regenerationCadence },
-              set: { value in
-                model.updatePixelMaterials {
-                  $0.regenerationCadence = value
-                }
-              }
-            ),
-            range: 5...120,
-            step: 1,
-            suffix: "s"
-          )
-        }
+        .frame(maxHeight: 300)
       }
 
       expandedSettingsFooter(showsQuality: true)
@@ -1763,7 +1788,8 @@ struct StudioView: View {
     ) {
       LabeledContent(title, value: value.wrappedValue.formatted())
     }
-    .font(.system(size: 11.5, weight: .medium))
+    .font(DesignFont.sans(DesignFont.caption, .medium))
+    .foregroundStyle(DesignPalette.ink)
     .accessibilityLabel(title)
     .accessibilityValue(value.wrappedValue.formatted())
   }
@@ -1775,7 +1801,7 @@ struct StudioView: View {
     step: Double = 0.01,
     suffix: String = ""
   ) -> some View {
-    ExpandedStudioSlider(
+    StudioSlider(
       title: title,
       value: value,
       range: range,
@@ -1784,37 +1810,29 @@ struct StudioView: View {
       ) + suffix,
       step: step
     )
-    .accessibilityLabel(title)
   }
 
   private func expandedSettingsFooter(showsQuality: Bool) -> some View {
     VStack(spacing: 10) {
-      Divider().opacity(0.42)
+      DesignHairline()
 
       HStack(spacing: 12) {
         if showsQuality {
           Text("Quality")
-            .font(.system(size: 11.5, weight: .medium))
+            .font(DesignFont.sans(DesignFont.caption, .medium))
+            .foregroundStyle(DesignPalette.ink)
+            .accessibilityHidden(true)
 
-          Picker("Quality", selection: expandedQualityBinding) {
-            ForEach(ExpandedStudioQuality.allCases) { quality in
-              Text(quality.title).tag(quality)
-            }
-          }
-          .labelsHidden()
-          .pickerStyle(.segmented)
-          .frame(width: 270)
+          DesignSegmented(
+            title: "Quality",
+            selection: expandedQualityBinding,
+            choices: ExpandedStudioQuality.allCases.map { DesignChoice($0.title, $0) }
+          )
         }
 
         Spacer()
 
-        HStack(spacing: 5) {
-          Image(systemName: "checkmark.circle.fill")
-            .foregroundStyle(.green)
-          Text("Changes save automatically and apply live")
-        }
-        .font(.caption)
-        .foregroundStyle(.secondary)
+        DesignStatus(kind: .ok, text: "Changes save automatically and apply live")
       }
     }
   }
@@ -1834,7 +1852,7 @@ struct StudioView: View {
   private var expandedPatternSpecificControl: some View {
     switch model.configuration.creative.pattern {
     case .autoCycle:
-      ExpandedStudioSlider(
+      StudioSlider(
         title: "Every",
         value: Binding(
           get: { model.configuration.creative.settings.autoCycleInterval },
@@ -1847,7 +1865,7 @@ struct StudioView: View {
         step: 1
       )
     case .matrixRain:
-      ExpandedStudioSlider(
+      StudioSlider(
         title: "Trail length",
         value: Binding(
           get: { model.configuration.creative.settings.matrixTrailLength },
@@ -1860,7 +1878,7 @@ struct StudioView: View {
         step: 0.01
       )
     case .rainbowCycle:
-      ExpandedStudioSlider(
+      StudioSlider(
         title: "Amplitude",
         value: Binding(
           get: { model.configuration.creative.settings.rainbowAmplitude },
@@ -1873,7 +1891,7 @@ struct StudioView: View {
         step: 0.01
       )
     case .fireEffect:
-      ExpandedStudioSlider(
+      StudioSlider(
         title: "Decay",
         value: Binding(
           get: { model.configuration.creative.settings.fireDecay },
@@ -1957,6 +1975,11 @@ struct StudioView: View {
       : model.configuration.creative.pattern.symbolName
   }
 
+  /// The panel and chooser animations, skipped under Reduce Motion.
+  private func animate(_ changes: () -> Void) {
+    withAnimation(reduceMotion ? nil : .snappy(duration: 0.24), changes)
+  }
+
   private func selectCameraSaver() {
     model.updateSource(.camera)
   }
@@ -2038,28 +2061,36 @@ private struct SaverChooserCard: View {
         Image(systemName: symbol)
           .font(.system(size: 20, weight: .semibold))
           .foregroundStyle(.white.opacity(0.92))
-          .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
       }
       .frame(height: 54)
 
-      Text(title)
-        .font(.caption.weight(.semibold))
-        .lineLimit(1)
+      HStack(spacing: 4) {
+        Text(title)
+          .font(DesignFont.sans(DesignFont.caption, .semibold))
+          .foregroundStyle(DesignPalette.ink)
+          .lineLimit(1)
+        Spacer(minLength: 0)
+        if isSelected {
+          Image(systemName: "checkmark.circle.fill")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(DesignPalette.accentMark)
+        }
+      }
       Text(subtitle)
-        .font(.caption2)
-        .foregroundStyle(.secondary)
+        .font(DesignFont.sans(DesignFont.eyebrow))
+        .foregroundStyle(DesignPalette.ink2)
         .lineLimit(1)
     }
     .padding(6)
     .background(
-      isSelected ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.06),
+      isSelected ? DesignPalette.accentSoft : DesignPalette.sel,
       in: RoundedRectangle(cornerRadius: 10)
     )
     .overlay {
       RoundedRectangle(cornerRadius: 10)
         .strokeBorder(
-          isSelected ? Color.accentColor : Color.white.opacity(0.1),
-          lineWidth: isSelected ? 1.5 : 0.5
+          isSelected ? DesignPalette.accentMark : DesignPalette.hair2,
+          lineWidth: isSelected ? 1.5 : 1
         )
     }
     .contentShape(RoundedRectangle(cornerRadius: 10))
@@ -2086,20 +2117,21 @@ private struct SavedLookChooserCard: View {
               ? "camera.fill"
               : savedLook.snapshot.creative.pattern.symbolName
           )
-          .font(.caption2.weight(.bold))
+          .font(.system(size: 10, weight: .bold))
           .foregroundStyle(.white)
         }
 
       Text(savedLook.name)
-        .font(.caption.weight(.semibold))
+        .font(DesignFont.sans(DesignFont.caption, .semibold))
+        .foregroundStyle(DesignPalette.ink)
         .lineLimit(1)
     }
     .padding(.horizontal, 9)
     .padding(.vertical, 7)
-    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 9))
+    .background(DesignPalette.sel, in: RoundedRectangle(cornerRadius: 9))
     .overlay {
       RoundedRectangle(cornerRadius: 9)
-        .strokeBorder(.white.opacity(0.12), lineWidth: 0.5)
+        .strokeBorder(DesignPalette.hair2, lineWidth: 1)
     }
     .contentShape(RoundedRectangle(cornerRadius: 9))
   }
@@ -2124,97 +2156,6 @@ private enum ExpandedStudioQuality: Double, CaseIterable, Identifiable {
     allCases.min {
       abs($0.rawValue - value) < abs($1.rawValue - value)
     } ?? .balanced
-  }
-}
-
-private struct ExpandedStudioSection<Content: View>: View {
-  let title: String
-  let systemImage: String
-  private let content: Content
-
-  init(
-    title: String,
-    systemImage: String,
-    @ViewBuilder content: () -> Content
-  ) {
-    self.title = title
-    self.systemImage = systemImage
-    self.content = content()
-  }
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Label(title, systemImage: systemImage)
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(.secondary)
-
-      content
-    }
-    .padding(12)
-    .frame(maxWidth: .infinity, minHeight: 184, alignment: .topLeading)
-    .background(
-      Color.primary.opacity(0.04),
-      in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-    )
-    .overlay {
-      RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-    }
-  }
-}
-
-private struct ExpandedStudioSlider: View {
-  let title: String
-  @Binding var value: Double
-  let range: ClosedRange<Double>
-  let valueText: String
-  var step: Double? = nil
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 5) {
-      HStack {
-        Text(title)
-          .font(.system(size: 11.5, weight: .medium))
-        Spacer()
-        Text(valueText)
-          .font(.caption.monospacedDigit())
-          .foregroundStyle(.secondary)
-      }
-      Group {
-        if let step {
-          Slider(value: $value, in: range, step: step)
-        } else {
-          Slider(value: $value, in: range)
-        }
-      }
-      .controlSize(.small)
-    }
-    .frame(maxWidth: .infinity)
-  }
-}
-
-private struct CompactStudioSlider: View {
-  let title: String
-  @Binding var value: Double
-  let range: ClosedRange<Double>
-  var suffix = ""
-
-  var body: some View {
-    HStack(spacing: 6) {
-      Text(title)
-        .font(.system(size: 11))
-        .foregroundStyle(.secondary)
-        .fixedSize()
-      Slider(value: $value, in: range)
-        .controlSize(.mini)
-        .frame(width: 64)
-      if !suffix.isEmpty {
-        Text(value.formatted(.number.precision(.fractionLength(0))) + suffix)
-          .font(.caption2.monospacedDigit())
-          .foregroundStyle(.secondary)
-          .fixedSize()
-      }
-    }
   }
 }
 
@@ -2314,21 +2255,23 @@ struct IdleScreenMetalPreview: View {
     VStack(spacing: 9) {
       Image(systemName: systemImage)
         .font(.title2)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(DesignPalette.ink2)
+        .accessibilityHidden(true)
       Text(title)
-        .font(.headline)
+        .font(DesignFont.sans(DesignFont.body, .semibold))
+        .foregroundStyle(DesignPalette.ink)
       if let message {
         Text(message)
-          .font(.caption)
-          .foregroundStyle(.secondary)
+          .font(DesignFont.sans(DesignFont.caption))
+          .foregroundStyle(DesignPalette.ink2)
           .multilineTextAlignment(.center)
           .lineLimit(3)
       }
     }
     .padding(20)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Color.black.opacity(0.94))
-    .foregroundStyle(.white)
+    .background(DesignPalette.previewGround)
+    .accessibilityElement(children: .combine)
   }
 }
 
@@ -2560,7 +2503,7 @@ private struct IdleScreenLoupeView: View {
             .number.precision(.fractionLength(2))
           ) + "×"
         )
-        .font(.caption2.monospacedDigit().weight(.semibold))
+        .font(DesignFont.sans(DesignFont.eyebrow, .semibold).monospacedDigit())
         .foregroundStyle(.white)
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
@@ -2579,7 +2522,6 @@ private struct IdleScreenLoupeView: View {
         .inset(by: 5)
         .strokeBorder(.black.opacity(0.34), lineWidth: 1)
     }
-    .shadow(color: .black.opacity(0.48), radius: 22, y: 10)
     .position(lensCenter(radius: radius))
     .allowsHitTesting(false)
     .accessibilityHidden(true)
@@ -2895,35 +2837,6 @@ extension IdleScreenConfiguration {
 
 // MARK: - Components
 
-struct StatusPill: View {
-  var label: String
-  var systemImage: String? = nil
-  var tint: Color = .primary
-  var body: some View {
-    HStack(spacing: 6) {
-      if let systemImage {
-        Image(systemName: systemImage).font(.system(size: 10, weight: .bold))
-          .foregroundStyle(tint == .primary ? .green : tint)
-      }
-      Text(label).font(.system(size: 11, weight: .semibold)).fixedSize()
-    }
-    .padding(.horizontal, 11).padding(.vertical, 5)
-    .background(.ultraThinMaterial, in: Capsule())
-    .overlay(Capsule().strokeBorder(.white.opacity(0.14), lineWidth: 0.5))
-  }
-}
-
-struct LabeledSlider: View {
-  var title: String
-  @Binding var value: Double
-  var body: some View {
-    HStack(spacing: 7) {
-      Text(title).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize()
-      Slider(value: $value).controlSize(.mini).frame(width: 80)
-    }
-  }
-}
-
 struct PalettePair: View {
   var a: Color, b: Color
   var body: some View {
@@ -2931,6 +2844,7 @@ struct PalettePair: View {
       Circle().fill(a).frame(width: 12, height: 12)
       Circle().fill(b).frame(width: 12, height: 12)
     }
+    .accessibilityHidden(true)
   }
 }
 
