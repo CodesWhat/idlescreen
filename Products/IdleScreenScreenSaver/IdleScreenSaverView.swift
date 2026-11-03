@@ -198,7 +198,6 @@ final class IdleScreenSaverView: ScreenSaverView {
   private let gradientLayer = CAGradientLayer()
   private let glyphLayer = CATextLayer()
   private let titleLayer = CATextLayer()
-  private let agentOverlayLayer = CATextLayer()
   private let isPreviewMode: Bool
   #if IDLESCREEN_SYNTHETIC_HOSTED_GATE
     private let syntheticCameraHostContext: IdleScreenSaverCameraHostContext
@@ -218,7 +217,6 @@ final class IdleScreenSaverView: ScreenSaverView {
   private var lastHostActivityObservationAt: CFTimeInterval?
   private var displayIdentifier: UInt32?
   private var persistentDisplayIdentifier: DisplayTopology.PersistentDisplayIdentifier?
-  private var agentOverlayTopologyGeneration: UInt64?
   private let displayCoordinator: DisplaySceneCoordinator?
   private let pixelMaterialsCoordinator: IdleScreenPixelMaterialsSceneCoordinator
   private var displayHostToken: DisplaySceneHostToken?
@@ -228,12 +226,14 @@ final class IdleScreenSaverView: ScreenSaverView {
   private var configurationMonitor: IdleScreenConfigurationMonitor?
   private var agentSignalMonitor: IdleScreenAgentSignalMonitor?
   private var activeAgentSignal: IdleScreenAgentSignal?
+  private var activeAgentSignals: [IdleScreenAgentSignal] = []
+  /// One presentation per live agent, after every policy gate. The renderer
+  /// draws them as sprites in the scene.
+  private var agentSpritePresentations: [IdleScreenAgentOverlayPresentation] = []
   private var configuration: IdleScreenConfiguration
 
   private(set) var agentOverlayPresentation: IdleScreenAgentOverlayPresentation?
   private(set) var agentOverlayApplicationCount = 0
-  var agentOverlayFrame: CGRect { agentOverlayLayer.frame }
-  var agentOverlayContentsScale: CGFloat { agentOverlayLayer.contentsScale }
 
   override func isAccessibilityElement() -> Bool {
     agentOverlayPresentation != nil
@@ -417,7 +417,6 @@ final class IdleScreenSaverView: ScreenSaverView {
     CATransaction.begin()
     CATransaction.setDisableActions(true)
     refreshLayerContentsScale()
-    layoutAgentOverlay()
     CATransaction.commit()
   }
 
@@ -579,15 +578,7 @@ final class IdleScreenSaverView: ScreenSaverView {
     let resolvedIdentifier = frame.flatMap {
       displayCoordinator?.representativeIdentifier(for: $0)
     }
-    let resolvedGeneration = displayCoordinator?.latestPlan?.topologyGeneration
-    let overlayGeometryChanged =
-      resolvedIdentifier != persistentDisplayIdentifier
-      || resolvedGeneration != agentOverlayTopologyGeneration
     persistentDisplayIdentifier = resolvedIdentifier
-    agentOverlayTopologyGeneration = resolvedGeneration
-    if overlayGeometryChanged {
-      layoutAgentOverlay()
-    }
   }
 
   private static func topologyFrame(_ frame: CGRect) -> DisplayTopology.Rect {
@@ -616,7 +607,6 @@ final class IdleScreenSaverView: ScreenSaverView {
     displayCoordinator.detach(displayHostToken)
     self.displayHostToken = nil
     persistentDisplayIdentifier = nil
-    agentOverlayTopologyGeneration = nil
   }
 
   private var displayAssignment: DisplaySceneAssignment? {
@@ -654,7 +644,6 @@ final class IdleScreenSaverView: ScreenSaverView {
       width: max(0, bounds.width - 48),
       height: 28
     )
-    layoutAgentOverlay()
     CATransaction.commit()
 
     scheduleInitialLayoutRecoveryDrawIfNeeded()
@@ -690,16 +679,6 @@ final class IdleScreenSaverView: ScreenSaverView {
     titleLayer.zPosition = 12
     layer.addSublayer(titleLayer)
 
-    agentOverlayLayer.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
-    agentOverlayLayer.fontSize = 13
-    agentOverlayLayer.alignmentMode = .left
-    agentOverlayLayer.isWrapped = true
-    agentOverlayLayer.truncationMode = .end
-    agentOverlayLayer.cornerRadius = 14
-    agentOverlayLayer.borderWidth = 1
-    agentOverlayLayer.zPosition = 30
-    agentOverlayLayer.isHidden = true
-    layer.addSublayer(agentOverlayLayer)
     needsLayout = true
   }
 
@@ -802,7 +781,9 @@ final class IdleScreenSaverView: ScreenSaverView {
       )
     return IdleScreenRendererConfigurationBridge.configuration(
       for: presentedConfiguration,
-      assignment: displayAssignment
+      assignment: displayAssignment,
+      agentPresentations: agentSpritePresentations,
+      reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     )
   }
 
@@ -1016,43 +997,53 @@ final class IdleScreenSaverView: ScreenSaverView {
 
   private func refreshAgentSignal(at date: Date) {
     guard var monitor = agentSignalMonitor else {
-      applyAgentPresentation(nil)
+      applyAgentSprites([])
       return
     }
     do {
       if let change = try monitor.poll(at: date) {
         activeAgentSignal = change.signal
+        activeAgentSignals = change.signals
       }
       agentSignalMonitor = monitor
-      guard let signal = activeAgentSignal else {
-        applyAgentPresentation(nil)
+      guard activeAgentSignal != nil else {
+        applyAgentSprites([])
         return
       }
       let components = Calendar.current.dateComponents([.hour, .minute], from: date)
       let minute = (components.hour ?? 0) * 60 + (components.minute ?? 0)
-      let presentation = IdleScreenAgentPresentationPolicy.presentation(
-        for: signal,
-        configuration: configuration.agentIntegration,
-        at: date,
-        minuteOfDay: minute
+      let visible = IdleScreenAgentPresentationPolicy.isVisible(
+        destination: configuration.agentIntegration.displayDestination,
+        display: agentDisplayContext
       )
-      guard
-        IdleScreenAgentPresentationPolicy.isVisible(
-          destination: configuration.agentIntegration.displayDestination,
-          display: agentDisplayContext
-        )
-      else {
-        applyAgentPresentation(nil)
-        return
-      }
-      applyAgentPresentation(presentation)
+      let presentations =
+        visible
+        ? activeAgentSignals.compactMap {
+          IdleScreenAgentPresentationPolicy.presentation(
+            for: $0,
+            configuration: configuration.agentIntegration,
+            at: date,
+            minuteOfDay: minute
+          )
+        } : []
+      applyAgentSprites(presentations)
     } catch {
       activeAgentSignal = nil
-      applyAgentPresentation(nil)
+      activeAgentSignals = []
+      applyAgentSprites([])
       viewLogger.error(
         "Unable to read AgentSignal inbox: \(error.localizedDescription, privacy: .public)"
       )
     }
+  }
+
+  /// Keeps the strongest presentation for accessibility and the per-agent list
+  /// for the renderer. Only the strongest drives the temporary look.
+  private func applyAgentSprites(
+    _ presentations: [IdleScreenAgentOverlayPresentation]
+  ) {
+    agentSpritePresentations = presentations
+    applyAgentPresentation(presentations.first)
   }
 
   private var currentAgentDisplay: DisplayTopology.Display? {
@@ -1078,86 +1069,27 @@ final class IdleScreenSaverView: ScreenSaverView {
     )
   }
 
+  /// The scene draws agent status as sprites, so there is no card to lay out.
+  /// The view itself stays the accessibility element carrying the label.
   private func applyAgentPresentation(
     _ presentation: IdleScreenAgentOverlayPresentation?
   ) {
     guard presentation != agentOverlayPresentation else { return }
     agentOverlayPresentation = presentation
     agentOverlayApplicationCount += 1
-    CATransaction.begin()
-    CATransaction.setDisableActions(true)
     guard let presentation else {
-      agentOverlayLayer.isHidden = true
-      agentOverlayLayer.string = nil
-      CATransaction.commit()
       setAccessibilityElement(false)
       setAccessibilityLabel(nil)
       return
     }
-    let lines = [presentation.providerLabel, presentation.title, presentation.message]
-      .compactMap { $0 }
-    agentOverlayLayer.string = lines.joined(separator: "\n")
-    agentOverlayLayer.foregroundColor = NSColor.white.cgColor
-    agentOverlayLayer.backgroundColor = NSColor.black.withAlphaComponent(0.72).cgColor
-    agentOverlayLayer.borderColor =
-      agentColor(for: presentation.style)
-      .withAlphaComponent(0.72).cgColor
-    agentOverlayLayer.isHidden = false
-    layoutAgentOverlay()
-    CATransaction.commit()
     setAccessibilityElement(true)
     setAccessibilityLabel(presentation.accessibilityLabel)
-  }
-
-  private func layoutAgentOverlay() {
-    guard let presentation = agentOverlayPresentation else { return }
-    agentOverlayLayer.contentsScale = backingScaleProvider(window)
-    let inset: CGFloat = isPreviewMode ? 14 : 28
-    let safeArea = currentAgentDisplay?.safeAreaInsets ?? .zero
-    let leadingInset = inset + CGFloat(safeArea.left)
-    let trailingInset = inset + CGFloat(safeArea.right)
-    let topInset = inset + CGFloat(safeArea.top)
-    let bottomInset = inset + CGFloat(safeArea.bottom)
-    let width = min(
-      isPreviewMode ? 260 : 380,
-      max(0, bounds.width - leadingInset - trailingInset)
-    )
-    let height: CGFloat = presentation.message == nil ? 58 : 86
-    let x: CGFloat
-    let y: CGFloat
-    switch presentation.position {
-    case .topLeading:
-      x = leadingInset
-      y = max(bottomInset, bounds.height - topInset - height)
-    case .topTrailing:
-      x = max(leadingInset, bounds.width - trailingInset - width)
-      y = max(bottomInset, bounds.height - topInset - height)
-    case .bottomLeading:
-      x = leadingInset
-      y = bottomInset
-    case .bottomTrailing:
-      x = max(leadingInset, bounds.width - trailingInset - width)
-      y = bottomInset
-    }
-    agentOverlayLayer.frame = CGRect(x: x, y: y, width: width, height: height)
   }
 
   private func refreshLayerContentsScale() {
     let scale = backingScaleProvider(window)
     glyphLayer.contentsScale = scale
     titleLayer.contentsScale = scale
-    agentOverlayLayer.contentsScale = scale
-  }
-
-  private func agentColor(for style: IdleScreenAgentVisualStyle) -> NSColor {
-    switch style {
-    case .subtle: .secondaryLabelColor
-    case .active: .systemCyan
-    case .attention: .systemOrange
-    case .success: .systemGreen
-    case .failure: .systemRed
-    case .hidden: .clear
-    }
   }
 
   private func updateTypography() {
