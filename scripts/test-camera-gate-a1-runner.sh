@@ -695,7 +695,7 @@ preflight_line="$(/usr/bin/grep -nF '/usr/bin/sudo -n /usr/bin/true' "$runner" |
 log_line="$(/usr/bin/grep -nF '/usr/bin/log stream' "$runner" | /usr/bin/cut -d: -f1)"
 ((preflight_line < log_line)) || fail "privilege failure is not preflighted before log/activation"
 configuration_line="$(/usr/bin/grep -nF '"$configuration_preflight" snapshot' "$runner" | /usr/bin/cut -d: -f1)"
-activation_line="$(/usr/bin/grep -nF 'ACTION: activate the already-selected idlescreen' "$runner" | /usr/bin/cut -d: -f1)"
+activation_line="$(/usr/bin/grep -nF 'ACTION: activate the already-selected IdleScreen' "$runner" | /usr/bin/cut -d: -f1)"
 ((configuration_line < activation_line)) ||
   fail "shared camera-backed configuration is not preflighted before activation"
 handle_exit_body="$(/usr/bin/sed -n '/^handle_exit()/,/^}/p' "$runner")"
