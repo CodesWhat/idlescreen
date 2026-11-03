@@ -409,7 +409,7 @@ struct AgentSpriteRenderTests {
 
 extension SIMD3 where Scalar == Float {
   fileprivate var rgbBytes: [UInt8] {
-    [x, y, z].map { UInt8(min(255, max(0, $0 * 255)).rounded()) }
+    [x, y, z].map { UInt8(Swift.min(255, Swift.max(0, $0 * 255)).rounded()) }
   }
 }
 
