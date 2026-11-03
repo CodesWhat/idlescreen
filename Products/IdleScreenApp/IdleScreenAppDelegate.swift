@@ -29,6 +29,10 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
   private lazy var cameraClient = Self.makeCameraClient(
     navigation: navigation
   )
+  lazy var menuBarGlyph = IdleScreenMenuBarGlyph(
+    model: IdleScreenAppModel.shared,
+    cameraClient: cameraClient
+  )
 
   override init() {
     super.init()
@@ -36,10 +40,12 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    DesignFontRegistry.registerAtLaunch()
     logger.info("Application did finish launching")
     // Construction performs one read-only SMAppService status observation.
     // It does not connect XPC, bootstrap preview, register, prompt, or open UI.
     _ = cameraClient
+    menuBarGlyph.start()
     let arguments = ProcessInfo.processInfo.arguments
     let showsMainWindow = IdleScreenLaunchPolicy.shouldShowMainWindow(arguments: arguments)
     // Decided once, before anything opens: settling the policy here and not
@@ -162,7 +168,6 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
       .environment(navigation)
       .environment(displayCoordinator)
       .frame(minWidth: 900, minHeight: 600)
-      .preferredColorScheme(.dark)
     let hostingController = NSHostingController(rootView: rootView)
     let window = NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 1040, height: 680),
@@ -170,7 +175,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
       backing: .buffered,
       defer: false
     )
-    window.title = "idlescreen"
+    window.title = "IdleScreen"
     window.identifier = NSUserInterfaceItemIdentifier("main")
     window.titleVisibility = .hidden
     window.titlebarAppearsTransparent = true

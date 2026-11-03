@@ -567,29 +567,29 @@ fi
 
 echo "PASS: companion health copy attributes authorization to verified live evidence."
 
-if [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenApp/Info.plist" 2>/dev/null || true)" != "idlescreen" ]] ||
-   [[ "$(plutil -extract CFBundleName raw "$project_root/Products/IdleScreenApp/Info.plist")" != "idlescreen" ]] ||
-   [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenScreenSaver/Info.plist")" != "idlescreen" ]]; then
-  echo "FAIL: every user-visible modern product name must be lowercase idlescreen." >&2
+if [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenApp/Info.plist" 2>/dev/null || true)" != "IdleScreen" ]] ||
+   [[ "$(plutil -extract CFBundleName raw "$project_root/Products/IdleScreenApp/Info.plist")" != "IdleScreen" ]] ||
+   [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenScreenSaver/Info.plist")" != "IdleScreen" ]]; then
+  echo "FAIL: every user-visible modern product name must be IdleScreen." >&2
   exit 1
 fi
 
 for forbidden_brand in \
-  'Start IdleScreen' \
-  'Open IdleScreen' \
-  'Quit IdleScreen' \
-  'Select IdleScreen' \
-  'IdleScreen.app' \
-  'IDLESCREEN  /'; do
+  'Start idlescreen' \
+  'Open idlescreen' \
+  'Quit idlescreen' \
+  'Select idlescreen' \
+  '/idlescreen.app' \
+  'idlescreen  /'; do
   if grep -RqsF "$forbidden_brand" \
     "$project_root/Products/IdleScreenApp" \
     "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift"; then
-    echo "FAIL: user-facing modern copy contains non-lowercase brand '$forbidden_brand'." >&2
+    echo "FAIL: user-facing modern copy contains lowercase brand '$forbidden_brand'." >&2
     exit 1
   fi
 done
 
-echo "PASS: modern app, screen saver tile, and UI copy use lowercase idlescreen branding."
+echo "PASS: modern app, screen saver tile, and UI copy use IdleScreen branding."
 
 if ! grep -Fq '@NSApplicationDelegateAdaptor(IdleScreenAppDelegate.self)' "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift" ||
    ! grep -Fq 'NSHostingController' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
@@ -660,7 +660,7 @@ if ! grep -Fq 'registrationClient.assessment(' "$project_root/Products/IdleScree
    ! grep -Fq 'registrationClient.repair(' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
    ! grep -Fq 'registrationClient.forceRepair(' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
    ! grep -Fq 'registrationAssessment.location' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
-   ! grep -Fq 'Repair Screen Saver' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
+   ! grep -Fq 'Repair IdleScreen' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
    ! grep -Fq 'Different copy' "$project_root/Products/IdleScreenApp/SystemViews.swift"; then
   echo "FAIL: the companion must diagnose and repair a stale screen saver registration." >&2
   exit 1
@@ -1464,7 +1464,7 @@ if ! grep -Fq 'isProcessReportLive' "$project_root/Products/IdleScreenApp/IdleSc
    ! grep -Fq 'proc_pidpath' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
    ! grep -Fq 'matchesExecutablePath' "$project_root/Sources/IdleScreenCore/Health.swift" ||
    ! grep -Fq 'isLive: model.isProcessReportLive(report)' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
-   ! grep -Fq 'Text(isLive ? report.lifecycle.rawValue.capitalized : "Exited")' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
+   ! grep -Fq 'guard isLive else { return "Exited" }' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
    ! grep -Fq 'wrong executable identity' "$project_root/scripts/verify-shared-state.sh"; then
   echo "FAIL: companion diagnostics must not present exited process reports as live." >&2
   exit 1

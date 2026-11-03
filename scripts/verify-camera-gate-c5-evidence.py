@@ -642,12 +642,16 @@ def verify(manifest_path: Path) -> None:
     attribution = parse_kv(
         attribution_path, ATTRIBUTION_FIELDS, "C5 attribution observation"
     )
+    # Evidence recorded before the display-name change shows lowercase
+    # "idlescreen"; new runs show "IdleScreen". Accept exactly those two.
+    if attribution.get("visible_permission_label") not in {"idlescreen", "IdleScreen"}:
+        fail("C5 attribution observation visible_permission_label must be idlescreen or IdleScreen")
     require_equal(
         attribution,
         {
             "format": "IdleScreenCameraGateC5AttributionV1",
             "fresh_authorization_state": "not-determined",
-            "visible_permission_label": "idlescreen",
+            "visible_permission_label": attribution["visible_permission_label"],
             "permission_action": "companion-explicit-request",
             "authorized_bundle_identifier": HELPER_ID,
             "preview_lease_during_permission": "absent",

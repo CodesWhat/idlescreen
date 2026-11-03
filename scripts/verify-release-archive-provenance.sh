@@ -28,7 +28,7 @@ expected_renderer_identifier="com.idlescreen.renderer"
 expected_control_tool_identifier="com.idlescreen.ctl"
 expected_app_group="group.com.idlescreen.shared"
 expected_mach_service="group.com.idlescreen.shared.camera-agent"
-expected_usage_description="idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
+expected_usage_description="IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable."
 expected_bundle_program="Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent"
 
 codesign_command="${IDLESCREEN_PROVENANCE_CODESIGN:-/usr/bin/codesign}"

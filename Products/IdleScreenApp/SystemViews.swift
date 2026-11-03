@@ -1,766 +1,711 @@
 import AppKit
-import IdleScreenCore
 import IdleScreenCamera
+import IdleScreenCore
 import SwiftUI
 
+/// The Status page: a verdict, three cards and a collapsed Technical details section. The wording and the decisions live in
+/// `StatusSummary`; this view reads the model, hands over the facts and runs the action the summary names.
 @MainActor
-struct SystemView: View {
-    @Environment(IdleScreenAppModel.self) private var model
-    @Environment(IdleScreenCompanionCameraClient.self) private var cameraClient
+struct StatusView: View {
+  @Environment(IdleScreenAppModel.self) private var model
+  @Environment(IdleScreenCompanionCameraClient.self) private var cameraClient
+  @Environment(IdleScreenCompanionNavigation.self) private var navigation
 
-    @State private var processReportsAreExpanded = false
+  private let detailsInitiallyExpanded: Bool
 
-    private enum CameraCheckLayer: Equatable {
-        case client
-        case service
-        case identity
-        case snapshot
-        case authorization
-        case control
+  init(detailsInitiallyExpanded: Bool = false) {
+    self.detailsInitiallyExpanded = detailsInitiallyExpanded
+  }
+
+  private enum CameraCheckLayer: Equatable {
+    case client
+    case service
+    case identity
+    case snapshot
+    case authorization
+    case control
+  }
+
+  private var inputs: StatusInputs {
+    StatusInputs(
+      saverStatusKnown: model.hasFreshSaverStatus,
+      extensionEmbedded: model.isExtensionEmbedded,
+      macOSCompatible: model.compatibility.isCompatible,
+      registrationLocation: model.registrationAssessment.location,
+      selectedEverywhere: model.selection?.isSelectedEverywhere == true,
+      sharedContainerAvailable: model.hasSharedContainer
+        && cameraClient.bootstrapStatus != .appGroupContainerUnavailable,
+      setupCompleted: setupCompleted,
+      cameraInUse: model.configuration.source == .camera,
+      cameraAuthorization: cameraClient.readinessSnapshot.authorization,
+      cameraHasFault: StatusCameraFault.hasFault(
+        snapshot: cameraClient.readinessSnapshot, bootstrap: cameraClient.bootstrapStatus,
+        control: cameraClient.controlReachability),
+      codexHooksInstalled: model.codexHooksInstalled,
+      claudeHooksInstalled: model.claudeHooksInstalled)
+  }
+
+  @AppStorage(IdleScreenSetupStore.completedKey) private var setupCompleted = false
+
+  var body: some View {
+    StatusPageContent(
+      summary: StatusSummary(inputs),
+      lastError: model.lastError,
+      isRefreshing: model.isRefreshing,
+      detailsInitiallyExpanded: detailsInitiallyExpanded,
+      perform: perform,
+      refresh: { model.refresh() }
+    ) {
+      technicalRows
     }
+    .onAppear {
+      model.refresh()
+      cameraClient.cameraDiagnosticsDidAppear()
+    }
+    .onDisappear {
+      cameraClient.cameraDiagnosticsDidDisappear()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification))
+    { _ in
+      model.refresh()
+    }
+  }
 
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                header
+  private func perform(_ action: StatusAction) {
+    switch action {
+    case .registerSaver, .repairSaver: model.registerExtension()
+    case .openScreenSaverSettings: model.openScreenSaverSettings()
+    case .openSetup:
+      navigation.setupSession.reopenFromCameraCard()
+      navigation.destination = .studio
+    case .allowCamera: cameraClient.performSetupCameraAction()
+    case .openCameraPrivacy: cameraClient.openCameraPrivacySettings()
+    case .fixCamera: cameraClient.performRecommendedRepair()
+    case .openAgents: navigation.destination = .integrations
+    }
+  }
 
-                HStack(alignment: .top, spacing: 18) {
-                    checkSection(title: "SCREEN SAVER") {
-                        SystemCheckRow(
-                            title: "Extension",
-                            value: model.isExtensionEmbedded ? "Ready" : "Missing",
-                            detail: model.embeddedExtensionVersion.map { "Version \($0)" }
-                                ?? "No embedded extension was found",
-                            tone: model.isExtensionEmbedded ? .green : .red
-                        )
-                        SystemCheckRow(
-                            title: "Registration",
-                            value: registrationValue,
-                            detail: registrationDetail,
-                            tone: registrationTone,
-                            actionTitle: registrationRepairTitle,
-                            action: registrationRepairAction
-                        )
-                        SystemCheckRow(
-                            title: "macOS selection",
-                            value: selectionValue,
-                            detail: selectionDetail,
-                            tone: selectionTone,
-                            actionTitle: selectionRepairTitle,
-                            action: selectionRepairAction
-                        )
-                        SystemCheckRow(
-                            title: "Runtime",
-                            value: model.compatibility.isCompatible ? "Compatible" : "Blocked",
-                            detail: compatibilityDetail,
-                            tone: model.compatibility.isCompatible ? .green : .red
-                        )
-                        SystemCheckRow(
-                            title: "Shared state",
-                            value: model.hasSharedContainer ? "Connected" : "Unavailable",
-                            detail: model.appGroupIdentifier ?? "No App Group identifier",
-                            tone: model.hasSharedContainer ? .green : .orange
-                        )
-                    }
+  /// Every raw row the old System page showed, unchanged, for when something needs a closer look.
+  @ViewBuilder
+  private var technicalRows: some View {
+    // Screen saver
+    checkRow(
+      title: "Saver extension",
+      value: model.isExtensionEmbedded ? "Ready" : "Missing",
+      detail: model.embeddedExtensionVersion.map { "Version \($0)." }
+        ?? "This app doesn't include the screen saver.",
+      kind: model.isExtensionEmbedded ? .ok : .error
+    )
+    checkRow(
+      title: "Registration",
+      value: registrationValue,
+      detail: registrationDetail,
+      kind: registrationKind,
+      actionTitle: registrationRepairTitle,
+      action: registrationRepairAction
+    )
+    checkRow(
+      title: "Selected in macOS",
+      value: selectionValue,
+      detail: selectionDetail,
+      kind: selectionKind,
+      actionTitle: selectionRepairTitle,
+      action: selectionRepairAction
+    )
+    checkRow(
+      title: "macOS compatibility",
+      value: model.compatibility.isCompatible ? "Compatible" : "Blocked",
+      detail: compatibilityDetail,
+      kind: model.compatibility.isCompatible ? .ok : .error
+    )
+    checkRow(
+      title: "Shared data",
+      value: model.hasSharedContainer ? "Connected" : "Unavailable",
+      detail: model.hasSharedContainer
+        ? "The app and the saver can share settings."
+        : "IdleScreen's shared storage isn't available. Reinstall the app.",
+      kind: model.hasSharedContainer ? .ok : .attention
+    )
+    // Camera
+    checkRow(
+      title: "Camera runtime",
+      value: cameraClientValue,
+      detail: cameraClientDetail,
+      kind: cameraClientKind,
+      actionTitle: cameraRepairTitle(for: .client),
+      action: cameraRepairAction(for: .client)
+    )
+    checkRow(
+      title: "Camera agent",
+      value: cameraServiceValue,
+      detail: cameraServiceDetail,
+      kind: cameraServiceKind,
+      actionTitle: cameraRepairTitle(for: .service),
+      action: cameraRepairAction(for: .service)
+    )
+    checkRow(
+      title: "Identity",
+      value: identityValue,
+      detail: identityDetail,
+      kind: identityKind,
+      actionTitle: cameraRepairTitle(for: .identity),
+      action: cameraRepairAction(for: .identity)
+    )
+    checkRow(
+      title: "Status check",
+      value: liveSnapshotValue,
+      detail: liveSnapshotDetail,
+      kind: liveSnapshotKind,
+      actionTitle: cameraRepairTitle(for: .snapshot),
+      action: cameraRepairAction(for: .snapshot)
+    )
+    checkRow(
+      title: "Camera access",
+      value: authorizationValue,
+      detail: authorizationDetail,
+      kind: authorizationKind,
+      actionTitle: cameraRepairTitle(for: .authorization),
+      action: cameraRepairAction(for: .authorization)
+    )
+    checkRow(
+      title: "Camera service",
+      value: controlValue,
+      detail: controlDetail,
+      kind: controlKind,
+      actionTitle: cameraRepairTitle(for: .control),
+      action: cameraRepairAction(for: .control)
+    )
+    DesignRow(
+      title: "Camera checks",
+      detail: "Open camera privacy settings, or check the camera again."
+    ) {
+      cameraCheckButtons
+    }
+    detailRows
+  }
 
-                    checkSection(title: "CAMERA", trailing: AnyView(cameraCheckButton)) {
-                        SystemCheckRow(
-                            title: "Camera client",
-                            value: cameraClientValue,
-                            detail: cameraClientDetail,
-                            tone: cameraClientTone,
-                            actionTitle: cameraRepairTitle(for: .client),
-                            action: cameraRepairAction(for: .client)
-                        )
-                        SystemCheckRow(
-                            title: "Camera agent",
-                            value: cameraServiceValue,
-                            detail: cameraServiceDetail,
-                            tone: cameraServiceTone,
-                            actionTitle: cameraRepairTitle(for: .service),
-                            action: cameraRepairAction(for: .service)
-                        )
-                        SystemCheckRow(
-                            title: "Identity",
-                            value: identityValue,
-                            detail: identityDetail,
-                            tone: identityTone,
-                            actionTitle: cameraRepairTitle(for: .identity),
-                            action: cameraRepairAction(for: .identity)
-                        )
-                        SystemCheckRow(
-                            title: "Live snapshot",
-                            value: liveSnapshotValue,
-                            detail: liveSnapshotDetail,
-                            tone: liveSnapshotTone,
-                            actionTitle: cameraRepairTitle(for: .snapshot),
-                            action: cameraRepairAction(for: .snapshot)
-                        )
-                        SystemCheckRow(
-                            title: "Camera access",
-                            value: authorizationValue,
-                            detail: authorizationDetail,
-                            tone: authorizationTone,
-                            actionTitle: cameraRepairTitle(for: .authorization),
-                            action: cameraRepairAction(for: .authorization)
-                        )
-                        SystemCheckRow(
-                            title: "Control channel",
-                            value: controlValue,
-                            detail: controlDetail,
-                            tone: controlTone,
-                            actionTitle: cameraRepairTitle(for: .control),
-                            action: cameraRepairAction(for: .control)
-                        )
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 4)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+  // MARK: Rows
 
-                processReports
+  private func checkRow(
+    title: String,
+    value: String,
+    detail: String,
+    kind: DesignStatusKind,
+    actionTitle: String? = nil,
+    action: (() -> Void)? = nil
+  ) -> some View {
+    DesignRow(title: title, detail: detail) {
+      DesignStatus(kind: kind, text: value)
+      if let actionTitle, let action {
+        Button(actionTitle, action: action)
+          .buttonStyle(.designSecondary)
+          .accessibilityLabel("\(actionTitle), \(title)")
+      }
+    }
+  }
 
-                if let lastError = model.lastError {
-                    Label(lastError, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                        .padding(14)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
-                }
-            }
-            .padding(32)
+  private var cameraCheckButtons: some View {
+    HStack(spacing: 8) {
+      Button("Camera privacy…") {
+        cameraClient.openCameraPrivacySettings()
+      }
+      .buttonStyle(.designSecondary)
+      .accessibilityLabel("Camera privacy")
+      .accessibilityHint("Opens camera privacy settings")
+
+      Button {
+        cameraClient.retryCameraDiagnostics()
+      } label: {
+        if cameraDiagnosticsAreLoading {
+          Label("Checking…", systemImage: "arrow.triangle.2.circlepath")
+        } else {
+          Label("Run checks", systemImage: "arrow.clockwise")
         }
-        .background(systemBackground)
-        .onAppear {
-            model.refresh()
-            cameraClient.cameraDiagnosticsDidAppear()
-        }
-        .onDisappear {
-            cameraClient.cameraDiagnosticsDidDisappear()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            model.refresh()
-        }
+      }
+      .buttonStyle(.designSecondary)
+      .accessibilityLabel(cameraDiagnosticsAreLoading ? "Checking" : "Run checks")
+      .accessibilityHint("Runs the camera checks again")
+      .disabled(
+        cameraDiagnosticsAreLoading
+          || cameraClient.cameraAgentRepairState.isInProgress
+      )
     }
+  }
 
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text("System")
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-            Spacer()
-            SystemSummaryPill(
-                title: saverIsReady ? "Saver ready" : "Saver needs setup",
-                tone: saverIsReady ? .green : .orange
-            )
-            SystemSummaryPill(title: cameraSummaryTitle, tone: cameraSummaryTone)
-        }
+  @ViewBuilder
+  private var detailRows: some View {
+    DesignRow(
+      title: "Process reports",
+      detail: model.processHealth.isEmpty
+        ? "Signed builds publish app, saver, and camera agent reports here."
+        : "Lifecycle reports shared by IdleScreen's processes."
+    ) {
+      DesignValueText(processReportSummary)
     }
-
-    private func checkSection<Content: View>(
-        title: String,
-        trailing: AnyView? = nil,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(title)
-                    .font(.caption.weight(.bold))
-                    .tracking(0.7)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                trailing
-            }
-            .frame(minHeight: 36)
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+    ForEach(model.processHealth, id: \.reportIdentifier) { report in
+      ProcessHealthRow(
+        report: report,
+        isLive: model.isProcessReportLive(report)
+      )
     }
-
-    private var cameraCheckButton: some View {
-        HStack(spacing: 8) {
-            Button("Camera Privacy…") {
-                cameraClient.openCameraPrivacySettings()
-            }
-            .buttonStyle(.bordered)
-
-            Button {
-                cameraClient.retryCameraDiagnostics()
-            } label: {
-                if cameraDiagnosticsAreLoading {
-                    Label("Checking…", systemImage: "arrow.triangle.2.circlepath")
-                } else {
-                    Label("Run checks", systemImage: "arrow.clockwise")
-                }
-            }
-            .buttonStyle(.bordered)
-            .disabled(
-                cameraDiagnosticsAreLoading
-                    || cameraClient.cameraAgentRepairState.isInProgress
-            )
-        }
-        .controlSize(.small)
+    DesignRow(title: "Camera status snapshot") {
+      DesignValueText(liveSnapshotRawDetail)
     }
-
-    private var processReports: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Button {
-                    withAnimation(.snappy(duration: 0.2)) {
-                        processReportsAreExpanded.toggle()
-                    }
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: processReportsAreExpanded ? "chevron.down" : "chevron.right")
-                            .font(.caption.weight(.semibold))
-                        Text("Process reports").font(.headline)
-                        Text(processReportSummary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                Button("Refresh") { model.refresh() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(model.isRefreshing)
-            }
-            .padding(.vertical, 12)
-
-            if processReportsAreExpanded {
-                Divider()
-                if model.processHealth.isEmpty {
-                    Text("No shared reports yet. Signed builds publish companion, saver, and camera-agent lifecycle reports here.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .padding(.vertical, 14)
-                } else {
-                    ForEach(model.processHealth, id: \.reportIdentifier) { report in
-                        ProcessHealthRow(
-                            report: report,
-                            isLive: model.isProcessReportLive(report)
-                        )
-                    }
-                }
-                Divider()
-                VStack(alignment: .leading, spacing: 5) {
-                    LabeledContent("App", value: Bundle.main.bundleIdentifier ?? "Unknown")
-                    LabeledContent("Extension", value: model.embeddedExtensionBundleIdentifier ?? "Missing")
-                    LabeledContent("Configuration revision", value: String(model.configuration.revision))
-                    LabeledContent("Schema", value: String(model.configuration.schemaVersion))
-                }
-                .font(.caption)
-                .padding(.vertical, 12)
-            }
-        }
-        .padding(.horizontal, 20)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+    if let processDetail = cameraAgentProcessDetail {
+      DesignRow(title: "Camera agent process") {
+        DesignValueText(processDetail)
+      }
     }
-
-    private var saverIsReady: Bool {
-        model.isExtensionEmbedded && registrationIsCurrent && selectionIsCurrent
+    DesignRow(title: "App") {
+      DesignValueText(Bundle.main.bundleIdentifier ?? "Unknown")
     }
-
-    private var registrationIsCurrent: Bool {
-        model.registrationAssessment.isCurrentBuild
+    DesignRow(title: "Saver extension") {
+      DesignValueText(model.embeddedExtensionBundleIdentifier ?? "Missing")
     }
-
-    private var selectionIsCurrent: Bool {
-        model.selection?.isSelectedEverywhere == true
+    DesignRow(title: "Shared storage") {
+      DesignValueText(model.appGroupIdentifier ?? "No App Group identifier")
     }
-
-    private var registrationValue: String {
-        switch model.registrationAssessment.location {
-        case .currentBuild: "Current build"
-        case .differentCopy: "Different copy"
-        case .notRegistered: "Not registered"
-        }
+    DesignRow(title: "Configuration revision") {
+      DesignValueText(String(model.configuration.revision))
     }
-
-    private var registrationDetail: String {
-        switch model.registrationAssessment.location {
-        case .currentBuild:
-            "This app's embedded extension is registered"
-        case .differentCopy:
-            model.registrationAssessment.isSelectedBuild
-                ? "The current build is selected, but stale copies are also registered"
-                : "macOS points to \(model.registration.path ?? "another copy")"
-        case .notRegistered:
-            "macOS has no idlescreen registration"
-        }
+    DesignRow(title: "Configuration schema") {
+      DesignValueText(String(model.configuration.schemaVersion))
     }
+  }
 
-    private var registrationTone: Color {
-        registrationIsCurrent ? .green : .orange
+  private var registrationIsCurrent: Bool {
+    model.registrationAssessment.isCurrentBuild
+  }
+
+  private var selectionIsCurrent: Bool {
+    model.selection?.isSelectedEverywhere == true
+  }
+
+  private var registrationValue: String {
+    switch model.registrationAssessment.location {
+    case .currentBuild: "Registered"
+    case .differentCopy: "Different copy"
+    case .notRegistered: "Not registered"
     }
+  }
 
-    private var registrationRepairTitle: String? {
-        if registrationIsCurrent { return "Repair Screen Saver" }
-        return model.registrationAssessment.location == .differentCopy
-            ? "Repair"
-            : "Set Up"
+  private var registrationDetail: String {
+    switch model.registrationAssessment.location {
+    case .currentBuild:
+      "macOS is using this copy of IdleScreen."
+    case .differentCopy:
+      model.registrationAssessment.isSelectedBuild
+        ? "This copy is selected, but older copies are also registered."
+        : "macOS points to \(model.registration.path ?? "another copy")."
+    case .notRegistered:
+      "macOS doesn't have IdleScreen registered yet."
     }
+  }
 
-    private var registrationRepairAction: (() -> Void)? {
-        guard registrationRepairTitle != nil else { return nil }
-        return registrationIsCurrent
-            ? { model.forceRepairExtension() }
-            : { model.registerExtension() }
+  private var registrationKind: DesignStatusKind {
+    registrationIsCurrent ? .ok : .attention
+  }
+
+  private var registrationRepairTitle: String? {
+    if registrationIsCurrent { return "Repair IdleScreen" }
+    return model.registrationAssessment.location == .differentCopy
+      ? "Repair IdleScreen"
+      : "Set up IdleScreen"
+  }
+
+  private var registrationRepairAction: (() -> Void)? {
+    guard registrationRepairTitle != nil else { return nil }
+    return registrationIsCurrent
+      ? { model.forceRepairExtension() }
+      : { model.registerExtension() }
+  }
+
+  private var selectionValue: String {
+    guard let selection = model.selection else { return "Unknown" }
+    if selection.isSelectedEverywhere { return "IdleScreen" }
+    if selection.isSelectedAnywhere { return "Some displays" }
+    return "Another saver"
+  }
+
+  private var selectionDetail: String {
+    guard let selection = model.selection else {
+      return "macOS didn't say which saver is selected."
     }
+    return selection.providers.isEmpty
+      ? "No saver is recorded in the wallpaper store."
+      : selection.providers.joined(separator: ", ")
+  }
 
-    private var selectionValue: String {
-        guard let selection = model.selection else { return "Unknown" }
-        if selection.isSelectedEverywhere { return "idlescreen" }
-        if selection.isSelectedAnywhere { return "Mixed" }
-        return "Another saver"
+  private var selectionKind: DesignStatusKind {
+    guard let selection = model.selection else { return .neutral }
+    if selection.isSelectedEverywhere { return .ok }
+    if selection.isSelectedAnywhere { return .attention }
+    return .neutral
+  }
+
+  private var selectionRepairTitle: String? {
+    selectionIsCurrent ? nil : "Screen Saver Settings…"
+  }
+
+  private var selectionRepairAction: (() -> Void)? {
+    guard selectionRepairTitle != nil else { return nil }
+    return { model.openScreenSaverSettings() }
+  }
+
+  private var compatibilityDetail: String {
+    let missingSymbols =
+      model.compatibility.missingClassNames
+      + model.compatibility.missingSelectorNames
+    return missingSymbols.isEmpty
+      ? "This version of macOS has what IdleScreen needs."
+      : missingSymbols.joined(separator: ", ")
+  }
+
+  private var cameraDiagnosticsAreLoading: Bool {
+    if case .loading = cameraClient.cameraAgentDiagnosticState { return true }
+    return false
+  }
+
+  // MARK: Camera checks
+
+  private var cameraClientValue: String {
+    guard let status = cameraClient.bootstrapStatus else { return "Checking" }
+    return switch status {
+    case .ready: "Ready"
+    case .missingConfiguration: "Configuration missing"
+    case .invalidConfiguration: "Configuration invalid"
+    case .appGroupContainerUnavailable: "Shared storage unavailable"
     }
+  }
 
-    private var selectionDetail: String {
-        guard let selection = model.selection else {
-            return "The current macOS selection could not be read"
-        }
-        return selection.providers.isEmpty
-            ? "No provider is recorded in the wallpaper store"
-            : selection.providers.joined(separator: ", ")
+  private var cameraClientDetail: String {
+    guard let status = cameraClient.bootstrapStatus else {
+      return "The camera runtime is still starting."
     }
-
-    private var selectionTone: Color {
-        guard let selection = model.selection else { return .secondary }
-        if selection.isSelectedEverywhere { return .green }
-        if selection.isSelectedAnywhere { return .orange }
-        return .secondary
+    return switch status {
+    case .ready: "The camera runtime is ready."
+    case .missingConfiguration: "Camera configuration is missing."
+    case .invalidConfiguration: "Camera configuration is invalid."
+    case .appGroupContainerUnavailable:
+      "IdleScreen's shared storage isn't available. Reinstall the app."
     }
+  }
 
-    private var selectionRepairTitle: String? {
-        selectionIsCurrent ? nil : "Screen Saver Settings…"
+  private var cameraClientKind: DesignStatusKind {
+    guard let status = cameraClient.bootstrapStatus else { return .pending }
+    return status == .ready ? .ok : .error
+  }
+
+  private var cameraServiceValue: String {
+    switch cameraClient.readinessSnapshot.serviceRegistration {
+    case .unknown: "Not checked"
+    case .notRegistered: "Not enabled"
+    case .enabled: "Enabled"
+    case .requiresApproval: "Needs approval"
+    case .notFound: "Missing"
+    case .failed: "Failed"
     }
+  }
 
-    private var selectionRepairAction: (() -> Void)? {
-        guard selectionRepairTitle != nil else { return nil }
-        return { model.openScreenSaverSettings() }
+  private var cameraServiceDetail: String {
+    switch cameraClient.readinessSnapshot.serviceRegistration {
+    case .unknown: "The camera agent's status hasn't been read yet."
+    case .notRegistered: "The camera agent is turned off."
+    case .enabled: "The camera agent is turned on for your account."
+    case .requiresApproval: "Allow the camera agent in Login Items."
+    case .notFound: "This app doesn't include the camera agent."
+    case .failed: "macOS couldn't check the camera agent."
     }
+  }
 
-    private var compatibilityDetail: String {
-        let missingSymbols = model.compatibility.missingClassNames
-            + model.compatibility.missingSelectorNames
-        return missingSymbols.isEmpty
-            ? "Modern host classes and selectors are loaded"
-            : missingSymbols.joined(separator: ", ")
+  private var cameraServiceKind: DesignStatusKind {
+    switch cameraClient.readinessSnapshot.serviceRegistration {
+    case .enabled: .ok
+    case .unknown: .pending
+    case .notRegistered, .requiresApproval: .attention
+    case .notFound, .failed: .error
     }
+  }
 
-    private var cameraSummaryTitle: String {
-        if cameraIsAvailable { return "Camera available" }
-        if cameraDiagnosticsAreLoading { return "Camera checking" }
-        if cameraClient.readinessSnapshot.serviceRegistration == .unknown {
-            return "Camera checks pending"
-        }
-        return "Camera needs attention"
+  private var identityValue: String {
+    switch cameraClient.cameraAgentRepairState {
+    case .replacing: return "Replacing"
+    case .verifying: return "Verifying"
+    case .verified(let bundleVersion, _, _)
+    where cameraClient.readinessSnapshot.identity == .current:
+      return "Current · build \(bundleVersion)"
+    case .idle, .verified, .failed: break
     }
-
-    private var cameraSummaryTone: Color {
-        if cameraIsAvailable { return .green }
-        if cameraDiagnosticsAreLoading
-            || cameraClient.readinessSnapshot.serviceRegistration == .unknown {
-            return .secondary
-        }
-        return .orange
+    return switch cameraClient.readinessSnapshot.identity {
+    case .unknown: "Not verified"
+    case .absent: "Absent"
+    case .stale: "Out of date"
+    case .mismatched: "Mismatch"
+    case .current: "Current"
     }
+  }
 
-    private var cameraIsAvailable: Bool {
-        cameraClient.bootstrapStatus == .ready
-            && cameraClient.readinessSnapshot.serviceRegistration == .enabled
-            && cameraClient.readinessSnapshot.identity == .current
-            && cameraClient.readinessSnapshot.liveSnapshot == .accepted
-            && cameraClient.readinessSnapshot.authorization == .observed(.authorized)
-            && cameraClient.controlReachability == .reachable
+  private var identityDetail: String {
+    switch cameraClient.cameraAgentRepairState {
+    case .replacing:
+      return "Replacing the older camera agent with this app's copy."
+    case .verifying:
+      return "Checking the camera agent's signature and process."
+    case .verified(_, let sourceAppPath, _)
+    where cameraClient.readinessSnapshot.identity == .current:
+      return "Running from \(sourceAppPath)."
+    case .failed(let message):
+      return "Repair failed: \(message)"
+    case .idle, .verified:
+      break
     }
-
-    private var cameraDiagnosticsAreLoading: Bool {
-        if case .loading = cameraClient.cameraAgentDiagnosticState { return true }
-        return false
+    return switch cameraClient.readinessSnapshot.identity {
+    case .unknown: "Waiting for the camera service to finish starting."
+    case .absent: "The camera agent isn't installed or isn't running."
+    case .stale: "The installed copy is out of date. Repair to update it."
+    case .mismatched: "The camera agent's signature didn't check out."
+    case .current: "The installed camera agent matches this app."
     }
+  }
 
-    private var cameraClientValue: String {
-        guard let status = cameraClient.bootstrapStatus else { return "Checking" }
-        return switch status {
-        case .ready: "Ready"
-        case .missingConfiguration: "Configuration missing"
-        case .invalidConfiguration: "Configuration invalid"
-        case .appGroupContainerUnavailable: "Shared state unavailable"
-        }
+  private var identityKind: DesignStatusKind {
+    switch cameraClient.readinessSnapshot.identity {
+    case .current: .ok
+    case .mismatched: .error
+    case .absent, .stale: .attention
+    case .unknown: .pending
     }
+  }
 
-    private var cameraClientDetail: String {
-        guard let status = cameraClient.bootstrapStatus else {
-            return "Camera runtime has not finished loading"
-        }
-        return switch status {
-        case .ready: "The companion camera runtime is ready"
-        case .missingConfiguration: "Camera client configuration is missing"
-        case .invalidConfiguration: "Camera client configuration is invalid"
-        case .appGroupContainerUnavailable: "The signed App Group container is unavailable"
-        }
+  private var cameraAgentProcessDetail: String? {
+    guard
+      case .verified(let bundleVersion, let sourceAppPath, let processIdentifier) =
+        cameraClient.cameraAgentRepairState
+    else { return nil }
+    return "build \(bundleVersion) · PID \(processIdentifier) · \(sourceAppPath)"
+  }
+
+  private var liveSnapshotValue: String {
+    switch cameraClient.readinessSnapshot.liveSnapshot {
+    case .unknown: "Not checked"
+    case .unavailable: "Unavailable"
+    case .rejected: "Rejected"
+    case .accepted: "Passed"
     }
+  }
 
-    private var cameraClientTone: Color {
-        guard let status = cameraClient.bootstrapStatus else { return .secondary }
-        return status == .ready ? .green : .red
+  private var liveSnapshotDetail: String {
+    switch cameraClient.cameraAgentDiagnosticState {
+    case .notRequested: return "No status check has been requested."
+    case .loading: return "Asking the camera agent for its status."
+    case .live: return "The camera agent reported its status."
+    case .unavailable(.serviceRegistration): return "The camera agent isn't enabled."
+    case .unavailable(.clientRuntime): return "The camera runtime isn't available."
+    case .unavailable(.control): return "IdleScreen couldn't reach the camera agent."
+    case .unavailable(.rejected): return "The camera agent's reply was rejected."
     }
+  }
 
-    private var cameraServiceValue: String {
-        switch cameraClient.readinessSnapshot.serviceRegistration {
-        case .unknown: "Not checked"
-        case .notRegistered: "Not enabled"
-        case .enabled: "Enabled"
-        case .requiresApproval: "Needs approval"
-        case .notFound: "Missing"
-        case .failed: "Failed"
-        }
+  /// The raw snapshot line for Details: capture state, leases and the stream epoch.
+  private var liveSnapshotRawDetail: String {
+    guard case .live(let snapshot) = cameraClient.cameraAgentDiagnosticState else {
+      return "No snapshot yet"
     }
+    let capture = snapshot.captureActive ? "capture active" : "capture idle"
+    let leases =
+      snapshot.activeLeaseCount == 1
+      ? "1 active lease"
+      : "\(snapshot.activeLeaseCount) active leases"
+    return
+      "\(snapshot.summary) · \(capture) · \(leases) · stream epoch \(snapshot.producerStreamEpoch)"
+  }
 
-    private var cameraServiceDetail: String {
-        switch cameraClient.readinessSnapshot.serviceRegistration {
-        case .unknown: "Service status has not been read"
-        case .notRegistered: "The camera agent is inactive"
-        case .enabled: "The per-user camera agent is enabled"
-        case .requiresApproval: "Allow the camera agent in Login Items"
-        case .notFound: "The embedded camera agent is unavailable"
-        case .failed: "Service Management could not read the camera agent"
-        }
+  private var liveSnapshotKind: DesignStatusKind {
+    switch cameraClient.readinessSnapshot.liveSnapshot {
+    case .accepted: .ok
+    case .rejected: .error
+    case .unavailable: .attention
+    case .unknown: .pending
     }
+  }
 
-    private var cameraServiceTone: Color {
-        cameraClient.readinessSnapshot.serviceRegistration == .enabled ? .green : .orange
+  private var authorizationValue: String {
+    switch cameraClient.readinessSnapshot.authorization {
+    case .unknown: "Not checked"
+    case .observed(.notDetermined): "Not requested"
+    case .observed(.authorized): "Authorized"
+    case .observed(.denied): "Denied"
+    case .observed(.restricted): "Restricted"
     }
+  }
 
-    private var identityValue: String {
-        switch cameraClient.cameraAgentRepairState {
-        case .replacing: return "Replacing"
-        case .verifying: return "Verifying"
-        case let .verified(bundleVersion, _, _)
-            where cameraClient.readinessSnapshot.identity == .current:
-            return "Current · build \(bundleVersion)"
-        case .idle, .verified, .failed: break
-        }
-        return switch cameraClient.readinessSnapshot.identity {
-        case .unknown: "Not verified"
-        case .absent: "Absent"
-        case .stale: "Stale"
-        case .mismatched: "Mismatch"
-        case .current: "Current"
-        }
+  private var authorizationDetail: String {
+    switch cameraClient.readinessSnapshot.authorization {
+    case .unknown: "IdleScreen checks without prompting while this page is open."
+    case .observed(.notDetermined): "IdleScreen asks for camera access only when you choose to."
+    case .observed(.authorized): "The current camera agent reports authorization."
+    case .observed(.denied): "Camera access is off in Privacy & Security."
+    case .observed(.restricted): "A system policy restricts camera access."
     }
+  }
 
-    private var identityDetail: String {
-        switch cameraClient.cameraAgentRepairState {
-        case .replacing:
-            return "Stopping the stale helper and registering this app's copy"
-        case .verifying:
-            return "Checking signed bytes, source path, and live process"
-        case let .verified(_, sourceAppPath, processIdentifier)
-            where cameraClient.readinessSnapshot.identity == .current:
-            return "Running from \(sourceAppPath) · PID \(processIdentifier)"
-        case let .failed(message):
-            return "Repair failed: \(message)"
-        case .idle, .verified:
-            break
-        }
-        return switch cameraClient.readinessSnapshot.identity {
-        case .unknown: "Awaiting complete identity evidence"
-        case .absent: "Embedded or registered helper evidence is absent"
-        case .stale: "Enabled bytes, version, or path do not match this app"
-        case .mismatched: "Signed identity or evidence validation failed"
-        case .current: "Embedded, enabled, and running helper identities match"
-        }
+  private var authorizationKind: DesignStatusKind {
+    cameraClient.readinessSnapshot.authorization == .observed(.authorized)
+      ? .ok
+      : .attention
+  }
+
+  private var controlValue: String {
+    switch cameraClient.controlReachability {
+    case .unknown: "Not connected"
+    case .reachable: "Responding"
+    case .unreachable: "Unavailable"
+    case .timedOut: "Timed out"
     }
+  }
 
-    private var identityTone: Color {
-        switch cameraClient.readinessSnapshot.identity {
-        case .current: .green
-        case .mismatched: .red
-        case .absent, .stale: .orange
-        case .unknown: .secondary
-        }
+  private var controlDetail: String {
+    switch cameraClient.controlReachability {
+    case .unknown: "No status request has been sent yet."
+    case .reachable: "The camera service is responding."
+    case .unreachable: "IdleScreen couldn't reach the camera service."
+    case .timedOut: "The camera service took too long to respond."
     }
+  }
 
-    private var liveSnapshotValue: String {
-        switch cameraClient.readinessSnapshot.liveSnapshot {
-        case .unknown: "Not checked"
-        case .unavailable: "Unavailable"
-        case .rejected: "Rejected"
-        case .accepted: "Accepted"
-        }
+  private var controlKind: DesignStatusKind {
+    cameraClient.controlReachability == .reachable ? .ok : .attention
+  }
+
+  private func cameraRepairTitle(for layer: CameraCheckLayer) -> String? {
+    guard !cameraDiagnosticsAreLoading,
+      !cameraClient.cameraAgentRepairState.isInProgress
+    else {
+      return nil
     }
-
-    private var liveSnapshotDetail: String {
-        switch cameraClient.cameraAgentDiagnosticState {
-        case .notRequested: return "No authenticated snapshot has been requested"
-        case .loading: return "Requesting an authenticated agent snapshot"
-        case let .live(snapshot):
-            let capture = snapshot.captureActive ? "capture active" : "capture idle"
-            let leases = snapshot.activeLeaseCount == 1
-                ? "1 active lease"
-                : "\(snapshot.activeLeaseCount) active leases"
-            return "Authenticated · \(snapshot.summary) · \(capture) · \(leases) · stream epoch \(snapshot.producerStreamEpoch)"
-        case .unavailable(.serviceRegistration): return "Camera agent service is not enabled"
-        case .unavailable(.clientRuntime): return "The companion camera runtime is unavailable"
-        case .unavailable(.control): return "Authenticated camera-agent control is unavailable"
-        case .unavailable(.rejected): return "The diagnostic reply was rejected"
-        }
+    if layer == .snapshot,
+      cameraClient.readinessSnapshot.identity == .current,
+      cameraClient.readinessSnapshot.liveSnapshot != .accepted
+    {
+      return "Retry"
     }
-
-    private var liveSnapshotTone: Color {
-        switch cameraClient.readinessSnapshot.liveSnapshot {
-        case .accepted: .green
-        case .rejected: .red
-        case .unavailable: .orange
-        case .unknown: .secondary
-        }
+    guard repairBelongs(to: layer) else { return nil }
+    if layer == .identity && cameraClient.isCameraAgentReplacementRecommended {
+      return "Replace"
     }
-
-    private var authorizationValue: String {
-        switch cameraClient.readinessSnapshot.authorization {
-        case .unknown: "Not checked"
-        case .observed(.notDetermined): "Not requested"
-        case .observed(.authorized): "Authorized"
-        case .observed(.denied): "Denied"
-        case .observed(.restricted): "Restricted"
-        }
+    return switch cameraClient.recommendedRepair {
+    case .refresh(.clientRuntime): "Retry"
+    case .registerAgent: "Enable"
+    case .requestCameraAuthorization: "Allow"
+    case .refresh(.serviceRegistration): "Refresh"
+    case .refresh(.identity): "Verify"
+    case .refresh(.liveSnapshot): "Retry"
+    case .refresh(.authorization): "Check"
+    case .refresh(.control): "Retry"
+    case .refresh(.frameReadiness): nil
+    case .openRepairSurface(.backgroundItemsSettings): "Open Login Items"
+    case .openRepairSurface(.cameraPrivacySettings): "Open Privacy"
+    case .openRepairSurface(.cameraAgentDiagnostics): "Repair"
+    case nil: nil
     }
+  }
 
-    private var authorizationDetail: String {
-        switch cameraClient.readinessSnapshot.authorization {
-        case .unknown: "A nonprompting status check runs while System is visible"
-        case .observed(.notDetermined): "Camera access requires your explicit action"
-        case .observed(.authorized): "The current camera agent reports authorization"
-        case .observed(.denied): "Camera access is off in Privacy & Security"
-        case .observed(.restricted): "System policy restricts camera access"
-        }
+  private func cameraRepairAction(for layer: CameraCheckLayer) -> (() -> Void)? {
+    guard cameraRepairTitle(for: layer) != nil else { return nil }
+    if layer == .snapshot,
+      cameraClient.readinessSnapshot.identity == .current,
+      cameraClient.readinessSnapshot.liveSnapshot != .accepted
+    {
+      return { cameraClient.retryCameraDiagnostics() }
     }
+    return { cameraClient.performRecommendedRepair() }
+  }
 
-    private var authorizationTone: Color {
-        cameraClient.readinessSnapshot.authorization == .observed(.authorized)
-            ? .green
-            : .orange
+  private func repairBelongs(to layer: CameraCheckLayer) -> Bool {
+    if layer == .identity && cameraClient.isCameraAgentReplacementRecommended {
+      return true
     }
-
-    private var controlValue: String {
-        switch cameraClient.controlReachability {
-        case .unknown: "Not connected"
-        case .reachable: "Reachable"
-        case .unreachable: "Unavailable"
-        case .timedOut: "Timed out"
-        }
+    return switch cameraClient.recommendedRepair {
+    case .refresh(.clientRuntime): layer == .client
+    case .registerAgent,
+      .refresh(.serviceRegistration),
+      .openRepairSurface(.backgroundItemsSettings):
+      layer == .service
+    case .refresh(.identity): layer == .identity
+    case .openRepairSurface(.cameraAgentDiagnostics):
+      cameraClient.readinessSnapshot.identity == .current
+        ? layer == .snapshot
+        : layer == .identity
+    case .refresh(.liveSnapshot): layer == .snapshot
+    case .requestCameraAuthorization,
+      .refresh(.authorization),
+      .openRepairSurface(.cameraPrivacySettings):
+      layer == .authorization
+    case .refresh(.control): layer == .control
+    case .refresh(.frameReadiness), nil: false
     }
+  }
 
-    private var controlDetail: String {
-        switch cameraClient.controlReachability {
-        case .unknown: "No current bounded control request"
-        case .reachable: "The signed XPC control channel replied"
-        case .unreachable: "The transport or signed camera agent is unavailable"
-        case .timedOut: "The control request exceeded its deadline"
-        }
-    }
-
-    private var controlTone: Color {
-        cameraClient.controlReachability == .reachable ? .green : .orange
-    }
-
-    private func cameraRepairTitle(for layer: CameraCheckLayer) -> String? {
-        guard !cameraDiagnosticsAreLoading,
-              !cameraClient.cameraAgentRepairState.isInProgress else {
-            return nil
-        }
-        if layer == .snapshot,
-           cameraClient.readinessSnapshot.identity == .current,
-           cameraClient.readinessSnapshot.liveSnapshot != .accepted {
-            return "Retry"
-        }
-        guard repairBelongs(to: layer) else { return nil }
-        if layer == .identity && cameraClient.isCameraAgentReplacementRecommended {
-            return "Replace"
-        }
-        return switch cameraClient.recommendedRepair {
-        case .refresh(.clientRuntime): "Retry"
-        case .registerAgent: "Enable"
-        case .requestCameraAuthorization: "Allow"
-        case .refresh(.serviceRegistration): "Refresh"
-        case .refresh(.identity): "Verify"
-        case .refresh(.liveSnapshot): "Retry"
-        case .refresh(.authorization): "Check"
-        case .refresh(.control): "Retry"
-        case .refresh(.frameReadiness): nil
-        case .openRepairSurface(.backgroundItemsSettings): "Open Login Items"
-        case .openRepairSurface(.cameraPrivacySettings): "Open Privacy"
-        case .openRepairSurface(.cameraAgentDiagnostics): "Repair"
-        case nil: nil
-        }
-    }
-
-    private func cameraRepairAction(for layer: CameraCheckLayer) -> (() -> Void)? {
-        guard cameraRepairTitle(for: layer) != nil else { return nil }
-        if layer == .snapshot,
-           cameraClient.readinessSnapshot.identity == .current,
-           cameraClient.readinessSnapshot.liveSnapshot != .accepted {
-            return { cameraClient.retryCameraDiagnostics() }
-        }
-        return { cameraClient.performRecommendedRepair() }
-    }
-
-    private func repairBelongs(to layer: CameraCheckLayer) -> Bool {
-        if layer == .identity && cameraClient.isCameraAgentReplacementRecommended {
-            return true
-        }
-        return switch cameraClient.recommendedRepair {
-        case .refresh(.clientRuntime): layer == .client
-        case .registerAgent,
-             .refresh(.serviceRegistration),
-             .openRepairSurface(.backgroundItemsSettings):
-            layer == .service
-        case .refresh(.identity): layer == .identity
-        case .openRepairSurface(.cameraAgentDiagnostics):
-            cameraClient.readinessSnapshot.identity == .current
-                ? layer == .snapshot
-                : layer == .identity
-        case .refresh(.liveSnapshot): layer == .snapshot
-        case .requestCameraAuthorization,
-             .refresh(.authorization),
-             .openRepairSurface(.cameraPrivacySettings):
-            layer == .authorization
-        case .refresh(.control): layer == .control
-        case .refresh(.frameReadiness), nil: false
-        }
-    }
-
-    private var processReportSummary: String {
-        guard !model.processHealth.isEmpty else { return "No reports yet" }
-        let liveCount = model.processHealth.filter(model.isProcessReportLive).count
-        let newest = model.processHealth.map(\.updatedAt).max()
-        let timestamp = newest?.formatted(date: .omitted, time: .standard) ?? ""
-        return "\(liveCount) live · \(model.processHealth.count) reports · \(timestamp)"
-    }
-}
-
-private struct SystemCheckRow: View {
-    let title: String
-    let value: String
-    let detail: String
-    let tone: Color
-    var actionTitle: String? = nil
-    var action: (() -> Void)? = nil
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Circle()
-                .fill(tone)
-                .frame(width: 7, height: 7)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.callout.weight(.medium))
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            Spacer(minLength: 8)
-            Text(value)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
-            if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-            }
-        }
-        .padding(.vertical, 8)
-        .overlay(alignment: .top) {
-            Divider().opacity(0.45)
-        }
-    }
-}
-
-private struct SystemSummaryPill: View {
-    let title: String
-    let tone: Color
-
-    var body: some View {
-        HStack(spacing: 7) {
-            Circle()
-                .fill(tone)
-                .frame(width: 7, height: 7)
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 6)
-        .background(.thinMaterial, in: Capsule())
-    }
+  private var processReportSummary: String {
+    guard !model.processHealth.isEmpty else { return "No reports yet" }
+    let liveCount = model.processHealth.filter(model.isProcessReportLive).count
+    let newest = model.processHealth.map(\.updatedAt).max()
+    let timestamp = newest?.formatted(date: .omitted, time: .standard) ?? ""
+    return "\(liveCount) live · \(model.processHealth.count) reports · \(timestamp)"
+  }
 }
 
 private struct ProcessHealthRow: View {
-    let report: IdleScreenProcessHealth
-    let isLive: Bool
+  let report: IdleScreenProcessHealth
+  let isLive: Bool
 
-    var body: some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(isLive ? (report.issue == nil ? Color.green : .orange) : .secondary)
-                .frame(width: 8, height: 8)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(processName).font(.headline)
-                Text(report.build.bundleIdentifier).font(.caption.monospaced()).foregroundStyle(.secondary)
-                if let executionDetail {
-                    Text(executionDetail).font(.caption.monospaced()).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(isLive ? report.lifecycle.rawValue.capitalized : "Exited")
-                if let revision = report.configurationRevision {
-                    Text("Config r\(revision)")
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                }
-                Text(report.updatedAt.formatted(date: .omitted, time: .standard))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+  var body: some View {
+    DesignRow(title: processName, detail: identifierDetail) {
+      VStack(alignment: .trailing, spacing: 3) {
+        DesignStatus(kind: statusKind, text: statusText)
+        if let revision = report.configurationRevision {
+          DesignValueText("Config r\(revision)")
         }
-        .padding(.vertical, 7)
+        DesignValueText(report.updatedAt.formatted(date: .omitted, time: .standard))
+      }
     }
+  }
 
-    private var processName: String {
-        switch report.process {
-        case .companionApp: "Companion app"
-        case .screenSaverExtension: "Screen saver extension"
-        case .cameraAgent: "Camera agent"
-        }
+  private var statusKind: DesignStatusKind {
+    guard isLive else { return .neutral }
+    return report.issue == nil ? .ok : .attention
+  }
+
+  private var statusText: String {
+    guard isLive else { return "Exited" }
+    return switch report.lifecycle {
+    case .detached: "Detached"
+    case .attached: "Ready"
+    case .animating: "Running"
     }
+  }
 
-    private var executionDetail: String? {
-        guard let processIdentifier = report.processIdentifier else { return nil }
-        var components = ["PID \(processIdentifier)"]
-        if let displayIdentifier = report.displayIdentifier {
-            components.append("Display \(displayIdentifier)")
-        }
-        if let instanceIdentifier = report.instanceIdentifier {
-            components.append("View \(instanceIdentifier.prefix(8))")
-        }
-        return components.joined(separator: " · ")
+  private var identifierDetail: String {
+    [report.build.bundleIdentifier, executionDetail].compactMap { $0 }.joined(separator: "\n")
+  }
+
+  private var processName: String {
+    switch report.process {
+    case .companionApp: "Companion app"
+    case .screenSaverExtension: "Screen saver extension"
+    case .cameraAgent: "Camera agent"
     }
-}
+  }
 
-private var systemBackground: some View {
-    LinearGradient(
-        colors: [Color(nsColor: .windowBackgroundColor), Color.orange.opacity(0.035), Color.black.opacity(0.18)],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-    .ignoresSafeArea()
+  private var executionDetail: String? {
+    guard let processIdentifier = report.processIdentifier else { return nil }
+    var components = ["PID \(processIdentifier)"]
+    if let displayIdentifier = report.displayIdentifier {
+      components.append("Display \(displayIdentifier)")
+    }
+    if let instanceIdentifier = report.instanceIdentifier {
+      components.append("View \(instanceIdentifier.prefix(8))")
+    }
+    return components.joined(separator: " · ")
+  }
 }

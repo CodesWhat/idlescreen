@@ -5,12 +5,39 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+## [0.2.0] - Unreleased
+
+### Added
+
+- Added a CRT menu bar icon with setup, attention, camera preview, running and
+  idle states. Reduce Motion pins a single frame.
+- Added a first-run setup flow: register the saver, choose it in Screen Saver
+  settings, then optionally set up a camera.
+- Added a plain-language Status page. It says in a sentence or two whether the
+  saver, the screen saver choice and the camera are working, and keeps the raw
+  diagnostics under Details. The System page is now Status and the Integrations
+  page is now Agents in the sidebar.
+- Added a pixel CRT logo and app icon, replacing the earlier icon.
+- Added `scripts/check-tool-versions.sh`, reporting where locally installed gate
+  tools disagree with the versions `docs/BUILDING.md` declares.
+- Added `scripts/verify.sh` and a stall and zero-test guard on the scheme runner.
+
 ### Changed
 
+- Switched the app to Departure Mono for headings and Inter for body text, with
+  a cobalt accent. Both fonts are bundled under the OFL.
+- Rebuilt the Displays, Agents and Status settings pages on a shared
+  design language. They follow the system light and dark appearance and
+  Increase Contrast, Studio stays dark, copy is in plain language, raw
+  diagnostics sit under Details, and controls have accessibility labels.
+- Showed "IdleScreen" as the app, screen saver and camera agent name in the
+  Camera privacy list, Login Items and the screen saver picker. The installed
+  path stays `/Applications/idlescreen.app`.
+- Slimmed the pre-push hook down to `scripts/verify.sh`.
+- Ran syntax checks per file, and let the CI contract accept Renovate action pin
+  bumps.
 - Kept the companion in the menu bar and dropped its Dock tile when the main
   window closes, so the tile no longer outlives the window it belongs to.
-- Gave the app icon a phosphor background so the silver CRT chassis reads
-  against it at Dock size instead of sitting on the system's default fill.
 - Pointed the Codecov upload at the coverage reports the preceding job writes,
   so a failed upload can no longer pass silently.
 - Described the Homebrew integration as installing the signed, notarized DMG
@@ -18,10 +45,14 @@ All notable changes to idlescreen are documented here. The project follows
 - Documented the exact SBOM attachment name the published download URL depends
   on, and stopped recommending that the Qlty installer be piped into a shell.
 
-### Added
-
-- Added `scripts/check-tool-versions.sh`, reporting where locally installed gate
-  tools disagree with the versions `docs/BUILDING.md` declares.
+- Scoped the renderer zero-drop budget to the named benchmark host, matching the
+  camera duplicate-copy benchmark.
+- Bound the candidate verifier and SBOM generator to one descriptor-held
+  immutable snapshot, closing a time-of-check/time-of-use gap in release
+  verification.
+- Added a consent-gated attended runner that consumes short-lived signed
+  candidate plans, bounds camera lifecycle soaks, and records process-scoped
+  energy samples.
 
 ### Fixed
 
@@ -85,7 +116,8 @@ Initial public release.
 - Private planning, raw evidence, design exports, and legacy recovery material
   are no longer part of the public source tree.
 
-[Unreleased]: https://github.com/CodesWhat/idlescreen/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/CodesWhat/idlescreen/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/CodesWhat/idlescreen/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/CodesWhat/idlescreen/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/CodesWhat/idlescreen/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/CodesWhat/idlescreen/releases/tag/v0.1.0
