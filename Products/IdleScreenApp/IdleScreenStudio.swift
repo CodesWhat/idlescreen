@@ -177,7 +177,7 @@ struct ContentView: View {
     .buttonStyle(.plain)
     .help(destination.rawValue)
     .accessibilityLabel(destination.rawValue)
-    .accessibilityValue(destination == .status ? healthSummary.label : "")
+    .accessibilityValue(destination == .status ? statusSummary.pillLabel : "")
     .accessibilityAddTraits(navigation.destination == destination ? .isSelected : [])
   }
 
@@ -192,9 +192,9 @@ struct ContentView: View {
         Image(systemName: symbol)
           .font(.system(size: 16, weight: .medium))
         if title == Destination.status.rawValue {
-          Image(systemName: healthSummary.symbol)
+          Image(systemName: statusSummary.pillKind.symbol)
             .font(.system(size: 8, weight: .bold))
-            .foregroundStyle(healthSummary.tint)
+            .foregroundStyle(statusSummary.pillKind.color)
             .offset(x: 6, y: -3)
             .accessibilityHidden(true)
         }
@@ -212,27 +212,10 @@ struct ContentView: View {
     .contentShape(RoundedRectangle(cornerRadius: 9))
   }
 
-  private var healthSummary: (label: String, symbol: String, tint: Color) {
-    if model.isRefreshing {
-      return ("Checking", "arrow.clockwise", DesignPalette.ink2)
-    }
-    if model.lastError != nil
-      || !model.compatibility.isCompatible
-      || !model.isExtensionEmbedded
-    {
-      return ("Attention", "exclamationmark.triangle.fill", DesignPalette.warning)
-    }
-    if model.configuration.source != .generative,
-      cameraClient.recommendedRepair != nil
-    {
-      return ("Attention", "exclamationmark.triangle.fill", DesignPalette.warning)
-    }
-    if !model.registrationAssessment.isCurrentBuild
-      || model.selection?.isSelectedEverywhere != true
-    {
-      return ("Set Up", "circle.dashed", DesignPalette.warning)
-    }
-    return ("Ready", "checkmark.circle.fill", DesignPalette.success)
+  /// The same verdict the Studio status pill shows, so the rail dot and its spoken value can't disagree with it.
+  private var statusSummary: StatusSummary {
+    StatusSummary(
+      StatusInputs.live(model: model, cameraClient: cameraClient, setupCompleted: setupCompleted))
   }
 }
 
@@ -1224,6 +1207,8 @@ struct StudioView: View {
         StudioSection(title: "Input") {
           StudioField(title: "Source") {
             cameraSelectionMenu(includesUtilities: false)
+              .accessibilityLabel("Source")
+              .accessibilityValue(selectedCameraLabel)
           }
 
           if model.configuration.camera.selection == .automatic {
@@ -1232,6 +1217,8 @@ struct StudioView: View {
                 .font(DesignFont.sans(DesignFont.caption))
                 .lineLimit(1)
                 .foregroundStyle(DesignPalette.ink2)
+                .accessibilityLabel("Preferred")
+                .accessibilityValue(preferredCameraLabel)
             }
           }
 
@@ -1430,6 +1417,8 @@ struct StudioView: View {
                 .font(DesignFont.sans(DesignFont.caption).monospacedDigit())
                 .foregroundStyle(DesignPalette.ink2)
                 .lineLimit(1)
+                .accessibilityLabel("Seed")
+                .accessibilityValue(model.configuration.materials.seed.formatted())
               Button("New") {
                 model.updatePixelMaterials { settings in
                   settings.seed =
