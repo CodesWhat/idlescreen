@@ -51,7 +51,8 @@ release_fixtures() {
     ./scripts/test-public-release-contract.sh &&
     ./scripts/test-camera-agent-product-fixtures.sh &&
     ./scripts/test-synthetic-gate-product-fixtures.sh &&
-    ./scripts/test-idlescreenctl-runtime.sh
+    ./scripts/test-idlescreenctl-runtime.sh &&
+    ./scripts/test-camera-gate-a1-runner.sh
 }
 
 release_build() {
