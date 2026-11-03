@@ -54,7 +54,7 @@ write_app_info() {
   /usr/libexec/PlistBuddy -c 'Add :CFBundleIdentifier string com.idlescreen.app.dev' "$path"
   /usr/libexec/PlistBuddy -c 'Add :CFBundleExecutable string IdleScreen' "$path"
   /usr/libexec/PlistBuddy -c 'Add :CFBundlePackageType string APPL' "$path"
-  /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string idlescreen uses the camera only for camera-based screen saver effects you explicitly enable.' "$path"
+  /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable.' "$path"
 }
 
 write_renderer_info() {
@@ -95,8 +95,8 @@ write_helper_info() {
   /usr/bin/plutil -create xml1 "$path"
   /usr/libexec/PlistBuddy -c 'Add :CFBundleIdentifier string com.idlescreen.camera-agent.dev' "$path"
   /usr/libexec/PlistBuddy -c 'Add :CFBundleExecutable string IdleScreenCameraAgent' "$path"
-  /usr/libexec/PlistBuddy -c 'Add :CFBundleName string idlescreen' "$path"
-  /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string idlescreen' "$path"
+  /usr/libexec/PlistBuddy -c 'Add :CFBundleName string IdleScreen' "$path"
+  /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string IdleScreen' "$path"
   /usr/libexec/PlistBuddy -c 'Add :CFBundlePackageType string APPL' "$path"
   /usr/libexec/PlistBuddy -c 'Add :LSBackgroundOnly bool true' "$path"
   /usr/libexec/PlistBuddy -c 'Add :LSUIElement bool true' "$path"
@@ -107,7 +107,7 @@ write_helper_info() {
   if [[ "$synthetic" == true ]]; then
     /usr/libexec/PlistBuddy -c 'Add :IdleScreenSyntheticGateVersion string 1' "$path"
   else
-    /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string idlescreen uses the camera only for camera-based screen saver effects you explicitly enable.' "$path"
+    /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable.' "$path"
     /usr/libexec/PlistBuddy -c 'Add :NSCameraUseContinuityCameraDeviceType bool true' "$path"
   fi
 }

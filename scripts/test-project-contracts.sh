@@ -77,31 +77,40 @@ fi
 
 echo "PASS: CI preserves and prints actionable Xcode test diagnostics for every modern scheme."
 
-checkout_sha='3d3c42e5aac5ba805825da76410c181273ba90b1'
-codecov_sha='fb8b3582c8e4def4969c97caa2f19720cb33a72f'
-harden_runner_sha='05e31511f85b41b11d1cf0ef85d0992719546e2c'
+# Pins are checked by shape (owner/repo@<40-hex> # vX), not exact SHAs, so
+# Renovate digest bumps pass while unpinned or tag refs still fail.
+pin_comment='[0-9a-f]{40}[[:space:]]+#[[:space:]]+v[0-9]'
+checkout_pin="uses: actions/checkout@$pin_comment"
+codecov_pin="uses: codecov/codecov-action@$pin_comment"
+harden_runner_pin="uses: step-security/harden-runner@$pin_comment"
 ci_coverage_block="$(sed -n '/^  coverage:$/,/^  qlty:$/p' "$ci_workflow")"
-if [[ "$(grep -Fc "uses: actions/checkout@$checkout_sha" "$ci_workflow" || true)" -ne 3 ]] ||
-   [[ "$(grep -Fc "uses: step-security/harden-runner@$harden_runner_sha" "$ci_workflow" || true)" -ne 3 ]] ||
+if [[ "$(grep -Ec "$checkout_pin" "$ci_workflow" || true)" -ne 3 ]] ||
+   [[ "$(grep -Ec "$harden_runner_pin" "$ci_workflow" || true)" -ne 3 ]] ||
    [[ "$(grep -Fc 'persist-credentials: false' "$ci_workflow" || true)" -ne 3 ]] ||
    ! grep -Fq 'permissions:' <<<"$ci_coverage_block" ||
    ! grep -Fq 'contents: read' <<<"$ci_coverage_block" ||
    ! grep -Fq 'id-token: write' <<<"$ci_coverage_block" ||
-   ! grep -Fq "uses: codecov/codecov-action@$codecov_sha" <<<"$ci_coverage_block" ||
+   ! grep -Eq "$codecov_pin" <<<"$ci_coverage_block" ||
    ! grep -Fq "if: github.event_name == 'push'" <<<"$ci_coverage_block" ||
    ! grep -Fq 'keybase.io:443' <<<"$ci_coverage_block" ||
    ! grep -Fq -- '-enableCodeCoverage YES' <<<"$ci_coverage_block" ||
    ! grep -Fq -- '-resultBundlePath "$result_bundle"' <<<"$ci_coverage_block" ||
    ! grep -Fq 'xcrun xccov view --archive --json "$result_bundle"' <<<"$ci_coverage_block" ||
    ! grep -Fq 'use_oidc: true' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'plugins: xcode' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'swift_project: IdleScreen' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'fail_ci_if_error: false' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'python3 ./scripts/xccov_to_lcov.py' <<<"$ci_coverage_block" ||
+   ! grep -Fq -- '--source-root "$GITHUB_WORKSPACE"' <<<"$ci_coverage_block" ||
+   ! grep -Fq -- '--output "$coverage_root/coverage.lcov" "$coverage_root"/*.json' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'files: ${{ runner.temp }}/idlescreen-coverage/coverage.lcov' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'disable_search: true' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'plugins: noop' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'fail_ci_if_error: true' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'python3 ./scripts/test_xccov_to_lcov.py' "$ci_workflow" ||
+   grep -Fq 'plugins: xcode' <<<"$ci_coverage_block" ||
    ! grep -Fq 'IdleScreenAppCompileGate; do' <<<"$ci_coverage_block" ||
    grep -Eq '^[[:space:]]+token:' <<<"$ci_coverage_block" ||
    grep -Fq 'QLTY_COVERAGE_TOKEN' "$ci_workflow" ||
    grep -Eq 'uses: [^[:space:]]+@v[0-9]' "$ci_workflow"; then
-  echo "FAIL: CI must harden and pin actions, discard checkout credentials, minimize permissions, and upload trusted-push Xcode coverage through Codecov OIDC." >&2
+  echo "FAIL: CI must pin/harden actions and upload validated production LCOV through trusted-push Codecov OIDC with failures visible." >&2
   exit 1
 fi
 
@@ -122,7 +131,7 @@ if [[ "$(grep -Ec '^[[:space:]]+id-token: write$' "$ci_workflow" || true)" -ne 1
   exit 1
 fi
 
-echo "PASS: CI actions are pinned and hardened, and the trusted-push Codecov coverage job uses least-privilege OIDC without a stored credential."
+echo "PASS: CI pins and hardens actions; trusted-push Codecov uses explicit validated production LCOV, visible failures, and least-privilege OIDC."
 
 qlty_config="$project_root/.qlty/qlty.toml"
 if ! grep -Fq '[coverage]' "$qlty_config" ||
@@ -558,29 +567,29 @@ fi
 
 echo "PASS: companion health copy attributes authorization to verified live evidence."
 
-if [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenApp/Info.plist" 2>/dev/null || true)" != "idlescreen" ]] ||
-   [[ "$(plutil -extract CFBundleName raw "$project_root/Products/IdleScreenApp/Info.plist")" != "idlescreen" ]] ||
-   [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenScreenSaver/Info.plist")" != "idlescreen" ]]; then
-  echo "FAIL: every user-visible modern product name must be lowercase idlescreen." >&2
+if [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenApp/Info.plist" 2>/dev/null || true)" != "IdleScreen" ]] ||
+   [[ "$(plutil -extract CFBundleName raw "$project_root/Products/IdleScreenApp/Info.plist")" != "IdleScreen" ]] ||
+   [[ "$(plutil -extract CFBundleDisplayName raw "$project_root/Products/IdleScreenScreenSaver/Info.plist")" != "IdleScreen" ]]; then
+  echo "FAIL: every user-visible modern product name must be IdleScreen." >&2
   exit 1
 fi
 
 for forbidden_brand in \
-  'Start IdleScreen' \
-  'Open IdleScreen' \
-  'Quit IdleScreen' \
-  'Select IdleScreen' \
-  'IdleScreen.app' \
-  'IDLESCREEN  /'; do
+  'Start idlescreen' \
+  'Open idlescreen' \
+  'Quit idlescreen' \
+  'Select idlescreen' \
+  '/idlescreen.app' \
+  'idlescreen  /'; do
   if grep -RqsF "$forbidden_brand" \
     "$project_root/Products/IdleScreenApp" \
     "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift"; then
-    echo "FAIL: user-facing modern copy contains non-lowercase brand '$forbidden_brand'." >&2
+    echo "FAIL: user-facing modern copy contains lowercase brand '$forbidden_brand'." >&2
     exit 1
   fi
 done
 
-echo "PASS: modern app, screen saver tile, and UI copy use lowercase idlescreen branding."
+echo "PASS: modern app, screen saver tile, and UI copy use IdleScreen branding."
 
 if ! grep -Fq '@NSApplicationDelegateAdaptor(IdleScreenAppDelegate.self)' "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift" ||
    ! grep -Fq 'NSHostingController' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
@@ -651,7 +660,7 @@ if ! grep -Fq 'registrationClient.assessment(' "$project_root/Products/IdleScree
    ! grep -Fq 'registrationClient.repair(' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
    ! grep -Fq 'registrationClient.forceRepair(' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
    ! grep -Fq 'registrationAssessment.location' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
-   ! grep -Fq 'Repair Screen Saver' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
+   ! grep -Fq 'Repair IdleScreen' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
    ! grep -Fq 'Different copy' "$project_root/Products/IdleScreenApp/SystemViews.swift"; then
   echo "FAIL: the companion must diagnose and repair a stale screen saver registration." >&2
   exit 1
@@ -1238,7 +1247,8 @@ product_identity_test="$project_root/scripts/test-product-identity-verifier.sh"
 product_identity_verifier="$project_root/scripts/verify-product-identity.sh"
 if [[ ! -x "$product_identity_test" ]] ||
    [[ ! -x "$product_identity_verifier" ]] ||
-   ! bash -n "$product_identity_test" "$product_identity_verifier" ||
+   ! bash -n "$product_identity_test" ||
+   ! bash -n "$product_identity_verifier" ||
    ! grep -Fq 'test-product-identity-verifier.sh' "$project_root/scripts/test-phase1.sh"; then
   echo "FAIL: the Phase 1 gate must reject evidence from a different product binary." >&2
   exit 1
@@ -1454,7 +1464,7 @@ if ! grep -Fq 'isProcessReportLive' "$project_root/Products/IdleScreenApp/IdleSc
    ! grep -Fq 'proc_pidpath' "$project_root/Products/IdleScreenApp/IdleScreenAppModel.swift" ||
    ! grep -Fq 'matchesExecutablePath' "$project_root/Sources/IdleScreenCore/Health.swift" ||
    ! grep -Fq 'isLive: model.isProcessReportLive(report)' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
-   ! grep -Fq 'Text(isLive ? report.lifecycle.rawValue.capitalized : "Exited")' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
+   ! grep -Fq 'guard isLive else { return "Exited" }' "$project_root/Products/IdleScreenApp/SystemViews.swift" ||
    ! grep -Fq 'wrong executable identity' "$project_root/scripts/verify-shared-state.sh"; then
   echo "FAIL: companion diagnostics must not present exited process reports as live." >&2
   exit 1
@@ -1641,6 +1651,44 @@ done
 }
 
 echo "PASS: C4 evidence is bound from exact C3 install trees through ordered A1T/A1TR restoration."
+
+c8_soak_planner="$project_root/scripts/run-camera-gate-c8-row.py"
+c8_soak_fixtures="$project_root/scripts/test-camera-gate-c8-soak-planner.py"
+if [[ ! -x "$c8_soak_planner" || ! -x "$c8_soak_fixtures" ]] ||
+   ! python3 -m py_compile "$c8_soak_planner" ||
+   ! grep -Fq -- '--schedule-soak' "$c8_soak_planner" ||
+   ! grep -Fq -- '--execute-plan' "$c8_soak_planner" ||
+   ! grep -Fq 'write_exclusive_json' "$c8_soak_planner" ||
+   ! grep -Fq 'no safe canonical installed-candidate executor' "$c8_soak_planner" ||
+   grep -Fq 'run-performance-r1.sh' "$c8_soak_planner"; then
+  echo "FAIL: C8 requires an executable inert scheduled soak planner with a fail-closed executor boundary." >&2
+  exit 1
+fi
+"$c8_soak_fixtures" >/dev/null || {
+  echo "FAIL: deterministic controlled C8 soak planner fixtures failed." >&2
+  exit 1
+}
+
+echo "PASS: controlled C8 soak planning is inert and completion claims are fail-closed."
+
+controlled_soak_runner="$project_root/scripts/run-controlled-physical-soak.py"
+controlled_soak_module="$project_root/scripts/controlled_physical_soak.py"
+controlled_soak_fixtures="$project_root/scripts/test-controlled-physical-soak.py"
+if [[ ! -x "$controlled_soak_runner" || ! -x "$controlled_soak_fixtures" ]] ||
+   ! python3 -m py_compile "$controlled_soak_runner" "$controlled_soak_module" "$controlled_soak_fixtures" ||
+   ! grep -Fq 'IdleScreenControlledSoakPlan/v1' "$controlled_soak_module" ||
+   ! grep -Fq 'IdleScreenControlledSoakEnergy/v1' "$controlled_soak_module" ||
+   ! grep -Fq 'IdleScreenControlledSoakResult/v1' "$controlled_soak_module" ||
+   ! grep -Fq 'c8_evidence_completed' "$controlled_soak_module" ||
+   grep -Fq 'run-camera-gate-c8-row.py' "$controlled_soak_runner"; then
+  echo "FAIL: controlled attended soak runner contracts are missing or unsafe." >&2
+  exit 1
+fi
+"$controlled_soak_fixtures" >/dev/null || {
+  echo "FAIL: deterministic controlled attended soak fixtures failed." >&2
+  exit 1
+}
+echo "PASS: controlled attended soak planning and process-scoped energy observation are bounded and consent-gated."
 
 r1_builder="$project_root/scripts/build-r1-release-candidate.sh"
 r1_verifier="$project_root/scripts/verify-r1-release-candidate.sh"

@@ -3,9 +3,7 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
-icon_source="$project_root/docs/assets/idlescreen-logo.png"
 saver_source="$project_root/docs/assets/idlescreen-saver.svg"
-icon_catalog="$project_root/Products/IdleScreenApp/Assets.xcassets/AppIcon.appiconset"
 saver_catalog="$project_root/Products/IdleScreenScreenSaver/Assets.xcassets/thumbnail.imageset"
 mode="${1:-generate}"
 
@@ -35,21 +33,10 @@ render() {
     "PNG32:$destination"
 }
 
-for size in 16 32 64 128 256 512 1024; do
-  render "$icon_source" "$size" "$size" "$asset_tmp/AppIcon-$size.png"
-done
 render "$saver_source" 107 65 "$asset_tmp/thumbnail.png"
 render "$saver_source" 214 130 "$asset_tmp/thumbnail@2x.png"
 
 if [[ "$mode" == --check ]]; then
-  for size in 16 32 64 128 256 512 1024; do
-    /usr/bin/cmp -s \
-      "$asset_tmp/AppIcon-$size.png" \
-      "$icon_catalog/AppIcon-$size.png" || {
-        echo "generated app icon is stale: AppIcon-$size.png" >&2
-        exit 1
-      }
-  done
   for name in thumbnail.png thumbnail@2x.png; do
     /usr/bin/cmp -s "$asset_tmp/$name" "$saver_catalog/$name" || {
       echo "generated screen saver thumbnail is stale: $name" >&2
@@ -60,10 +47,7 @@ if [[ "$mode" == --check ]]; then
   exit 0
 fi
 
-for size in 16 32 64 128 256 512 1024; do
-  /bin/cp "$asset_tmp/AppIcon-$size.png" "$icon_catalog/AppIcon-$size.png"
-done
 /bin/cp "$asset_tmp/thumbnail.png" "$saver_catalog/thumbnail.png"
 /bin/cp "$asset_tmp/thumbnail@2x.png" "$saver_catalog/thumbnail@2x.png"
 
-echo "Generated app icons and screen saver thumbnails."
+echo "Generated screen saver thumbnails. The app icon and logo come from design/icon/export.py."

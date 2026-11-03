@@ -62,15 +62,18 @@ for public_file in \
   scripts/test-public-release-contract.sh \
   greptile.json \
   lefthook.yml \
+  scripts/verify.sh \
   renovate.json; do
   [[ -f "$public_file" ]] ||
     fail "required public repository file is missing: $public_file"
 done
 
 brand_asset_generator=scripts/generate-brand-assets.sh
-grep -Fxq 'icon_source="$project_root/docs/assets/idlescreen-logo.png"' \
-  "$brand_asset_generator" ||
-  fail "the app icon must be generated from the canonical CRT product logo"
+[[ -f design/icon/export.py && -f design/icon/sprites.py ]] ||
+  fail "the app icon and logo must come from the tracked generator in design/icon"
+if grep -Fq 'AppIcon' "$brand_asset_generator"; then
+  fail "generate-brand-assets.sh must not render the app icon; design/icon/export.py owns it"
+fi
 
 codeql_workflow=.github/workflows/security-codeql.yml
 for codeql_contract in \
@@ -108,7 +111,7 @@ if ((coderabbit_tone_length > 250)); then
   fail "CodeRabbit tone_instructions exceeds the 250-character schema limit"
 fi
 
-tracked_redistribution_archives="$(git ls-files -- '*.zip' '*.ttf' '*.otf' '*.dmg' '*.pkg')"
+tracked_redistribution_archives="$(git ls-files -- '*.zip' '*.ttf' '*.otf' '*.dmg' '*.pkg' ':(exclude)Products/IdleScreenApp/Resources/Fonts/*')"
 [[ -z "$tracked_redistribution_archives" ]] ||
   fail "binary redistribution input is tracked:\n$tracked_redistribution_archives"
 

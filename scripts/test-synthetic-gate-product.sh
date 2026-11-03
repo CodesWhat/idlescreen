@@ -165,8 +165,8 @@ expect_absent_plist_key "$gate_extension_info" NSCameraUsageDescription
 expect_absent_plist_key "$gate_extension_info" NSCameraUseContinuityCameraDeviceType
 expect_plist_value "$gate_helper_info" CFBundleIdentifier "$expected_agent_identifier"
 expect_plist_value "$gate_helper_info" CFBundleExecutable IdleScreenCameraAgent
-expect_plist_value "$gate_helper_info" CFBundleName idlescreen
-expect_plist_value "$gate_helper_info" CFBundleDisplayName idlescreen
+expect_plist_value "$gate_helper_info" CFBundleName IdleScreen
+expect_plist_value "$gate_helper_info" CFBundleDisplayName IdleScreen
 expect_plist_value "$gate_helper_info" CFBundlePackageType APPL
 expect_plist_value "$gate_helper_info" LSBackgroundOnly true
 expect_plist_value "$gate_helper_info" LSUIElement true

@@ -291,7 +291,7 @@ mock_hdiutil_main() {
   case "$operation" in
     create)
       [[ $# -eq 8 && "$1" == -srcfolder && -d "$2" && "$3" == -format &&
-         "$4" == UDZO && "$5" == -volname && "$6" == idlescreen &&
+         "$4" == UDZO && "$5" == -volname && "$6" == IdleScreen &&
          "$7" == -o && "$8" == *.dmg ]] || return 1
       local source="$2"
       local output="$8"
@@ -592,6 +592,22 @@ for expected_event in \
   previous_line="$event_line"
 done
 echo 'PASS: valid mocked Developer ID workflow is exact, ordered, and evidence-bound'
+
+escaping_candidate="$fixture_root/escaping-evidence-candidate"
+escaping_evidence="$fixture_root/escaping-evidence"
+/usr/bin/ditto "$valid_output" "$escaping_candidate"
+/bin/mv "$escaping_candidate/Evidence" "$escaping_evidence"
+/bin/ln -s "$escaping_evidence" "$escaping_candidate/Evidence"
+if run_fixture_verifier "$fixture_root/mount-valid-candidate" \
+  "$escaping_candidate/Distribution/idlescreen-0.1-build61.dmg" \
+  "$escaping_candidate/IdleScreenR1ReleaseCandidateV1.txt" \
+  >"$fixture_root/escaping-evidence-replay.txt" 2>&1; then
+  fail "final verifier accepted an escaping Evidence directory symlink"
+fi
+/usr/bin/grep -Fq 'candidate directory is not canonical' \
+  "$fixture_root/escaping-evidence-replay.txt" ||
+  fail "escaping Evidence directory failed for the wrong reason: $(<"$fixture_root/escaping-evidence-replay.txt")"
+echo 'PASS: escaping candidate directory symlinks fail closed'
 
 expect_builder_failure apple-development-authority 'Developer ID Application' \
   /usr/bin/env IDLESCREEN_FIXTURE_AUTHORITY=apple-development

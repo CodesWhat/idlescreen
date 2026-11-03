@@ -164,8 +164,17 @@ struct ProceduralComputeRendererTests {
         + "deadline_miss_ratio=\(missRatio) dropped=\(droppedFrameCount) "
         + "named_host_enforced=\(enforcesNamedHostBudget)"
     )
-    #expect(droppedFrameCount == 0)
+    // A dropped frame here is back-pressure, not an error: draw(at:) returns
+    // false only when draw(in:) bailed on `.inFlightSaturated` or
+    // `.renderResourcesUnavailable`, which is the renderer correctly refusing
+    // to queue past the in-flight limit. On a shared runner the GPU is
+    // contended and virtualized, so some drops say nothing about this code.
+    // What is host-independent is that the renderer keeps making progress, so
+    // that is what runs everywhere; zero drops joins the other two budgets
+    // behind the named host they were measured on.
+    #expect(droppedFrameCount * 2 < submissionMilliseconds.count)
     if enforcesNamedHostBudget {
+      #expect(droppedFrameCount == 0)
       #expect(cpuP95 < 5)
       #expect(missRatio <= 0.01)
     }

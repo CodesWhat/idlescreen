@@ -471,33 +471,48 @@ struct CameraFrameMappingTests {
       generationLoader: ScriptedGenerationLoader([2])
     )
     let iterations = 60
+    // The header loop finishes in about a millisecond, so one scheduler stall
+    // inflates a single sample several-fold and breaks the ratio. Take the
+    // fastest of several rounds for each path: stalls only add time, so the
+    // minimum is the closest reading of the work itself.
+    let rounds = 7
     let clock = ContinuousClock()
-
-    let headerStartedAt = clock.now
-    for _ in 0..<iterations {
-      let read: CameraFrameSourceMappingRead<Void>? =
-        try mapping
-        .withStableSnapshot(
-          copyingPixelsWhen: { _ in false },
-          { _, _ in Issue.record("A duplicate exposed pixels") }
-        )
-      guard case .descriptor = read else {
-        Issue.record("Expected a descriptor-only duplicate")
-        return
-      }
-    }
-    let headerDuration = headerStartedAt.duration(to: clock.now)
-
+    var headerMilliseconds = Double.infinity
+    var payloadMilliseconds = Double.infinity
     var observedByteCount = 0
-    let payloadStartedAt = clock.now
-    for _ in 0..<iterations {
-      observedByteCount += try #require(
-        mapping.withStableSnapshot { _, pixels in pixels.count }
+
+    for _ in 0..<rounds {
+      let headerStartedAt = clock.now
+      for _ in 0..<iterations {
+        let read: CameraFrameSourceMappingRead<Void>? =
+          try mapping
+          .withStableSnapshot(
+            copyingPixelsWhen: { _ in false },
+            { _, _ in Issue.record("A duplicate exposed pixels") }
+          )
+        guard case .descriptor = read else {
+          Issue.record("Expected a descriptor-only duplicate")
+          return
+        }
+      }
+      headerMilliseconds = min(
+        headerMilliseconds,
+        milliseconds(headerStartedAt.duration(to: clock.now))
       )
+
+      var roundByteCount = 0
+      let payloadStartedAt = clock.now
+      for _ in 0..<iterations {
+        roundByteCount += try #require(
+          mapping.withStableSnapshot { _, pixels in pixels.count }
+        )
+      }
+      payloadMilliseconds = min(
+        payloadMilliseconds,
+        milliseconds(payloadStartedAt.duration(to: clock.now))
+      )
+      observedByteCount = roundByteCount
     }
-    let payloadDuration = payloadStartedAt.duration(to: clock.now)
-    let headerMilliseconds = milliseconds(headerDuration)
-    let payloadMilliseconds = milliseconds(payloadDuration)
     let hostBrand = benchmarkHostBrand()
     let enforcesNamedHostBudget = hostBrand == "Apple M4 Pro"
     print(

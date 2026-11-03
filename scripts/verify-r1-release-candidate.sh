@@ -410,6 +410,12 @@ done
   fail "stapled DMG differs from the recorded candidate"
 
 manifest_root="$(/bin/realpath "$(dirname "$manifest")")" || fail "could not resolve candidate manifest root"
+for candidate_directory_name in Distribution Evidence C3; do
+  candidate_directory="$manifest_root/$candidate_directory_name"
+  [[ -d "$candidate_directory" && ! -L "$candidate_directory" &&
+     "$(/bin/realpath "$candidate_directory")" == "$candidate_directory" ]] ||
+    fail "candidate directory is not canonical: $candidate_directory_name"
+done
 dmg_relative="$(r1_manifest_value "$manifest" dmg_relative_path)" ||
   fail "candidate DMG path is missing"
 [[ "$dmg_relative" == "Distribution/idlescreen-$bundle_short_version-build$bundle_version.dmg" ]] ||

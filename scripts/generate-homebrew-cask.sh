@@ -119,7 +119,7 @@ trap '/bin/rm -f "${temporary_output:?}"' EXIT
   /usr/bin/printf '  sha256 "%s"\n' "$expected_sha256"
   echo
   echo '  url "https://github.com/CodesWhat/idlescreen/releases/download/v#{version.csv.first}/idlescreen-#{version.csv.first}-build#{version.csv.second}.dmg"'
-  echo '  name "idlescreen"'
+  echo '  name "IdleScreen"'
   echo '  desc "Metal-rendered ASCII art screen saver"'
   echo '  homepage "https://github.com/CodesWhat/idlescreen"'
   echo
@@ -142,8 +142,9 @@ trap '/bin/rm -f "${temporary_output:?}"' EXIT
   echo '  ]'
   echo
   echo '  caveats <<~EOS'
-  echo '    Open idlescreen once after installation, then enable it in System Settings > Wallpaper > Screen Saver.'
+  echo '    Open IdleScreen once after installation, then enable it in System Settings > Wallpaper > Screen Saver.'
   echo '    Camera access is requested only if you enable a camera-based effect.'
+  echo '    Not verified on a device: sleep/wake, reboot, app replacement while running, camera permission changes, camera contention and disconnect, multiple saver views, Intel Macs. See the README.'
   echo '  EOS'
   echo 'end'
 } >"$temporary_output"

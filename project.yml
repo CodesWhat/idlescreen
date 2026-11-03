@@ -495,15 +495,15 @@ targets:
       path: Products/IdleScreenCameraAgentExecutable/Info.plist
       properties:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-        CFBundleName: idlescreen
-        CFBundleDisplayName: idlescreen
+        CFBundleName: IdleScreen
+        CFBundleDisplayName: IdleScreen
         CFBundleExecutable: IdleScreenCameraAgent
         CFBundlePackageType: APPL
-        CFBundleVersion: "64"
-        CFBundleShortVersionString: "0.1.2"
+        CFBundleVersion: "65"
+        CFBundleShortVersionString: "0.2.0"
         LSBackgroundOnly: true
         LSUIElement: true
-        NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
+        NSCameraUsageDescription: "IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable."
         NSCameraUseContinuityCameraDeviceType: true
         IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
         IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
@@ -562,15 +562,15 @@ targets:
       path: Products/IdleScreenCameraAgentExecutable/Info.plist
       properties:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-        CFBundleName: idlescreen
-        CFBundleDisplayName: idlescreen
+        CFBundleName: IdleScreen
+        CFBundleDisplayName: IdleScreen
         CFBundleExecutable: IdleScreenCameraAgent
         CFBundlePackageType: APPL
-        CFBundleVersion: "64"
-        CFBundleShortVersionString: "0.1.2"
+        CFBundleVersion: "65"
+        CFBundleShortVersionString: "0.2.0"
         LSBackgroundOnly: true
         LSUIElement: true
-        NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
+        NSCameraUsageDescription: "IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable."
         NSCameraUseContinuityCameraDeviceType: true
         IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
         IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
@@ -714,8 +714,8 @@ targets:
       path: Support/IdleScreenSyntheticGate/HelperInfo.plist
       properties:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-        CFBundleName: idlescreen
-        CFBundleDisplayName: idlescreen
+        CFBundleName: IdleScreen
+        CFBundleDisplayName: IdleScreen
         CFBundleExecutable: IdleScreenCameraAgent
         CFBundlePackageType: APPL
         CFBundleVersion: "1"
@@ -778,8 +778,8 @@ targets:
       path: Support/IdleScreenSyntheticGate/HelperInfo.plist
       properties:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-        CFBundleName: idlescreen
-        CFBundleDisplayName: idlescreen
+        CFBundleName: IdleScreen
+        CFBundleDisplayName: IdleScreen
         CFBundleExecutable: IdleScreenCameraAgent
         CFBundlePackageType: APPL
         CFBundleVersion: "1"
@@ -886,7 +886,7 @@ targets:
       path: Products/IdleScreenScreenSaver/Info.plist
       properties:
         CFBundleDevelopmentRegion: $(DEVELOPMENT_LANGUAGE)
-        CFBundleDisplayName: idlescreen
+        CFBundleDisplayName: IdleScreen
         CFBundleExecutable: $(EXECUTABLE_NAME)
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleInfoDictionaryVersion: "6.0"
@@ -917,8 +917,8 @@ targets:
         ENABLE_APP_SANDBOX: YES
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
-        CURRENT_PROJECT_VERSION: "64"
-        MARKETING_VERSION: "0.1.2"
+        CURRENT_PROJECT_VERSION: "65"
+        MARKETING_VERSION: "0.2.0"
         CODE_SIGN_ENTITLEMENTS: Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
         SWIFT_OBJC_BRIDGING_HEADER: Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../../../Frameworks"
@@ -997,7 +997,7 @@ targets:
       path: Support/IdleScreenSyntheticHostedGateExtension/Info.plist
       properties:
         CFBundleDevelopmentRegion: $(DEVELOPMENT_LANGUAGE)
-        CFBundleDisplayName: idlescreen
+        CFBundleDisplayName: IdleScreen
         CFBundleExecutable: $(EXECUTABLE_NAME)
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleInfoDictionaryVersion: "6.0"
@@ -1085,7 +1085,7 @@ targets:
       path: Support/IdleScreenSyntheticHostedGateExtension/Info.plist
       properties:
         CFBundleDevelopmentRegion: $(DEVELOPMENT_LANGUAGE)
-        CFBundleDisplayName: idlescreen
+        CFBundleDisplayName: IdleScreen
         CFBundleExecutable: $(EXECUTABLE_NAME)
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleInfoDictionaryVersion: "6.0"
@@ -1180,6 +1180,9 @@ targets:
           - "**/*.swift"
         excludes:
           - "Info.plist"
+      - path: Products/IdleScreenApp/Resources/Fonts
+        type: folder
+        buildPhase: resources
       - path: Tests/IdleScreenAppCompileGateTests
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
     settings:
@@ -1205,6 +1208,12 @@ targets:
     platform: macOS
     sources:
       - path: Products/IdleScreenApp
+        excludes:
+          - "Resources/**"
+      - path: Products/IdleScreenApp/Resources/Fonts
+        type: folder
+        buildPhase: resources
+      - path: design/icon/AppIcon.icon
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
       - path: THIRD_PARTY_NOTICES.md
         buildPhase: resources
@@ -1216,19 +1225,19 @@ targets:
     info:
       path: Products/IdleScreenApp/Info.plist
       properties:
-        CFBundleDisplayName: idlescreen
+        CFBundleDisplayName: IdleScreen
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-        CFBundleName: idlescreen
+        CFBundleName: IdleScreen
         CFBundleExecutable: IdleScreen
-        CFBundleShortVersionString: "0.1.2"
-        CFBundleVersion: "64"
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: "65"
         IdleScreenAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
         IdleScreenCameraAgentTeamIdentifier: $(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)
         IdleScreenSharedContainerEnabled: $(IDLESCREEN_SHARED_CONTAINER_ENABLED)
         LSApplicationCategoryType: public.app-category.utilities
-        NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
+        NSCameraUsageDescription: "IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable."
     settings:
       base:
         PRODUCT_NAME: IdleScreen
@@ -1297,6 +1306,12 @@ targets:
     platform: macOS
     sources:
       - path: Products/IdleScreenApp
+        excludes:
+          - "Resources/**"
+      - path: Products/IdleScreenApp/Resources/Fonts
+        type: folder
+        buildPhase: resources
+      - path: design/icon/AppIcon.icon
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
       - path: Sources/IdleScreenCameraAgent/LaunchAgents
         buildPhase:
@@ -1306,20 +1321,20 @@ targets:
     info:
       path: Products/IdleScreenApp/Info.plist
       properties:
-        CFBundleDisplayName: idlescreen
+        CFBundleDisplayName: IdleScreen
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-        CFBundleName: idlescreen
+        CFBundleName: IdleScreen
         CFBundleExecutable: IdleScreen
         CFBundlePackageType: APPL
-        CFBundleShortVersionString: "0.1.2"
-        CFBundleVersion: "64"
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: "65"
         IdleScreenAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
         IdleScreenCameraAgentTeamIdentifier: $(IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER)
         IdleScreenSharedContainerEnabled: $(IDLESCREEN_SHARED_CONTAINER_ENABLED)
         LSApplicationCategoryType: public.app-category.utilities
-        NSCameraUsageDescription: "idlescreen uses the camera only for camera-based screen saver effects you explicitly enable."
+        NSCameraUsageDescription: "IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable."
     settings:
       base:
         PRODUCT_NAME: IdleScreen

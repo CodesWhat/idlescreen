@@ -621,7 +621,7 @@ activation_first_line=$(( $(line_count) + 1 ))
 [[ "$(/usr/bin/lsappinfo front 2>/dev/null || true)" == "$frontmost_before" ]] ||
   fail "foreground application changed before the authorized host action"
 record_checkpoint operator-normal-host-activation-authorized
-echo "ACTION: activate the already-selected idlescreen once through the normal macOS screen-saver host."
+echo "ACTION: activate the already-selected IdleScreen once through the normal macOS screen-saver host."
 echo "This runner will not open an app, open settings, change selection, or synthesize input."
 wait_for_pattern_polls "$activation_first_line" 'Animation started preview=false' 600 'one normal hosted screen-saver activation'
 record_checkpoint host-animation-started

@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -66,14 +66,18 @@ jobs:
         run: |
           ./scripts/test-repository-layout.sh
           ./scripts/test-project-contracts.sh
+          ./scripts/test-app-accessibility-labels.sh
 
       - name: Run modern unit and integration tests
         run: ./scripts/test-modern-schemes.sh "$RUNNER_TEMP/idlescreen-test-results"
 
       - name: Run deterministic product fixtures
         run: |
+          python3 ./scripts/test_xccov_to_lcov.py
           python3 ./scripts/test_performance_r1_report.py
           ./scripts/test-run-performance-r1.sh
+          ./scripts/test-camera-gate-c8-soak-planner.py
+          ./scripts/test-controlled-physical-soak.py
           ./scripts/test-companion-compile-gate.sh /tmp/idlescreen-ci-companion-gate
           ./scripts/test-idlescreenctl-runtime.sh
           ./scripts/test-camera-agent-product-fixtures.sh
@@ -103,7 +107,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -160,14 +164,18 @@ jobs:
             xcrun xccov view --archive --json "$result_bundle" \
               >"$coverage_root/$scheme.json"
           done
+          python3 ./scripts/xccov_to_lcov.py \
+            --source-root "$GITHUB_WORKSPACE" \
+            --output "$coverage_root/coverage.lcov" "$coverage_root"/*.json
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           use_oidc: true
-          plugins: xcode
-          swift_project: IdleScreen
-          fail_ci_if_error: false
+          files: ${{ runner.temp }}/idlescreen-coverage/coverage.lcov
+          disable_search: true
+          plugins: noop
+          fail_ci_if_error: true
 
   qlty:
     name: qlty
@@ -176,7 +184,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -208,7 +216,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Qlty
-        uses: qltysh/qlty-action/install@08a0a862c159eae9b9003081da6663d96efef637 # v2.3.0
+        uses: qltysh/qlty-action/install@c9b09987143d1e4ac955f4803c7bea742102feb5 # v2.4.0
 
       - name: Run Qlty gate
         run: ./scripts/qlty-check-gate.sh all

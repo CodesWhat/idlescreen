@@ -6,15 +6,32 @@
 - Xcode 26
 - XcodeGen 2.46.0
 - Python 3 for deterministic fixture tests
-- Lefthook 2.1.11, Qlty 0.618.0, actionlint 1.7.12, and zizmor 1.29.0 for
+- Lefthook 2.1.12, Qlty 0.618.0, actionlint 1.7.12, and zizmor 1.29.0 for
   repository gates
 
-Install the Homebrew-provided tools and Qlty's signed release CLI:
+Install the Homebrew-provided tools and Qlty's signed release CLI. Download the
+Qlty installer and read it before running it rather than piping it into a shell,
+so an upstream change to that script cannot execute unseen:
 
 ```sh
 brew install xcodegen lefthook actionlint zizmor
-curl https://qlty.sh | sh
+curl -fsSL https://qlty.sh -o /tmp/qlty-install.sh
+less /tmp/qlty-install.sh
+sh /tmp/qlty-install.sh
 ```
+
+Homebrew installs whatever is current, which is not necessarily the version the
+gate expects. Check what you got against the versions listed above before
+relying on a local pass:
+
+```sh
+./scripts/check-tool-versions.sh
+```
+
+CI does not depend on any of this. It asserts `xcodegen --version` exactly and
+installs Qlty from `qltysh/qlty-action/install` pinned to a full commit SHA, so
+a local version mismatch shows up as a disagreement with CI rather than as a
+silent pass.
 
 Generate the checked-in project:
 
@@ -49,9 +66,12 @@ camera access, open System Settings, or change power state:
 ```sh
 ./scripts/test-repository-layout.sh
 ./scripts/test-project-contracts.sh
+python3 ./scripts/test_xccov_to_lcov.py
 ./scripts/test-companion-compile-gate.sh
 python3 ./scripts/test_performance_r1_report.py
 ./scripts/test-run-performance-r1.sh
+./scripts/test-camera-gate-c8-soak-planner.py
+./scripts/test-controlled-physical-soak.py
 ./scripts/test-idlescreenctl-runtime.sh
 ./scripts/test-camera-agent-product-fixtures.sh
 ./scripts/test-synthetic-gate-product-fixtures.sh
@@ -65,6 +85,18 @@ treated as errors, CodeQL, workflow security, Qlty, and Codecov coverage. The
 companion compile gate prints the temporary directory
 containing its disposable build log.
 
+On trusted pushes, the coverage job exports each tested scheme's Xcode archive
+line counts and converts them with `scripts/xccov_to_lcov.py` to one explicit
+LCOV report. It includes instrumented files under `Sources/` and `Products/`,
+excluding tests, support executables and build output. Across schemes, each
+line keeps its highest execution count, so duplicate instrumentation does not
+inflate counts and an uncovered line stays visible until exercised elsewhere.
+Every input must contain executable production lines; malformed or empty data
+fails before uploading. Codecov receives only that report, with automatic Xcode
+rediscovery disabled and upload errors failing the job. This makes generation
+and upload failures visible without imposing a numeric coverage target or
+replacing provider-side project/patch settings.
+
 ## Physical checks
 
 Scripts that install products, register services, open a camera, start the
@@ -74,6 +106,34 @@ separately consent-gated. Their default behavior is to refuse the action.
 Never run a physical script by copying an opt-in from a fixture or another test
 session. Read the script's refusal message, confirm the exact candidate and
 scope, and authorize only the action being performed.
+
+The controlled C8 soak planner provides scheduling only. The separate
+`run-controlled-physical-soak.py` entry point consumes a short-lived
+signed-candidate plan after both physical-test and class-scoped authorization,
+requires an attended TTY confirmation, bounds observation of an operator-driven
+camera lifecycle, and records process-scoped energy samples. It starts only its
+own log collector and sampler process groups. It never starts or stops a product
+process and never sleeps, reboots, logs out, locks, changes displays, changes
+TCC, installs, registers, or terminates a product process.
+The planner and attended runner cannot claim C8 row completion, update a C8
+matrix, or emit verifier-valid C8 evidence. The runner emits distinct
+`IdleScreenControlledSoakPlan/v1`, `IdleScreenControlledSoakEnergy/v1`, and
+`IdleScreenControlledSoakResult/v1` artifacts, with
+`c8_evidence_completed:false`. C8 release evidence remains a separate
+operator-collected and verified workflow.
+
+Run `./scripts/test-controlled-physical-soak.py` after the C8 planner fixture
+to verify the attended runner contracts.
+Lifecycle evidence contains exactly one ordered `start` and `stop` event for
+the same privacy-safe saver instance; reversed or cross-instance log records
+are rejected.
+Plan creation claims the final output name directly with an exclusive no-follow
+open, keeping the inode at mode `000` until its content and durability checks
+finish. A failed write may strand a mode-`000` partial file at that name; it is
+not a valid plan and must be discarded before retrying. Every resolved output
+ancestor must be owned by root or the current user, have no group/other write
+permission, and have no extended ACL. No C8 schedule command initiates sleep,
+reboot, logout, display, registration, installation, TCC, or process changes.
 
 ## Release candidates
 
@@ -98,7 +158,7 @@ Replay a completed candidate with:
 
 ```sh
 ./scripts/verify-r1-release-candidate.sh \
-  /absolute/candidate/Distribution/idlescreen-0.1.2-build64.dmg \
+  /absolute/candidate/Distribution/idlescreen-0.2.0-build65.dmg \
   /absolute/candidate/IdleScreenR1ReleaseCandidateV1.txt
 ```
 
@@ -124,12 +184,18 @@ Generate and publish the SPDX 2.3 SBOM from the same verified manifest:
 ```sh
 ./scripts/generate-release-sbom.sh \
   /absolute/candidate/IdleScreenR1ReleaseCandidateV1.txt \
-  /absolute/output/idlescreen-0.1.2-build64.spdx.json
+  /absolute/output/idlescreen-0.2.0-build65.spdx.json
 ```
 
 The SBOM generator replays the candidate verifier, binds the final DMG SHA-256,
 and records the adapted AppexSaverMinimal declarations from the third-party
 notice.
+
+Attach that file to the matching GitHub release under exactly the name
+`idlescreen-<version>-build<build>.spdx.json`, alongside the DMG and
+`IdleScreenR1ReleaseCandidateV1.txt`. The name is load-bearing: the published
+download URL is derived from it, so a release whose SBOM is attached under any
+other name reads as having no SBOM at all.
 
 Ordinary changes target the protected `dev/v0.1` branch. `main` advances only
 through a reviewed promotion pull request and must immediately receive the GA

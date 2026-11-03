@@ -13,8 +13,8 @@ pipeline, or web runtime.
 
 | Control | Expected state | Current state | Verdict |
 | --- | --- | --- | --- |
-| Default branch | `main` is the latest GA tag | `main` is two commits past v0.1.1; v0.1.2 promotion will close the drift | Open until release |
-| Development line | One active protected `dev/vX.Y` branch | `dev/v0.1` exists with deletion and force-push protection | Pass |
+| Default branch | `main` is the latest GA tag | `main` exactly matches the v0.1.2 GA tag at `1d357b82` | Pass |
+| Development line | One active protected `dev/vX.Y` branch | `dev/v0.1` requires PRs, two approvals, current-head approval, the six stable checks, and CodeQL, with no bypass actors | Pass |
 | Release tags | `v*` tags cannot be deleted, updated, or force-pushed | Active tag ruleset, no bypass actors | Pass |
 | Main protection | PRs, two approvals, code owners, current head approval, required checks, CodeQL | Active no-bypass ruleset requires the six stable PR contexts proven by the representative review | Pass |
 | Contributor files | Repo-specific AGENTS, CONTRIBUTING, SECURITY, ownership, license | Present on protected `dev/v0.1` and aligned with the exact local gates | Pass |
@@ -25,7 +25,7 @@ pipeline, or web runtime.
 | Public security | Private reporting, secret scanning, push protection, Dependabot | Enabled live; no open CodeQL or Dependabot alerts at audit time | Pass |
 | Review automation | CodeRabbit on dev PRs; Greptile only by label | CodeRabbit reviewed and rechecked the corrected head; the label-gated Greptile path was exercised, but bot silence was not counted as review evidence | Pass |
 | README | Product shape, live badges, install path, community routing | Product shape adopted; Scorecard and Codecov badges require their first default-branch run | Verify after release |
-| Release engineering | Clean immutable candidate, Developer ID, notarization, Gatekeeper, manifest-derived cask | The clean development source, signing identity, and all three Developer ID profiles pass the builder preflight; the retained Apple ID notarization credential is locked and unused, while the team-scoped App Store Connect API key authenticates against submission history, and the Developer ID Application certificate is valid through 2027-02-01 | Ready for candidate creation |
+| Release engineering | Clean immutable candidate, Developer ID, notarization, Gatekeeper, manifest-derived cask | The clean development source, signing identity, and all three Developer ID profiles pass the builder preflight; the team-scoped App Store Connect API key authenticates against submission history, the stale Apple ID notary profile has been removed so one working credential remains, and the Developer ID Application certificate is valid through 2027-02-01 | v0.1.2 candidate built, notarized, stapled and published |
 | Build provenance | SBOM and workflow identity for shipped artifacts | A manifest-bound SPDX 2.3 SBOM is generated for the shipped DMG; GitHub Actions migration would require moving Apple signing and notary credentials | Local SBOM passes; Actions attestation tracked |
 | Repository metadata | Public product description, topics, Discussions, detected MIT license | Description, topics, Discussions, and MIT license detection are live | Pass |
 
@@ -39,9 +39,21 @@ and the [roadmap](ROADMAP.md) for the user-facing scope.
 
 ## Release exit
 
-The feature PR is merged and its stable checks are required on `main`. The
-audit closes when refreshed notarization authentication produces one accepted
-candidate, the promotion PR merges with required reviews, v0.1.2 exactly tags
-`main`, the attached DMG and manifest replay, the SBOM and Homebrew cask bind
-to that checksum, and the public badges and live rulesets are re-read after
-publication.
+v0.1.2 shipped on 2026-08-29. Every exit condition is met:
+
+- Notarization authenticated through the team-scoped App Store Connect API key
+  and produced one accepted candidate, 0 issues, stapled and Gatekeeper-checked.
+- Promotion PR #15 merged with two non-author approvals and every required
+  check green, after all seven CodeRabbit threads were answered and resolved.
+- `v0.1.2` tags `main` exactly at `1d357b82`, `main` and `dev/v0.1` are
+  tree-equal, and `main-is-released` passed on that commit.
+- The published DMG was downloaded and re-hashed to
+  `2e5ebbf222a060bba900baa7738c87bf4df58b7c9648b4885ab3ff5b78c7e687`, matching
+  the manifest, the SBOM binding, and the generated cask.
+- DMG, `IdleScreenR1ReleaseCandidateV1.txt` and the SPDX SBOM are attached to
+  the release; the cask bump is CodesWhat/homebrew-tap#8.
+
+Carried forward, none release-blocking: binding the candidate verifier and the
+SBOM generator to a single immutable snapshot so the two cannot be pointed at
+different bytes by a local principal, raised as a TOCTOU finding on #15 and
+deferred rather than landed in a promotion PR.

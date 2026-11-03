@@ -113,6 +113,8 @@ xcodegen generate
 ./scripts/test-selection-probe.sh
 ./scripts/test-camera-agent-product-fixtures.sh
 ./scripts/test-camera-agent-profile-policy.sh
+./scripts/test-camera-gate-c8-soak-planner.py
+./scripts/test-controlled-physical-soak.py
 ./scripts/test-synthetic-gate-contracts.sh
 ./scripts/test-synthetic-gate-transaction.sh
 ./scripts/test-synthetic-gate-product-fixtures.sh

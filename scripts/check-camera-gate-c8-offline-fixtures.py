@@ -429,7 +429,7 @@ def main() -> int:
             {
                 "schema": PREFLIGHT_CONSOLE_STATE_SCHEMA,
                 "captured_at_utc": datetime.now(timezone.utc)
-                .isoformat()
+                .isoformat(timespec="seconds")
                 .replace("+00:00", "Z"),
                 "state": "unlocked",
                 "source": "read-console-lock-state",
@@ -495,7 +495,7 @@ def main() -> int:
             {
                 "schema": PREFLIGHT_CONSOLE_STATE_SCHEMA,
                 "captured_at_utc": datetime.now(timezone.utc)
-                .isoformat()
+                .isoformat(timespec="seconds")
                 .replace("+00:00", "Z"),
                 "state": "locked",
                 "source": "read-console-lock-state",

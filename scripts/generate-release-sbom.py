@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -188,12 +189,24 @@ def main() -> None:
         ],
     }
 
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor = os.open(output, flags, 0o644)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-        handle.write(json.dumps(document, indent=2, sort_keys=True) + "\n")
+    # Staged through a temporary file in the destination directory so an
+    # interrupted run cannot leave a short .spdx.json behind. The final publish
+    # is os.link, which fails rather than clobbers when the output already
+    # exists, keeping the no-clobber guarantee the previous O_EXCL open gave.
+    payload = json.dumps(document, indent=2, sort_keys=True) + "\n"
+    destination = Path(output)
+    descriptor, staged = tempfile.mkstemp(
+        dir=destination.parent, prefix=f".{destination.name}.", suffix=".partial"
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(staged, 0o644)
+        os.link(staged, output)
+    finally:
+        os.unlink(staged)
     print(f"Generated SPDX SBOM: {output}")
 
 
