@@ -500,9 +500,12 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
 
 /// Framing mask: a quiet sky above the horizon row, the pattern as ground
 /// below. Mirrors IdleScreenSceneFramingMask in Swift.
-static float idleScreenFramingMask(float row, float horizonRow) {
+static float idleScreenFramingMask(float row, float horizonRow, float originRow) {
     if (row < horizonRow) {
-        const float t = horizonRow > 0.0 ? clamp(row / horizonRow, 0.0, 1.0) : 1.0;
+        const float sceneHorizon = horizonRow + originRow;
+        const float t = sceneHorizon > 0.0
+            ? clamp((row + originRow) / sceneHorizon, 0.0, 1.0)
+            : 1.0;
         return 0.10 + (0.24 - 0.10) * t;
     }
     const float t = clamp((row - horizonRow) / 8.0, 0.0, 1.0);
@@ -577,7 +580,8 @@ kernel void idleScreenProceduralInstances(
     if (uniforms.framingEnabled != 0) {
         const float mask = idleScreenFramingMask(
             float(position.y),
-            uniforms.horizonRow
+            uniforms.horizonRow,
+            float(uniforms.sceneOrigin.y)
         );
         brightness *= mask;
         if (shuffledPattern != 3) {
@@ -621,7 +625,11 @@ kernel void idleScreenAgentSpriteOverrides(
         return;
     }
     if (entry.mode == 0) {
-        instances[entry.cell].gridBrightnessGlyph.z *= entry.brightness;
+        // Halo: flag the cell with a negative brightness. The fragment applies
+        // the tone floors first and the halo factor after, so a dimmed glyph
+        // really clears instead of sitting on the floor.
+        instances[entry.cell].gridBrightnessGlyph.z =
+            -fabs(instances[entry.cell].gridBrightnessGlyph.z);
     } else {
         instances[entry.cell].gridBrightnessGlyph.z = entry.brightness;
         instances[entry.cell].gridBrightnessGlyph.w = entry.glyph;
@@ -794,10 +802,15 @@ fragment float4 idleScreenCharacterFragment(
     // Gamma lifts mid-tones; the floors keep a dim glyph legible. A cell at
     // zero brightness stays invisible (dimmed displays), so the floors fade
     // in over the first few percent.
-    const float lum = pow(clamp(input.brightness, 0.0, 1.0), 0.7);
-    const float presence = smoothstep(0.0, 0.04, input.brightness);
-    const float colorScale = mix(0.22, 1.0, lum) * presence;
-    const float alphaScale = mix(0.35, 1.0, lum) * presence;
+    // A negative brightness marks a sprite halo cell: the factor multiplies
+    // the final colour and alpha, after the floors. Keep it equal to
+    // AgentSpriteLayout.haloFactor.
+    const float brightness = fabs(input.brightness);
+    const float halo = input.brightness < 0.0 ? 0.10 : 1.0;
+    const float lum = pow(clamp(brightness, 0.0, 1.0), 0.7);
+    const float presence = smoothstep(0.0, 0.04, brightness);
+    const float colorScale = mix(0.22, 1.0, lum) * presence * halo;
+    const float alphaScale = mix(0.35, 1.0, lum) * presence * halo;
     return float4(input.foreground.rgb * colorScale, alpha * alphaScale);
 }
 

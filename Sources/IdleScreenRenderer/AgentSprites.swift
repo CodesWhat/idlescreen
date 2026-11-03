@@ -47,6 +47,8 @@ public struct IdleScreenAgentSprite: Equatable, Sendable {
 /// shared byte for byte with the Metal `IdleScreenAgentSpriteOverride`.
 ///
 /// The sprites use mode 0 only, to thin the glyphs around a sprite (a halo).
+/// A halo cell keeps its brightness but flips it negative; the fragment stage
+/// applies `haloFactor` after the tone floors, so the glyph really clears.
 /// Mode 1 replaces brightness, glyph and foreground. Overrides are unique per
 /// cell, so the GPU can apply them in parallel with no ordering.
 struct AgentSpriteCellOverride: Equatable {
@@ -64,7 +66,7 @@ struct AgentSpriteCellOverride: Equatable {
     color sceneColor: SIMD4<Float>
   ) -> (brightness: Float, glyph: Float, color: SIMD4<Float>) {
     if mode == 0 {
-      return (sceneBrightness * brightness, sceneGlyph, sceneColor)
+      return (-abs(sceneBrightness), sceneGlyph, sceneColor)
     }
     return (brightness, glyph, color)
   }
@@ -128,6 +130,58 @@ struct AgentSpriteLayer: Equatable {
   var isEmpty: Bool { quads.isEmpty && halo.isEmpty }
 }
 
+/// Gives every live sprite its entrance, whenever its signal was written.
+///
+/// A host sets `startedAt` to the signal's creation time, which can be hours
+/// before the saver starts. The pose clock instead starts at the later of that
+/// and the moment this renderer first saw the sprite, so a finished agent still
+/// runs in and then stays on screen until its signal expires or is
+/// acknowledged. Identity is (kind, state, startedAt); a sprite that goes away
+/// and returns is a new sighting.
+struct AgentSpriteClock {
+  private struct Key: Hashable {
+    var kind: IdleScreenAgentSpriteKind
+    var state: IdleScreenAgentSpriteState
+    var startedAt: Date
+  }
+
+  private var firstSeen: [Key: Date] = [:]
+
+  mutating func resolve(
+    _ sprites: [IdleScreenAgentSprite],
+    now: Date
+  ) -> [IdleScreenAgentSprite] {
+    var seen: [Key: Date] = [:]
+    let resolved = sprites.map { sprite -> IdleScreenAgentSprite in
+      let key = Key(kind: sprite.kind, state: sprite.state, startedAt: sprite.startedAt)
+      let first = firstSeen[key] ?? now
+      seen[key] = first
+      var copy = sprite
+      copy.startedAt = max(sprite.startedAt, first)
+      return copy
+    }
+    firstSeen = seen
+    return resolved
+  }
+}
+
+extension IdleScreenAgentSprite {
+  /// Whether the sprite is visibly moving at `now`, which is what frame pacing
+  /// follows. A reduced-motion or parked sprite holds still. A finished or
+  /// failed one moves only through its run-in and fall.
+  func isAnimating(at now: Date) -> Bool {
+    if reduceMotion { return false }
+    switch state {
+    case .working, .needsAttention: return true
+    case .done, .error: return now.timeIntervalSince(startedAt) < 3
+    }
+  }
+
+  /// Present rate a moving sprite needs, so run and hop steps stay smooth on
+  /// slow patterns.
+  static let animatingFramesPerSecond = 30
+}
+
 /// Pixel grids, poses and the pixel lattice for the agent sprites.
 ///
 /// Geometry is defined in sprite units, where one lattice pixel is 4 units.
@@ -151,10 +205,8 @@ enum AgentSpriteLayout {
 
   static let workingSpeed = 6.0  // columns per second
   static let runInSpeed = 12.0
-  static let sitDuration = 20.0
   static let spanColumns = 22.0
   static let hopDuration = 0.9
-  static let walkOffSpeed = 10.0
   static let slotSpacing = 30.0
 
   static let centerParkFraction = 0.5
@@ -322,12 +374,6 @@ enum AgentSpriteLayout {
     let runIn = abs(parkX - startX) / runInSpeed
 
     if !reduceMotion {
-      if state == .done, t > sitDuration {
-        pose.x = parkX + (t - sitDuration) * walkOffSpeed
-        pose.frame = legFrame(t)
-        pose.visible = pose.x < columns + span / 2
-        return pose
-      }
       if t < runIn {
         pose.x = startX + (parkX > startX ? 1 : -1) * runInSpeed * t
         pose.frame = legFrame(t)

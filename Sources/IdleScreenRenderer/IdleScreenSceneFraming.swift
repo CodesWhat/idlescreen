@@ -38,10 +38,15 @@ enum IdleScreenSceneFramingMask {
     return Float(sceneRow - Double(origin.row))
   }
 
-  static func mask(row: Int, horizonRow: Float) -> Float {
+  /// `row` and `horizonRow` are in this grid's coordinates. `originRow` is the
+  /// grid's first row in the scene, so the sky gradient runs over scene rows
+  /// and stacked displays share one continuous ramp.
+  static func mask(row: Int, horizonRow: Float, originRow: Int = 0) -> Float {
     let row = Float(row)
     if row < horizonRow {
-      let t = horizonRow > 0 ? min(1, max(0, row / horizonRow)) : 1
+      let origin = Float(originRow)
+      let sceneHorizon = horizonRow + origin
+      let t = sceneHorizon > 0 ? min(1, max(0, (row + origin) / sceneHorizon)) : 1
       return skyTop + (skyHorizon - skyTop) * t
     }
     let t = min(1, max(0, (row - horizonRow) / groundRamp))

@@ -329,6 +329,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
   /// Test seam: fill the glyph grid on the CPU even when the GPU procedural
   /// kernel is available, so the CPU sprite path can be compared end to end.
   var forcesCPUGlyphFill = false
+  private var spriteClock = AgentSpriteClock()
   /// The grid and sprite layer of the most recent frame, for tests.
   private(set) var lastSpriteFrame: (columns: Int, rows: Int, layer: AgentSpriteLayer)?
   private var agentSpriteBuffers = [MTLBuffer?](
@@ -696,12 +697,24 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
   /// link or animation timer; camera frames always run at 30.
   public func preferredFramesPerSecond(at elapsedTime: TimeInterval) -> Int {
     if mode == .camera, cameraFrame != nil { return 30 }
-    return IdleScreenProceduralPatterns.framesPerSecond(
+    let patternRate = IdleScreenProceduralPatterns.framesPerSecond(
       patternRawValue: configuration.patternRawValue,
       at: elapsedTime,
       autoCycleInterval: configuration.proceduralSettings.normalized
         .autoCycleInterval
     )
+    guard !configuration.agentSprites.isEmpty else { return patternRate }
+    let now = agentSpriteReferenceDate ?? Date()
+    let sprites = resolvedAgentSprites(now: now)
+    guard sprites.contains(where: { $0.isAnimating(at: now) }) else { return patternRate }
+    return max(patternRate, IdleScreenAgentSprite.animatingFramesPerSecond)
+  }
+
+  /// The configured sprites with their pose clocks started at first sight. A
+  /// pinned reference date (tests, offscreen captures) is used as given.
+  private func resolvedAgentSprites(now: Date) -> [IdleScreenAgentSprite] {
+    guard agentSpriteReferenceDate == nil else { return configuration.agentSprites }
+    return spriteClock.resolve(configuration.agentSprites, now: now)
   }
 
   public func mtkView(
@@ -974,9 +987,10 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     }
     var layer = AgentSpriteLayer()
     if !configuration.agentSprites.isEmpty {
+      let now = agentSpriteReferenceDate ?? Date()
       layer = AgentSpriteLayout.layer(
-        sprites: configuration.agentSprites,
-        now: agentSpriteReferenceDate ?? Date(),
+        sprites: resolvedAgentSprites(now: now),
+        now: now,
         columns: columns,
         rows: rows,
         viewSize: (Double(viewSize.width), Double(viewSize.height)),
@@ -1251,6 +1265,9 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       columns: columns,
       rows: rows
     )
+    let sceneOriginRow = configuration.viewport.coordinate(
+      column: 0, row: 0, columns: columns, rows: rows
+    ).row
     let paletteColors = configuration.paletteColors
     let accent = paletteColors.accentRGBA
     for row in 0..<rows {
@@ -1278,7 +1295,8 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
           max(0, (brightness - 0.5) * contrast + 0.5)
         )
         if framing {
-          let mask = IdleScreenSceneFramingMask.mask(row: row, horizonRow: horizonRow)
+          let mask = IdleScreenSceneFramingMask.mask(
+            row: row, horizonRow: horizonRow, originRow: sceneOriginRow)
           brightness *= mask
           // A glyph picked by brightness follows the mask; a shuffled glyph
           // (matrix rain) is left alone.

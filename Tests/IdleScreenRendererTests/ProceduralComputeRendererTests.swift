@@ -443,6 +443,81 @@ struct ProceduralComputeRendererTests {
     #expect(mask(29) < mask(30))
   }
 
+  @Test("the sky gradient runs over scene rows, so stacked displays share one ramp")
+  func skyContinuesAcrossStackedDisplays() {
+    // Two 50-row displays, horizon at scene row 60. The upper one holds scene
+    // rows 0..<50 and the lower one 50..<100.
+    let upper = IdleScreenRendererViewport(x: 0, y: 0.5, width: 1, height: 0.5)
+    let lower = IdleScreenRendererViewport(x: 0, y: 0, width: 1, height: 0.5)
+    let upperHorizon = IdleScreenSceneFramingMask.horizonRow(
+      viewport: upper, columns: 100, rows: 50)
+    let lowerHorizon = IdleScreenSceneFramingMask.horizonRow(
+      viewport: lower, columns: 100, rows: 50)
+    let whole = IdleScreenSceneFramingMask.horizonRow(viewport: .full, columns: 100, rows: 100)
+    #expect(whole == 60)
+    for row in 0..<50 {
+      let top = IdleScreenSceneFramingMask.mask(
+        row: row, horizonRow: upperHorizon, originRow: 0)
+      let single = IdleScreenSceneFramingMask.mask(row: row, horizonRow: whole)
+      #expect(abs(top - single) < 1e-6)
+    }
+    for row in 0..<50 {
+      let bottom = IdleScreenSceneFramingMask.mask(
+        row: row, horizonRow: lowerHorizon, originRow: 50)
+      let single = IdleScreenSceneFramingMask.mask(row: row + 50, horizonRow: whole)
+      #expect(abs(bottom - single) < 1e-6)
+    }
+    // No seam: the lower display's first sky row continues the upper's last.
+    let lastUpper = IdleScreenSceneFramingMask.mask(row: 49, horizonRow: upperHorizon)
+    let firstLower = IdleScreenSceneFramingMask.mask(
+      row: 0, horizonRow: lowerHorizon, originRow: 50)
+    #expect(firstLower > lastUpper && firstLower - lastUpper < 0.01)
+  }
+
+  @Test("GPU sky gradient follows scene rows on a lower stacked display")
+  func gpuFramingParityOnStackedDisplay() throws {
+    let columns = 40
+    let rows = 30
+    let settings = IdleScreenProceduralPatternSettings.default.normalized
+    let foreground = SIMD4<Float>(0.7, 0.74, 0.82, 1)
+    let index = UInt32(IdleScreenProceduralPatterns.patternRawValues.firstIndex(of: "plasma") ?? 0)
+    // Two 30-row displays; this is the one holding scene rows 30..<60, with
+    // the horizon at scene row 36 (6 rows in).
+    let viewport = IdleScreenRendererViewport(x: 0, y: 0, width: 1, height: 0.5)
+    let horizon = IdleScreenSceneFramingMask.horizonRow(
+      viewport: viewport, columns: columns, rows: rows)
+    let originRow = viewport.coordinate(column: 0, row: 0, columns: columns, rows: rows).row
+    #expect(originRow == 30)
+    func uniforms(framing: Bool) -> ProceduralComputeUniforms {
+      ProceduralComputeUniforms(
+        gridSize: SIMD2(UInt32(columns), UInt32(rows)),
+        sceneSize: SIMD2(UInt32(columns), UInt32(rows * 2)),
+        sceneOrigin: SIMD2(0, UInt32(originRow)),
+        patternIndex: index, glyphCount: 10, timestamp: 5.5, contrast: 1.53,
+        sceneBrightness: 1, speed: Float(settings.speed), scale: Float(settings.scale),
+        intensity: Float(settings.intensity * settings.qualityLevel),
+        trailing: Float(settings.trailing),
+        matrixTrailLength: Float(settings.matrixTrailLength),
+        rainbowAmplitude: Float(settings.rainbowAmplitude),
+        fireDecay: Float(settings.fireDecay), nextPatternIndex: index, blend: 0,
+        foreground: foreground, seedOffset: .zero, seedCenter: .zero,
+        sceneAspect: Float(
+          Double(columns) * IdleScreenProceduralPatterns.cellAspect / Double(rows * 2)),
+        horizonRow: horizon, framingEnabled: framing ? 1 : 0, accent: .zero)
+    }
+    let plain = try gpuSamples(uniforms: uniforms(framing: false))
+    let framed = try gpuSamples(uniforms: uniforms(framing: true))
+    for row in 0..<rows {
+      let mask = IdleScreenSceneFramingMask.mask(
+        row: row, horizonRow: horizon, originRow: originRow)
+      for column in 0..<columns {
+        let i = row * columns + column
+        let expected = plain[i].gridBrightnessGlyph.z * mask
+        #expect(abs(framed[i].gridBrightnessGlyph.z - expected) < 1e-5, "(\(column), \(row))")
+      }
+    }
+  }
+
   private func gpuSamples(
     uniforms sourceUniforms: ProceduralComputeUniforms
   ) throws -> [TestProceduralGlyphInstance] {

@@ -31,6 +31,19 @@ struct GlyphToneTests {
     #expect(full.x > 0.99 && full.w > 0.99)
   }
 
+  @Test("a halo cell clears after the tone floors instead of sitting on them")
+  func haloClearsPastTheFloors() throws {
+    let device = try #require(MTLCreateSystemDefaultDevice())
+    let plain = try renderCell(device: device, brightness: 0.5)
+    let halo = try renderCell(device: device, brightness: -0.5)
+    let factor = AgentSpriteLayout.haloFactor
+    #expect(abs(halo.w - plain.w * factor) < 0.01)
+    #expect(abs(halo.x - plain.x * factor) < 0.01)
+    #expect(halo.w < 0.1)
+    // The floors still hold for a normal dim cell.
+    #expect(try renderCell(device: device, brightness: 0.1).w >= 0.35)
+  }
+
   @Test("Departure Mono is bundled in the renderer framework and loads")
   func departureMonoLoads() throws {
     let face = IdleScreenGlyphFace.resolve()

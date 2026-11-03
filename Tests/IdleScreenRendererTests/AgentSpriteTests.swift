@@ -63,15 +63,16 @@ struct AgentSpritePoseTests {
     #expect(hours.marks.count <= 1)
   }
 
-  @Test("done sits with a check, then walks off after about 20 seconds")
+  @Test("done sits with a check and stays visible until its signal goes")
   func done() {
     let sitting = pose(.codex, .done, at: 10)
     #expect(sitting.x == 60)
     #expect(sitting.marks.map(\.name) == ["check"])
     #expect(sitting.sparkle != nil)
-    let leaving = pose(.codex, .done, at: 25)
-    #expect(leaving.x > 60 && leaving.visible)
-    #expect(pose(.codex, .done, at: 120).visible == false)
+    for age in [25.0, 120, 3_600] {
+      let later = pose(.codex, .done, at: age)
+      #expect(later.x == 60 && later.visible && later.marks.map(\.name) == ["check"])
+    }
   }
 
   @Test("error tips Claude onto its side and deflates Codex")
@@ -515,4 +516,78 @@ extension SIMD3 where Scalar == Float {
 
 extension SIMD4 where Scalar == Float {
   fileprivate var xyz: SIMD3<Float> { SIMD3(x, y, z) }
+}
+
+@Suite("Agent sprite clock and pacing")
+struct AgentSpriteClockTests {
+  private let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+
+  @Test("a signal that finished long ago still gets its entrance")
+  func entranceForOldSignals() {
+    var clock = AgentSpriteClock()
+    let old = IdleScreenAgentSprite(
+      kind: .codex, state: .done, startedAt: now.addingTimeInterval(-3_600))
+    let first = clock.resolve([old], now: now)
+    #expect(first[0].startedAt == now)
+    // The clock keeps running from first sight, not restarting each frame.
+    let later = clock.resolve([old], now: now.addingTimeInterval(5))
+    #expect(later[0].startedAt == now)
+  }
+
+  @Test("a signal newer than first sight keeps its own start, and gone sprites are forgotten")
+  func newerAndForgotten() {
+    var clock = AgentSpriteClock()
+    let fresh = IdleScreenAgentSprite(
+      kind: .claude, state: .working, startedAt: now.addingTimeInterval(2))
+    #expect(clock.resolve([fresh], now: now)[0].startedAt == fresh.startedAt)
+    let old = IdleScreenAgentSprite(
+      kind: .claude, state: .done, startedAt: now.addingTimeInterval(-100))
+    _ = clock.resolve([old], now: now)
+    _ = clock.resolve([], now: now.addingTimeInterval(10))
+    let again = clock.resolve([old], now: now.addingTimeInterval(20))
+    #expect(again[0].startedAt == now.addingTimeInterval(20))
+  }
+
+  @Test("only a moving sprite asks for the faster present rate")
+  func animating() {
+    func sprite(_ state: IdleScreenAgentSpriteState, _ age: Double, _ reduce: Bool = false)
+      -> IdleScreenAgentSprite
+    {
+      .init(
+        kind: .claude, state: state, startedAt: now.addingTimeInterval(-age),
+        reduceMotion: reduce)
+    }
+    #expect(sprite(.working, 100).isAnimating(at: now))
+    #expect(sprite(.needsAttention, 100).isAnimating(at: now))
+    #expect(sprite(.done, 1).isAnimating(at: now))
+    #expect(!sprite(.done, 100).isAnimating(at: now))
+    #expect(!sprite(.working, 100, true).isAnimating(at: now))
+  }
+
+  @MainActor
+  @Test("the renderer raises a slow pattern to 30 fps only while a sprite moves")
+  func rendererPacing() throws {
+    func fps(_ sprites: [IdleScreenAgentSprite]) throws -> Int {
+      let renderer = try IdleScreenRenderer(
+        metalView: MTKView(frame: .init(x: 0, y: 0, width: 800, height: 500)),
+        configuration: .init(
+          glyphScale: 0.4, contrast: 0.5, palette: "Ember",
+          patternRawValue: "topograph", agentSprites: sprites),
+        automaticallyDraws: false)
+      defer { renderer.shutdown() }
+      renderer.agentSpriteReferenceDate = now
+      return renderer.preferredFramesPerSecond(at: 1)
+    }
+    let patternRate = try fps([])
+    #expect(patternRate < 30)
+    let moving = IdleScreenAgentSprite(
+      kind: .claude, state: .working, startedAt: now.addingTimeInterval(-50))
+    #expect(try fps([moving]) == 30)
+    var parked = moving
+    parked.reduceMotion = true
+    #expect(try fps([parked]) == patternRate)
+    let done = IdleScreenAgentSprite(
+      kind: .codex, state: .done, startedAt: now.addingTimeInterval(-50))
+    #expect(try fps([done]) == patternRate)
+  }
 }
