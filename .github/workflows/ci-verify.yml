@@ -43,6 +43,7 @@ jobs:
             pkg-containers.githubusercontent.com:443
             playwright.download.prss.microsoft.com:443
             cdn.playwright.dev:443
+            storage.googleapis.com:443
             registry.npmjs.org:443
             release-assets.githubusercontent.com:443
 
