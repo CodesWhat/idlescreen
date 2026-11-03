@@ -56,6 +56,25 @@ struct DesignLanguageRenderTests {
     }
   }
 
+  @Test("each page renders at the 1900x950 window and the minimum window")
+  func pagesRenderAtWindowSizes() throws {
+    let harness = try RenderHarness()
+    defer { harness.removeScratchDirectory() }
+    // Content area: window width minus the 81 pt rail.
+    let sizes: [(String, NSSize)] = [
+      ("1900x950", NSSize(width: 1_819, height: 950)),
+      ("min", NSSize(width: 819, height: 600)),
+    ]
+    for page in Page.allCases {
+      for (sizeName, size) in sizes {
+        let bitmap = try harness.render(
+          page: page, dark: false, detailsExpanded: false, size: size)
+        #expect(Self.hasVisibleContent(bitmap), "\(page.rawValue) \(sizeName) rendered blank")
+        try Self.save(bitmap, name: "page-\(page.rawValue)-\(sizeName)")
+      }
+    }
+  }
+
   @Test("light and dark renders differ, so the pages follow the appearance")
   func appearanceChangesPixels() throws {
     let harness = try RenderHarness()

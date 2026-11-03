@@ -13,6 +13,6 @@ enum DesignMetrics {
   static let controlRadius: CGFloat = 7
   static let controlHeight: CGFloat = 28
   static let segmentRadius: CGFloat = 6
-  /// The page content reads at a fixed measure on wide windows.
-  static let pageMaxWidth: CGFloat = 880
+  /// The page content reads at a fixed measure on wide windows. Wide enough for two columns of sections.
+  static let pageMaxWidth: CGFloat = 1_240
 }

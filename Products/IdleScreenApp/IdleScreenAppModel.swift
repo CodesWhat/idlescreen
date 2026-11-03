@@ -131,7 +131,15 @@ final class IdleScreenAppModel {
   var isRegistering = false
   var isStartingScreenSaver = false
   var saverActionStatus: String?
-  var lastError: String?
+  /// The raw error from macOS, the system layer or a store. Views show `UserFacingIssue.message(for:)`; the raw text stays here,
+  /// in the log and in Status > Technical details.
+  var lastError: String? {
+    didSet {
+      if let lastError, lastError != oldValue {
+        Self.logger.error("Last error: \(lastError, privacy: .public)")
+      }
+    }
+  }
   var activeAgentSignal: IdleScreenAgentSignal?
   var agentIgnoredEventCounts: [IdleScreenAgentProvider: UInt64] = [:]
   var codexHooksInstalled = false

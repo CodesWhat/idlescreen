@@ -140,6 +140,61 @@ struct DesignPageHeader<Trailing: View>: View {
   }
 }
 
+/// Sections in one column, or two once each column can be `minColumnWidth` wide. Each section goes into the shorter column
+/// in order, so reading order holds and the columns end near the same height.
+struct DesignColumns: Layout {
+  var minColumnWidth: CGFloat = 460
+  var spacing: CGFloat = DesignMetrics.sectionSpacing
+
+  private func columnCount(for width: CGFloat) -> Int {
+    guard width.isFinite else { return 1 }
+    return max(1, min(2, Int((width + spacing) / (minColumnWidth + spacing))))
+  }
+
+  private struct Placement {
+    var column: Int
+    var y: CGFloat
+    var size: CGSize
+  }
+
+  private func arrange(_ subviews: Subviews, width: CGFloat) -> (
+    placements: [Placement], columnWidth: CGFloat, height: CGFloat
+  ) {
+    let count = columnCount(for: width)
+    let columnWidth = (width - spacing * CGFloat(count - 1)) / CGFloat(count)
+    var heights = [CGFloat](repeating: 0, count: count)
+    var placements: [Placement] = []
+    for subview in subviews {
+      let size = subview.sizeThatFits(ProposedViewSize(width: columnWidth, height: nil))
+      var column = 0
+      for index in heights.indices where heights[index] < heights[column] { column = index }
+      let y = heights[column] > 0 ? heights[column] + spacing : 0
+      placements.append(Placement(column: column, y: y, size: size))
+      if size.height > 0 { heights[column] = y + size.height }
+    }
+    return (placements, columnWidth, heights.max() ?? 0)
+  }
+
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    let width = proposal.width ?? minColumnWidth
+    return CGSize(width: width, height: arrange(subviews, width: width).height)
+  }
+
+  func placeSubviews(
+    in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+  ) {
+    let arranged = arrange(subviews, width: bounds.width)
+    for (subview, placement) in zip(subviews, arranged.placements) {
+      subview.place(
+        at: CGPoint(
+          x: bounds.minX + CGFloat(placement.column) * (arranged.columnWidth + spacing),
+          y: bounds.minY + placement.y),
+        anchor: .topLeading,
+        proposal: ProposedViewSize(width: arranged.columnWidth, height: placement.size.height))
+    }
+  }
+}
+
 /// A scrolling page: header, then sections 18 pt apart.
 struct DesignPage<Trailing: View, Content: View>: View {
   let title: String
