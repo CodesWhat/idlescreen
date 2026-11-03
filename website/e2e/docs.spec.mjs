@@ -150,6 +150,9 @@ test.describe('theme picker', () => {
     await expect(html).toHaveClass(/dark/);
     expect(await bg()).toBe('rgb(14, 17, 23)');
 
+    // The sidebar prefetches every page; reloading mid-prefetch makes WebKit cancel them, and Next
+    // reports a cancelled prefetch as a page error. Let them finish so only real errors count.
+    await page.waitForLoadState('networkidle');
     await page.reload();
     await expect(html).toHaveClass(/dark/);
     await page.locator('#nd-sidebar').getByRole('button', { name: 'Toggle Theme' }).click();
