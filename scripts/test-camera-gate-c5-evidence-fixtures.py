@@ -19,6 +19,8 @@ from typing import Dict, Iterable, Mapping
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 VERIFIER = PROJECT_ROOT / "scripts/verify-camera-gate-c5-evidence.py"
 SHA = "a" * 64
+APP = "/Applications/IdleScreen.app"
+LEGACY_APP = "/Applications/idlescreen.app"
 APP_CDHASH = "1" * 40
 HELPER_CDHASH = "2" * 40
 EXTENSION_CDHASH = "3" * 40
@@ -180,16 +182,16 @@ def build_bundle(root: Path, mutation: str) -> Path:
             (
                 ("format", "IdleScreenCameraGateC4InstalledIdentityV1"),
                 ("captured_at_utc", "2026-08-01T15:59:58.000000Z"),
-                ("app_path", "/Applications/idlescreen.app"),
+                ("app_path", f"{APP}"),
                 ("app_cdhash", APP_CDHASH),
                 (
                     "helper_path",
-                    "/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent",
+                    f"{APP}/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent",
                 ),
                 ("helper_cdhash", HELPER_CDHASH),
                 (
                     "extension_path",
-                    "/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver",
+                    f"{APP}/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver",
                 ),
                 ("extension_cdhash", EXTENSION_CDHASH),
                 ("deep_signature", "valid"),
@@ -253,20 +255,20 @@ def build_bundle(root: Path, mutation: str) -> Path:
             (
                 ("format", "IdleScreenCameraGateC5IdentityV1"),
                 ("captured_at_utc", "2026-08-01T16:00:00.000000Z"),
-                ("app_path", "/Applications/idlescreen.app"),
+                ("app_path", f"{APP}"),
                 ("app_bundle_identifier", "com.idlescreen.app"),
                 ("app_team_identifier", "3524374A2S"),
                 ("app_cdhash", APP_CDHASH),
                 (
                     "helper_path",
-                    "/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent",
+                    f"{APP}/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent",
                 ),
                 ("helper_bundle_identifier", "com.idlescreen.camera-agent"),
                 ("helper_team_identifier", "3524374A2S"),
                 ("helper_cdhash", HELPER_CDHASH),
                 (
                     "extension_path",
-                    "/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver",
+                    f"{APP}/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver",
                 ),
                 ("extension_bundle_identifier", "com.idlescreen.app.screensaver"),
                 ("extension_team_identifier", "3524374A2S"),
@@ -290,11 +292,11 @@ def build_bundle(root: Path, mutation: str) -> Path:
                 ("helper_pid", ownership_helper),
                 (
                     "helper_path",
-                    "/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent",
+                    f"{APP}/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent",
                 ),
                 ("helper_cdhash", HELPER_CDHASH),
                 ("companion_pid", "202"),
-                ("companion_path", "/Applications/idlescreen.app/Contents/MacOS/IdleScreen"),
+                ("companion_path", f"{APP}/Contents/MacOS/IdleScreen"),
                 ("companion_cdhash", APP_CDHASH),
                 ("screen_saver_pids", "none"),
                 ("other_helper_pids", "none"),
@@ -446,6 +448,11 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="idlescreen-c5-fixtures.") as temporary:
         root = Path(temporary)
         run_fixture(root, "valid", True)
+        # Evidence captured before the install-path rename must still replay.
+        global APP
+        APP = LEGACY_APP
+        run_fixture(root, "legacy-path", True)
+        APP = "/Applications/IdleScreen.app"
         for mutation in (
             "early-lease",
             "decreasing",

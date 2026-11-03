@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 /absolute/path/to/idlescreen.app [idle-start-timeout-seconds] [invalidation-timeout-seconds] [minimum-sustain-seconds]" >&2
+  echo "Usage: $0 /absolute/path/to/IdleScreen.app [idle-start-timeout-seconds] [invalidation-timeout-seconds] [minimum-sustain-seconds]" >&2
   exit 64
 }
 

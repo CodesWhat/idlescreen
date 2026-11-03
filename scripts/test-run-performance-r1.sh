@@ -59,11 +59,11 @@ r1_cleanup
 lsof_fixture="$fixture_root/helper-lsof.txt"
 /usr/bin/printf '%s\n' \
   p4321 ftxt n/Library/Preferences/Logging/cache \
-  ftxt n/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent \
+  ftxt n/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent \
   ftxt n/usr/lib/dyld >"$lsof_fixture"
 selected_helper_path="$(r1_select_helper_executable_path <"$lsof_fixture")" ||
   fail "the helper executable was not selected from multiple text mappings"
-[[ "$selected_helper_path" == /Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent ]] ||
+[[ "$selected_helper_path" == /Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent ]] ||
   fail "the helper path selector returned the wrong text mapping"
 
 preflight_candidate="$fixture_root/preflight-candidate.json"
@@ -257,8 +257,8 @@ helper_end="$fixture_root/helper-end.json"
     launchdJob: "gui/501/group.com.idlescreen.shared.camera-agent",
     launchdSnapshot: "pid = 4321",
     pid: 4321,
-    startIdentity: "Sun Aug  9 12:00:00 2026 /Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent",
-    executablePath: "/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent",
+    startIdentity: "Sun Aug  9 12:00:00 2026 /Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent",
+    executablePath: "/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent",
     executableSHA256: ("e" * 64),
     codesign: {
       cdHash: ("f" * 40),

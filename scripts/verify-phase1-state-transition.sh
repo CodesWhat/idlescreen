@@ -45,8 +45,8 @@ required_files=(
   helper-launchd-job.txt
 )
 
-expected_helper_executable='/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent'
-expected_launch_agent='/Applications/idlescreen.app/Contents/Library/LaunchAgents/group.com.idlescreen.shared.camera-agent.plist'
+expected_helper_executable='/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent'
+expected_launch_agent='/Applications/IdleScreen.app/Contents/Library/LaunchAgents/group.com.idlescreen.shared.camera-agent.plist'
 expected_mach_service='group.com.idlescreen.shared.camera-agent'
 
 identity_value() {
@@ -100,17 +100,17 @@ validate_product_identities() {
   local root="$1"
   local role="$2"
   local expected_lines=(
-    'appPath=/Applications/idlescreen.app'
+    'appPath=/Applications/IdleScreen.app'
     'appBundleIdentifier=com.idlescreen.app'
     'appExecutable=IdleScreen'
     'appSigningIdentifier=com.idlescreen.app'
     'appTeamIdentifier=3524374A2S'
-    'extensionPath=/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex'
+    'extensionPath=/Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex'
     'extensionBundleIdentifier=com.idlescreen.app.screensaver'
     'extensionExecutable=IdleScreenScreenSaver'
     'extensionSigningIdentifier=com.idlescreen.app.screensaver'
     'extensionTeamIdentifier=3524374A2S'
-    'helperPath=/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app'
+    'helperPath=/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app'
     'helperBundleIdentifier=com.idlescreen.camera-agent'
     'helperExecutable=IdleScreenCameraAgent'
     'helperSigningIdentifier=com.idlescreen.camera-agent'
@@ -144,8 +144,8 @@ validate_product_hashes() {
   local root="$1"
   local role="$2"
   local expected_paths=(
-    "app|/Applications/idlescreen.app/Contents/MacOS/IdleScreen"
-    "extension|/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver"
+    "app|/Applications/IdleScreen.app/Contents/MacOS/IdleScreen"
+    "extension|/Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver"
     "camera-helper|$expected_helper_executable"
     "launch-agent|$expected_launch_agent"
   )
@@ -274,10 +274,10 @@ validate_snapshot() {
   registration_count="$(grep -Fc 'com.idlescreen.app.screensaver' "$root/screen-saver-registrations.txt")"
   [[ "$registration_count" -eq 1 ]] ||
     fail "$role snapshot has $registration_count idlescreen extension registrations instead of one"
-  grep -Fq '/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex' "$root/screen-saver-registrations.txt" ||
+  grep -Fq '/Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex' "$root/screen-saver-registrations.txt" ||
     fail "$role snapshot is not registered to the canonical extension"
 
-  [[ "$(grep -Fxc '/Applications/idlescreen.app' "$root/physical-copies.txt")" -eq 1 ]] ||
+  [[ "$(grep -Fxc '/Applications/IdleScreen.app' "$root/physical-copies.txt")" -eq 1 ]] ||
     fail "$role snapshot does not contain exactly one canonical app copy"
 
   [[ "$(tr -d '[:space:]' <"$root/console-locked.txt")" == false ]] ||

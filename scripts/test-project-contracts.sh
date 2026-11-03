@@ -1199,7 +1199,7 @@ echo "PASS: the provisioned Release builder is registration-preserving and saver
 release_candidate_installer="$project_root/scripts/install-phase1-release.sh"
 if [[ ! -x "$release_candidate_installer" ]] ||
    ! bash -n "$release_candidate_installer" ||
-   ! grep -Fq '/Applications/idlescreen.app' "$release_candidate_installer" ||
+   ! grep -Fq '/Applications/IdleScreen.app' "$release_candidate_installer" ||
    ! grep -Fq 'verify-release-signing.sh' "$release_candidate_installer" ||
    ! grep -Fq 'test-camera-agent-product.sh' "$release_candidate_installer" ||
    ! grep -Fq 'ScreenSaverSelectionProbe.swift' "$release_candidate_installer" ||
@@ -1324,7 +1324,7 @@ idle_lifecycle_test="$project_root/scripts/test-idle-lifecycle.sh"
 if ! grep -Fq 'invalidation_timeout_seconds="${3:-0}"' "$host_lifecycle_test" ||
    ! grep -Fq 'minimum_sustain_seconds="${4:-5}"' "$host_lifecycle_test" ||
    ! grep -Fq 'verify-host-lifecycle-cycle-log.sh' "$host_lifecycle_test" ||
-   ! grep -Fq '/Applications/idlescreen.app' "$host_lifecycle_test" ||
+   ! grep -Fq '/Applications/IdleScreen.app' "$host_lifecycle_test" ||
    ! grep -Fq 'legacyScreenSaver' "$host_lifecycle_test" ||
    ! grep -Fq 'IdlescreenHelper' "$host_lifecycle_test" ||
    ! grep -Fq 'selection changed while the screen saver was running' "$host_lifecycle_test" ||

@@ -78,7 +78,7 @@ class Fixtures:
         self.matrix_path = self.matrix / "matrix.json"
         self.now = datetime(2026, 8, 29, 20, 0, tzinfo=timezone.utc)
         self.identity = {
-            "app_path": "/Applications/idlescreen.app",
+            "app_path": "/Applications/IdleScreen.app",
             "app_executable_path": str(runner.APP_EXECUTABLE_PATH),
             "team_identifier": "3524374A2S",
             "app_cdhash": "b" * 40,
@@ -96,7 +96,7 @@ class Fixtures:
             authorization_id,
             30,
             now=self.now,
-            candidate_path=Path("/Applications/idlescreen.app"),
+            candidate_path=Path("/Applications/IdleScreen.app"),
         )
         self.identity.update(plan["candidate"])
         return plan
@@ -158,7 +158,7 @@ def main() -> int:
         assert plan["schema"] != runner.RESULT_SCHEMA
         assert plan["created_at_utc"] == "2026-08-29T20:00:00Z"
         assert plan["expires_at_utc"] == "2026-08-29T20:05:00Z"
-        assert plan["candidate"]["app_path"] == "/Applications/idlescreen.app"
+        assert plan["candidate"]["app_path"] == "/Applications/IdleScreen.app"
         assert plan["c8_evidence_completed"] is False
         assert plan["duration_seconds"] == 30
         profile_payload = {
@@ -209,7 +209,7 @@ def main() -> int:
                     "authorization-controlled-soak",
                     30,
                     now=fixtures.now + timedelta(seconds=1),
-                    candidate_path=Path("/Applications/idlescreen.app"),
+                    candidate_path=Path("/Applications/IdleScreen.app"),
                 ),
                 "unrelated",
             )

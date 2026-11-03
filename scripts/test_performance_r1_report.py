@@ -179,7 +179,7 @@ def cadence_diagnostics(frame_count: int) -> dict[str, object]:
 
 def helper_identity(captured_at: str, snapshot: str) -> dict[str, object]:
     executable = (
-        "/Applications/idlescreen.app/Contents/Helpers/"
+        "/Applications/IdleScreen.app/Contents/Helpers/"
         "IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent"
     )
     return {

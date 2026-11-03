@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from camera_gate_app_paths import CURRENT_APP_PATH, LEGACY_APP_PATH
+
 
 MATRIX_SCHEMA = "IdleScreenC8LifecycleMatrix/v1"
 ROW_SCHEMA = "IdleScreenC8LifecycleRow/v1"
@@ -23,7 +25,7 @@ ATTESTATION_SCHEMA = "IdleScreenC8OperatorAttestation/v1"
 PLAN_SCHEMA = "IdleScreenC8RowPlan/v1"
 
 TEAM = "3524374A2S"
-APP_PATH = "/Applications/idlescreen.app"
+APP_PATH = CURRENT_APP_PATH
 HELPER_PATH = (
     f"{APP_PATH}/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/"
     "IdleScreenCameraAgent"
@@ -810,14 +812,16 @@ def verify_identity(
     label: str,
 ) -> datetime:
     value = require_object(read_json(path, label), IDENTITY_KEYS, label)
+    # Evidence captured before the install-path rename names the legacy path.
+    app_path = LEGACY_APP_PATH if value["app_path"] == LEGACY_APP_PATH else APP_PATH
     expected = {
         "schema": IDENTITY_SCHEMA,
         "matrix_id": matrix.matrix_id,
         "row_id": definition.row_id,
         "row_run_id": run_id,
-        "app_path": APP_PATH,
-        "helper_path": HELPER_PATH,
-        "extension_path": EXTENSION_PATH,
+        "app_path": app_path,
+        "helper_path": HELPER_PATH.replace(APP_PATH, app_path, 1),
+        "extension_path": EXTENSION_PATH.replace(APP_PATH, app_path, 1),
         "team_identifier": matrix.candidate["team_identifier"],
         "archive_tree_sha256": matrix.candidate["archive_tree_sha256"],
         "app_cdhash": matrix.candidate["app_cdhash"],

@@ -29,7 +29,7 @@ evidence_root="$evidence_parent/$(/usr/bin/basename "$evidence_root")"
 }
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
-destination_app=/Applications/idlescreen.app
+destination_app=/Applications/IdleScreen.app
 launch_agent_label=group.com.idlescreen.shared.camera-agent
 launch_agent_domain="gui/$(/usr/bin/id -u)/$launch_agent_label"
 extension_id=com.idlescreen.app.screensaver

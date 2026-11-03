@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
+import camera_gate_app_paths
 from camera_gate_c6_schema import POLICIES, C6EvidenceError, verify_matrix
 
 
@@ -622,6 +623,10 @@ def verify_a1p(manifest_path: Path) -> VerifiedA1P:
     ):
         fail("C7 A1P manifest is not completed camera-free promotion evidence")
     root = manifest_path.parent.resolve()
+    try:
+        app_path = camera_gate_app_paths.app_path_named_by_tree(root)
+    except ValueError as error:
+        fail(str(error))
     boundary = object_value(top["physical_boundary"], "physical_boundary")
     strict_keys(
         boundary,
@@ -829,12 +834,12 @@ def verify_a1p(manifest_path: Path) -> VerifiedA1P:
         fail("helper procinfo does not prove runtime validated App Group identity")
     helper_pid = pid_matches[0]
     extension_bundle_path = (
-        "/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex"
+        f"{app_path}/Contents/PlugIns/IdleScreenScreenSaver.appex"
     )
     if plugin.count(EXTENSION_ID) != 1 or plugin.count(extension_bundle_path) != 1:
         fail("PlugInKit capture does not prove one exact extension registration")
     helper_executable = (
-        "/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/"
+        f"{app_path}/Contents/Helpers/IdleScreenCameraAgent.app/"
         "Contents/MacOS/IdleScreenCameraAgent"
     )
     if launchd.count(MACH_SERVICE) != 1 or launchd.count(helper_executable) != 1:
@@ -892,7 +897,7 @@ def verify_a1p(manifest_path: Path) -> VerifiedA1P:
     if process_inventory != {
         "format": "IdleScreenC7A1PProcessInventoryV1",
         "captured_at_utc": process_inventory["captured_at_utc"],
-        "app_path": "/Applications/idlescreen.app",
+        "app_path": app_path,
         "helper_path": helper_executable,
         "extension_path": (
             f"{extension_bundle_path}/Contents/MacOS/IdleScreenScreenSaver"

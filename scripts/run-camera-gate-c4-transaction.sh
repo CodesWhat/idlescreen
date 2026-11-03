@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 /Applications/idlescreen.app /absolute/C4-gate.app /absolute/gate-manifest.txt /absolute/C3-provenance.txt /absolute/gate-binding.txt MODE /absolute/new-transaction-evidence -- /absolute/C4-row-runner [args...]" >&2
+  echo "Usage: $0 /Applications/IdleScreen.app /absolute/C4-gate.app /absolute/gate-manifest.txt /absolute/C3-provenance.txt /absolute/gate-binding.txt MODE /absolute/new-transaction-evidence -- /absolute/C4-row-runner [args...]" >&2
   exit 64
 }
 
@@ -24,7 +24,7 @@ runner=("$@")
 [[ "$mode" == a1t || "$mode" == a1tr ]] || usage
 [[ "${runner[0]}" = /* && -x "${runner[0]}" ]] || usage
 
-if [[ "$installed_app" != /Applications/idlescreen.app ||
+if [[ "$installed_app" != /Applications/IdleScreen.app ||
       "${IDLESCREEN_C4_AUTHORIZE_INSTALL_REBIND:-}" != YES ]]; then
   echo "REFUSED: the C4 transaction requires the canonical app and IDLESCREEN_C4_AUTHORIZE_INSTALL_REBIND=YES." >&2
   exit 65
@@ -339,7 +339,7 @@ synthetic_physical_unregister_extension() {
 
 synthetic_physical_bootout_helper() {
   local helper_pids
-  helper_pids="$(synthetic_physical_exact_executable_pids "/Applications/idlescreen.app/$helper_executable_relative")" || return 1
+  helper_pids="$(synthetic_physical_exact_executable_pids "/Applications/IdleScreen.app/$helper_executable_relative")" || return 1
   [[ -z "$helper_pids" ]] || return 1
   /bin/launchctl bootout "$launch_agent_domain" >/dev/null 2>&1 || true
   local deadline=$((SECONDS + 15))
@@ -386,7 +386,7 @@ synthetic_txn_validate_external_state_snapshot() {
 }
 
 synthetic_txn_retire_production_registration() {
-  [[ "$1" == /Applications/idlescreen.app ]] || return 1
+  [[ "$1" == /Applications/IdleScreen.app ]] || return 1
   synthetic_physical_unregister_extension || return 1
   synthetic_physical_bootout_helper || return 1
   synthetic_physical_wait_for_selection "" || return 1
@@ -481,7 +481,7 @@ synthetic_txn_validate_quiescence_inventory() {
 
 synthetic_txn_rebind_gate_registration() {
   local app_path="$1"
-  [[ "$app_path" == /Applications/idlescreen.app ]] || return 1
+  [[ "$app_path" == /Applications/IdleScreen.app ]] || return 1
   synthetic_physical_bootstrap_helper "$app_path" || return 1
   synthetic_physical_rebind_extension "$app_path/$extension_relative"
 }
@@ -503,14 +503,14 @@ synthetic_txn_capture_gate_bound_state() {
 
 synthetic_txn_validate_gate_bound_state() {
   synthetic_physical_validate_state "$1" || return 1
-  local expected_extension="/Applications/idlescreen.app/$extension_relative"
+  local expected_extension="/Applications/IdleScreen.app/$extension_relative"
   [[ "$(synthetic_physical_snapshot_value "$1" launchd_registration)" == loaded &&
      "$(synthetic_physical_snapshot_value "$1" pluginkit_paths)" == "$expected_extension" &&
      "$(synthetic_physical_snapshot_value "$1" selected_path)" == "$expected_extension" ]]
 }
 
 synthetic_txn_retire_gate_registration() {
-  [[ "$1" == /Applications/idlescreen.app ]] || return 1
+  [[ "$1" == /Applications/IdleScreen.app ]] || return 1
   synthetic_physical_unregister_extension || return 1
   synthetic_physical_bootout_helper || return 1
   synthetic_physical_wait_for_selection "" || return 1
@@ -546,7 +546,7 @@ synthetic_txn_verify_gate_registration_retired() {
 
 synthetic_txn_restore_production_registration() {
   local snapshot="$1"
-  local app_path=/Applications/idlescreen.app
+  local app_path=/Applications/IdleScreen.app
   local extension_path="$app_path/$extension_relative"
   local expected_launchd expected_runtime expected_plugin expected_selection
   local expected_service current_service
@@ -582,7 +582,7 @@ synthetic_txn_restore_production_registration() {
 
 synthetic_txn_verify_production_registration() {
   local observed
-  observed="$(synthetic_physical_write_state /Applications/idlescreen.app)" || return 1
+  observed="$(synthetic_physical_write_state /Applications/IdleScreen.app)" || return 1
   /usr/bin/cmp -s "$1" <(printf '%s\n' "$observed")
 }
 

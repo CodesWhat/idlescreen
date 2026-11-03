@@ -3,8 +3,8 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 /Applications/idlescreen.app /absolute/evidence-directory a1t --normal-host-activation-authorized" >&2
-  echo "   or: $0 /Applications/idlescreen.app /absolute/evidence-directory a1tr --normal-host-activation-authorized --terminate-exact-synthetic-helper-once" >&2
+  echo "Usage: $0 /Applications/IdleScreen.app /absolute/evidence-directory a1t --normal-host-activation-authorized" >&2
+  echo "   or: $0 /Applications/IdleScreen.app /absolute/evidence-directory a1tr --normal-host-activation-authorized --terminate-exact-synthetic-helper-once" >&2
   exit 64
 }
 
@@ -14,7 +14,7 @@ evidence_root="$2"
 mode="$3"
 activation_token="$4"
 restart_token="${5:-}"
-[[ "$app_path" == /Applications/idlescreen.app ]] || usage
+[[ "$app_path" == /Applications/IdleScreen.app ]] || usage
 [[ "$evidence_root" = /* && "$evidence_root" != / ]] || usage
 [[ "$mode" == a1t || "$mode" == a1tr ]] || usage
 [[ "$activation_token" == --normal-host-activation-authorized ]] || usage

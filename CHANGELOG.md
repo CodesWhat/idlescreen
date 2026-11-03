@@ -31,8 +31,10 @@ All notable changes to idlescreen are documented here. The project follows
   Increase Contrast, Studio stays dark, copy is in plain language, raw
   diagnostics sit under Details, and controls have accessibility labels.
 - Showed "IdleScreen" as the app, screen saver and camera agent name in the
-  Camera privacy list, Login Items and the screen saver picker. The installed
-  path stays `/Applications/idlescreen.app`.
+  Camera privacy list, Login Items and the screen saver picker.
+- Installed the app at `/Applications/IdleScreen.app` instead of
+  `/Applications/idlescreen.app`. `brew upgrade --cask idlescreen` removes the
+  old copy first; the camera agent re-registers from the new path on launch.
 - Slimmed the pre-push hook down to `scripts/verify.sh`.
 - Ran syntax checks per file, and let the CI contract accept Renovate action pin
   bumps.
