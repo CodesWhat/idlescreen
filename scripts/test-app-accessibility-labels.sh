@@ -9,14 +9,14 @@ set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 app_dir="${1:-$project_root/Products/IdleScreenApp}"
-# Without an argument, lint the Design components, the setup flow and the settings pages. Studio has its own pass.
+# Without an argument, lint the Design components, the setup flow, the settings pages and Studio.
 default_scope=1
 [[ $# -gt 0 ]] && default_scope=0
 dir_is_app=0
 
 filter() {
   if [[ "$default_scope" == 1 && "$dir_is_app" == 1 ]]; then
-    /usr/bin/grep -E '/(Design/|Setup/|Status/|DisplaysView|IntegrationsView|SystemViews)' || true
+    /usr/bin/grep -E '/(Design/|Setup/|Status/|DisplaysView|IntegrationsView|SystemViews|IdleScreenStudio)' || true
   else
     /bin/cat
   fi

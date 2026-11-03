@@ -281,6 +281,19 @@ struct StatusSummary: Equatable {
     Self.verdict(problemCount: problems.count, isChecking: isChecking)
   }
 
+  /// The short form of the verdict for Studio's status pill: sentence case, no full stop. A saver that isn't registered or
+  /// selected yet is "Needs setup"; any other trouble is "Needs attention".
+  var pillLabel: String {
+    if problems.isEmpty { return isChecking ? "Checking IdleScreen" : "IdleScreen is ready" }
+    if saverState.isProblem, saverState.action != nil { return "Needs setup" }
+    return "Needs attention"
+  }
+
+  var pillKind: DesignStatusKind {
+    if problems.isEmpty { return isChecking ? .pending : .ok }
+    return problems.contains { $0.kind == .error } ? .error : .attention
+  }
+
   /// The one button at the top: the first problem that has something to press.
   var primaryAction: StatusAction? {
     problems.lazy.compactMap(\.action).first

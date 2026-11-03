@@ -23,6 +23,17 @@ struct StatusSummaryTests {
     #expect(!result.isDevelopmentBuild)
   }
 
+  @Test("Studio's pill is the verdict in short sentence case")
+  func pillLabel() {
+    #expect(summary().pillLabel == "IdleScreen is ready")
+    #expect(summary().pillKind == .ok)
+    #expect(summary { $0.saverStatusKnown = false }.pillLabel == "Checking IdleScreen")
+    #expect(summary { $0.registrationLocation = .notRegistered }.pillLabel == "Needs setup")
+    #expect(summary { $0.registrationLocation = .notRegistered }.pillKind == .attention)
+    #expect(summary { $0.extensionEmbedded = false }.pillLabel == "Needs attention")
+    #expect(summary { $0.extensionEmbedded = false }.pillKind == .error)
+  }
+
   @Test("the verdict counts the problems")
   func verdictWords() {
     #expect(StatusSummary.verdict(problemCount: 0, isChecking: false) == "IdleScreen is ready.")
