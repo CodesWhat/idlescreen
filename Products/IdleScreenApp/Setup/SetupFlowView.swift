@@ -65,8 +65,10 @@ struct SetupFlowView: View {
           cameraAccess: inputs.cameraAccess,
           isRegistering: model.isRegistering,
           extensionMissing: !model.isExtensionEmbedded,
+          isDevelopmentBuild: !StatusSummary.sharedContainerAvailable(
+            hasSharedContainer: model.hasSharedContainer, bootstrap: cameraClient.bootstrapStatus),
           statusMessage: model.saverActionStatus,
-          errorMessage: model.lastError,
+          errorMessage: model.lastError.map(UserFacingIssue.message(for:)),
           actions: SetupFlowActions(
             register: { model.registerExtension() },
             openScreenSaverSettings: { model.openScreenSaverSettings() },
@@ -131,10 +133,12 @@ struct SetupCardModel: Equatable {
   let primaryEnabled: Bool
   let offersSkip: Bool
   let offersLater: Bool
+  /// A calm note under the card. Set on the register step of a development build, where macOS won't take the registration.
+  let notice: String?
 
   init(
     progress: SetupProgress, cameraAccess: SetupCameraAccess, isRegistering: Bool,
-    extensionMissing: Bool = false
+    extensionMissing: Bool = false, isDevelopmentBuild: Bool = false
   ) {
     switch progress.current {
     case .register:
@@ -144,7 +148,7 @@ struct SetupCardModel: Equatable {
         ? "This copy of IdleScreen is missing its screen saver. Reinstall IdleScreen."
         : "Tell macOS that IdleScreen is here. It only takes a moment."
       primaryTitle = isRegistering ? "Registering…" : "Register IdleScreen"
-      primaryEnabled = !isRegistering && !extensionMissing
+      primaryEnabled = !isRegistering && !extensionMissing && !isDevelopmentBuild
     case .choose:
       title = "Choose IdleScreen"
       detail = "Pick IdleScreen as your screen saver in Screen Saver settings."
@@ -186,6 +190,9 @@ struct SetupCardModel: Equatable {
     }
     offersSkip = progress.current == .camera
     offersLater = !progress.isComplete
+    notice =
+      progress.current == .register && isDevelopmentBuild && !extensionMissing
+      ? StatusSummary.developmentBuildSetupNotice : nil
   }
 }
 
@@ -195,6 +202,7 @@ struct SetupFlowContent: View {
   var cameraAccess: SetupCameraAccess = .unknown
   var isRegistering = false
   var extensionMissing = false
+  var isDevelopmentBuild = false
   var statusMessage: String?
   var errorMessage: String?
   var actions = SetupFlowActions()
@@ -202,7 +210,7 @@ struct SetupFlowContent: View {
   private var cardModel: SetupCardModel {
     SetupCardModel(
       progress: progress, cameraAccess: cameraAccess, isRegistering: isRegistering,
-      extensionMissing: extensionMissing)
+      extensionMissing: extensionMissing, isDevelopmentBuild: isDevelopmentBuild)
   }
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -252,6 +260,9 @@ struct SetupFlowContent: View {
       card
         .id(progress.current?.rawValue ?? -1)
         .transition(reduceMotion ? .identity : .opacity)
+      if let notice = cardModel.notice {
+        DesignNotice(kind: .attention, text: notice)
+      }
       if let errorMessage, !errorMessage.isEmpty {
         DesignNotice(kind: .error, text: errorMessage)
       }

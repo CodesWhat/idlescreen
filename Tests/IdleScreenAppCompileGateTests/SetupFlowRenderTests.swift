@@ -15,6 +15,7 @@ struct SetupFlowRenderTests {
     let current: SetupStep?
     let primary: String
     var offersSkip = false
+    var developmentBuild = false
   }
 
   private static func inputs(
@@ -47,6 +48,15 @@ struct SetupFlowRenderTests {
       name: "error", inputs: inputs(registered: false, selected: false, camera: .unknown),
       error: "The embedded screen saver extension is missing from this app build.",
       current: .register, primary: "Register IdleScreen"),
+    Scene(
+      name: "1-register-dev-build",
+      inputs: inputs(registered: false, selected: false, camera: .unknown),
+      current: .register, primary: "Register IdleScreen", developmentBuild: true),
+    Scene(
+      name: "error-registration",
+      inputs: inputs(registered: false, selected: false, camera: .unknown),
+      error: UserFacingIssue.registrationFailed,
+      current: .register, primary: "Register IdleScreen"),
   ]
 
   @Test("each step renders non-empty in light and dark")
@@ -66,10 +76,12 @@ struct SetupFlowRenderTests {
     for scene in Self.scenes {
       let progress = SetupProgress(scene.inputs)
       let card = SetupCardModel(
-        progress: progress, cameraAccess: scene.inputs.cameraAccess, isRegistering: false)
+        progress: progress, cameraAccess: scene.inputs.cameraAccess, isRegistering: false,
+        isDevelopmentBuild: scene.developmentBuild)
       #expect(progress.current == scene.current, "\(scene.name) current step")
       #expect(card.primaryTitle == scene.primary, "\(scene.name) primary action")
-      #expect(card.primaryEnabled, "\(scene.name) primary enabled")
+      #expect(card.primaryEnabled == !scene.developmentBuild, "\(scene.name) primary enabled")
+      #expect((card.notice != nil) == scene.developmentBuild, "\(scene.name) dev notice")
       #expect(card.offersSkip == scene.offersSkip, "\(scene.name) skip")
       #expect(card.offersLater == (scene.current != nil), "\(scene.name) later")
     }
@@ -97,6 +109,23 @@ struct SetupFlowRenderTests {
     #expect(!restricted.primaryEnabled)
     #expect(restricted.primaryTitle != "Open camera privacy")
     #expect(restricted.offersSkip)
+  }
+
+  @Test("a development build explains itself and disables Register, but lets the user go later")
+  func developmentBuildRegister() {
+    let progress = SetupProgress(Self.inputs(registered: false, selected: false, camera: .unknown))
+    let card = SetupCardModel(
+      progress: progress, cameraAccess: .unknown, isRegistering: false, isDevelopmentBuild: true)
+    #expect(
+      card.notice
+        == "This is a development build. macOS only registers signed copies of IdleScreen."
+    )
+    #expect(!card.primaryEnabled)
+    #expect(card.offersLater)
+    let later = SetupProgress(Self.inputs(registered: true, selected: false, camera: .unknown))
+    let chooseCard = SetupCardModel(
+      progress: later, cameraAccess: .unknown, isRegistering: false, isDevelopmentBuild: true)
+    #expect(chooseCard.notice == nil && chooseCard.primaryEnabled)
   }
 
   @Test("registering disables the register action and says so")
@@ -147,6 +176,7 @@ struct SetupFlowRenderTests {
         SetupFlowContent(
           progress: SetupProgress(scene.inputs),
           cameraAccess: scene.inputs.cameraAccess,
+          isDevelopmentBuild: scene.developmentBuild,
           statusMessage: scene.status,
           errorMessage: scene.error
         )
