@@ -51,6 +51,7 @@ struct AgentSpriteRenderTests {
     var time = 20.0
     var camera = false
     var glyphScale = 0.38
+    var brightness = 1.0
   }
 
   private static func configuration(
@@ -62,6 +63,7 @@ struct AgentSpriteRenderTests {
     value.palette = shot.palette
     value.glyphScale = shot.glyphScale
     value.contrast = 1
+    value.sceneBrightness = shot.brightness
     value.proceduralSettings.intensity = 1
     if shot.pattern == "pixelMaterials" {
       value.pixelMaterialsSettings = .init(
@@ -105,7 +107,10 @@ struct AgentSpriteRenderTests {
   }
 
   @MainActor
-  private func render(_ shot: Shot, withSprites: Bool) throws -> [UInt8] {
+  private func render(
+    _ shot: Shot, withSprites: Bool, onCPU: Bool = false,
+    frame: ((IdleScreenRenderer) -> Void)? = nil
+  ) throws -> [UInt8] {
     let view = MTKView(frame: .init(x: 0, y: 0, width: Self.width / 2, height: Self.height / 2))
     view.autoResizeDrawable = false
     view.drawableSize = .init(width: Self.width, height: Self.height)
@@ -120,6 +125,7 @@ struct AgentSpriteRenderTests {
       performanceObserver: counter)
     defer { renderer.shutdown() }
     renderer.agentSpriteReferenceDate = Self.pinned
+    renderer.forcesCPUGlyphFill = onCPU
     (view.layer as? CAMetalLayer)?.drawableSize = .init(width: Self.width, height: Self.height)
     if shot.camera {
       renderer.submit(cameraFrame: try Self.syntheticCameraFrame())
@@ -138,6 +144,7 @@ struct AgentSpriteRenderTests {
       }
       #expect(counter.count > before)
     }
+    frame?(renderer)
     let texture = try #require(last)
     var bytes = [UInt8](repeating: 0, count: texture.width * texture.height * 4)
     texture.getBytes(
@@ -184,10 +191,81 @@ struct AgentSpriteRenderTests {
   }
 
   @MainActor
-  @Test("an empty sprite list renders bit-identically")
+  @Test("an empty sprite list renders the same frame as no sprite pass at all")
   func emptyIsIdentical() throws {
     let shot = Shot(name: "empty", pattern: "plasma", palette: "Ember", sprites: [])
-    #expect(try render(shot, withSprites: false) == render(shot, withSprites: true))
+    let plain = try render(shot, withSprites: false)
+    #expect(plain.contains { $0 != 0 }, "the frame must not be blank")
+    #expect(try render(shot, withSprites: true) == plain)
+    // A real sprite changes the same frame, so equality above is meaningful.
+    let drawn = Shot(
+      name: "drawn", pattern: "plasma", palette: "Ember", sprites: Self.attention)
+    #expect(try render(drawn, withSprites: true) != plain)
+  }
+
+  @MainActor
+  @Test("sprites dim with the scene and disappear at zero brightness")
+  func spritesFollowSceneBrightness() throws {
+    func peak(_ brightness: Double) throws -> Int {
+      var shot = Shot(
+        name: "dim", pattern: "plasma", palette: "Ember", sprites: Self.attention)
+      shot.brightness = brightness
+      let plain = try render(shot, withSprites: false)
+      let drawn = try render(shot, withSprites: true)
+      var best = 0
+      for pixel in 0..<(plain.count / 4) {
+        let i = pixel * 4
+        if plain[i] != drawn[i] || plain[i + 1] != drawn[i + 1] || plain[i + 2] != drawn[i + 2] {
+          best = max(best, Int(drawn[i]) + Int(drawn[i + 1]) + Int(drawn[i + 2]))
+        }
+      }
+      return best
+    }
+    let full = try peak(1)
+    let subdued = try peak(0.18)
+    #expect(full > 0)
+    #expect(subdued * 2 < full, "a subdued display still shows a full-bright sprite")
+    #expect(try peak(0) == 0)
+  }
+
+  /// The CPU and GPU sprite paths run through the real renderer. Backgrounds
+  /// come from different generators, so only the solid sprite cells, which
+  /// replace brightness, glyph and colour outright, are compared.
+  @MainActor
+  @Test("the GPU and CPU sprite paths draw the same sprite through the renderer")
+  func gpuAndCPUPathsAgree() throws {
+    let shot = Shot(
+      name: "parity", pattern: "plasma", palette: "Ember",
+      sprites: [(.claude, .done, 8, false), (.codex, .error, 8, false)])
+    var gpuFrame: (columns: Int, rows: Int, overrides: [AgentSpriteCellOverride])?
+    var cpuFrame: (columns: Int, rows: Int, overrides: [AgentSpriteCellOverride])?
+    let gpu = try render(shot, withSprites: true) { gpuFrame = $0.lastSpriteFrame }
+    let cpu = try render(shot, withSprites: true, onCPU: true) { cpuFrame = $0.lastSpriteFrame }
+    let plainCPU = try render(shot, withSprites: false, onCPU: true)
+    #expect(cpu != plainCPU, "the CPU sprite pass drew nothing")
+    let frame = try #require(gpuFrame)
+    #expect(frame.columns == cpuFrame?.columns && frame.overrides == cpuFrame?.overrides)
+    var compared = 0
+    for entry in frame.overrides where entry.mode == 1 {
+      let column = Int(entry.cell) % frame.columns
+      let row = Int(entry.cell) / frame.columns
+      let x0 = column * Self.width / frame.columns + 1
+      let x1 = (column + 1) * Self.width / frame.columns - 1
+      let y0 = row * Self.height / frame.rows + 1
+      let y1 = (row + 1) * Self.height / frame.rows - 1
+      guard x1 > x0, y1 > y0 else { continue }
+      for y in y0..<y1 {
+        for x in x0..<x1 {
+          let i = (y * Self.width + x) * 4
+          if gpu[i..<i + 3] != cpu[i..<i + 3] {
+            Issue.record("pixel (\(x), \(y)) in sprite cell \(entry.cell) differs")
+            return
+          }
+          compared += 1
+        }
+      }
+    }
+    #expect(compared > 5_000)
   }
 
   @MainActor

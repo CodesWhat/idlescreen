@@ -386,4 +386,109 @@ struct IdleScreenSaverViewTests {
       ))
     #expect(silentView.rendererConfiguration.agentSprites.isEmpty)
   }
+
+  private func agentView(
+    _ configure: (inout IdleScreenConfiguration) -> Void,
+    signals: (IdleScreenAgentSignalStore, Date) throws -> Void
+  ) throws -> (view: IdleScreenSaverView, root: URL) {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let store = IdleScreenAgentSignalStore(
+      fileURL: root.appending(path: "AgentSignals/inbox-v1.json")
+    )
+    try signals(store, now)
+    var configuration = IdleScreenConfiguration.default
+    configure(&configuration)
+    let view = try #require(
+      IdleScreenSaverView(
+        frame: NSRect(x: 0, y: 0, width: 640, height: 360),
+        isPreview: false,
+        cameraClient: nil,
+        configuration: configuration,
+        agentSignalStore: store,
+        agentClock: { now }
+      ))
+    return (view, root)
+  }
+
+  @Test("VoiceOver hears every live agent, not just the strongest")
+  func accessibilityJoinsBothAgents() throws {
+    let (view, root) = try agentView(
+      {
+        $0.agentIntegration.codexEnabled = true
+        $0.agentIntegration.claudeEnabled = true
+      },
+      signals: { store, now in
+        _ = try store.apply(.set(try agentSignal(.codex, .needsAttention, at: now)), at: now)
+        _ = try store.apply(.set(try agentSignal(.claude, .working, at: now)), at: now)
+      })
+    defer { try? FileManager.default.removeItem(at: root) }
+    let label = try #require(view.accessibilityLabel())
+    #expect(label.contains("Codex needs attention"))
+    #expect(label.contains("Claude is working"))
+  }
+
+  @Test("the temporary look comes from the agent that passed the policy")
+  func temporaryLookFollowsThePresentedAgent() throws {
+    let claudeLook = UUID()
+    let codexLook = UUID()
+    var source = IdleScreenConfiguration.default
+    source.appearance.palette = "Ocean"
+    var withLooks = try source.savingCurrentLook(id: claudeLook, named: "Ocean")
+    withLooks.appearance.palette = "Phosphor"
+    withLooks = try withLooks.savingCurrentLook(id: codexLook, named: "Phosphor")
+    withLooks.appearance.palette = "Ember"
+    withLooks.agentIntegration.codexEnabled = false
+    withLooks.agentIntegration.claudeEnabled = true
+    let durable = withLooks
+
+    let (view, root) = try agentView(
+      { $0 = durable },
+      signals: { store, now in
+        func signal(
+          _ provider: IdleScreenAgentProvider, _ state: IdleScreenAgentSignalState,
+          look: UUID, priority: Int
+        ) throws -> IdleScreenAgentSignal {
+          try IdleScreenAgentSignal.validated(
+            provider: provider, sessionID: "\(provider.rawValue)-session",
+            eventID: "\(provider.rawValue)-\(state.rawValue)", state: state,
+            title: nil, message: nil, temporaryLookID: look, priority: priority,
+            createdAt: now, expiresAt: now.addingTimeInterval(120), acknowledgedAt: nil,
+            nonce: "\(provider.rawValue)-nonce", validatedAt: now)
+        }
+        _ = try store.apply(
+          .set(try signal(.codex, .error, look: codexLook, priority: 90)), at: now)
+        _ = try store.apply(
+          .set(try signal(.claude, .working, look: claudeLook, priority: 10)), at: now)
+      })
+    defer { try? FileManager.default.removeItem(at: root) }
+    #expect(view.agentOverlayPresentation?.provider == .claude)
+    #expect(view.rendererConfiguration.palette == "Ocean")
+  }
+
+  @Test("the layer fallback names the agents because the sprites are not presented")
+  func layerFallbackShowsAgentStatus() throws {
+    let (view, root) = try agentView(
+      {
+        $0.agentIntegration.codexEnabled = true
+        $0.agentIntegration.claudeEnabled = true
+      },
+      signals: { store, now in
+        _ = try store.apply(.set(try agentSignal(.codex, .needsAttention, at: now)), at: now)
+        _ = try store.apply(.set(try agentSignal(.claude, .working, at: now)), at: now)
+      })
+    defer { try? FileManager.default.removeItem(at: root) }
+    view.startAnimation()
+    view.animateOneFrame()
+    defer { view.stopAnimation() }
+    let showsFallback = !view.diagnosticState.renderedGlyphField.isEmpty
+    if showsFallback {
+      let text = try #require(view.agentFallbackText)
+      #expect(text == view.accessibilityLabel())
+      #expect(text.contains("Codex needs attention") && text.contains("Claude is working"))
+    } else {
+      #expect(view.agentFallbackText == nil)
+    }
+  }
 }

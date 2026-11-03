@@ -318,6 +318,11 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
   /// Reference clock for agent sprite poses. Nil means the wall clock; tests
   /// and offscreen captures pin it for deterministic frames.
   var agentSpriteReferenceDate: Date?
+  /// Test seam: fill the glyph grid on the CPU even when the GPU procedural
+  /// kernel is available, so the CPU sprite path can be compared end to end.
+  var forcesCPUGlyphFill = false
+  /// The grid and sprite overrides of the most recent frame, for tests.
+  private(set) var lastSpriteFrame: (columns: Int, rows: Int, overrides: [AgentSpriteCellOverride])?
   private var agentSpriteBuffers = [MTLBuffer?](
     repeating: nil,
     count: maximumInFlightFrameCount
@@ -876,7 +881,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     for prepared: PreparedGrid
   ) -> [AgentSpriteCellOverride] {
     guard !configuration.agentSprites.isEmpty else { return [] }
-    return AgentSpriteLayout.overrides(
+    let overrides = AgentSpriteLayout.overrides(
       sprites: configuration.agentSprites,
       now: agentSpriteReferenceDate ?? Date(),
       columns: prepared.dimensions.columns,
@@ -884,8 +889,12 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       parkFraction: prepared.cameraInput == nil
         ? AgentSpriteLayout.centerParkFraction
         : AgentSpriteLayout.cameraParkFraction,
-      seed: configuration.sceneSeed
+      seed: configuration.sceneSeed,
+      viewport: configuration.viewport,
+      sceneBrightness: configuration.sceneBrightness
     )
+    lastSpriteFrame = (prepared.dimensions.columns, prepared.dimensions.rows, overrides)
+    return overrides
   }
 
   private func encodeAgentSpriteOverrides(
@@ -1067,7 +1076,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         usesProceduralCompute: false
       )
     }
-    if proceduralComputePipelineState != nil {
+    if proceduralComputePipelineState != nil, !forcesCPUGlyphFill {
       proceduralDebugState = .init(
         usesComputePipeline: true,
         instanceCount: count

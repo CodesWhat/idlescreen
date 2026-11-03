@@ -49,11 +49,13 @@ struct IntegrationsView: View {
       footer:
         "Agents run along the bottom of the scene. A sample plays until a real signal arrives."
     ) {
-      IdleScreenMetalPreview(
-        configuration: previewConfiguration,
-        mode: .generative,
-        cameraFrame: nil
-      )
+      TimelineView(.periodic(from: .now, by: 1)) { timeline in
+        IdleScreenMetalPreview(
+          configuration: previewConfiguration(at: timeline.date),
+          mode: .generative,
+          cameraFrame: nil
+        )
+      }
       .frame(height: 200)
       .clipShape(RoundedRectangle(cornerRadius: 8))
       .accessibilityLabel("Saver preview with agent status sprites")
@@ -322,8 +324,8 @@ struct IntegrationsView: View {
 
   /// The shared renderer draws the same sprites the saver does. Real signals
   /// win; otherwise a Claude run and a Codex request stand in as a sample.
-  private var previewConfiguration: IdleScreenRendererConfiguration {
-    let live = model.agentPresentations()
+  private func previewConfiguration(at date: Date) -> IdleScreenRendererConfiguration {
+    let live = model.agentPresentations(at: date)
     var configuration = model.configuration.rendererConfiguration(
       for: nil,
       agentPresentations: live.isEmpty ? samplePresentations : live,

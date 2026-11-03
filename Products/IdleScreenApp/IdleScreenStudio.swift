@@ -444,17 +444,19 @@ struct StudioView: View {
           canvasSize.height > 0
         {
           ZStack(alignment: .topLeading) {
-            IdleScreenMetalPreview(
-              configuration: previewRendererConfiguration,
-              mode: previewRendererMode,
-              cameraFrame: previewUsesCamera
-                ? cameraClient.rendererCameraFrame : nil,
-              cameraFrameRelay: cameraClient.rendererFrameRelay,
-              pointerLocationDidChange: { location in
-                guard isLoupeEnabled else { return }
-                loupePointerLocation = location
-              }
-            )
+            TimelineView(.periodic(from: .now, by: 1)) { timeline in
+              IdleScreenMetalPreview(
+                configuration: previewRendererConfiguration(at: timeline.date),
+                mode: previewRendererMode,
+                cameraFrame: previewUsesCamera
+                  ? cameraClient.rendererCameraFrame : nil,
+                cameraFrameRelay: cameraClient.rendererFrameRelay,
+                pointerLocationDidChange: { location in
+                  guard isLoupeEnabled else { return }
+                  loupePointerLocation = location
+                }
+              )
+            }
             .background(.black)
 
             if isLoupeEnabled,
@@ -464,7 +466,7 @@ struct StudioView: View {
                 .animation(minimumInterval: 1 / 15)
               ) { timeline in
                 IdleScreenLoupeView(
-                  configuration: previewRendererConfiguration,
+                  configuration: previewRendererConfiguration(at: timeline.date),
                   mode: previewRendererMode,
                   cameraFrame: previewUsesCamera
                     ? cameraClient.rendererCameraFrame : nil,
@@ -549,11 +551,11 @@ struct StudioView: View {
     previewUsesCamera ? rendererMode : .generative
   }
 
-  private var previewRendererConfiguration: IdleScreenRendererConfiguration {
-    model.configurationApplyingActiveAgentSignal()
+  private func previewRendererConfiguration(at date: Date) -> IdleScreenRendererConfiguration {
+    model.configurationApplyingActiveAgentSignal(at: date)
       .rendererConfiguration(
         for: previewAssignment,
-        agentPresentations: model.agentPresentations(),
+        agentPresentations: model.agentPresentations(at: date),
         reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
       )
   }

@@ -102,6 +102,24 @@ public enum IdleScreenAgentPresentationPolicy {
     }
   }
 
+  /// The live signal that produced a presentation, so a temporary look comes
+  /// from the agent that passed the policy and not from a gated-out one.
+  public static func signal(
+    behind presentation: IdleScreenAgentOverlayPresentation?,
+    in signals: [IdleScreenAgentSignal]
+  ) -> IdleScreenAgentSignal? {
+    guard let presentation else { return nil }
+    return signals.first { $0.provider == presentation.provider }
+  }
+
+  /// One accessibility label for every live presentation.
+  public static func accessibilityLabel(
+    for presentations: [IdleScreenAgentOverlayPresentation]
+  ) -> String? {
+    let labels = presentations.map(\.accessibilityLabel).filter { !$0.isEmpty }
+    return labels.isEmpty ? nil : labels.joined(separator: "; ")
+  }
+
   public static func configuration(
     _ durableConfiguration: IdleScreenConfiguration,
     applyingTemporaryLookFrom signal: IdleScreenAgentSignal?

@@ -690,10 +690,12 @@ final class IdleScreenAppModel {
   func configurationApplyingActiveAgentSignal(
     at date: Date? = nil
   ) -> IdleScreenConfiguration {
-    guard agentPresentation(at: date) != nil else { return configuration }
+    let first = agentPresentations(at: date).first
+    guard first != nil else { return configuration }
     return IdleScreenAgentPresentationPolicy.configuration(
       configuration,
-      applyingTemporaryLookFrom: activeAgentSignal
+      applyingTemporaryLookFrom: IdleScreenAgentPresentationPolicy.signal(
+        behind: first, in: activeAgentSignals)
     )
   }
 

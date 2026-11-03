@@ -198,6 +198,7 @@ final class IdleScreenSaverView: ScreenSaverView {
   private let gradientLayer = CAGradientLayer()
   private let glyphLayer = CATextLayer()
   private let titleLayer = CATextLayer()
+  private let agentFallbackLayer = CATextLayer()
   private let isPreviewMode: Bool
   #if IDLESCREEN_SYNTHETIC_HOSTED_GATE
     private let syntheticCameraHostContext: IdleScreenSaverCameraHostContext
@@ -240,7 +241,13 @@ final class IdleScreenSaverView: ScreenSaverView {
   }
 
   override func accessibilityLabel() -> String? {
-    agentOverlayPresentation?.accessibilityLabel
+    IdleScreenAgentPresentationPolicy.accessibilityLabel(for: agentSpritePresentations)
+  }
+
+  /// Plain status line shown only while the layer fallback is on screen,
+  /// because the Metal sprites are not presented then.
+  var agentFallbackText: String? {
+    agentFallbackLayer.isHidden ? nil : agentFallbackLayer.string as? String
   }
 
   var diagnosticState: IdleScreenSaverDiagnosticState {
@@ -644,6 +651,12 @@ final class IdleScreenSaverView: ScreenSaverView {
       width: max(0, bounds.width - 48),
       height: 28
     )
+    agentFallbackLayer.frame = NSRect(
+      x: 24,
+      y: 48,
+      width: max(0, bounds.width - 48),
+      height: 28
+    )
     CATransaction.commit()
 
     scheduleInitialLayoutRecoveryDrawIfNeeded()
@@ -678,6 +691,14 @@ final class IdleScreenSaverView: ScreenSaverView {
     titleLayer.alignmentMode = .left
     titleLayer.zPosition = 12
     layer.addSublayer(titleLayer)
+
+    agentFallbackLayer.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .semibold)
+    agentFallbackLayer.fontSize = 12
+    agentFallbackLayer.alignmentMode = .left
+    agentFallbackLayer.truncationMode = .end
+    agentFallbackLayer.zPosition = 13
+    agentFallbackLayer.isHidden = true
+    layer.addSublayer(agentFallbackLayer)
 
     needsLayout = true
   }
@@ -732,6 +753,16 @@ final class IdleScreenSaverView: ScreenSaverView {
         rendererConfiguration: frameConfiguration
       )
     }
+    let fallbackText =
+      showsLayerFallback
+      ? IdleScreenAgentPresentationPolicy.accessibilityLabel(for: agentSpritePresentations)
+      : nil
+    agentFallbackLayer.isHidden = fallbackText == nil
+    if let fallbackText {
+      agentFallbackLayer.string = fallbackText
+      agentFallbackLayer.foregroundColor =
+        NSColor.white.withAlphaComponent(0.85 * sceneBrightness).cgColor
+    }
     cameraFrameChecksum = cameraSample?.checksum
     refreshLayerContentsScale()
     CATransaction.commit()
@@ -777,7 +808,8 @@ final class IdleScreenSaverView: ScreenSaverView {
       ? configuration
       : IdleScreenAgentPresentationPolicy.configuration(
         configuration,
-        applyingTemporaryLookFrom: activeAgentSignal
+        applyingTemporaryLookFrom: IdleScreenAgentPresentationPolicy.signal(
+          behind: agentSpritePresentations.first, in: activeAgentSignals)
       )
     return IdleScreenRendererConfigurationBridge.configuration(
       for: presentedConfiguration,
@@ -1043,7 +1075,11 @@ final class IdleScreenSaverView: ScreenSaverView {
     _ presentations: [IdleScreenAgentOverlayPresentation]
   ) {
     agentSpritePresentations = presentations
-    applyAgentPresentation(presentations.first)
+    let first = presentations.first
+    if first == agentOverlayPresentation {
+      setAccessibilityLabel(accessibilityLabel())
+    }
+    applyAgentPresentation(first)
   }
 
   private var currentAgentDisplay: DisplayTopology.Display? {
@@ -1077,19 +1113,20 @@ final class IdleScreenSaverView: ScreenSaverView {
     guard presentation != agentOverlayPresentation else { return }
     agentOverlayPresentation = presentation
     agentOverlayApplicationCount += 1
-    guard let presentation else {
+    guard presentation != nil else {
       setAccessibilityElement(false)
       setAccessibilityLabel(nil)
       return
     }
     setAccessibilityElement(true)
-    setAccessibilityLabel(presentation.accessibilityLabel)
+    setAccessibilityLabel(accessibilityLabel())
   }
 
   private func refreshLayerContentsScale() {
     let scale = backingScaleProvider(window)
     glyphLayer.contentsScale = scale
     titleLayer.contentsScale = scale
+    agentFallbackLayer.contentsScale = scale
   }
 
   private func updateTypography() {

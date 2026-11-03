@@ -455,3 +455,115 @@ struct AgentSpriteParityTests {
     #expect(result == base)
   }
 }
+
+@Suite("Agent sprite scene rules")
+struct AgentSpriteSceneRuleTests {
+  private func sprites(
+    _ kind: IdleScreenAgentSpriteKind = .claude,
+    _ state: IdleScreenAgentSpriteState,
+    age: Double
+  ) -> [IdleScreenAgentSprite] {
+    let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+    return [
+      IdleScreenAgentSprite(kind: kind, state: state, startedAt: now.addingTimeInterval(-age))
+    ]
+  }
+
+  private func overrides(
+    _ sprites: [IdleScreenAgentSprite],
+    columns: Int = 120,
+    viewport: IdleScreenRendererViewport = .full,
+    brightness: Double = 1
+  ) -> [AgentSpriteCellOverride] {
+    AgentSpriteLayout.overrides(
+      sprites: sprites, now: Date(timeIntervalSinceReferenceDate: 800_000_000),
+      columns: columns, rows: 40, parkFraction: 0.5, seed: 0,
+      viewport: viewport, sceneBrightness: brightness)
+  }
+
+  @Test("sprites follow the scene brightness and vanish at zero")
+  func followsSceneBrightness() {
+    let list = sprites(.codex, .needsAttention, age: 30)
+    let full = overrides(list)
+    #expect(overrides(list, brightness: 0).isEmpty)
+    let subdued = overrides(list, brightness: 0.18)
+    #expect(subdued.map(\.cell) == full.map(\.cell))
+    let solidFull = full.filter { $0.mode == 1 }
+    let solidSubdued = subdued.filter { $0.mode == 1 }
+    #expect(!solidFull.isEmpty)
+    for (a, b) in zip(solidFull, solidSubdued) {
+      #expect(abs(b.brightness - a.brightness * 0.18) < 1e-6)
+      #expect(a.color == b.color && a.glyph == b.glyph)
+    }
+    #expect(solidSubdued.allSatisfy { $0.brightness <= 0.18 + 1e-6 })
+    let haloFull = full.filter { $0.mode == 0 }
+    let haloSubdued = subdued.filter { $0.mode == 0 }
+    #expect(haloFull == haloSubdued)
+  }
+
+  private struct Key: Hashable {
+    var column: Int
+    var row: Int
+  }
+
+  private func keyed(
+    _ list: [AgentSpriteCellOverride], columns: Int, shift: Int = 0
+  ) -> [Key: AgentSpriteCellOverride] {
+    var result: [Key: AgentSpriteCellOverride] = [:]
+    for entry in list {
+      var copy = entry
+      copy.cell = 0
+      result[Key(column: Int(entry.cell) % columns + shift, row: Int(entry.cell) / columns)] = copy
+    }
+    return result
+  }
+
+  @Test("two display slices lay out one panorama, so a runner crosses the seam once")
+  func panoramaAcrossDisplays() {
+    let left = IdleScreenRendererViewport(x: 0, y: 0, width: 0.5, height: 1)
+    let right = IdleScreenRendererViewport(x: 0.5, y: 0, width: 0.5, height: 1)
+    for (state, age) in [
+      (IdleScreenAgentSpriteState.needsAttention, 30.0), (.working, 18.0), (.error, 5.0),
+    ] {
+      let list = sprites(.claude, state, age: age)
+      let whole = keyed(overrides(list, columns: 200), columns: 200)
+      let leftSlice = keyed(overrides(list, columns: 100, viewport: left), columns: 100)
+      let rightSlice = keyed(
+        overrides(list, columns: 100, viewport: right), columns: 100, shift: 100)
+      let combined = leftSlice.merging(rightSlice) { a, _ in a }
+      #expect(Set(leftSlice.keys).isDisjoint(with: rightSlice.keys))
+      #expect(combined == whole, "\(state)")
+      #expect(!leftSlice.isEmpty && !rightSlice.isEmpty, "\(state) should straddle the seam")
+    }
+  }
+
+  @Test("a single display is unchanged by the panorama layout")
+  func fullViewportIsIdentity() {
+    let list = sprites(.codex, .done, age: 8)
+    #expect(
+      overrides(list, columns: 140)
+        == overrides(list, columns: 140, viewport: .init(x: 0, y: 0, width: 1, height: 1)))
+  }
+
+  @Test("past the cell cap the body survives and the halo goes first")
+  func capKeepsTheBody() {
+    let poses = AgentSpriteLayout.poses(
+      entries: [
+        .init(kind: .codex, state: .error, elapsed: 5, reduceMotion: false),
+        .init(kind: .codex, state: .error, elapsed: 5, reduceMotion: false),
+      ],
+      columns: 200, rows: 60, parkFraction: 0.5)
+    let uncapped = AgentSpriteLayout.overrides(poses: poses, columns: 200, rows: 60, cap: 10_000)
+    let body = uncapped.filter { $0.mode == 1 }
+    #expect(uncapped.count > body.count)
+    #expect(body.count > 100)
+    let capped = AgentSpriteLayout.overrides(
+      poses: poses, columns: 200, rows: 60, cap: body.count)
+    #expect(capped.count == body.count)
+    #expect(capped == body)
+    let tighter = AgentSpriteLayout.overrides(
+      poses: poses, columns: 200, rows: 60, cap: body.count - 10)
+    #expect(tighter.count == body.count - 10)
+    #expect(tighter.allSatisfy { $0.mode == 1 })
+  }
+}

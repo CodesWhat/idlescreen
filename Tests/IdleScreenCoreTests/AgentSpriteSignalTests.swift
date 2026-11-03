@@ -90,4 +90,37 @@ struct AgentSpriteSignalTests {
     )
     #expect(presentation?.startedAt == started)
   }
+
+  @Test("the signal behind a presentation is the one that passed the policy")
+  func signalBehindPresentation() throws {
+    let codex = try signal(.codex, .error)
+    let claude = try signal(.claude, .working)
+    var configuration = IdleScreenAgentIntegrationConfiguration.default
+    configuration.codexEnabled = false
+    configuration.claudeEnabled = true
+    let presentations = [codex, claude].compactMap {
+      IdleScreenAgentPresentationPolicy.presentation(
+        for: $0, configuration: configuration, at: now, minuteOfDay: 600)
+    }
+    #expect(presentations.map(\.provider) == [.claude])
+    #expect(
+      IdleScreenAgentPresentationPolicy.signal(behind: presentations.first, in: [codex, claude])
+        == claude)
+    #expect(IdleScreenAgentPresentationPolicy.signal(behind: nil, in: [codex, claude]) == nil)
+  }
+
+  @Test("one accessibility label joins every presentation")
+  func joinedLabel() throws {
+    var configuration = IdleScreenAgentIntegrationConfiguration.default
+    configuration.codexEnabled = true
+    configuration.claudeEnabled = true
+    let presentations = try [signal(.codex, .error), signal(.claude, .working)].compactMap {
+      IdleScreenAgentPresentationPolicy.presentation(
+        for: $0, configuration: configuration, at: now, minuteOfDay: 600)
+    }
+    let label = try #require(
+      IdleScreenAgentPresentationPolicy.accessibilityLabel(for: presentations))
+    #expect(label.contains("Codex stopped with an error") && label.contains("Claude is working"))
+    #expect(IdleScreenAgentPresentationPolicy.accessibilityLabel(for: []) == nil)
+  }
 }

@@ -100,6 +100,22 @@ struct AgentSpritePose: Equatable {
   var marks: [Mark] = []
   var sparkle: Sparkle?
   var visible = true
+
+  /// The same pose moved `columns` to the left, into a display slice.
+  func shifted(byColumns columns: Int) -> AgentSpritePose {
+    var pose = self
+    pose.x -= Double(columns)
+    pose.marks = marks.map {
+      var mark = $0
+      mark.column -= columns
+      return mark
+    }
+    if var sparkle = pose.sparkle {
+      sparkle.column -= columns
+      pose.sparkle = sparkle
+    }
+    return pose
+  }
 }
 
 /// Pixel grids, poses and cell overrides for the agent sprites.
@@ -146,10 +162,15 @@ enum AgentSpriteLayout {
     let cellWidth: Double
     let cellHeight: Double
 
-    init(columns: Int, rows: Int) {
+    /// `columns` is the grid being drawn; `sceneColumns` is the width the
+    /// sprites are laid out in, which the grid is a slice of on one display of
+    /// a multi-display scene. The scale follows the scene so every display
+    /// draws the same size.
+    init(columns: Int, rows: Int, sceneColumns: Int? = nil) {
       self.columns = columns
       self.rows = rows
-      scale = min(1, max(0.4, Double(columns) / AgentSpriteLayout.designColumns))
+      scale = min(
+        1, max(0.4, Double(sceneColumns ?? columns) / AgentSpriteLayout.designColumns))
       cellWidth = AgentSpriteLayout.cellWidthUnits / scale
       cellHeight = AgentSpriteLayout.cellHeightUnits / scale
     }
@@ -482,8 +503,10 @@ enum AgentSpriteLayout {
     var fill = Set<Cell>()
     var cut = Set<Cell>()
     let offsets: [(Double, Double)] = [(0.3, 0.25), (0.7, 0.25), (0.3, 0.75), (0.7, 0.75)]
+    // One column of margin each side, so a neighbouring display's halo still
+    // reaches this display's edge cells. Accumulation drops what is out of bounds.
     for row in max(0, r0)..<max(max(0, r0), metrics.rows) {
-      for column in max(0, c0)..<max(max(0, c0), min(metrics.columns, c1)) {
+      for column in max(-1, c0)..<max(max(-1, c0), min(metrics.columns + 1, c1)) {
         var hits = [0, 0, 0]
         for (fx, fy) in offsets {
           let wx = Double(column) * cw + fx * cw - pivotWorldX
@@ -513,27 +536,39 @@ enum AgentSpriteLayout {
 
   private struct Accumulator {
     var scale: Float = 1
+    /// What the hard cap keeps first: halo 0, sparkle 1, cut-outs 2, body and
+    /// markers 3.
+    var priority = 0
     var solid: (brightness: Float, glyph: Float, color: SIMD4<Float>)?
   }
 
   /// Resolves poses into one override per cell, ordered by cell index.
   /// Draw order is preserved: later sprites multiply or replace earlier ones.
+  ///
+  /// `sceneBrightness` scales every solid sprite cell, so a dimmed display
+  /// dims its sprites with it; at 0 nothing is drawn. Past `cap` cells the
+  /// halo goes first, then the sparkle, then the cut-outs, so the body and its
+  /// markers survive.
   static func overrides(
     poses: [AgentSpritePose],
     columns: Int,
-    rows: Int
+    rows: Int,
+    sceneColumns: Int? = nil,
+    sceneBrightness: Float = 1,
+    cap: Int = hardCap
   ) -> [AgentSpriteCellOverride] {
-    guard columns > 0, rows > 0 else { return [] }
-    let metrics = Metrics(columns: columns, rows: rows)
+    guard columns > 0, rows > 0, sceneBrightness > 0 else { return [] }
+    let metrics = Metrics(columns: columns, rows: rows, sceneColumns: sceneColumns)
     var cells: [Int: Accumulator] = [:]
 
     func inBounds(_ cell: Cell) -> Bool {
       cell.column >= 0 && cell.column < columns && cell.row >= 0 && cell.row < rows
     }
     func index(_ cell: Cell) -> Int { cell.row * columns + cell.column }
-    func multiply(_ cell: Cell, _ factor: Float) {
+    func multiply(_ cell: Cell, _ factor: Float, priority: Int = 0) {
       guard inBounds(cell) else { return }
       var entry = cells[index(cell)] ?? Accumulator()
+      entry.priority = max(entry.priority, priority)
       if entry.solid != nil {
         entry.solid!.brightness *= factor
       } else {
@@ -541,10 +576,11 @@ enum AgentSpriteLayout {
       }
       cells[index(cell)] = entry
     }
-    func put(_ cell: Cell, brightness: Float, color: SIMD3<Float>) {
+    func put(_ cell: Cell, brightness: Float, color: SIMD3<Float>, priority: Int = 3) {
       guard inBounds(cell) else { return }
       var entry = cells[index(cell)] ?? Accumulator()
-      entry.solid = (brightness, solidGlyph, SIMD4(color, 1))
+      entry.priority = max(entry.priority, priority)
+      entry.solid = (brightness * sceneBrightness, solidGlyph, SIMD4(color, 1))
       cells[index(cell)] = entry
     }
     func halo(_ hull: Set<Cell>, keep: Set<Cell>) {
@@ -574,7 +610,7 @@ enum AgentSpriteLayout {
       }
       for (cells, _) in markSets { halo(cells, keep: []) }
       halo(hull, keep: keep)
-      for cell in cut { multiply(cell, 0.04) }
+      for cell in cut { multiply(cell, 0.04, priority: 2) }
       let color = pose.kind == .claude ? terracotta : codexWhite
       for cell in fill { put(cell, brightness: Float(pose.brightness), color: color) }
       for (cells, markColor) in markSets {
@@ -588,12 +624,19 @@ enum AgentSpriteLayout {
           }
         }
         halo(cells, keep: [])
-        for cell in cells { put(cell, brightness: 1, color: sparkleColor) }
+        for cell in cells { put(cell, brightness: 1, color: sparkleColor, priority: 1) }
       }
     }
 
-    let sorted = cells.keys.sorted().prefix(hardCap)
-    return sorted.map { key in
+    var kept = Array(cells.keys)
+    if kept.count > cap {
+      kept.sort {
+        let (a, b) = (cells[$0]!.priority, cells[$1]!.priority)
+        return a != b ? a > b : $0 < $1
+      }
+      kept = Array(kept.prefix(max(0, cap)))
+    }
+    return kept.sorted().map { key in
       let entry = cells[key]!
       if let solid = entry.solid {
         return AgentSpriteCellOverride(
@@ -612,9 +655,12 @@ enum AgentSpriteLayout {
     columns: Int,
     rows: Int,
     parkFraction: Double,
-    seed: UInt64
+    seed: UInt64,
+    viewport: IdleScreenRendererViewport = .full,
+    sceneBrightness: Double = 1
   ) -> [AgentSpriteCellOverride] {
-    guard !sprites.isEmpty else { return [] }
+    guard !sprites.isEmpty, sceneBrightness > 0 else { return [] }
+    let (sceneColumns, origin) = sceneSpan(columns: columns, viewport: viewport)
     let entries = sprites.prefix(IdleScreenAgentSprite.maximumCount).map {
       Entry(
         kind: $0.kind, state: $0.state,
@@ -622,8 +668,25 @@ enum AgentSpriteLayout {
         reduceMotion: $0.reduceMotion)
     }
     let poses = poses(
-      entries: entries, columns: columns, rows: rows,
-      parkFraction: parkFraction, seed: seed)
-    return overrides(poses: poses, columns: columns, rows: rows)
+      entries: entries, columns: sceneColumns, rows: rows,
+      parkFraction: parkFraction, seed: seed
+    ).map { $0.shifted(byColumns: origin) }
+    return overrides(
+      poses: poses, columns: columns, rows: rows, sceneColumns: sceneColumns,
+      sceneBrightness: Float(sceneBrightness))
+  }
+
+  /// The scene-wide column count and where this display's slice starts in it,
+  /// matching how the procedural field maps a viewport onto the scene. A full
+  /// viewport is the identity, so a single display is unchanged.
+  static func sceneSpan(
+    columns: Int,
+    viewport: IdleScreenRendererViewport
+  ) -> (sceneColumns: Int, origin: Int) {
+    guard columns > 0 else { return (columns, 0) }
+    let viewport = viewport.normalized
+    let sceneColumns = max(columns, Int((Double(columns) / viewport.width).rounded()))
+    let origin = Int((viewport.x * Double(sceneColumns)).rounded())
+    return (sceneColumns, origin)
   }
 }
