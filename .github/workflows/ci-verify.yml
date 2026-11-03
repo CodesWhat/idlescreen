@@ -105,6 +105,7 @@ jobs:
           ./scripts/test-shared-state-verifier.sh
           ./scripts/test-synthetic-gate-contracts.sh
           ./scripts/test-synthetic-gate-transaction.sh
+          ./scripts/test-release-sbom-symlinks.sh
 
       - name: Build canonical companion product
         run: |
