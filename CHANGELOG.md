@@ -5,6 +5,38 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- Added a docs site at `idlescreen.codeswhat.com/docs` (Fumadocs) next to the
+  marketing website, with browser checks in the required build-and-test job.
+  Neither is deployed yet.
+- Added a Topograph scene, agent status sprites in the saver and the Agents
+  preview, and a one-signal-per-agent feed that drives them.
+- Added real saver thumbnails and a plain status pill to Studio.
+- Added `scripts/test-release-sbom-symlinks.sh`, and CI plus `scripts/verify.sh`
+  now run every offline release fixture.
+
+### Changed
+
+- Framed the saver on a horizon, with Cobalt as the default palette, a sprite
+  lattice, Departure Mono glyphs, per-seed variation, aspect handling, a
+  crossfade and steadier pacing.
+- Brought Studio into the shared design language, with VoiceOver names for its
+  fields.
+- Setup now fills the window in two columns, pages use wider columns, and
+  registration errors are plain with a note on development builds.
+- Installed the app at `/Applications/IdleScreen.app` instead of
+  `/Applications/idlescreen.app`. `brew upgrade --cask idlescreen` removes the
+  old copy first; the camera agent re-registers from the new path on launch.
+
+### Fixed
+
+- Remembered an Allow camera access click made before the camera helper is
+  ready, and fired it once when the helper verifies.
+- Made the SBOM snapshot root canonical under `/tmp`.
+- The accessibility-label check now catches empty control titles on their own
+  line.
+
 ## [0.2.0] - 2026-11-03
 
 ### Added
@@ -31,10 +63,8 @@ All notable changes to idlescreen are documented here. The project follows
   Increase Contrast, Studio stays dark, copy is in plain language, raw
   diagnostics sit under Details, and controls have accessibility labels.
 - Showed "IdleScreen" as the app, screen saver and camera agent name in the
-  Camera privacy list, Login Items and the screen saver picker.
-- Installed the app at `/Applications/IdleScreen.app` instead of
-  `/Applications/idlescreen.app`. `brew upgrade --cask idlescreen` removes the
-  old copy first; the camera agent re-registers from the new path on launch.
+  Camera privacy list, Login Items and the screen saver picker. The installed
+  path stays `/Applications/idlescreen.app`.
 - Slimmed the pre-push hook down to `scripts/verify.sh`.
 - Ran syntax checks per file, and let the CI contract accept Renovate action pin
   bumps.
