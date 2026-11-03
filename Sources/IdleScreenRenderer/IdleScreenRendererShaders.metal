@@ -17,6 +17,14 @@ struct IdleScreenCharacterInstance {
     float4 foreground;
 };
 
+struct IdleScreenAgentSpriteOverride {
+    uint cell;
+    uint mode;
+    float brightness;
+    float glyph;
+    float4 color;
+};
+
 struct IdleScreenCameraUniforms {
     uint2 gridSize;
     uint2 cameraSize;
@@ -61,6 +69,19 @@ struct IdleScreenProceduralUniforms {
     float2 seedOffset;
     float2 seedCenter;
     float sceneAspect;
+    float horizonRow;
+    uint framingEnabled;
+    float4 accent;
+};
+
+struct IdleScreenSpriteQuad {
+    float4 edges;
+    float4 color;
+};
+
+struct IdleScreenSpriteVertexOut {
+    float4 position [[position]];
+    float4 color;
 };
 
 static float gpuHash2D(float x, float y) {
@@ -477,6 +498,18 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
     return float2(float(charIndex), brightness);
 }
 
+/// Framing mask: a quiet sky above the horizon row, the pattern as ground
+/// below. Mirrors IdleScreenSceneFramingMask in Swift.
+static float idleScreenFramingMask(float row, float horizonRow) {
+    if (row < horizonRow) {
+        const float t = horizonRow > 0.0 ? clamp(row / horizonRow, 0.0, 1.0) : 1.0;
+        return 0.10 + (0.24 - 0.10) * t;
+    }
+    const float t = clamp((row - horizonRow) / 8.0, 0.0, 1.0);
+    const float eased = t * t * (3.0 - 2.0 * t);
+    return 0.55 + (1.0 - 0.55) * eased;
+}
+
 kernel void idleScreenProceduralInstances(
     device IdleScreenCharacterInstance *instances [[buffer(0)]],
     constant IdleScreenProceduralUniforms &uniforms [[buffer(1)]],
@@ -541,6 +574,25 @@ kernel void idleScreenProceduralInstances(
         0.0,
         1.0
     );
+    if (uniforms.framingEnabled != 0) {
+        const float mask = idleScreenFramingMask(
+            float(position.y),
+            uniforms.horizonRow
+        );
+        brightness *= mask;
+        if (shuffledPattern != 3) {
+            glyphIndex = min(
+                uint(sourceBrightness * mask * float(uniforms.glyphCount - 1)),
+                uniforms.glyphCount - 1
+            );
+        }
+    }
+    float4 foreground = uniforms.foreground;
+    if (uniforms.accent.w > 0.0
+        && brightness >= 0.80
+        && brightness <= 0.905) {
+        foreground = uniforms.accent;
+    }
     brightness *= uniforms.sceneBrightness;
     const uint instanceIndex = position.y * uniforms.gridSize.x + position.x;
     instances[instanceIndex].gridBrightnessGlyph = float4(
@@ -549,7 +601,32 @@ kernel void idleScreenProceduralInstances(
         brightness,
         float(glyphIndex)
     );
-    instances[instanceIndex].foreground = uniforms.foreground;
+    instances[instanceIndex].foreground = foreground;
+}
+
+// Sparse sprite pass, run after whichever kernel filled the instance buffer.
+// Mode 0 scales the scene brightness; mode 1 replaces brightness, glyph and
+// colour. Overrides are unique per cell, so threads never race.
+kernel void idleScreenAgentSpriteOverrides(
+    device IdleScreenCharacterInstance *instances [[buffer(0)]],
+    const device IdleScreenAgentSpriteOverride *overrides [[buffer(1)]],
+    constant uint2 &limits [[buffer(2)]],
+    uint index [[thread_position_in_grid]]
+) {
+    if (index >= limits.x) {
+        return;
+    }
+    const IdleScreenAgentSpriteOverride entry = overrides[index];
+    if (entry.cell >= limits.y) {
+        return;
+    }
+    if (entry.mode == 0) {
+        instances[entry.cell].gridBrightnessGlyph.z *= entry.brightness;
+    } else {
+        instances[entry.cell].gridBrightnessGlyph.z = entry.brightness;
+        instances[entry.cell].gridBrightnessGlyph.w = entry.glyph;
+        instances[entry.cell].foreground = entry.color;
+    }
 }
 
 kernel void idleScreenCameraInstances(
@@ -722,4 +799,41 @@ fragment float4 idleScreenCharacterFragment(
     const float colorScale = mix(0.22, 1.0, lum) * presence;
     const float alphaScale = mix(0.35, 1.0, lum) * presence;
     return float4(input.foreground.rgb * colorScale, alpha * alphaScale);
+}
+
+// Sprite lattice pass: one solid quad per lattice pixel, positions in view
+// points so the pixels stay square whatever the grid is.
+vertex IdleScreenSpriteVertexOut idleScreenSpriteVertex(
+    uint vertexID [[vertex_id]],
+    uint instanceID [[instance_id]],
+    constant float2 &viewSize [[buffer(0)]],
+    constant IdleScreenSpriteQuad *quads [[buffer(1)]]
+) {
+    const float2 corners[6] = {
+        float2(0, 0),
+        float2(1, 0),
+        float2(0, 1),
+        float2(0, 1),
+        float2(1, 0),
+        float2(1, 1),
+    };
+    const IdleScreenSpriteQuad quad = quads[instanceID];
+    const float2 corner = corners[vertexID];
+    const float x = corner.x > 0.5 ? quad.edges.z : quad.edges.x;
+    const float y = corner.y > 0.5 ? quad.edges.w : quad.edges.y;
+    IdleScreenSpriteVertexOut output;
+    output.position = float4(
+        x / viewSize.x * 2.0 - 1.0,
+        1.0 - y / viewSize.y * 2.0,
+        0,
+        1
+    );
+    output.color = quad.color;
+    return output;
+}
+
+fragment float4 idleScreenSpriteFragment(
+    IdleScreenSpriteVertexOut input [[stage_in]]
+) {
+    return input.color;
 }

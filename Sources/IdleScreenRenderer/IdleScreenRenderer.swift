@@ -19,6 +19,12 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
   public var sceneSeed: UInt64
   public var sceneBrightness: Double
   public var pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings
+  /// Agent sprites drawn into the scene, at most two. Empty leaves the
+  /// rendered output untouched.
+  public var agentSprites: [IdleScreenAgentSprite]
+  /// Composition layer over a procedural pattern. Topograph always uses the
+  /// horizon, whatever this says.
+  public var framing: IdleScreenRendererFraming
 
   public init(
     glyphScale: Double,
@@ -30,7 +36,9 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
     viewport: IdleScreenRendererViewport = .full,
     sceneSeed: UInt64 = 0,
     sceneBrightness: Double = 1,
-    pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings = .init()
+    pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings = .init(),
+    agentSprites: [IdleScreenAgentSprite] = [],
+    framing: IdleScreenRendererFraming = .none
   ) {
     self.glyphScale = glyphScale
     self.contrast = contrast
@@ -45,12 +53,16 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
       ? min(1, max(0, sceneBrightness))
       : 1
     self.pixelMaterialsSettings = pixelMaterialsSettings
+    self.agentSprites = Array(
+      agentSprites.prefix(IdleScreenAgentSprite.maximumCount)
+    )
+    self.framing = framing
   }
 
   public static let `default` = IdleScreenRendererConfiguration(
     glyphScale: 0.38,
     contrast: 0.58,
-    palette: "Ember",
+    palette: "Cobalt",
     patternRawValue: "autoCycle",
     cameraIsMirrored: true,
     proceduralSettings: .default
@@ -300,6 +312,8 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
   private let cameraComputePipelineState: MTLComputePipelineState?
   private let proceduralComputePipelineState: MTLComputePipelineState?
   private let pixelMaterialsComputePipelineState: MTLComputePipelineState?
+  private let agentSpriteComputePipelineState: MTLComputePipelineState?
+  private let spriteQuadPipelineState: MTLRenderPipelineState?
   private let pixelMaterialsCoordinator: IdleScreenPixelMaterialsSceneCoordinator
   private let performanceObserver: (any IdleScreenRendererPerformanceObserving)?
   private let atlas: CharacterAtlas
@@ -309,6 +323,22 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
   private var configuration: IdleScreenRendererConfiguration
   private var mode: IdleScreenRendererMode
   private var cameraFrame: IdleScreenRendererCameraFrame?
+  /// Reference clock for agent sprite poses. Nil means the wall clock; tests
+  /// and offscreen captures pin it for deterministic frames.
+  var agentSpriteReferenceDate: Date?
+  /// Test seam: fill the glyph grid on the CPU even when the GPU procedural
+  /// kernel is available, so the CPU sprite path can be compared end to end.
+  var forcesCPUGlyphFill = false
+  /// The grid and sprite layer of the most recent frame, for tests.
+  private(set) var lastSpriteFrame: (columns: Int, rows: Int, layer: AgentSpriteLayer)?
+  private var agentSpriteBuffers = [MTLBuffer?](
+    repeating: nil,
+    count: maximumInFlightFrameCount
+  )
+  private var spriteQuadBuffers = [MTLBuffer?](
+    repeating: nil,
+    count: maximumInFlightFrameCount
+  )
   private var instanceBuffers = [MTLBuffer?](
     repeating: nil,
     count: maximumInFlightFrameCount
@@ -421,6 +451,29 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       )
     }
 
+    if let spriteVertex = library.makeFunction(name: "idleScreenSpriteVertex"),
+      let spriteFragment = library.makeFunction(name: "idleScreenSpriteFragment")
+    {
+      let spriteDescriptor = MTLRenderPipelineDescriptor()
+      spriteDescriptor.label = "IdleScreen sprite lattice pipeline"
+      spriteDescriptor.vertexFunction = spriteVertex
+      spriteDescriptor.fragmentFunction = spriteFragment
+      spriteDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+      do {
+        spriteQuadPipelineState = try device.makeRenderPipelineState(
+          descriptor: spriteDescriptor
+        )
+      } catch {
+        spriteQuadPipelineState = nil
+        Self.logger.error(
+          "Sprite lattice pipeline unavailable: \(error.localizedDescription, privacy: .public)"
+        )
+      }
+    } else {
+      spriteQuadPipelineState = nil
+      Self.logger.error("Sprite lattice shader functions are missing")
+    }
+
     if let cameraFunction = library.makeFunction(
       name: "idleScreenCameraInstances"
     ) {
@@ -478,6 +531,26 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       pixelMaterialsComputePipelineState = nil
       Self.logger.error(
         "Pixel Materials compute function idleScreenPixelMaterialInstances is missing"
+      )
+    }
+
+    if let spriteFunction = library.makeFunction(
+      name: "idleScreenAgentSpriteOverrides"
+    ) {
+      do {
+        agentSpriteComputePipelineState =
+          try device
+          .makeComputePipelineState(function: spriteFunction)
+      } catch {
+        agentSpriteComputePipelineState = nil
+        Self.logger.error(
+          "Agent sprite compute pipeline unavailable: \(error.localizedDescription, privacy: .public)"
+        )
+      }
+    } else {
+      agentSpriteComputePipelineState = nil
+      Self.logger.error(
+        "Agent sprite compute function idleScreenAgentSpriteOverrides is missing"
       )
     }
 
@@ -741,6 +814,40 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         dropReason = .encodingFailed
         return
       }
+      let framingActive =
+        configuration.effectiveFraming == .horizon
+        && prepared.cameraInput == nil && prepared.pixelMaterialsInput == nil
+      let overlay = sceneOverlay(
+        for: prepared,
+        viewSize: view.bounds.size,
+        framingActive: framingActive
+      )
+      let spriteOverrides = overlay.layer.halo
+      var usesSpriteBuffer = false
+      if !spriteOverrides.isEmpty {
+        if prepared.populatesOnGPU {
+          if agentSpriteComputePipelineState != nil {
+            guard
+              encodeAgentSpriteOverrides(
+                spriteOverrides,
+                bufferIndex: bufferIndex,
+                instanceBuffer: instanceBuffer,
+                commandBuffer: commandBuffer
+              )
+            else {
+              dropReason = .encodingFailed
+              return
+            }
+            usesSpriteBuffer = true
+          }
+        } else {
+          applyAgentSpriteOverridesOnCPU(
+            spriteOverrides,
+            grid: grid,
+            instanceBuffer: instanceBuffer
+          )
+        }
+      }
       guard
         let encoder = commandBuffer.makeRenderCommandEncoder(
           descriptor: renderPassDescriptor
@@ -773,6 +880,12 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         vertexCount: 6,
         instanceCount: grid.count
       )
+      let usesQuadBuffer = encodeSpriteQuads(
+        overlay.quads,
+        bufferIndex: bufferIndex,
+        viewSize: view.bounds.size,
+        encoder: encoder
+      )
       encoder.endEncoding()
       commandBuffer.present(drawable)
       let inFlightSemaphore = self.inFlightSemaphore
@@ -788,6 +901,16 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         let stateBuffer = pixelMaterialsStateBuffers[bufferIndex]
       {
         retainedBuffers.append(stateBuffer)
+      }
+      if usesSpriteBuffer,
+        let spriteBuffer = agentSpriteBuffers[bufferIndex]
+      {
+        retainedBuffers.append(spriteBuffer)
+      }
+      if usesQuadBuffer,
+        let quadBuffer = spriteQuadBuffers[bufferIndex]
+      {
+        retainedBuffers.append(quadBuffer)
       }
       let bufferRetention = InFlightBufferRetention(retainedBuffers)
       let performanceObserver = self.performanceObserver
@@ -820,6 +943,186 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
             (CACurrentMediaTime() - cpuStartedAt) * 1_000
           )
         )
+      )
+    }
+  }
+
+  /// What the scene draws on top of the glyph grid this frame: the sprite
+  /// layer, plus the horizon line when the scene is framed. Camera mode parks
+  /// the sprites off-centre so they stay clear of the face. Sprites stand on
+  /// the horizon when there is one in view, on the bottom edge otherwise.
+  private func sceneOverlay(
+    for prepared: PreparedGrid,
+    viewSize: CGSize,
+    framingActive: Bool
+  ) -> (layer: AgentSpriteLayer, quads: [AgentSpriteQuad]) {
+    let columns = prepared.dimensions.columns
+    let rows = prepared.dimensions.rows
+    guard columns > 0, rows > 0, viewSize.width > 0, viewSize.height > 0 else {
+      return (AgentSpriteLayer(), [])
+    }
+    let colors = configuration.paletteColors
+    var horizonRow: Double?
+    if framingActive {
+      let row = Double(
+        IdleScreenSceneFramingMask.horizonRow(
+          viewport: configuration.viewport,
+          columns: columns,
+          rows: rows
+        ))
+      if row > 0, row <= Double(rows) { horizonRow = row }
+    }
+    var layer = AgentSpriteLayer()
+    if !configuration.agentSprites.isEmpty {
+      layer = AgentSpriteLayout.layer(
+        sprites: configuration.agentSprites,
+        now: agentSpriteReferenceDate ?? Date(),
+        columns: columns,
+        rows: rows,
+        viewSize: (Double(viewSize.width), Double(viewSize.height)),
+        groundRow: horizonRow ?? Double(rows),
+        parkFraction: prepared.cameraInput == nil
+          ? AgentSpriteLayout.centerParkFraction
+          : AgentSpriteLayout.cameraParkFraction,
+        seed: configuration.sceneSeed,
+        viewport: configuration.viewport,
+        sceneBrightness: configuration.sceneBrightness,
+        background: colors.background
+      )
+      lastSpriteFrame = (columns, rows, layer)
+    }
+    var quads: [AgentSpriteQuad] = []
+    if let horizonRow {
+      // The line is the one thing drawn at the horizon, a point thick, under
+      // the sprites' feet. Palettes without an accent draw it in foreground.
+      let y = Float(horizonRow * Double(viewSize.height) / Double(rows))
+      let level = Float(configuration.sceneBrightness) * Self.horizonLineLevel
+      let background = colors.background
+      let line = background + (colors.accent - background) * level
+      quads.append(
+        AgentSpriteQuad(
+          edges: SIMD4(0, y, Float(viewSize.width), y + 1),
+          color: SIMD4(line, 1)
+        ))
+    }
+    quads.append(contentsOf: layer.quads)
+    return (layer, quads)
+  }
+
+  /// How far the horizon line sits from the background toward the accent.
+  private static let horizonLineLevel: Float = 1.0
+
+  private func encodeSpriteQuads(
+    _ quads: [AgentSpriteQuad],
+    bufferIndex: Int,
+    viewSize: CGSize,
+    encoder: any MTLRenderCommandEncoder
+  ) -> Bool {
+    guard !quads.isEmpty, let pipeline = spriteQuadPipelineState else { return false }
+    let capacity = AgentSpriteLayout.hardCap + 1
+    if spriteQuadBuffers[bufferIndex] == nil {
+      spriteQuadBuffers[bufferIndex] = device.makeBuffer(
+        length: capacity * MemoryLayout<AgentSpriteQuad>.stride,
+        options: .storageModeShared
+      )
+    }
+    guard let buffer = spriteQuadBuffers[bufferIndex] else { return false }
+    let count = min(quads.count, capacity)
+    quads.withUnsafeBytes { source in
+      buffer.contents().copyMemory(
+        from: source.baseAddress!,
+        byteCount: count * MemoryLayout<AgentSpriteQuad>.stride
+      )
+    }
+    var size = SIMD2<Float>(Float(viewSize.width), Float(viewSize.height))
+    encoder.setRenderPipelineState(pipeline)
+    encoder.setVertexBytes(&size, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
+    encoder.setVertexBuffer(buffer, offset: 0, index: 1)
+    encoder.drawPrimitives(
+      type: .triangle,
+      vertexStart: 0,
+      vertexCount: 6,
+      instanceCount: count
+    )
+    return true
+  }
+
+  private func encodeAgentSpriteOverrides(
+    _ overrides: [AgentSpriteCellOverride],
+    bufferIndex: Int,
+    instanceBuffer: any MTLBuffer,
+    commandBuffer: any MTLCommandBuffer
+  ) -> Bool {
+    guard let pipeline = agentSpriteComputePipelineState else { return false }
+    let length =
+      AgentSpriteLayout.hardCap
+      * MemoryLayout<AgentSpriteCellOverride>.stride
+    if agentSpriteBuffers[bufferIndex] == nil {
+      agentSpriteBuffers[bufferIndex] = device.makeBuffer(
+        length: length,
+        options: .storageModeShared
+      )
+    }
+    guard let spriteBuffer = agentSpriteBuffers[bufferIndex],
+      let encoder = commandBuffer.makeComputeCommandEncoder()
+    else {
+      return false
+    }
+    let count = min(overrides.count, AgentSpriteLayout.hardCap)
+    overrides.withUnsafeBytes { source in
+      spriteBuffer.contents().copyMemory(
+        from: source.baseAddress!,
+        byteCount: count * MemoryLayout<AgentSpriteCellOverride>.stride
+      )
+    }
+    var limits = SIMD2<UInt32>(
+      UInt32(count),
+      UInt32(
+        instanceBuffer.length
+          / MemoryLayout<GlyphInstance>.stride))
+    encoder.label = "IdleScreen agent sprite overrides"
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(instanceBuffer, offset: 0, index: 0)
+    encoder.setBuffer(spriteBuffer, offset: 0, index: 1)
+    encoder.setBytes(
+      &limits,
+      length: MemoryLayout<SIMD2<UInt32>>.stride,
+      index: 2
+    )
+    let width = max(1, min(count, pipeline.threadExecutionWidth))
+    encoder.dispatchThreadgroups(
+      MTLSize(width: (count + width - 1) / width, height: 1, depth: 1),
+      threadsPerThreadgroup: MTLSize(width: width, height: 1, depth: 1)
+    )
+    encoder.endEncoding()
+    return true
+  }
+
+  private func applyAgentSpriteOverridesOnCPU(
+    _ overrides: [AgentSpriteCellOverride],
+    grid: GridDimensions,
+    instanceBuffer: any MTLBuffer
+  ) {
+    let instances = instanceBuffer.contents().bindMemory(
+      to: GlyphInstance.self,
+      capacity: grid.count
+    )
+    for override in overrides where Int(override.cell) < grid.count {
+      let index = Int(override.cell)
+      let current = instances[index]
+      let result = override.applied(
+        brightness: current.gridBrightnessGlyph.z,
+        glyph: current.gridBrightnessGlyph.w,
+        color: current.foreground
+      )
+      instances[index] = GlyphInstance(
+        gridBrightnessGlyph: SIMD4<Float>(
+          current.gridBrightnessGlyph.x,
+          current.gridBrightnessGlyph.y,
+          result.brightness,
+          result.glyph
+        ),
+        foreground: result.color
       )
     }
   }
@@ -926,7 +1229,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         usesProceduralCompute: false
       )
     }
-    if proceduralComputePipelineState != nil {
+    if proceduralComputePipelineState != nil, !forcesCPUGlyphFill {
       proceduralDebugState = .init(
         usesComputePipeline: true,
         instanceCount: count
@@ -942,6 +1245,14 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       usesComputePipeline: false,
       instanceCount: count
     )
+    let framing = configuration.effectiveFraming == .horizon
+    let horizonRow = IdleScreenSceneFramingMask.horizonRow(
+      viewport: configuration.viewport,
+      columns: columns,
+      rows: rows
+    )
+    let paletteColors = configuration.paletteColors
+    let accent = paletteColors.accentRGBA
     for row in 0..<rows {
       for column in 0..<columns {
         var brightness: Float
@@ -961,10 +1272,27 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         )
         brightness = proceduralSample.brightness
         glyphIndex = proceduralSample.glyphIndex
+        let sourceBrightness = brightness
         brightness = min(
           1,
           max(0, (brightness - 0.5) * contrast + 0.5)
         )
+        if framing {
+          let mask = IdleScreenSceneFramingMask.mask(row: row, horizonRow: horizonRow)
+          brightness *= mask
+          // A glyph picked by brightness follows the mask; a shuffled glyph
+          // (matrix rain) is left alone.
+          if glyphIndex == Int(sourceBrightness * Float(Self.glyphRamp.count - 1)) {
+            glyphIndex = min(
+              Self.glyphRamp.count - 1,
+              Int(sourceBrightness * mask * Float(Self.glyphRamp.count - 1))
+            )
+          }
+        }
+        var cellForeground = paletteForeground
+        if accent.w > 0, IdleScreenSceneFramingMask.isAccent(brightness) {
+          cellForeground = accent
+        }
         brightness *= Float(configuration.sceneBrightness)
         let renderedGlyphIndex =
           glyphIndex
@@ -979,7 +1307,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
             brightness,
             Float(renderedGlyphIndex)
           ),
-          foreground: paletteForeground
+          foreground: cellForeground
         )
       }
     }
@@ -1062,7 +1390,14 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       sceneAspect: Float(
         Double(origin.columns) * IdleScreenProceduralPatterns.cellAspect
           / Double(origin.rows)
-      )
+      ),
+      horizonRow: IdleScreenSceneFramingMask.horizonRow(
+        viewport: configuration.viewport,
+        columns: grid.columns,
+        rows: grid.rows
+      ),
+      framingEnabled: configuration.effectiveFraming == .horizon ? 1 : 0,
+      accent: configuration.paletteColors.accentRGBA
     )
     encoder.label = "IdleScreen procedural glyph compute"
     encoder.setComputePipelineState(pipeline)
@@ -1431,6 +1766,11 @@ struct ProceduralComputeUniforms {
   let seedOffset: SIMD2<Float>
   let seedCenter: SIMD2<Float>
   let sceneAspect: Float
+  /// The horizon in this grid's row coordinates when `framingEnabled` is 1.
+  var horizonRow: Float = 0
+  var framingEnabled: UInt32 = 0
+  /// Alpha 0 disables the accent band.
+  var accent: SIMD4<Float> = .zero
 }
 
 private struct CameraPixelSample {
@@ -1452,6 +1792,12 @@ private struct PreparedGrid {
   let cameraInput: CameraComputeInput?
   let pixelMaterialsInput: PixelMaterialsComputeInput?
   let usesProceduralCompute: Bool
+
+  /// True when a GPU kernel fills the instance buffer, so sparse overrides
+  /// must follow it on the GPU rather than touch the buffer from the CPU.
+  var populatesOnGPU: Bool {
+    cameraInput != nil || pixelMaterialsInput != nil || usesProceduralCompute
+  }
 
   static let empty = PreparedGrid(
     dimensions: .empty,
@@ -1484,8 +1830,16 @@ extension IdleScreenRendererConfiguration {
       viewport: viewport,
       sceneSeed: sceneSeed,
       sceneBrightness: sceneBrightness,
-      pixelMaterialsSettings: pixelMaterialsSettings
+      pixelMaterialsSettings: pixelMaterialsSettings,
+      agentSprites: agentSprites,
+      framing: framing
     )
+  }
+
+  /// Topograph is terrain on a horizon by definition; every other procedural
+  /// pattern takes the configured framing.
+  fileprivate var effectiveFraming: IdleScreenRendererFraming {
+    patternRawValue == "topograph" ? .horizon : framing
   }
 
   fileprivate var effectivePixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings {
@@ -1542,6 +1896,10 @@ extension IdleScreenRendererConfiguration {
         PaletteColors(background: (0.01, 0.04, 0.12), foreground: (0.35, 0.78, 1))
       case "signal":
         PaletteColors(background: (0.06, 0.01, 0.01), foreground: (1, 0.22, 0.14))
+      case "cobalt":
+        PaletteColors(
+          background: (0.016, 0.02, 0.035), foreground: (0.70, 0.74, 0.82),
+          accent: (0.231, 0.424, 0.941))
       default:
         PaletteColors(background: (0.043, 0.031, 0.012), foreground: (1, 0.75, 0.42))
       }
@@ -1552,11 +1910,19 @@ extension IdleScreenRendererConfiguration {
 private struct PaletteColors {
   let background: SIMD3<Float>
   let foreground: SIMD3<Float>
+  /// A third colour for the top of the brightness range and the horizon line.
+  /// Palettes without one repeat the foreground.
+  let accent: SIMD3<Float>
+  let hasAccent: Bool
 
   init(
     background: (Float, Float, Float),
-    foreground: (Float, Float, Float)
+    foreground: (Float, Float, Float),
+    accent: (Float, Float, Float)? = nil
   ) {
+    hasAccent = accent != nil
+    let accent = accent ?? foreground
+    self.accent = SIMD3<Float>(accent.0, accent.1, accent.2)
     self.background = SIMD3<Float>(
       background.0,
       background.1,
@@ -1582,6 +1948,11 @@ private struct PaletteColors {
     SIMD4<Float>(foreground.x, foreground.y, foreground.z, 1)
   }
 
+  /// Alpha 0 means the palette has no accent and the kernel never uses it.
+  var accentRGBA: SIMD4<Float> {
+    SIMD4<Float>(accent.x, accent.y, accent.z, hasAccent ? 1 : 0)
+  }
+
   func scaled(by brightness: Float) -> Self {
     let scale = min(1, max(0, brightness))
     return Self(
@@ -1594,7 +1965,8 @@ private struct PaletteColors {
         foreground.x * scale,
         foreground.y * scale,
         foreground.z * scale
-      )
+      ),
+      accent: hasAccent ? (accent.x * scale, accent.y * scale, accent.z * scale) : nil
     )
   }
 }

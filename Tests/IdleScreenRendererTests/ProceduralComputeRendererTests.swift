@@ -372,6 +372,77 @@ struct ProceduralComputeRendererTests {
     }
   }
 
+  @Test("GPU framing mask and accent band match the CPU definition")
+  func gpuFramingParity() throws {
+    let columns = 40
+    let rows = 30
+    let settings = IdleScreenProceduralPatternSettings.default.normalized
+    let foreground = SIMD4<Float>(0.7, 0.74, 0.82, 1)
+    let accent = SIMD4<Float>(0.23, 0.42, 0.94, 1)
+    for pattern in ["terrain", "perlin", "plasma"] {
+      let index = UInt32(
+        IdleScreenProceduralPatterns.patternRawValues.firstIndex(of: pattern) ?? 0)
+      func uniforms(framing: Bool, accent: SIMD4<Float>) -> ProceduralComputeUniforms {
+        ProceduralComputeUniforms(
+          gridSize: SIMD2(UInt32(columns), UInt32(rows)),
+          sceneSize: SIMD2(UInt32(columns), UInt32(rows)),
+          sceneOrigin: SIMD2(0, 0),
+          patternIndex: index, glyphCount: 10, timestamp: 5.5, contrast: 1.53,
+          sceneBrightness: 1, speed: Float(settings.speed), scale: Float(settings.scale),
+          intensity: Float(settings.intensity * settings.qualityLevel),
+          trailing: Float(settings.trailing),
+          matrixTrailLength: Float(settings.matrixTrailLength),
+          rainbowAmplitude: Float(settings.rainbowAmplitude),
+          fireDecay: Float(settings.fireDecay), nextPatternIndex: index, blend: 0,
+          foreground: foreground, seedOffset: .zero, seedCenter: .zero,
+          sceneAspect: Float(
+            Double(columns) * IdleScreenProceduralPatterns.cellAspect / Double(rows)),
+          horizonRow: IdleScreenSceneFramingMask.horizonRow(
+            viewport: .full, columns: columns, rows: rows),
+          framingEnabled: framing ? 1 : 0, accent: accent)
+      }
+      let plain = try gpuSamples(uniforms: uniforms(framing: false, accent: .zero))
+      let framed = try gpuSamples(uniforms: uniforms(framing: true, accent: accent))
+      let horizon = IdleScreenSceneFramingMask.horizonRow(
+        viewport: .full, columns: columns, rows: rows)
+      #expect(horizon == 18)
+      for row in 0..<rows {
+        for column in 0..<columns {
+          let i = row * columns + column
+          let mask = IdleScreenSceneFramingMask.mask(row: row, horizonRow: horizon)
+          let expected = plain[i].gridBrightnessGlyph.z * mask
+          let actual = framed[i].gridBrightnessGlyph.z
+          #expect(abs(actual - expected) < 1e-5, "\(pattern) (\(column), \(row)) brightness")
+          let isAccent = IdleScreenSceneFramingMask.isAccent(actual)
+          #expect(
+            framed[i].foreground == (isAccent ? accent : foreground),
+            "\(pattern) (\(column), \(row)) accent")
+          #expect(plain[i].foreground == foreground)
+          // The mask only ever thins the field: no cell gets a denser glyph.
+          #expect(framed[i].gridBrightnessGlyph.w <= plain[i].gridBrightnessGlyph.w)
+        }
+      }
+    }
+  }
+
+  @Test("the horizon snaps to a row and follows a display slice")
+  func horizonRowSnapsToViewport() {
+    #expect(IdleScreenSceneFramingMask.horizonRow(viewport: .full, columns: 100, rows: 50) == 30)
+    // The scene is 100 rows tall across two stacked displays, so the horizon
+    // is scene row 60: ten rows into the lower display, below the upper one.
+    let lower = IdleScreenRendererViewport(x: 0, y: 0, width: 1, height: 0.5)
+    #expect(IdleScreenSceneFramingMask.horizonRow(viewport: lower, columns: 100, rows: 50) == 10)
+    let upper = IdleScreenRendererViewport(x: 0, y: 0.5, width: 1, height: 0.5)
+    #expect(IdleScreenSceneFramingMask.horizonRow(viewport: upper, columns: 100, rows: 50) == 60)
+    // The sky is dim, the ground ramps to full, and the horizon is a step up.
+    let mask = { IdleScreenSceneFramingMask.mask(row: $0, horizonRow: 30) }
+    #expect(mask(0) == IdleScreenSceneFramingMask.skyTop)
+    #expect(mask(29) < IdleScreenSceneFramingMask.skyHorizon + 1e-6)
+    #expect(mask(30) == IdleScreenSceneFramingMask.groundHorizon)
+    #expect(mask(38) == 1 && mask(49) == 1)
+    #expect(mask(29) < mask(30))
+  }
+
   private func gpuSamples(
     uniforms sourceUniforms: ProceduralComputeUniforms
   ) throws -> [TestProceduralGlyphInstance] {

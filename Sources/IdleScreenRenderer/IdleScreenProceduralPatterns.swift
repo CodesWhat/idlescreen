@@ -170,6 +170,8 @@ public enum IdleScreenProceduralPatterns {
     autoCycleInterval: TimeInterval = 30
   ) -> String {
     guard patternRawValue == "autoCycle" else {
+      // Topograph is terrain; the horizon framing is applied by the renderer.
+      if patternRawValue == "topograph" { return "terrain" }
       return patternRawValues.contains(patternRawValue)
         ? patternRawValue
         : "perlin"
@@ -245,7 +247,7 @@ public enum IdleScreenProceduralPatterns {
 
   private static func tierFramesPerSecond(_ pattern: String) -> Int {
     switch pattern {
-    case "terrain":
+    case "terrain", "topograph":
       return 12
     case "perlin", "plasma", "aurora", "starfield", "voronoi", "metaballs",
       "spiral", "warp", "rainbowCycle", "sweep", "pulse", "pixelMaterials":
