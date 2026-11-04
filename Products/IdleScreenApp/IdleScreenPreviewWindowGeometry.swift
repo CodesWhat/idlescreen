@@ -26,8 +26,8 @@ enum IdleScreenPreviewWindowGeometry {
       width: max(minimum.width, proposed.width), height: max(minimum.height, proposed.height))
     guard let availableSize, validSize(availableSize) else { return normalized }
     return CGSize(
-      width: min(normalized.width, availableSize.width),
-      height: min(normalized.height, availableSize.height))
+      width: max(minimum.width, min(normalized.width, availableSize.width)),
+      height: max(minimum.height, min(normalized.height, availableSize.height)))
   }
 
   static func fittedPreviewSize(inside availableSize: CGSize, aspectRatio: CGFloat) -> CGSize {

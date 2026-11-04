@@ -412,7 +412,12 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
       availableSize: window.contentRect(forFrameRect: screen.visibleFrame).size
     )
     window.setContentSize(targetContentSize)
-    window.setFrame(window.constrainFrameRect(window.frame, to: screen), display: true)
+    let constrainedFrame = window.constrainFrameRect(window.frame, to: screen)
+    if constrainedFrame.width >= window.minSize.width,
+      constrainedFrame.height >= window.minSize.height
+    {
+      window.setFrame(constrainedFrame, display: true)
+    }
 
     logger.info(
       "Main window display ratio updated to \(aspectRatio, privacy: .public)"

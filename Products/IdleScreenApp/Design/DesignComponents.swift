@@ -41,6 +41,8 @@ struct DesignCard<Content: View>: View {
         }
       }
     }
+    .environment(\.workbenchPage, false)
+    .environment(\.workbenchInspector, false)
     .frame(maxWidth: .infinity, alignment: .leading)
     .clipShape(RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
     .background(

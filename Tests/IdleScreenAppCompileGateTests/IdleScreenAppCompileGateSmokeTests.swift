@@ -102,6 +102,14 @@ struct IdleScreenAppCompileGateSmokeTests {
     #expect(wide == CGSize(width: 1_400, height: 700))
   }
 
+  @Test("a screen smaller than the workbench does not shrink content below its minimum")
+  func smallScreenPreservesWindowMinimum() {
+    let fitted = IdleScreenPreviewWindowGeometry.normalizedContentSize(
+      current: CGSize(width: 1_200, height: 800), previewAspectRatio: 16.0 / 9,
+      availableSize: CGSize(width: 800, height: 500))
+    #expect(fitted == IdleScreenPreviewWindowGeometry.absoluteMinimumContentSize)
+  }
+
   @Test("new scenes start full bleed without a dark sky mask")
   func defaultSceneIsFullBleed() {
     #expect(IdleScreenConfiguration.default.creative.framing == .none)
