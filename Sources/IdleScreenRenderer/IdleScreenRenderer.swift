@@ -22,8 +22,7 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
   /// Agent sprites drawn into the scene, at most two. Empty leaves the
   /// rendered output untouched.
   public var agentSprites: [IdleScreenAgentSprite]
-  /// Composition layer over a procedural pattern. Topograph always uses the
-  /// horizon, whatever this says.
+  /// Composition layer over a procedural pattern, including Topograph.
   public var framing: IdleScreenRendererFraming
 
   public init(
@@ -828,7 +827,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         return
       }
       let framingActive =
-        configuration.effectiveFraming == .horizon
+        configuration.framing == .horizon
         && prepared.cameraInput == nil && prepared.pixelMaterialsInput == nil
       let overlay = sceneOverlay(
         for: prepared,
@@ -1259,7 +1258,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       usesComputePipeline: false,
       instanceCount: count
     )
-    let framing = configuration.effectiveFraming == .horizon
+    let framing = configuration.framing == .horizon
     let horizonRow = IdleScreenSceneFramingMask.horizonRow(
       viewport: configuration.viewport,
       columns: columns,
@@ -1414,7 +1413,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         columns: grid.columns,
         rows: grid.rows
       ),
-      framingEnabled: configuration.effectiveFraming == .horizon ? 1 : 0,
+      framingEnabled: configuration.framing == .horizon ? 1 : 0,
       accent: configuration.paletteColors.accentRGBA
     )
     encoder.label = "IdleScreen procedural glyph compute"
@@ -1852,12 +1851,6 @@ extension IdleScreenRendererConfiguration {
       agentSprites: agentSprites,
       framing: framing
     )
-  }
-
-  /// Topograph is terrain on a horizon by definition; every other procedural
-  /// pattern takes the configured framing.
-  fileprivate var effectiveFraming: IdleScreenRendererFraming {
-    patternRawValue == "topograph" ? .horizon : framing
   }
 
   fileprivate var effectivePixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings {

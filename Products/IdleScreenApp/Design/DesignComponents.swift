@@ -41,6 +41,8 @@ struct DesignCard<Content: View>: View {
         }
       }
     }
+    .environment(\.workbenchPage, false)
+    .environment(\.workbenchInspector, false)
     .frame(maxWidth: .infinity, alignment: .leading)
     .clipShape(RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
     .background(
@@ -56,17 +58,22 @@ struct DesignCard<Content: View>: View {
 }
 
 struct DesignEyebrow: View {
+  @Environment(\.workbenchPage) private var isWorkbench
   let text: String
   init(_ text: String) { self.text = text }
 
   var body: some View {
-    Text(text).designEyebrow().padding(.leading, 4).fixedSize(horizontal: false, vertical: true)
-      .accessibilityAddTraits(.isHeader)
+    Text(text).designEyebrow().padding(.leading, isWorkbench ? 0 : 4).fixedSize(
+      horizontal: false, vertical: true
+    )
+    .accessibilityAddTraits(.isHeader)
   }
 }
 
 /// An eyebrow over a card of rows, with an optional footer note.
 struct DesignSection<Content: View>: View {
+  @Environment(\.workbenchInspector) private var isInspector
+  @Environment(\.workbenchPage) private var isWorkbench
   let eyebrow: String
   var footer: String?
   @ViewBuilder var content: () -> Content
@@ -74,7 +81,12 @@ struct DesignSection<Content: View>: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
       DesignEyebrow(eyebrow)
-      DesignCard(content: content)
+      if isInspector || isWorkbench {
+        VStack(spacing: 0) { content() }
+        DesignHairline()
+      } else {
+        DesignCard(content: content)
+      }
       if let footer {
         Text(footer).font(DesignFont.sans(DesignFont.caption)).foregroundStyle(DesignPalette.ink2)
           .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 4)
@@ -85,6 +97,8 @@ struct DesignSection<Content: View>: View {
 
 /// One row of a card. Controls sit on the right; when they don't fit beside the label they wrap below it.
 struct DesignRow<Controls: View>: View {
+  @Environment(\.workbenchInspector) private var isInspector
+  @Environment(\.workbenchPage) private var isWorkbench
   let title: String
   var detail: String?
   @ViewBuilder var controls: () -> Controls
@@ -103,17 +117,27 @@ struct DesignRow<Controls: View>: View {
   private var trailing: some View { HStack(spacing: 8) { controls() } }
 
   var body: some View {
-    ViewThatFits(in: .horizontal) {
-      HStack(alignment: .center, spacing: 16) {
-        label.frame(minWidth: 180, idealWidth: 180, maxWidth: .infinity, alignment: .leading)
-        trailing.layoutPriority(1)
-      }
-      VStack(alignment: .leading, spacing: 8) {
-        label.frame(maxWidth: .infinity, alignment: .leading)
-        trailing
+    Group {
+      if isInspector {
+        VStack(alignment: .leading, spacing: 9) {
+          label
+          trailing
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+      } else {
+        ViewThatFits(in: .horizontal) {
+          HStack(alignment: .center, spacing: 16) {
+            label.frame(minWidth: 180, idealWidth: 180, maxWidth: .infinity, alignment: .leading)
+            trailing.layoutPriority(1)
+          }
+          VStack(alignment: .leading, spacing: 8) {
+            label.frame(maxWidth: .infinity, alignment: .leading)
+            trailing
+          }
+        }
       }
     }
-    .padding(.horizontal, DesignMetrics.rowHorizontalPadding)
+    .padding(.horizontal, isInspector || isWorkbench ? 0 : DesignMetrics.rowHorizontalPadding)
     .padding(.vertical, DesignMetrics.rowVerticalPadding)
     .frame(minHeight: DesignMetrics.rowMinHeight)
   }

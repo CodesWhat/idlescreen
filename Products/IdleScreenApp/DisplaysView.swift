@@ -14,119 +14,114 @@ struct DisplaysView: View {
   }
 
   var body: some View {
-    DesignPage(
-      title: "Displays",
-      summary: "Choose how your screen saver spreads across your displays.",
-      trailing: {
+    WorkbenchSplit(showsInspector: navigation.isInspectorVisible) {
+      VStack(spacing: 0) {
+        WorkbenchHeader(
+          title: "Your displays", summary: "Choose how the scene moves across your screens."
+        ) {
+          Button {
+            coordinator.refreshTopology()
+          } label: {
+            Label("Refresh", systemImage: "arrow.clockwise")
+          }
+          .buttonStyle(.designSecondary)
+          .accessibilityHint("Reads the display layout again")
+        }
+        arrangement
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .padding(24)
+        ScrollView {
+          VStack(spacing: 0) {
+            ForEach(renderingDisplays, id: \.persistentIdentifier) { display in
+              Button {
+                navigation.previewDisplayIdentifier = display.persistentIdentifier
+              } label: {
+                HStack(spacing: 12) {
+                  Image(systemName: "display")
+                  Text(displayLabel(display.persistentIdentifier))
+                  Spacer()
+                  Text("\(Int(display.logicalFrame.width)) × \(Int(display.logicalFrame.height))")
+                    .foregroundStyle(DesignPalette.ink2)
+                  if display.persistentIdentifier == navigation.previewDisplayIdentifier {
+                    Image(systemName: "checkmark").foregroundStyle(DesignPalette.accentMark)
+                  }
+                }
+                .font(DesignFont.sans(DesignFont.caption))
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+              }
+              .buttonStyle(.plain)
+              .accessibilityAddTraits(
+                display.persistentIdentifier == navigation.previewDisplayIdentifier
+                  ? .isSelected : [])
+              DesignHairline()
+            }
+            DesignDetails(initiallyExpanded: detailsInitiallyExpanded) {
+              DesignRow(title: "Display layout version") { DesignValueText(layoutVersion) }
+              DesignRow(title: "Scene plan") { DesignValueText(planSummary) }
+              DesignRow(title: "Configuration revision") {
+                DesignValueText(String(model.configuration.revision))
+              }
+            }
+          }
+          .padding(.horizontal, 24)
+          .padding(.vertical, 12)
+        }
+        .frame(height: detailsInitiallyExpanded ? 300 : 160)
+        .background(DesignPalette.surface)
+        .overlay(alignment: .top) { DesignHairline() }
+      }
+    } inspector: {
+      WorkbenchInspector(
+        eyebrow: "Selected display",
+        title: navigation.previewDisplayIdentifier.map(displayLabel) ?? "Displays",
+        summary: policyDetail
+      ) {
+        StudioSection(title: "Scene layout") {
+          Picker("Scene layout", selection: policyBinding) {
+            Text("Panorama").tag(DisplayScenePolicy.panorama)
+            Text("Per display").tag(DisplayScenePolicy.perDisplay)
+            Text("Focus display").tag(DisplayScenePolicy.focusDisplay)
+          }
+          .pickerStyle(.radioGroup)
+          .labelsHidden()
+          .accessibilityLabel("Scene layout")
+          if model.configuration.display.policy == .focusDisplay {
+            Picker("Focus display", selection: focalDisplayBinding) {
+              ForEach(renderingDisplays, id: \.persistentIdentifier) { display in
+                Text(displayLabel(display.persistentIdentifier)).tag(
+                  Optional(display.persistentIdentifier))
+              }
+            }
+            Picker("Other displays", selection: quietBinding) {
+              Text("Black").tag(DisplayQuietTreatment.black)
+              Text("Subdued").tag(DisplayQuietTreatment.subdued)
+            }
+          }
+        }
+        StudioSection(title: "Outer edges") {
+          Picker("Outer edges", selection: boundaryBinding) {
+            Text("Wall").tag(DisplayOuterBoundaryBehavior.wall)
+            Text("Drain").tag(DisplayOuterBoundaryBehavior.drain)
+            Text("Off-world").tag(DisplayOuterBoundaryBehavior.offWorld)
+          }
+          .labelsHidden()
+          .accessibilityLabel("Outer edges")
+          Text(boundaryDetail).font(DesignFont.sans(DesignFont.caption)).foregroundStyle(
+            DesignPalette.ink2)
+        }
+        StudioField(title: "Show display numbers") {
+          Toggle("Show display numbers", isOn: $showsIdentification)
+            .labelsHidden().accessibilityLabel("Show display numbers")
+            .toggleStyle(.designSwitch)
+        }
         Button {
-          coordinator.refreshTopology()
+          navigation.destination = .studio
         } label: {
-          Label("Refresh", systemImage: "arrow.clockwise")
+          Label("Edit scene on this display", systemImage: "arrow.right")
         }
         .buttonStyle(.designSecondary)
-        .accessibilityLabel("Refresh")
-        .accessibilityHint("Reads the display layout again")
-      }
-    ) {
-      DesignColumns {
-        DesignSection(
-          eyebrow: "Layout",
-          footer: "Select a display to preview it in Studio."
-        ) {
-          arrangement
-        }
-
-        DesignSection(eyebrow: "Scene") {
-          DesignRow(title: "Scene layout", detail: policyDetail) {
-            DesignSegmented(
-              title: "Scene layout",
-              selection: policyBinding,
-              choices: [
-                DesignChoice("Panorama", DisplayScenePolicy.panorama),
-                DesignChoice("Per Display", DisplayScenePolicy.perDisplay),
-                DesignChoice("Focus Display", DisplayScenePolicy.focusDisplay),
-              ]
-            )
-          }
-          if model.configuration.display.policy == .focusDisplay {
-            DesignRow(
-              title: "Focus display",
-              detail: "The display that shows the scene."
-            ) {
-              DesignPopup(
-                title: "Focus display",
-                selection: focalDisplayBinding,
-                choices: renderingDisplays.map {
-                  DesignChoice(
-                    displayLabel($0.persistentIdentifier),
-                    Optional($0.persistentIdentifier)
-                  )
-                }
-              )
-            }
-            DesignRow(
-              title: "Other displays",
-              detail: "How the displays without the scene look."
-            ) {
-              DesignPopup(
-                title: "Other displays",
-                selection: quietBinding,
-                choices: [
-                  DesignChoice("Black", DisplayQuietTreatment.black),
-                  DesignChoice("Subdued", DisplayQuietTreatment.subdued),
-                ]
-              )
-            }
-          }
-        }
-
-        DesignSection(eyebrow: "Edges and preview") {
-          DesignRow(title: "Outer edges", detail: boundaryDetail) {
-            DesignPopup(
-              title: "Outer edges",
-              selection: boundaryBinding,
-              choices: [
-                DesignChoice("Wall", DisplayOuterBoundaryBehavior.wall),
-                DesignChoice("Drain", DisplayOuterBoundaryBehavior.drain),
-                DesignChoice("Off-world", DisplayOuterBoundaryBehavior.offWorld),
-              ]
-            )
-          }
-          DesignRow(
-            title: "Show display numbers",
-            detail: "Number each display in the layout above."
-          ) {
-            Toggle("Show display numbers", isOn: $showsIdentification)
-              .labelsHidden()
-              .accessibilityLabel("Show display numbers")
-              .toggleStyle(.designSwitch)
-          }
-          DesignRow(
-            title: "Preview in Studio",
-            detail: "Show the selected display in the Studio preview."
-          ) {
-            Button("Open in Studio") {
-              navigation.destination = .studio
-            }
-            .buttonStyle(.designSecondary)
-            .accessibilityLabel("Open in Studio")
-            .accessibilityHint("Shows the selected display in the Studio preview")
-            .disabled(navigation.previewDisplayIdentifier == nil)
-          }
-        }
-
-      }
-
-      DesignDetails(initiallyExpanded: detailsInitiallyExpanded) {
-        DesignRow(title: "Display layout version") {
-          DesignValueText(layoutVersion)
-        }
-        DesignRow(title: "Scene plan") {
-          DesignValueText(planSummary)
-        }
-        DesignRow(title: "Configuration revision") {
-          DesignValueText(String(model.configuration.revision))
-        }
+        .disabled(navigation.previewDisplayIdentifier == nil)
       }
     }
     .onAppear {
@@ -147,14 +142,14 @@ struct DisplaysView: View {
         showsIdentification: showsIdentification,
         select: { navigation.previewDisplayIdentifier = $0 }
       )
-      .frame(minHeight: 250)
+      .frame(minHeight: 180)
     } else if let failure = coordinator.topologyFailure {
       ContentUnavailableView(
         "Display layout unavailable",
         systemImage: "display.trianglebadge.exclamationmark",
         description: Text(failure.message)
       )
-      .frame(minHeight: 250)
+      .frame(minHeight: 180)
     } else {
       ProgressView("Looking for your displays…")
         .frame(maxWidth: .infinity, minHeight: 250)
@@ -249,10 +244,9 @@ struct DisplaysView: View {
   private func displayLabel(
     _ identifier: DisplayTopology.PersistentDisplayIdentifier
   ) -> String {
-    let index = coordinator.latestSnapshot?.topology.displays.firstIndex {
-      $0.persistentIdentifier == identifier
-    }.map { $0 + 1 }
-    return index.map { "Display \($0)" } ?? "Display"
+    guard let index = renderingDisplays.firstIndex(where: { $0.persistentIdentifier == identifier })
+    else { return "Display" }
+    return renderingDisplays[index].isPrimary ? "Main display" : "Display \(index + 1)"
   }
 }
 
@@ -360,7 +354,7 @@ private struct DisplayArrangementCard: View {
   }
 
   private var displaySubtitle: String {
-    if display.isPrimary { return "Primary" }
+    if display.isPrimary { return "Main display" }
     if display.mirrorTargetIdentifier != nil { return "Mirror" }
     return "Display \(index + 1)"
   }

@@ -92,6 +92,7 @@
 		166BC14ABC6BC966E0CB2580 /* CameraClientRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A69500C6A02B97CBC0358A /* CameraClientRuntime.swift */; };
 		16E613B50AE930BF9259012B /* IdleScreenMenuBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC9AEB64E61C99DCDD266C61 /* IdleScreenMenuBar.swift */; };
 		175722CF316D23DA05DA9237 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C3AF53BFF89848725F37787 /* main.swift */; };
+		18F89A2DF96A041F6ABE86EE /* Workbench.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5CF0CDCADCE48EDE99E32F2 /* Workbench.swift */; };
 		19A20B02AE837F2AE33A5D11 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 766E5AFDD0799BD8DDC251E9 /* Assets.xcassets */; };
 		19E07338CFC46E5AC3919715 /* CameraCaptureSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0CE0F496DFBABA319C44CA /* CameraCaptureSessionController.swift */; };
 		1A81E4DDA13E2A3B19AA7C12 /* IdleScreenAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A506A626F41E2CC3E5E1E1B5 /* IdleScreenAppModel.swift */; };
@@ -359,6 +360,7 @@
 		B04E739EE4AE2D87DEB1792A /* IdleScreenCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36B2E35EB7EC8E7688BC3B4B /* IdleScreenCore.framework */; };
 		B0916A6E94504FA8A506FB43 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCEB04B955F0B3D7581E9A42 /* main.swift */; };
 		B1079E0A3F38795337D93B4C /* CameraCaptureRecoveryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B88C2E04A8AA2E2DF9B69F2 /* CameraCaptureRecoveryPolicy.swift */; };
+		B157C3FC837772B74DC1D2A9 /* Workbench.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5CF0CDCADCE48EDE99E32F2 /* Workbench.swift */; };
 		B237187BF45B96AEB73619B6 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEA410F56388DB9323F62460 /* AppKit.framework */; };
 		B2580C50473A704E126A9DF3 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6DF5148B776EA476C5BB7324 /* MetalKit.framework */; };
 		B299B7A6A310AE381D2344A8 /* PixelMaterialsInspectorContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC28FEB285957CC3C80874D /* PixelMaterialsInspectorContract.swift */; };
@@ -386,6 +388,7 @@
 		BCBE3F5A6E69CE46E2C901B4 /* CameraFrameMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3A556F28421020198823EC /* CameraFrameMapping.swift */; };
 		BDC67914188E7FEE1941D88A /* ProcessSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB162025575098F6933B2DBC /* ProcessSampler.swift */; };
 		BDD922278E86C6A3D1A4A3CE /* StatusPageContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB03224EC088B855E8331120 /* StatusPageContent.swift */; };
+		BE40D3C586CACE71F5647338 /* Workbench.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5CF0CDCADCE48EDE99E32F2 /* Workbench.swift */; };
 		BE463462620D67988C546EA3 /* IdleScreenSaverCameraClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 061CACB90E67B0D503BC0A5F /* IdleScreenSaverCameraClient.swift */; };
 		BE8AE3F0AD30D2A54A028A3D /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEA410F56388DB9323F62460 /* AppKit.framework */; };
 		BFB67C8AFA1DB18BECD30124 /* StatusSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C15C7C1628D3BFBF5DC23354 /* StatusSummary.swift */; };
@@ -1628,6 +1631,7 @@
 		E31F8A7828E59770C297D7A1 /* IdleScreenCameraSyntheticAgent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IdleScreenCameraSyntheticAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E35AB64D72EA3F7C360C9E12 /* IdleScreenPerformanceRunner */ = {isa = PBXFileReference; includeInIndex = 0; path = IdleScreenPerformanceRunner; sourceTree = BUILT_PRODUCTS_DIR; };
 		E369CEE2F0B8F3A5735A4CF1 /* CameraAgentControlClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentControlClient.swift; sourceTree = "<group>"; };
+		E5CF0CDCADCE48EDE99E32F2 /* Workbench.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workbench.swift; sourceTree = "<group>"; };
 		E61AF980C5495410D0D967B1 /* CameraXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraXPCProtocol.swift; sourceTree = "<group>"; };
 		E6415B33D3FD518EDEC428AB /* AgentSpriteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSpriteTests.swift; sourceTree = "<group>"; };
 		E66DB7AB0D0CA5D79300E76D /* CameraAgentDiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentDiagnosticsTests.swift; sourceTree = "<group>"; };
@@ -2493,6 +2497,7 @@
 				FA93E2E22E80542529FD036A /* DesignStudio.swift */,
 				412549E58CFAC57866544814 /* DesignTypography.swift */,
 				15F5BE5D812A37C5D0EE4F45 /* DesignWindowAppearance.swift */,
+				E5CF0CDCADCE48EDE99E32F2 /* Workbench.swift */,
 			);
 			path = Design;
 			sourceTree = "<group>";
@@ -3806,6 +3811,7 @@
 				FE1F2D018DF792B38E62ADC7 /* StatusSummary.swift in Sources */,
 				DD361F40C72183AC227DDD1D /* StudioCameraPreviewReconciliation.swift in Sources */,
 				359466311D09ABDB7099DB6B /* SystemViews.swift in Sources */,
+				18F89A2DF96A041F6ABE86EE /* Workbench.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3916,6 +3922,7 @@
 				54BEFD549B5AA83B7A3E8D26 /* StatusSummary.swift in Sources */,
 				803B579056C07AEBEED054B0 /* StudioCameraPreviewReconciliation.swift in Sources */,
 				04C9FBB995FEACA500704B67 /* SystemViews.swift in Sources */,
+				BE40D3C586CACE71F5647338 /* Workbench.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4004,6 +4011,7 @@
 				3B78FF3CC31144411EA37210 /* StudioCameraPreviewReconciliation.swift in Sources */,
 				9DDF5B0AF3C71C75565517F2 /* StudioCameraPreviewReconciliationTests.swift in Sources */,
 				F39DE918F5C87C5B7FF006E7 /* SystemViews.swift in Sources */,
+				B157C3FC837772B74DC1D2A9 /* Workbench.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

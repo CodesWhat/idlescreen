@@ -23,7 +23,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
   private let logger = Logger(subsystem: "com.idlescreen.app", category: "WindowLifecycle")
   private var mainWindow: NSWindow?
   private var mainWindowIsEnteringFullScreen = false
-  private let navigation = IdleScreenCompanionNavigation()
+  private let navigation = IdleScreenCompanionNavigation(preferences: .standard)
   private let displayCoordinator = DisplaySceneCoordinator.shared
   private var displayHostToken: DisplaySceneHostToken?
   private lazy var cameraClient = Self.makeCameraClient(
@@ -170,7 +170,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
       .frame(minWidth: 900, minHeight: 600)
     let hostingController = NSHostingController(rootView: rootView)
     let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 1040, height: 680),
+      contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
       styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
       backing: .buffered,
       defer: false
@@ -406,38 +406,21 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
 
     let currentContentSize = window.contentRect(forFrameRect: window.frame)
       .size
-    var targetContentSize =
-      IdleScreenPreviewWindowGeometry
-      .normalizedContentSize(
-        current: currentContentSize,
-        previewAspectRatio: aspectRatio
-      )
-    let targetFrameSize = window.frameRect(
-      forContentRect: NSRect(origin: .zero, size: targetContentSize)
-    ).size
-    let scale = min(
-      1,
-      screen.visibleFrame.width / targetFrameSize.width,
-      screen.visibleFrame.height / targetFrameSize.height
+    let targetContentSize = IdleScreenPreviewWindowGeometry.normalizedContentSize(
+      current: currentContentSize,
+      previewAspectRatio: aspectRatio,
+      availableSize: window.contentRect(forFrameRect: screen.visibleFrame).size
     )
-    if scale < 1,
-      targetContentSize.width * scale >= minimumContentSize.width,
-      targetContentSize.height * scale >= minimumContentSize.height
-    {
-      targetContentSize =
-        IdleScreenPreviewWindowGeometry
-        .normalizedContentSize(
-          current: CGSize(
-            width: targetContentSize.width * scale,
-            height: targetContentSize.height * scale
-          ),
-          previewAspectRatio: aspectRatio
-        )
-    }
     window.setContentSize(targetContentSize)
+    let constrainedFrame = window.constrainFrameRect(window.frame, to: screen)
+    if constrainedFrame.width >= window.minSize.width,
+      constrainedFrame.height >= window.minSize.height
+    {
+      window.setFrame(constrainedFrame, display: true)
+    }
 
     logger.info(
-      "Main window aspect locked to screen ratio \(aspectRatio, privacy: .public)"
+      "Main window display ratio updated to \(aspectRatio, privacy: .public)"
     )
   }
 

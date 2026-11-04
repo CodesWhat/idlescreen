@@ -193,6 +193,26 @@ struct AgentSpriteRenderTests {
   }
 
   @MainActor
+  @Test("Topograph honors full bleed and horizon on both render paths")
+  func topographHonorsFraming() throws {
+    for cpu in [false, true] {
+      var frames: [[UInt8]] = []
+      for framing in [IdleScreenRendererFraming.none, .horizon] {
+        var topograph = Shot(
+          name: "topograph", pattern: "topograph", palette: "Cobalt", sprites: [])
+        topograph.framing = framing
+        var terrain = topograph
+        terrain.pattern = "terrain"
+        let actual = try render(topograph, withSprites: false, onCPU: cpu)
+        let expected = try render(terrain, withSprites: false, onCPU: cpu)
+        #expect(actual == expected)
+        frames.append(actual)
+      }
+      #expect(frames[0] != frames[1], "changing framing must change the rendered scene")
+    }
+  }
+
+  @MainActor
   @Test("an empty sprite list renders the same frame as no sprite pass at all")
   func emptyIsIdentical() throws {
     let shot = Shot(name: "empty", pattern: "plasma", palette: "Ember", sprites: [])
@@ -336,16 +356,6 @@ struct AgentSpriteRenderTests {
     let skyPerRow = Double(lit(bare, rows: skyRows)) / Double(skyRows.count)
     let groundPerRow = Double(lit(bare, rows: groundRows)) / Double(groundRows.count)
     #expect(skyPerRow * 3 < groundPerRow, "sky \(skyPerRow) ground \(groundPerRow)")
-  }
-
-  @MainActor
-  @Test("Topograph is terrain on the horizon whatever the framing setting says")
-  func topographImpliesHorizon() throws {
-    var topograph = Shot(name: "t", pattern: "topograph", palette: "Cobalt", sprites: [])
-    topograph.framing = IdleScreenRendererFraming.none
-    var terrain = Shot(name: "t", pattern: "terrain", palette: "Cobalt", sprites: [])
-    terrain.framing = .horizon
-    #expect(try render(topograph, withSprites: false) == render(terrain, withSprites: false))
   }
 
   @MainActor

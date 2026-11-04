@@ -6,38 +6,44 @@ struct StatusPageContent<Technical: View>: View {
   let summary: StatusSummary
   var lastError: String?
   var isRefreshing = false
+  var showsInspector = true
   var detailsInitiallyExpanded = false
   var perform: (StatusAction) -> Void = { _ in }
   var refresh: () -> Void = {}
   @ViewBuilder var technical: () -> Technical
 
   var body: some View {
-    DesignPage(
-      title: "Status",
-      trailing: {
-        Button("Refresh", action: refresh)
-          .buttonStyle(.designSecondary)
-          .accessibilityLabel("Refresh")
-          .accessibilityHint("Checks IdleScreen again")
-          .disabled(isRefreshing)
-      }
-    ) {
-      if summary.isDevelopmentBuild {
-        DesignNotice(kind: .attention, text: StatusSummary.developmentBuildNotice)
-      }
-      if let lastError, !lastError.isEmpty {
-        DesignNotice(kind: .attention, text: lastError)
-      }
-      verdict
-      DesignColumns {
-        VStack(spacing: DesignMetrics.sectionSpacing) {
-          cardSection(summary.saver)
-          cardSection(summary.camera)
+    WorkbenchSplit(showsInspector: showsInspector) {
+      VStack(spacing: 0) {
+        WorkbenchHeader(title: "Setup & settings", summary: "Keep IdleScreen connected to macOS.") {
+          Button("Refresh", action: refresh)
+            .buttonStyle(.designSecondary)
+            .accessibilityHint("Checks IdleScreen again")
+            .disabled(isRefreshing)
         }
-        agentsSection
+        ScrollView {
+          VStack(alignment: .leading, spacing: 24) {
+            if summary.isDevelopmentBuild {
+              DesignNotice(kind: .attention, text: StatusSummary.developmentBuildNotice)
+            }
+            if let lastError, !lastError.isEmpty {
+              DesignNotice(kind: .attention, text: lastError)
+            }
+            verdict
+            cardSection(summary.saver)
+            cardSection(summary.camera)
+            DesignDetails(title: "Technical details", initiallyExpanded: detailsInitiallyExpanded) {
+              technical()
+            }
+          }
+          .padding(24)
+        }
       }
-      DesignDetails(title: "Technical details", initiallyExpanded: detailsInitiallyExpanded) {
-        technical()
+    } inspector: {
+      WorkbenchInspector(
+        eyebrow: "IdleScreen", title: "Connections", summary: "Screen saver, camera and agents."
+      ) {
+        agentsSection
       }
     }
   }
@@ -48,7 +54,7 @@ struct StatusPageContent<Technical: View>: View {
     HStack(spacing: 12) {
       Image(systemName: verdictKind.symbol).font(.system(size: 22, weight: .semibold))
         .foregroundStyle(verdictKind.color).accessibilityHidden(true)
-      Text(summary.verdict).font(DesignFont.display(22)).foregroundStyle(DesignPalette.ink)
+      Text(summary.verdict).font(DesignFont.sans(18, .semibold)).foregroundStyle(DesignPalette.ink)
         .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
       Spacer(minLength: 0)
       if let action = summary.primaryAction {
@@ -57,16 +63,9 @@ struct StatusPageContent<Technical: View>: View {
           .accessibilityHint("Fixes the first thing that needs your attention")
       }
     }
-    .padding(.horizontal, 18).padding(.vertical, 16)
+    .padding(.vertical, 12)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(
-      RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous).fill(
-        DesignPalette.surface)
-    )
-    .overlay(
-      RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous)
-        .strokeBorder(DesignPalette.hair2, lineWidth: 1)
-    )
+    .overlay(alignment: .bottom) { DesignHairline() }
     .accessibilityElement(children: .contain)
   }
 

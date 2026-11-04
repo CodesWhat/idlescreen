@@ -400,7 +400,7 @@ enum UserFacingIssue {
   static let legacyImportFailed =
     "IdleScreen couldn't import your old settings. They're untouched, so it can try again."
   static let fallback =
-    "Something went wrong. Try again. If it keeps happening, see Technical details on the Status page."
+    "Something went wrong. Try again. If it keeps happening, see Technical details on the Settings page."
 
   private static let table: [(needles: [String], message: String)] = [
     (["did not converge", "did not select the embedded"], registrationFailed),

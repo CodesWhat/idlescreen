@@ -105,7 +105,7 @@ struct SetupFlowView: View {
 
   /// Records the last fresh answer and runs the upgrade auto-skip once, on the first fresh status. A Mac that is already
   /// registered and selected has nothing to set up, so setup finishes without showing itself. Nothing else finishes setup
-  /// for the user; the done card's "Open Studio" does the rest.
+  /// for the user; the done card's "Open Scene" does the rest.
   private func settleSession() {
     navigation.setupSession.record(live: liveInputs, isFresh: model.hasFreshSaverStatus)
     let decision = decision
@@ -179,8 +179,8 @@ struct SetupCardModel: Equatable {
       }
     case nil:
       title = "You're all set"
-      detail = "IdleScreen is ready. Pick a look in Studio."
-      primaryTitle = "Open Studio"
+      detail = "IdleScreen is ready. Pick a look in Scene."
+      primaryTitle = "Open Scene"
       primaryEnabled = true
     }
     if let current = progress.current {
@@ -225,20 +225,20 @@ struct SetupFlowContent: View {
       ScrollView {
         Group {
           if wide {
-            HStack(alignment: .center, spacing: 40) {
+            HStack(alignment: .center, spacing: 32) {
               stepsColumn
                 .frame(width: Self.leadingColumnWidth(in: geometry.size.width))
               SetupPreviewPane(reduceMotion: reduceMotion)
                 .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 48)
+            .padding(.horizontal, 32)
             .padding(.vertical, DesignMetrics.pageBottomMargin + 8)
             .frame(minHeight: geometry.size.height)
           } else {
             stepsColumn
               .frame(maxWidth: 460)
               .padding(.horizontal, DesignMetrics.pageSideMargin)
-              .padding(.top, DesignMetrics.pageTopMargin)
+              .padding(.top, 28)
               .padding(.bottom, DesignMetrics.pageBottomMargin)
               .frame(maxWidth: .infinity)
           }
@@ -271,7 +271,7 @@ struct SetupFlowContent: View {
         Button("Set up later", action: actions.later).buttonStyle(.plain)
           .font(DesignFont.sans(DesignFont.detail)).foregroundStyle(DesignPalette.ink2)
           .accessibilityHint(
-            "Closes setup for now. Studio keeps a Continue setup button until you finish.")
+            "Closes setup for now. Scene keeps a Continue setup button until you finish.")
       }
     }
   }
@@ -294,7 +294,7 @@ struct SetupFlowContent: View {
       Text(cardModel.caption).designEyebrow().padding(.top, 4).accessibilityHidden(true)
     }
     .multilineTextAlignment(.center)
-    .padding(.horizontal, 28).padding(.vertical, 28)
+    .padding(.horizontal, 24).padding(.vertical, 24)
     .frame(maxWidth: .infinity)
     .background(
       RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous).fill(
@@ -323,7 +323,7 @@ struct SetupFlowContent: View {
           .buttonStyle(.designPrimary).disabled(!cardModel.primaryEnabled)
           .accessibilityHint(cameraHint)
         Button("Skip for now", action: actions.skipCamera).buttonStyle(.designSecondary)
-          .accessibilityHint("Skips the camera step. You can turn it on later in Status.")
+          .accessibilityHint("Skips the camera step. You can turn it on later in Settings.")
       }
     case nil:
       Button(cardModel.primaryTitle, action: actions.openStudio).buttonStyle(.designPrimary)

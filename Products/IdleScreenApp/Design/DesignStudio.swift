@@ -1,19 +1,11 @@
 import IdleScreenCore
 import SwiftUI
 
-// Studio's shared pieces. Studio is a dark canvas with controls floating over the art, so these are the Design components'
-// counterparts for a surface that sits on a live preview. Identity is font and colour only: Departure Mono for panel titles, Inter
-// for labels and values, cobalt for selection, hairline edges, no glow, no drop shadow.
-//
-//   studioPanel()       the floating panel: a material, or the opaque surface under Reduce Transparency
-//   StudioSection       eyebrow over a tinted inset group of controls
-//   StudioDisclosure    an eyebrow-styled "Advanced" button that opens more controls
-//   StudioField         a title left, one control right
-//   StudioSlider        the one slider: inline for the compact dock, stacked for the expanded panels
+// Shared controls for the scene inspector and camera setup guidance.
 
 extension DesignFont {
-  /// Panel and card titles inside Studio. Departure Mono is drawn on an 11 px grid, so 11 is its native size.
-  static let panelTitle: CGFloat = 11
+  /// Panel and card titles inside Studio.
+  static let panelTitle: CGFloat = 13
 }
 
 private struct StudioPanelModifier: ViewModifier {
@@ -51,7 +43,7 @@ struct StudioDivider: View {
 /// An eyebrow over a tinted inset group of controls.
 struct StudioSection<Content: View>: View {
   let title: String
-  var minHeight: CGFloat = 184
+  var minHeight: CGFloat = 0
   @ViewBuilder var content: () -> Content
 
   var body: some View {
@@ -59,16 +51,9 @@ struct StudioSection<Content: View>: View {
       Text(title).designEyebrow().accessibilityAddTraits(.isHeader)
       content()
     }
-    .padding(12)
     .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .topLeading)
-    .background(
-      RoundedRectangle(cornerRadius: DesignMetrics.controlRadius, style: .continuous)
-        .fill(DesignPalette.sel)
-    )
-    .overlay {
-      RoundedRectangle(cornerRadius: DesignMetrics.controlRadius, style: .continuous)
-        .strokeBorder(DesignPalette.hair2, lineWidth: 1)
-    }
+    .padding(.bottom, 12)
+    .overlay(alignment: .bottom) { DesignHairline() }
   }
 }
 
