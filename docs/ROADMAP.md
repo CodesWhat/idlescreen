@@ -75,7 +75,6 @@ useful coverage and product work:
   app replacement, camera permission, contention and device changes, multiple
   views, displays, Spaces and users, crash recovery, soak) on a device and move
   each row out of the README's not-verified list.
-- Rename the installed app path to IdleScreen.app with a cask migration.
 - Repeat the full mixed-scale multi-display, hot-plug, Spaces, and sleep/wake
   matrix on additional physical Mac configurations.
 - Smoke-test the next macOS beta and Intel hardware while universal support is
