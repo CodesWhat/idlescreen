@@ -47,18 +47,31 @@ public enum IdleScreenAquarium {
       canvas.rect(x, y + 3, 28, 5, .init(0.18, 0.22, 0.24, 1))
       canvas.rect(x + 4, y + 8, 22, 2, .init(0.11, 0.16, 0.18, 1))
     }
-    for i in 0..<10 {
-      let cycle = (time * (i < 6 ? 0.7 : 2.3) + Double(i * 41) + phase * 10)
+    for i in 0..<8 {
+      let cycle = (time * (i < 5 ? 0.7 : 2.3) + Double(i * 41) + phase * 10)
         .truncatingRemainder(dividingBy: 660)
       let forward = cycle < 330
       let x = 12 + Int(forward ? cycle : 660 - cycle)
-      let swimming = i >= 6
+      let swimming = i >= 5
       let y =
         swimming
         ? 70 + i % 3 * 29 + Int(sin(time * 0.65 + Double(i)) * 6)
         : 176 + i % 3 * 6
-      shrimp(&canvas, x: x, y: y, right: forward, time: time + Double(i))
+      let sprite = IdleScreenAquariumSpecies.cherryShrimp.sprite(
+        phase: Int((time + Double(i)) * 5), facingRight: forward)
+      canvas.sprite(sprite, x: min(width - sprite.width, x), y: y - 3)
     }
+    let mantisCycle = (time * 1.1 + 166 + phase * 8).truncatingRemainder(dividingBy: 540)
+    let mantisRight = mantisCycle < 270
+    canvas.sprite(
+      IdleScreenAquariumSpecies.mantisShrimp.sprite(phase: Int(time * 4), facingRight: mantisRight),
+      x: 18 + Int(mantisRight ? mantisCycle : 540 - mantisCycle), y: 164)
+    let fishCycle = (time * 2 + 68 + phase * 5).truncatingRemainder(dividingBy: 540)
+    let fishRight = fishCycle < 270
+    canvas.sprite(
+      IdleScreenAquariumSpecies.lionfish.sprite(phase: Int(time * 3), facingRight: fishRight),
+      x: 16 + Int(fishRight ? fishCycle : 540 - fishCycle),
+      y: 33 + Int(sin(time * 0.3) * 4))
     for i in 0..<9 {
       let y = 178 - Int((time * 9 + Double(i * 23)).truncatingRemainder(dividingBy: 178))
       let x = 347 + Int(sin(time + Double(i)) * 3)
@@ -95,43 +108,17 @@ public enum IdleScreenAquarium {
     }
   }
 
-  private static let sprite = [
-    "......................",
-    "..r...................",
-    "...r..rr..............",
-    "....rr................",
-    ".....r..hh............",
-    ".....rrhRRh...........",
-    "......eRRRRRhh........",
-    "......rRRRRRRRhh....r.",
-    ".......rrRRRRRRRrrrr..",
-    ".........rrrrRRRRrr...",
-    "..........r..r..r.....",
-    "......................",
-  ].map(Array.init)
-
-  private static func shrimp(_ canvas: inout Canvas, x: Int, y: Int, right: Bool, time: Double) {
-    for (row, line) in sprite.enumerated() {
-      for (column, pixel) in line.enumerated() where pixel != "." {
-        let color: SIMD4<Float>
-        switch pixel {
-        case "e": color = .init(0.99, 0.91, 0.66, 1)
-        case "h": color = .init(0.95, 0.28, 0.24, 1)
-        case "R": color = .init(0.72, 0.10, 0.20, 1)
-        default: color = .init(0.43, 0.07, 0.17, 1)
-        }
-        let dx = right ? 21 - column : column
-        canvas.rect(x + dx, y + row, 1, 1, color)
-      }
-    }
-    let kick = Int(time * 5) % 2
-    for leg in 0..<4 {
-      canvas.rect(x + 8 + leg * 3 + kick, y + 11, 1, 2, .init(0.61, 0.13, 0.23, 1))
-    }
-  }
-
   private struct Canvas {
     var pixels = [SIMD4<Float>](repeating: .zero, count: width * height)
+
+    mutating func sprite(_ sprite: IdleScreenAquariumSprite, x: Int, y: Int) {
+      for row in 0..<sprite.height {
+        for column in 0..<sprite.width {
+          let color = sprite.pixels[row * sprite.width + column]
+          if color.w > 0 { rect(x + column, y + row, 1, 1, color) }
+        }
+      }
+    }
 
     mutating func rect(_ x: Int, _ y: Int, _ w: Int, _ h: Int, _ color: SIMD4<Float>) {
       let left = max(0, x)
