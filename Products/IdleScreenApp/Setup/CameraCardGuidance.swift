@@ -48,7 +48,7 @@ struct CameraCardGuidance: Equatable {
     case .unknown, .observed(.authorized):
       return CameraCardGuidance(
         title: "The camera isn't working",
-        detail: setupCompleted ? "Open Status to check it." : finishSetup,
+        detail: setupCompleted ? "Open Settings to check it." : finishSetup,
         action: setupCompleted ? .openStatus : .openSetup)
     }
   }

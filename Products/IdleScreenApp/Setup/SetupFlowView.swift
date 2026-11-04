@@ -323,7 +323,7 @@ struct SetupFlowContent: View {
           .buttonStyle(.designPrimary).disabled(!cardModel.primaryEnabled)
           .accessibilityHint(cameraHint)
         Button("Skip for now", action: actions.skipCamera).buttonStyle(.designSecondary)
-          .accessibilityHint("Skips the camera step. You can turn it on later in Status.")
+          .accessibilityHint("Skips the camera step. You can turn it on later in Settings.")
       }
     case nil:
       Button(cardModel.primaryTitle, action: actions.openStudio).buttonStyle(.designPrimary)
