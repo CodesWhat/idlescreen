@@ -102,6 +102,11 @@ struct IdleScreenAppCompileGateSmokeTests {
     #expect(wide == CGSize(width: 1_400, height: 700))
   }
 
+  @Test("new scenes start full bleed without a dark sky mask")
+  func defaultSceneIsFullBleed() {
+    #expect(IdleScreenConfiguration.default.creative.framing == .none)
+  }
+
   @Test("shared Pixel Materials configuration maps every product input")
   func pixelMaterialsRendererMapping() {
     var configuration = IdleScreenConfiguration.default

@@ -319,13 +319,13 @@ public struct IdleScreenCreativeConfiguration: Codable, Equatable, Sendable {
   public var settings: IdleScreenCreativeSettings
   public var framing: IdleScreenSceneFraming
 
-  /// A fresh configuration opens on Topograph with the horizon. Persisted
+  /// A fresh configuration opens on Topograph without a sky mask. Persisted
   /// configurations decode what they saved; a missing pattern is Auto Cycle
   /// and a missing framing is full bleed, so a saved look never changes.
   public init(
     pattern: IdleScreenCreativePattern = .topograph,
     settings: IdleScreenCreativeSettings = .default,
-    framing: IdleScreenSceneFraming = .horizon
+    framing: IdleScreenSceneFraming = .none
   ) {
     self.pattern = pattern
     self.settings = settings.normalized
