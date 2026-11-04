@@ -71,7 +71,7 @@ that copy and installs the new one.
 
 ## Not verified on a device
 
-Not verified on a device for 0.2.0:
+Not verified on a device for 0.3.0:
 
 - Sleep and wake.
 - Reboot and login.
@@ -91,13 +91,13 @@ you, please open an issue.
 
 ## Recent Updates
 
-Version 0.2.0 adds a CRT menu bar icon that shows setup, attention, camera
-preview, running and idle states, a first-run setup flow, and a plain-language
-Status page. The System page is now Status and Integrations is now Agents. The
-Displays, Agents and Status pages follow the system appearance and Increase
-Contrast, and the app has a new pixel CRT logo and icon, Departure Mono and
-Inter typefaces and a cobalt accent. macOS now shows IdleScreen as the app,
-saver and camera agent name. See the [changelog](CHANGELOG.md) for the complete release notes.
+Version 0.3.0 reframes the saver on a horizon with a Cobalt default palette, a
+sprite lattice and Departure Mono glyphs, and adds a Topograph scene and agent
+status sprites driven by a one-signal-per-agent feed. Studio now shows real
+saver thumbnails and a plain status pill, and setup fills the window in two
+columns. The app now installs at `/Applications/IdleScreen.app`; `brew upgrade
+--cask idlescreen` removes the old `idlescreen.app` copy first. See the
+[changelog](CHANGELOG.md) for the complete release notes.
 
 ## Screenshot
 
