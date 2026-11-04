@@ -4,8 +4,8 @@ import SwiftUI
 // Shared controls for the scene inspector and camera setup guidance.
 
 extension DesignFont {
-  /// Panel and card titles inside Studio. Departure Mono is drawn on an 11 px grid, so 11 is its native size.
-  static let panelTitle: CGFloat = 11
+  /// Panel and card titles inside Studio.
+  static let panelTitle: CGFloat = 13
 }
 
 private struct StudioPanelModifier: ViewModifier {

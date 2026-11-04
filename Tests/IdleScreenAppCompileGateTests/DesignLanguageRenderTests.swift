@@ -147,7 +147,11 @@ struct DesignLanguageRenderTests {
     #expect(!window.effectiveAppearance.isDarkAqua)
     let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
     view.cacheDisplay(in: view.bounds, to: bitmap)
-    #expect(Self.averageLuma(bitmap) > 0.5)
+    let toolbarPixel = try #require(
+      bitmap.colorAt(x: bitmap.pixelsWide / 4, y: 8)?.usingColorSpace(.sRGB))
+    #expect(toolbarPixel.redComponent > 0.8)
+    #expect(toolbarPixel.greenComponent > 0.8)
+    #expect(toolbarPixel.blueComponent > 0.8)
     try Self.save(bitmap, name: "studio-under-light-system")
 
     harness.navigation.destination = .status
@@ -194,7 +198,7 @@ struct DesignLanguageRenderTests {
     #expect(Self.differingFraction(materials, advanced) > 0.005, "opening Advanced changed nothing")
   }
 
-  @Test("the horizontal scene library renders in a tall workbench")
+  @Test("the compact scene controls render in a tall workbench")
   func studioChooserShowsMoreTiles() throws {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
@@ -213,7 +217,12 @@ struct DesignLanguageRenderTests {
     let dark = try harness.renderStudio(scene: "expanded-pixel-materials-advanced", size: size)
     let underLight = try harness.renderStudio(
       scene: "expanded-pixel-materials-advanced", size: size, systemLight: true)
-    #expect(Self.averageLuma(underLight) > Self.averageLuma(dark) + 0.2)
+    let lightInspector = try #require(
+      underLight.colorAt(x: underLight.pixelsWide - 8, y: 40)?.usingColorSpace(.sRGB))
+    let darkInspector = try #require(
+      dark.colorAt(x: dark.pixelsWide - 8, y: 40)?.usingColorSpace(.sRGB))
+    #expect(lightInspector.redComponent > 0.8)
+    #expect(darkInspector.redComponent < 0.3)
   }
 
   @Test("the palette resolves from the appearance it is given, with no workspace state")
@@ -448,8 +457,8 @@ struct DesignLanguageRenderTests {
       model.updateSource(scene == "expanded-camera" ? .camera : .generative)
       model.updateCreativePattern(
         scene.contains("pixel-materials") ? .pixelMaterials : .perlin)
+      navigation.isSceneInspectorVisible = scene != "compact"
       let content = StudioView(
-        initiallyMoreExpanded: scene != "compact",
         pixelAdvancedInitiallyExpanded: scene.hasSuffix("advanced"))
       let view = NSHostingView(
         rootView: AnyView(

@@ -2,14 +2,16 @@ import AppKit
 import CoreText
 import OSLog
 
-/// Registers the bundled Departure Mono and Inter for this process. Registration runs once, on first use or at launch, whichever
+/// Registers the bundled Instrument Serif and Instrument Sans for this process. Registration runs once, on first use or at launch, whichever
 /// comes first. A failure is logged once and `DesignFont` falls back to the system fonts.
 enum DesignFontRegistry {
   private final class BundleAnchor {}
 
   static let directory = "Fonts"
-  static let displayName = "DepartureMono-Regular"
-  static let textNames = ["Inter-Regular", "Inter-Medium", "Inter-SemiBold"]
+  static let displayName = "InstrumentSerif-Regular"
+  static let textNames = [
+    "InstrumentSans-Regular", "InstrumentSans-Medium", "InstrumentSans-SemiBold",
+  ]
 
   private static let logger = Logger(subsystem: "com.idlescreen.app", category: "fonts")
 

@@ -15,7 +15,7 @@ struct WorkbenchSplit<Main: View, Inspector: View>: View {
       if showsInspector {
         Divider()
         inspector()
-          .frame(width: 288)
+          .frame(width: 264)
           .frame(maxHeight: .infinity, alignment: .top)
           .background(DesignPalette.surface)
           .environment(\.workbenchInspector, true)
@@ -50,7 +50,7 @@ struct WorkbenchInspector<Content: View>: View {
       VStack(alignment: .leading, spacing: 22) {
         VStack(alignment: .leading, spacing: 8) {
           Text(eyebrow).designEyebrow()
-          Text(title).font(DesignFont.display(20)).foregroundStyle(DesignPalette.ink)
+          Text(title).font(DesignFont.sans(18, .semibold)).foregroundStyle(DesignPalette.ink)
             .accessibilityAddTraits(.isHeader)
           if let summary {
             Text(summary).font(DesignFont.sans(DesignFont.caption))
@@ -59,7 +59,7 @@ struct WorkbenchInspector<Content: View>: View {
         }
         content()
       }
-      .padding(23)
+      .padding(20)
       .frame(maxWidth: .infinity, alignment: .leading)
     }
   }

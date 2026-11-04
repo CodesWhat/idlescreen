@@ -62,6 +62,11 @@ final class IdleScreenCompanionNavigation {
     set { setupSession.isDeferred = newValue }
   }
   var isInspectorVisible = true
+  var isSceneInspectorVisible = false
+
+  var currentInspectorVisible: Bool {
+    destination == .studio ? isSceneInspectorVisible : isInspectorVisible
+  }
   var displayAspectRatio: CGFloat = 16 / 9
   var previewDisplayIdentifier: DisplayTopology.PersistentDisplayIdentifier?
 
@@ -104,12 +109,19 @@ struct ContentView: View {
           .foregroundStyle(statusSummary.pillKind.color)
         Text(statusSummary.pillLabel)
         Spacer()
-        Text("Changes save automatically")
+        if showsSetupBanner && !showsSetup {
+          Button("Continue setup") { navigation.setupSession.continueSetup() }
+            .buttonStyle(.plain)
+            .foregroundStyle(DesignPalette.accentMark)
+            .accessibilityHint("Returns to the setup steps.")
+        } else {
+          Text("Changes save automatically")
+        }
       }
       .font(DesignFont.sans(DesignFont.eyebrow))
       .foregroundStyle(DesignPalette.ink2)
       .padding(.horizontal, 20)
-      .frame(height: 26)
+      .frame(height: 22)
     }
     .background(DesignPalette.bg)
     .windowAppearance(Self.windowAppearance(for: navigation.destination, showsSetup: showsSetup))
@@ -158,7 +170,7 @@ struct ContentView: View {
     @Bindable var navigation = navigation
     return ZStack {
       HStack {
-        Text("IdleScreen").font(DesignFont.display(14))
+        Text("IdleScreen").font(DesignFont.display(24))
           .padding(.leading, 82)
         Spacer()
         Button {
@@ -169,13 +181,17 @@ struct ContentView: View {
         .buttonStyle(.designPrimary)
         .disabled(model.isRegistering || model.isStartingScreenSaver || !model.isExtensionEmbedded)
         Button {
-          navigation.isInspectorVisible.toggle()
+          if navigation.destination == .studio {
+            navigation.isSceneInspectorVisible.toggle()
+          } else {
+            navigation.isInspectorVisible.toggle()
+          }
         } label: {
           Image(systemName: "sidebar.trailing")
         }
         .buttonStyle(.designSecondary)
         .accessibilityLabel("Inspector")
-        .accessibilityValue(navigation.isInspectorVisible ? "Shown" : "Hidden")
+        .accessibilityValue(navigation.currentInspectorVisible ? "Shown" : "Hidden")
         .help("Show or hide the inspector")
         .disabled(showsSetup && navigation.destination == .studio)
       }
@@ -190,8 +206,24 @@ struct ContentView: View {
       .accessibilityLabel("App section")
     }
     .padding(.horizontal, 18)
-    .frame(height: 62)
+    .frame(height: 48)
     .background(DesignPalette.surface)
+  }
+
+  /// The required steps as macOS last reported them, ignoring a refresh that is in flight or failed.
+  private var showsSetupBanner: Bool {
+    let live = SetupInputs(
+      registrationCurrent: model.registrationAssessment.isCurrentBuild,
+      selectedEverywhere: model.selection?.isSelectedEverywhere == true,
+      cameraAccess: .unknown,
+      cameraSkipped: false
+    )
+    let inputs = SetupInputs.settled(
+      live: live, lastFresh: navigation.setupSession.lastFreshInputs,
+      isFresh: model.hasFreshSaverStatus)
+    return SetupGate.showsStudioBanner(
+      setupCompleted: setupCompleted,
+      requiredStepsDone: SetupProgress(inputs).requiredStepsDone)
   }
 
   private var statusSummary: StatusSummary {
@@ -205,7 +237,7 @@ struct StudioView: View {
   @Environment(IdleScreenCompanionCameraClient.self) private var cameraClient
   @Environment(IdleScreenCompanionNavigation.self) private var navigation
   @Environment(DisplaySceneCoordinator.self) private var displayCoordinator
-  @State private var isSaverChooserExpanded = true
+  @State private var isSaverChooserExpanded = false
   @State private var showsSavedLooks = false
   @State private var isPixelAdvancedExpanded = false
   @State private var isLoupeEnabled = false
@@ -218,9 +250,8 @@ struct StudioView: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @AppStorage(IdleScreenSetupStore.completedKey) private var setupCompleted = false
 
-  /// Render fixtures can collapse the library and open material controls independently.
-  init(initiallyMoreExpanded: Bool = false, pixelAdvancedInitiallyExpanded: Bool = false) {
-    _isSaverChooserExpanded = State(initialValue: !initiallyMoreExpanded)
+  /// Render fixtures can open advanced material controls.
+  init(pixelAdvancedInitiallyExpanded: Bool = false) {
     _isPixelAdvancedExpanded = State(initialValue: pixelAdvancedInitiallyExpanded)
   }
 
@@ -249,24 +280,21 @@ struct StudioView: View {
   }
 
   var body: some View {
-    WorkbenchSplit(showsInspector: navigation.isInspectorVisible) {
-      VStack(spacing: 0) {
-        canvasToolbar
-        if showsSetupBanner { setupBanner.padding(12) }
-        previewCanvas
-          .padding(24)
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-        HStack {
-          Label(previewDisplayLabel + " · Entire display", systemImage: "display")
-          Spacer()
-          Text("Fit")
+    WorkbenchSplit(showsInspector: navigation.isSceneInspectorVisible) {
+      previewCanvas
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.black)
+        .overlay(alignment: .top) {
+          canvasToolbar.environment(\.colorScheme, .dark)
         }
-        .font(DesignFont.sans(DesignFont.eyebrow))
-        .foregroundStyle(DesignPalette.ink2)
-        .padding(.horizontal, 24)
-        .padding(.bottom, 12)
-        if isSaverChooserExpanded { saverChooser }
-      }
+        .overlay(alignment: .bottom) {
+          if !navigation.isSceneInspectorVisible {
+            compactSettingsDock
+              .padding(12)
+              .environment(\.colorScheme, .dark)
+          }
+        }
+
     } inspector: {
       sceneInspector
     }
@@ -489,7 +517,7 @@ struct StudioView: View {
         .foregroundStyle(DesignStatusKind.attention.color)
         .accessibilityHidden(true)
       Text(guidance.title)
-        .font(DesignFont.display(DesignFont.panelTitle))
+        .font(DesignFont.sans(DesignFont.panelTitle, .semibold))
         .foregroundStyle(DesignPalette.ink)
         .accessibilityAddTraits(.isHeader)
       Text(guidance.detail)
@@ -507,38 +535,6 @@ struct StudioView: View {
     .padding(.vertical, 16)
     .frame(maxWidth: 310)
     .studioPanel()
-    .accessibilityElement(children: .contain)
-  }
-
-  /// The required steps as macOS last reported them, ignoring a refresh that is in flight or failed.
-  private var showsSetupBanner: Bool {
-    let live = SetupInputs(
-      registrationCurrent: model.registrationAssessment.isCurrentBuild,
-      selectedEverywhere: model.selection?.isSelectedEverywhere == true,
-      cameraAccess: .unknown,
-      cameraSkipped: false
-    )
-    let inputs = SetupInputs.settled(
-      live: live, lastFresh: navigation.setupSession.lastFreshInputs,
-      isFresh: model.hasFreshSaverStatus)
-    return SetupGate.showsStudioBanner(
-      setupCompleted: setupCompleted,
-      requiredStepsDone: SetupProgress(inputs).requiredStepsDone)
-  }
-
-  private var setupBanner: some View {
-    HStack(spacing: 10) {
-      Image(systemName: "checklist").foregroundStyle(DesignPalette.ink2)
-        .accessibilityHidden(true)
-      Text("Finish setting up IdleScreen")
-        .font(DesignFont.sans(DesignFont.detail, .semibold)).foregroundStyle(DesignPalette.ink)
-      Spacer()
-      Button("Continue setup") { navigation.setupSession.continueSetup() }
-        .buttonStyle(.designSecondary)
-        .accessibilityHint("Returns to the setup steps.")
-    }
-    .padding(.horizontal, 12).padding(.vertical, 7)
-    .studioPanel(radius: 10)
     .accessibilityElement(children: .contain)
   }
 
@@ -626,6 +622,9 @@ struct StudioView: View {
         Label("Library", systemImage: "rectangle.grid.1x2")
       }
       .accessibilityValue(isSaverChooserExpanded ? "Shown" : "Hidden")
+      .popover(isPresented: $isSaverChooserExpanded, arrowEdge: .bottom) {
+        saverChooser.frame(width: 640)
+      }
       Button {
         isLoupeEnabled.toggle()
         loupePointerLocation = nil
@@ -642,8 +641,8 @@ struct StudioView: View {
     .font(DesignFont.sans(DesignFont.caption))
     .foregroundStyle(DesignPalette.ink2)
     .buttonStyle(.plain)
-    .padding(.horizontal, 24)
-    .frame(height: 52)
+    .padding(.horizontal, 16)
+    .frame(height: 36)
     .background(DesignPalette.surface)
     .overlay(alignment: .bottom) { DesignHairline() }
   }
@@ -757,11 +756,75 @@ struct StudioView: View {
       }
       .scrollIndicators(.visible)
     }
-    .padding(.horizontal, 24)
+    .padding(.horizontal, 16)
     .padding(.vertical, 12)
     .frame(height: 174)
     .background(DesignPalette.surface)
     .overlay(alignment: .top) { DesignHairline() }
+  }
+
+  private var compactSettingsDock: some View {
+    HStack(spacing: 14) {
+      Text(selectedSaverName)
+        .font(DesignFont.sans(DesignFont.detail, .semibold))
+      StudioDivider()
+      if cameraSourceSelected {
+        cameraSelectionMenu(includesUtilities: true)
+      } else if model.configuration.creative.pattern == .pixelMaterials {
+        StudioSlider(
+          title: "Cell",
+          value: Binding(
+            get: { model.configuration.materials.cellScale },
+            set: { value in model.updatePixelMaterials { $0.cellScale = value } }),
+          range: 0.25...4,
+          layout: .inline(width: 64))
+      } else {
+        StudioSlider(
+          title: "Speed",
+          value: Binding(
+            get: { model.configuration.creative.settings.speed },
+            set: { model.updateCreativeSpeed($0) }),
+          range: IdleScreenCreativeSettings.minimumSpeed...IdleScreenCreativeSettings.maximumSpeed,
+          layout: .inline(width: 64))
+      }
+      Menu {
+        ForEach(["Cobalt", "Ember", "Phosphor", "Ivory", "Blueprint", "Signal"], id: \.self) {
+          palette in
+          Button(palette) { model.updatePalette(palette) }
+        }
+        Button("Camera Color") { model.updatePalette("Camera Color") }
+          .disabled(!model.canSelectPalette("Camera Color"))
+      } label: {
+        Text(model.configuration.appearance.palette)
+      }
+      .menuStyle(.borderlessButton)
+      .fixedSize()
+      .accessibilityLabel("Palette")
+      StudioDivider()
+      StudioSlider(
+        title: "Size",
+        value: Binding(
+          get: { model.configuration.appearance.glyphScale },
+          set: { model.updateGlyphScale($0) }),
+        layout: .inline(width: 64))
+      StudioSlider(
+        title: "Contrast",
+        value: Binding(
+          get: { model.configuration.appearance.contrast },
+          set: { model.updateContrast($0) }),
+        layout: .inline(width: 64))
+      Button("More", systemImage: "slider.horizontal.3") {
+        navigation.isSceneInspectorVisible = true
+      }
+      .buttonStyle(.plain)
+      .accessibilityHint("Shows every control for this scene")
+    }
+    .font(DesignFont.sans(DesignFont.detail))
+    .padding(.horizontal, 16)
+    .padding(.vertical, 10)
+    .fixedSize()
+    .studioPanel(radius: 10)
+    .frame(maxWidth: .infinity)
   }
 
   private var sceneInspector: some View {
@@ -783,8 +846,10 @@ struct StudioView: View {
             }
           }
           VStack(alignment: .leading, spacing: 6) {
-            Text(selectedSaverName).font(DesignFont.display(20)).foregroundStyle(DesignPalette.ink)
-              .accessibilityAddTraits(.isHeader)
+            Text(selectedSaverName).font(DesignFont.sans(18, .semibold)).foregroundStyle(
+              DesignPalette.ink
+            )
+            .accessibilityAddTraits(.isHeader)
             Text(cameraSourceSelected ? "Camera scene" : "Procedural scene")
               .font(DesignFont.sans(DesignFont.caption)).foregroundStyle(DesignPalette.ink2)
           }
@@ -798,7 +863,7 @@ struct StudioView: View {
             expandedProceduralSettings
           }
         }
-        .padding(23)
+        .padding(20)
       }
       DesignHairline()
       VStack(spacing: 8) {
@@ -936,19 +1001,19 @@ struct StudioView: View {
   private var paletteSelector: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack {
-        Text("Palette").font(DesignFont.display(11))
+        Text("Palette").font(DesignFont.sans(12, .medium))
         Spacer()
         Text(model.configuration.appearance.palette)
           .font(DesignFont.sans(DesignFont.caption)).foregroundStyle(DesignPalette.ink2)
       }
-      HStack(spacing: 10) {
+      HStack(spacing: 8) {
         ForEach(["Cobalt", "Ember", "Phosphor", "Ivory", "Blueprint", "Signal"], id: \.self) {
           palette in
           Button {
             model.updatePalette(palette)
           } label: {
             Circle().fill(palettePair(for: palette).b)
-              .frame(width: 24, height: 24)
+              .frame(width: 22, height: 22)
               .overlay {
                 if model.configuration.appearance.palette == palette {
                   Image(systemName: "checkmark").font(.system(size: 10, weight: .bold))
@@ -1081,18 +1146,28 @@ struct StudioView: View {
             )
           }
 
-          Picker(
-            "Framing",
-            selection: Binding(
-              get: { model.configuration.creative.framing },
-              set: { model.updateCreativeFraming($0) }
-            )
-          ) {
-            ForEach(IdleScreenSceneFraming.allCases) { framing in
-              Text(framing.displayName).tag(framing)
+          if model.configuration.creative.pattern == .topograph {
+            StudioField(title: "Framing") {
+              Text("Horizon").font(DesignFont.sans(DesignFont.caption))
+                .foregroundStyle(DesignPalette.ink2)
             }
+            Text("Topograph uses a horizon across the scene.")
+              .font(DesignFont.sans(DesignFont.caption))
+              .foregroundStyle(DesignPalette.ink2)
+          } else {
+            Picker(
+              "Framing",
+              selection: Binding(
+                get: { model.configuration.creative.framing },
+                set: { model.updateCreativeFraming($0) }
+              )
+            ) {
+              ForEach(IdleScreenSceneFraming.allCases) { framing in
+                Text(framing.displayName).tag(framing)
+              }
+            }
+            .pickerStyle(.segmented)
           }
-          .pickerStyle(.segmented)
         }
 
         StudioSection(title: "Appearance") {
