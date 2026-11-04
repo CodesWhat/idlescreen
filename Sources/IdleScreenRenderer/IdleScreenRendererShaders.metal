@@ -5,6 +5,7 @@ struct IdleScreenCharacterVertexOut {
     float4 position [[position]];
     float2 textureCoordinate;
     float brightness;
+    float solid;
     float4 foreground;
 };
 
@@ -662,7 +663,7 @@ vertex IdleScreenCharacterVertexOut idleScreenCharacterVertex(
     const IdleScreenCharacterInstance instance = instances[instanceID];
     const float4 gridBrightnessGlyph = instance.gridBrightnessGlyph;
     const float2 quadVertex = vertices[vertexID];
-    const uint glyphIndex = uint(gridBrightnessGlyph.w + 0.5);
+    const uint glyphIndex = uint(max(0.0f, gridBrightnessGlyph.w) + 0.5);
     const float4 glyphRect = glyphRects[glyphIndex];
 
     const float2 gridPosition = gridBrightnessGlyph.xy + quadVertex;
@@ -673,6 +674,7 @@ vertex IdleScreenCharacterVertexOut idleScreenCharacterVertex(
     output.position = float4(ndcX, ndcY, 0, 1);
     output.textureCoordinate = glyphRect.xy + quadVertex * glyphRect.zw;
     output.brightness = gridBrightnessGlyph.z;
+    output.solid = gridBrightnessGlyph.w < 0 ? 1.0 : 0.0;
     output.foreground = instance.foreground;
     return output;
 }
@@ -682,7 +684,7 @@ fragment float4 idleScreenCharacterFragment(
     texture2d<float> atlas [[texture(0)]]
 ) {
     constexpr sampler atlasSampler(filter::linear, address::clamp_to_edge);
-    const float alpha = atlas.sample(atlasSampler, input.textureCoordinate).a;
+    const float alpha = input.solid > 0.5 ? 1.0 : atlas.sample(atlasSampler, input.textureCoordinate).a;
     const float intensity = mix(0.12, 1.0, input.brightness);
     return float4(input.foreground.rgb * intensity, alpha * input.brightness);
 }
