@@ -1,15 +1,19 @@
 import Foundation
 
-enum IdleScreenAquariumSpecies: CaseIterable {
+enum IdleScreenAquariumSpecies: CaseIterable, Equatable {
   case cherryShrimp
   case mantisShrimp
   case lionfish
 
-  func sprite(phase: Int, facingRight: Bool) -> IdleScreenAquariumSprite {
+  func sprite(
+    phase: Int, facingRight: Bool,
+    activity: IdleScreenAquariumActivity = .walking, strikeProgress: Double = 0
+  ) -> IdleScreenAquariumSprite {
     var sprite: IdleScreenAquariumSprite
     switch self {
-    case .cherryShrimp: sprite = Self.cherry(phase: phase & 3)
-    case .mantisShrimp: sprite = Self.mantis(phase: phase & 3)
+    case .cherryShrimp: sprite = Self.cherry(phase: phase & 3, activity: activity)
+    case .mantisShrimp:
+      sprite = Self.mantis(phase: phase & 3, activity: activity, strikeProgress: strikeProgress)
     case .lionfish: sprite = Self.lion(phase: phase & 3)
     }
     if facingRight {
@@ -23,7 +27,9 @@ enum IdleScreenAquariumSpecies: CaseIterable {
     return sprite
   }
 
-  private static func cherry(phase: Int) -> IdleScreenAquariumSprite {
+  private static func cherry(phase: Int, activity: IdleScreenAquariumActivity)
+    -> IdleScreenAquariumSprite
+  {
     var s = IdleScreenAquariumSprite(width: 32, height: 18)
     let edge = color(100, 25, 48)
     let shell = color(189, 40, 62)
@@ -31,7 +37,9 @@ enum IdleScreenAquariumSpecies: CaseIterable {
     let leg = color(204, 72, 83)
     // Roots remain on the belly. Only knees and feet move through the gait.
     for (i, root) in [(10, 10), (13, 11), (16, 12), (19, 12)].enumerated() {
-      let step = (phase + i) % 4 < 2 ? -1 : 1
+      let step =
+        activity == .grazing || activity == .resting || activity == .turning
+        ? 0 : ((phase + i) % 4 < 2 ? -1 : 1)
       s.line(root.0, root.1, root.0 - 1, 14, leg)
       s.line(root.0 - 1, 14, root.0 + step, 15, leg)
     }
@@ -57,10 +65,16 @@ enum IdleScreenAquariumSpecies: CaseIterable {
     s.rect(7, 7, 2, 2, color(43, 25, 39))
     s.rect(7, 7, 1, 1, color(255, 233, 177))
     s.line(5, 8, 3, 8, shell)
+    if activity == .grazing {
+      s.line(7, 10, 5, 12, leg)
+      s.line(5, 12, 4 + phase % 2, 13, leg)
+    }
     return s
   }
 
-  private static func mantis(phase: Int) -> IdleScreenAquariumSprite {
+  private static func mantis(
+    phase: Int, activity: IdleScreenAquariumActivity, strikeProgress: Double
+  ) -> IdleScreenAquariumSprite {
     var s = IdleScreenAquariumSprite(width: 58, height: 30)
     let edge = color(21, 63, 70)
     let green = color(49, 155, 113)
@@ -69,7 +83,9 @@ enum IdleScreenAquariumSpecies: CaseIterable {
     let red = color(202, 67, 63)
     let orange = color(245, 140, 76)
     for (i, root) in [(18, 18), (23, 20), (29, 21), (35, 22)].enumerated() {
-      let step = (phase + i) % 4 < 2 ? -2 : 1
+      let step =
+        activity == .resting || activity == .striking || activity == .turning
+        ? 0 : ((phase + i) % 4 < 2 ? -2 : 1)
       s.line(root.0, root.1, root.0 - 3, 25, red)
       s.line(root.0 - 3, 25, root.0 + step, 27, orange)
     }
@@ -93,10 +109,18 @@ enum IdleScreenAquariumSpecies: CaseIterable {
       s.rect(x, y, 2, 1, orange)
     }
     // Folded raptorial arms connect the red clubs to the thorax.
-    s.line(16, 15, 11, 21, red)
-    s.line(11, 21, 7, 18, orange)
-    s.polygon([(4, 15), (8, 14), (11, 17), (9, 20), (5, 19)], red)
-    s.line(5, 15, 8, 15, orange)
+    let extensionAmount =
+      activity == .striking && strikeProgress.isFinite ? min(1, max(0, strikeProgress)) : 0
+    let reach = Int((extensionAmount * 4).rounded())
+    let lift = Int((extensionAmount * 4).rounded())
+    s.line(16, 15, 11 - reach, 21 - lift, red)
+    s.line(11 - reach, 21 - lift, 7 - reach, 18 - lift, orange)
+    s.polygon(
+      [
+        (4 - reach, 15 - lift), (8 - reach, 14 - lift), (11 - reach, 17 - lift),
+        (9 - reach, 20 - lift), (5 - reach, 19 - lift),
+      ], red)
+    s.line(5 - reach, 15 - lift, 8 - reach, 15 - lift, orange)
     s.line(19, 17, 16, 23, red)
     s.line(16, 23, 12, 22, orange)
     s.line(11, 11, 3, 7, red)

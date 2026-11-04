@@ -258,6 +258,7 @@
 		7B0A275594A94BD0C21CC69A /* CameraAgentProcessRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D225441C0BA1F58798F9CA86 /* CameraAgentProcessRuntimeTests.swift */; };
 		7B195B0BEEE27CE9BC63F23A /* CameraClientRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9C2190347E1D4A1AB00CBC /* CameraClientRuntimeTests.swift */; };
 		7B35AAC179F57806DAFE563B /* CameraAgentRuntimeDriverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 513A99507011112E62CAAC8F /* CameraAgentRuntimeDriverTests.swift */; };
+		7C07BD03217C198F8A698B34 /* AquariumBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02D82098A3A18D2F7118275 /* AquariumBehaviorTests.swift */; };
 		7C3C7914820472E5C7E5C735 /* StatusSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41512FA32EC16F8A7C30399C /* StatusSummaryTests.swift */; };
 		7C52D6DA537082D2C3FA298F /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 229F7EDF5A9548AF91DD4D9D /* QuartzCore.framework */; };
 		7C53591934DA8A5D026A33D6 /* CoreVideo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7EE85391BE8A694AB764F34B /* CoreVideo.framework */; };
@@ -447,6 +448,7 @@
 		E4E093BEEA82FE07D8D9E94C /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B439A4726BCD0FC4969E4A3 /* Security.framework */; };
 		E4E85C9C9B14DEDC9E6C1F56 /* IdleScreenCameraAgentCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 03FA84C857C950C23D256438 /* IdleScreenCameraAgentCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E5E29CF82B09A24E3ED58192 /* AgentSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9172F5FBDEBC611253809C83 /* AgentSignal.swift */; };
+		E5F248B06FD48DC179FFD928 /* AquariumBehavior.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3E7FC72EF275BB41DE98723 /* AquariumBehavior.swift */; };
 		E63A0AA3CB1DAC5D9F821CA1 /* IdleScreenAgent.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDB73BF104D765DA90F9ED68 /* IdleScreenAgent.framework */; };
 		E64409829796C0880B53CC17 /* IdleScreenCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36B2E35EB7EC8E7688BC3B4B /* IdleScreenCore.framework */; };
 		E6649FE618BE0483D1279740 /* IdleScreenCamera.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9068229D1CD3299655B7C94 /* IdleScreenCamera.framework */; };
@@ -1583,6 +1585,7 @@
 		C03815AEEB38865008ECE7AB /* AgentSignalMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSignalMonitorTests.swift; sourceTree = "<group>"; };
 		C15C7C1628D3BFBF5DC23354 /* StatusSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusSummary.swift; sourceTree = "<group>"; };
 		C2253D7A35264E6B20CCE855 /* IdleScreenCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IdleScreenCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C3E7FC72EF275BB41DE98723 /* AquariumBehavior.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumBehavior.swift; sourceTree = "<group>"; };
 		C483CFCBD23EB7739193D4E5 /* PixelMaterialsConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelMaterialsConfiguration.swift; sourceTree = "<group>"; };
 		C6E0CD146D5590C0DF616158 /* ColorSync.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ColorSync.framework; path = System/Library/Frameworks/ColorSync.framework; sourceTree = SDKROOT; };
 		C79F20369C2FF46A1DE5EB6B /* AVFoundationCameraCaptureComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationCameraCaptureComposition.swift; sourceTree = "<group>"; };
@@ -1593,6 +1596,7 @@
 		CB7433C7B1732E3B06E02C99 /* AgentSignalPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSignalPresentationTests.swift; sourceTree = "<group>"; };
 		CC2E609FC64DBC6EFA0021A3 /* ScreenSaverPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ScreenSaverPrivate.h; sourceTree = "<group>"; };
 		CEA410F56388DB9323F62460 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		D02D82098A3A18D2F7118275 /* AquariumBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumBehaviorTests.swift; sourceTree = "<group>"; };
 		D0A8FFE3730F1CF692C308FD /* DisplaySceneSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaySceneSettings.swift; sourceTree = "<group>"; };
 		D225441C0BA1F58798F9CA86 /* CameraAgentProcessRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentProcessRuntimeTests.swift; sourceTree = "<group>"; };
 		D29E44590FA9F8FFB7E74D9E /* Health.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health.swift; sourceTree = "<group>"; };
@@ -2360,6 +2364,7 @@
 		A378ED512E4104A24A02A106 /* IdleScreenRenderer */ = {
 			isa = PBXGroup;
 			children = (
+				C3E7FC72EF275BB41DE98723 /* AquariumBehavior.swift */,
 				19DFA775D6C706DEE4620365 /* AquariumSprites.swift */,
 				430119100F046AFB4303592C /* IdleScreenAquarium.swift */,
 				CA530F987B30C9947A4E6792 /* IdleScreenProceduralPatterns.swift */,
@@ -2427,6 +2432,7 @@
 		AF83CC36F5F0A6CC5A5CF594 /* IdleScreenRendererTests */ = {
 			isa = PBXGroup;
 			children = (
+				D02D82098A3A18D2F7118275 /* AquariumBehaviorTests.swift */,
 				F10F51DAD4E968608E46D702 /* AquariumSpriteTests.swift */,
 				81165C0F8ADE820C9AD3C48A /* AquariumTests.swift */,
 				23A5197C15CE905764FA3719 /* IdleScreenProceduralViewportTests.swift */,
@@ -3813,6 +3819,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7C07BD03217C198F8A698B34 /* AquariumBehaviorTests.swift in Sources */,
 				33530EA32E3E1D806A16C281 /* AquariumSpriteTests.swift in Sources */,
 				D5558119A0DDB44847614200 /* AquariumTests.swift in Sources */,
 				7005427BE3ED52CE88C52528 /* IdleScreenProceduralViewportTests.swift in Sources */,
@@ -3888,6 +3895,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E5F248B06FD48DC179FFD928 /* AquariumBehavior.swift in Sources */,
 				24A7E919382D7668019ED8D1 /* AquariumSprites.swift in Sources */,
 				81A1FD5C862B656B1AA8CEE8 /* IdleScreenAquarium.swift in Sources */,
 				B5E4B0C9BC0900AB72276620 /* IdleScreenProceduralPatterns.swift in Sources */,

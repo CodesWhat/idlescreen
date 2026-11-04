@@ -6,8 +6,12 @@ import Testing
 struct AquariumSpriteTests {
   @Test func everyAppendageStaysAttachedThroughoutAnimation() {
     for species in IdleScreenAquariumSpecies.allCases {
-      for phase in 0..<4 {
-        let sprite = species.sprite(phase: phase, facingRight: false)
+      for pose in 0..<20 {
+        let activity: IdleScreenAquariumActivity =
+          pose < 4 ? .walking : pose < 8 ? .grazing : pose < 12 ? .resting : .striking
+        let sprite = species.sprite(
+          phase: pose % 4, facingRight: false, activity: activity,
+          strikeProgress: Double(pose % 5) / 4)
         let occupied = sprite.pixels.indices.filter { sprite.pixels[$0].w > 0 }
         #expect(!occupied.isEmpty)
         guard let first = occupied.first else { continue }
@@ -28,7 +32,7 @@ struct AquariumSpriteTests {
             }
           }
         }
-        #expect(reached.count == occupied.count, "Detached pixels in \(species), phase \(phase)")
+        #expect(reached.count == occupied.count, "Detached pixels in \(species), pose \(pose)")
       }
     }
   }
