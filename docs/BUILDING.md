@@ -158,7 +158,7 @@ Replay a completed candidate with:
 
 ```sh
 ./scripts/verify-r1-release-candidate.sh \
-  /absolute/candidate/Distribution/idlescreen-0.2.0-build65.dmg \
+  /absolute/candidate/Distribution/idlescreen-0.3.0-build66.dmg \
   /absolute/candidate/IdleScreenR1ReleaseCandidateV1.txt
 ```
 
@@ -184,7 +184,7 @@ Generate and publish the SPDX 2.3 SBOM from the same verified manifest:
 ```sh
 ./scripts/generate-release-sbom.sh \
   /absolute/candidate/IdleScreenR1ReleaseCandidateV1.txt \
-  /absolute/output/idlescreen-0.2.0-build65.spdx.json
+  /absolute/output/idlescreen-0.3.0-build66.spdx.json
 ```
 
 The SBOM generator replays the candidate verifier, binds the final DMG SHA-256,
