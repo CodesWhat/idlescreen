@@ -47,7 +47,7 @@ p { margin: 0 0 1rem; }
 .site-header { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 60px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font: 400 1.1rem var(--mono); }
-.brand img { border-radius: 7px; image-rendering: pixelated; }
+.brand img { border-radius: 7px; }
 .site-header nav { display: flex; flex-wrap: wrap; gap: 4px 20px; }
 .site-header nav a { color: var(--muted); text-decoration: none; font-size: 0.95rem; padding: 10px 0; }
 .site-header nav a:hover { color: var(--fg); }
@@ -68,7 +68,7 @@ p { margin: 0 0 1rem; }
 .copy:hover { border-color: var(--accent); }
 .fine { font-size: 0.9rem; color: var(--muted); }
 .hero-art { justify-self: center; width: min(320px, 70%); }
-.hero-art img { width: 100%; border-radius: 22%; image-rendering: pixelated; }
+.hero-art img { width: 100%; border-radius: 22%; }
 
 .band { background: var(--bg-alt); border-block: 1px solid var(--line); }
 .band > .wrap { padding-block: 72px; }
