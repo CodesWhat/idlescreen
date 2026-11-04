@@ -251,7 +251,7 @@ struct DisplaysView: View {
   }
 }
 
-struct DisplayArrangementPreview: View {
+private struct DisplayArrangementPreview: View {
   let topology: DisplayTopology
   let plan: DisplayScenePlan?
   let selectedIdentifier: DisplayTopology.PersistentDisplayIdentifier?

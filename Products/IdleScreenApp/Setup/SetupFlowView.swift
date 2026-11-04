@@ -105,7 +105,7 @@ struct SetupFlowView: View {
 
   /// Records the last fresh answer and runs the upgrade auto-skip once, on the first fresh status. A Mac that is already
   /// registered and selected has nothing to set up, so setup finishes without showing itself. Nothing else finishes setup
-  /// for the user; the done card's "Open Studio" does the rest.
+  /// for the user; the done card's "Open Scene" does the rest.
   private func settleSession() {
     navigation.setupSession.record(live: liveInputs, isFresh: model.hasFreshSaverStatus)
     let decision = decision
@@ -179,8 +179,8 @@ struct SetupCardModel: Equatable {
       }
     case nil:
       title = "You're all set"
-      detail = "IdleScreen is ready. Pick a look in Studio."
-      primaryTitle = "Open Studio"
+      detail = "IdleScreen is ready. Pick a look in Scene."
+      primaryTitle = "Open Scene"
       primaryEnabled = true
     }
     if let current = progress.current {
@@ -271,7 +271,7 @@ struct SetupFlowContent: View {
         Button("Set up later", action: actions.later).buttonStyle(.plain)
           .font(DesignFont.sans(DesignFont.detail)).foregroundStyle(DesignPalette.ink2)
           .accessibilityHint(
-            "Closes setup for now. Studio keeps a Continue setup button until you finish.")
+            "Closes setup for now. Scene keeps a Continue setup button until you finish.")
       }
     }
   }
