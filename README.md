@@ -91,11 +91,11 @@ you, please open an issue.
 
 ## Recent Updates
 
-The companion keeps the preview large, with compact scene controls and a library
-popover. More opens the full inspector. Scene, Displays, Agents and Settings
+The companion keeps the preview large, with compact scene controls and a visible scene
+library. More opens the full inspector. Scene, Displays, Agents and Settings
 share top navigation; Command-1 through Command-4 switches between them.
 
-Version 0.3.0 reframes the saver on a horizon with a Cobalt default palette, a
+Version 0.3.0 adds optional horizon framing with a Cobalt default palette, a
 sprite lattice and Departure Mono glyphs, and adds a Topograph scene and agent
 status sprites driven by a one-signal-per-agent feed. Studio now shows real
 saver thumbnails and a plain status pill, and setup fills the window in two

@@ -21,7 +21,7 @@ All notable changes to idlescreen are documented here. The project follows
 ### Changed
 
 - Gave the companion a large display-shaped preview with compact bottom controls,
-  a scene-library popover, and an inspector available through More.
+  a visible scene library, and an inspector available through More.
 - Added top navigation for Scene, Displays, Agents and Settings, consistent
   Instrument typography, and simpler settings rows.
 - Remembered inspector visibility, the library tab and the selected display;
@@ -29,9 +29,11 @@ All notable changes to idlescreen are documented here. The project follows
 - Let the app window resize freely while previews keep each display's proportions,
   and fitted oversized restored windows to the available screen.
 - Replaced the flat pixel CRT logo with CRT Silver across the app and website.
+- Made Topograph honor Full Bleed and Horizon framing, and made Full Bleed the
+  default for new configurations.
 
 
-- Framed the saver on a horizon, with Cobalt as the default palette, a sprite
+- Added optional horizon framing, with Cobalt as the default palette, a sprite
   lattice, Departure Mono glyphs, per-seed variation, aspect handling, a
   crossfade and steadier pacing.
 - Brought Studio into the shared design language, with VoiceOver names for its

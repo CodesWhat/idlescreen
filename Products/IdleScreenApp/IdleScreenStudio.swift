@@ -271,7 +271,7 @@ struct StudioView: View {
   @Environment(IdleScreenCompanionCameraClient.self) private var cameraClient
   @Environment(IdleScreenCompanionNavigation.self) private var navigation
   @Environment(DisplaySceneCoordinator.self) private var displayCoordinator
-  @State private var isSaverChooserExpanded = false
+  @State private var isSaverChooserExpanded = true
   @State private var isPixelAdvancedExpanded = false
   @State private var isLoupeEnabled = false
   @State private var loupePointerLocation: CGPoint?
@@ -314,19 +314,25 @@ struct StudioView: View {
 
   var body: some View {
     WorkbenchSplit(showsInspector: navigation.isSceneInspectorVisible) {
-      previewCanvas
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.black)
-        .overlay(alignment: .top) {
-          canvasToolbar.environment(\.colorScheme, .dark)
+      HStack(spacing: 0) {
+        if isSaverChooserExpanded {
+          saverChooser.frame(width: 208)
+          Divider()
         }
-        .overlay(alignment: .bottom) {
-          if !navigation.isSceneInspectorVisible {
-            compactSettingsDock
-              .padding(12)
-              .environment(\.colorScheme, .dark)
+        previewCanvas
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .background(.black)
+          .overlay(alignment: .top) {
+            canvasToolbar.environment(\.colorScheme, .dark)
           }
-        }
+          .overlay(alignment: .bottom) {
+            if !navigation.isSceneInspectorVisible {
+              compactSettingsDock
+                .padding(12)
+                .environment(\.colorScheme, .dark)
+            }
+          }
+      }
 
     } inspector: {
       sceneInspector
@@ -631,6 +637,20 @@ struct StudioView: View {
   }
 
   private var canvasToolbar: some View {
+    ViewThatFits(in: .horizontal) {
+      canvasToolbarItems.labelStyle(.titleAndIcon)
+      canvasToolbarItems.labelStyle(.iconOnly)
+    }
+    .font(DesignFont.sans(DesignFont.caption))
+    .foregroundStyle(DesignPalette.ink2)
+    .buttonStyle(.plain)
+    .padding(.horizontal, 16)
+    .frame(height: 36)
+    .background(DesignPalette.surface)
+    .overlay(alignment: .bottom) { DesignHairline() }
+  }
+
+  private var canvasToolbarItems: some View {
     HStack(spacing: 12) {
       Menu {
         ForEach(previewDisplays, id: \.persistentIdentifier) { display in
@@ -648,17 +668,34 @@ struct StudioView: View {
       Spacer()
       if cameraSourceSelected {
         DesignStatus(kind: cameraPillStatus.kind, text: cameraPillStatus.label)
+      } else if model.configuration.creative.pattern != .pixelMaterials {
+        Menu {
+          Picker(
+            "Framing",
+            selection: Binding(
+              get: { model.configuration.creative.framing },
+              set: { model.updateCreativeFraming($0) }
+            )
+          ) {
+            ForEach(IdleScreenSceneFraming.allCases) { framing in
+              Text(framing.displayName).tag(framing)
+            }
+          }
+        } label: {
+          Text(model.configuration.creative.framing.displayName)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .accessibilityLabel("Framing")
       }
       Button {
         animate { isSaverChooserExpanded.toggle() }
       } label: {
-        Label("Library", systemImage: "rectangle.grid.1x2")
+        Label(
+          isSaverChooserExpanded ? "Hide library" : "Show library", systemImage: "sidebar.leading")
       }
       .keyboardShortcut("l", modifiers: [.command, .shift])
       .accessibilityValue(isSaverChooserExpanded ? "Shown" : "Hidden")
-      .popover(isPresented: $isSaverChooserExpanded, arrowEdge: .bottom) {
-        saverChooser.frame(width: 640)
-      }
       Button {
         isLoupeEnabled.toggle()
         loupePointerLocation = nil
@@ -672,13 +709,6 @@ struct StudioView: View {
         Label("Full screen", systemImage: "arrow.up.left.and.arrow.down.right")
       }
     }
-    .font(DesignFont.sans(DesignFont.caption))
-    .foregroundStyle(DesignPalette.ink2)
-    .buttonStyle(.plain)
-    .padding(.horizontal, 16)
-    .frame(height: 36)
-    .background(DesignPalette.surface)
-    .overlay(alignment: .bottom) { DesignHairline() }
   }
 
   private var previewDisplays: [DisplayTopology.Display] {
@@ -709,33 +739,31 @@ struct StudioView: View {
   }
 
   private var saverChooser: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      HStack(spacing: 18) {
-        Button("Scenes") { navigation.showsSavedLooks = false }
-          .foregroundStyle(navigation.showsSavedLooks ? DesignPalette.ink2 : DesignPalette.ink)
-          .accessibilityAddTraits(navigation.showsSavedLooks ? [] : .isSelected)
-        Button("Your looks (\(model.configuration.savedLooks.count))") {
-          navigation.showsSavedLooks = true
-        }
-        .foregroundStyle(navigation.showsSavedLooks ? DesignPalette.ink : DesignPalette.ink2)
-        .accessibilityAddTraits(navigation.showsSavedLooks ? .isSelected : [])
-        Spacer()
-        Button {
-          animate { isSaverChooserExpanded = false }
-        } label: {
-          Image(systemName: "chevron.down")
-        }
-        .accessibilityLabel("Hide scene library")
+    VStack(spacing: 0) {
+      Picker(
+        "Scene library",
+        selection: Binding(
+          get: { navigation.showsSavedLooks },
+          set: { navigation.showsSavedLooks = $0 }
+        )
+      ) {
+        Text("Scenes").tag(false)
+        Text("Your looks").tag(true)
       }
-      .buttonStyle(.plain)
-      .font(DesignFont.sans(DesignFont.caption, .medium))
-      ScrollView(.horizontal) {
-        HStack(alignment: .top, spacing: 12) {
+      .pickerStyle(.segmented)
+      .labelsHidden()
+      .accessibilityLabel("Scene library")
+      .controlSize(.small)
+      .padding(12)
+      DesignHairline()
+      ScrollView {
+        LazyVStack(spacing: 4) {
           if navigation.showsSavedLooks {
             if model.configuration.savedLooks.isEmpty {
-              Text("Save a look to keep a scene and its adjustments together.")
-                .font(DesignFont.sans(DesignFont.caption)).foregroundStyle(DesignPalette.ink2)
-                .frame(height: 90)
+              Text("No saved looks yet. Save this scene to keep its adjustments.")
+                .font(DesignFont.sans(DesignFont.caption))
+                .foregroundStyle(DesignPalette.ink2)
+                .padding(.vertical, 16)
             }
             ForEach(model.configuration.savedLooks) { savedLook in
               Button {
@@ -760,13 +788,10 @@ struct StudioView: View {
               Button {
                 select(pattern)
               } label: {
-                SaverChooserCard(
-                  title: pattern.displayName, subtitle: pattern.galleryEyebrow,
-                  art: .pattern(pattern),
+                SaverLibraryRow(
+                  title: pattern.displayName, art: .pattern(pattern),
                   isSelected: !cameraSourceSelected
-                    && model.configuration.creative.pattern == pattern
-                )
-                .frame(width: 140)
+                    && model.configuration.creative.pattern == pattern)
               }
               .buttonStyle(.plain)
               .accessibilityLabel(pattern.displayName)
@@ -777,26 +802,26 @@ struct StudioView: View {
             Button {
               selectCameraSaver()
             } label: {
-              SaverChooserCard(
-                title: "Camera", subtitle: "Your camera, live", art: .camera,
-                isSelected: cameraSourceSelected
-              )
-              .frame(width: 140)
+              SaverLibraryRow(title: "Camera", art: .camera, isSelected: cameraSourceSelected)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Camera")
             .accessibilityAddTraits(cameraSourceSelected ? .isSelected : [])
           }
         }
-        .padding(2)
+        .padding(8)
       }
-      .scrollIndicators(.visible)
+      DesignHairline()
+      Button {
+        beginSavingLook()
+      } label: {
+        Label("Save look…", systemImage: "plus").frame(maxWidth: .infinity)
+      }
+      .buttonStyle(.designSecondary)
+      .disabled(model.configuration.savedLooks.count >= IdleScreenSavedLook.maximumCount)
+      .padding(12)
     }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 12)
-    .frame(height: 174)
     .background(DesignPalette.surface)
-    .overlay(alignment: .top) { DesignHairline() }
   }
 
   private var compactSettingsDock: some View {
@@ -1182,28 +1207,18 @@ struct StudioView: View {
             )
           }
 
-          if model.configuration.creative.pattern == .topograph {
-            StudioField(title: "Framing") {
-              Text("Horizon").font(DesignFont.sans(DesignFont.caption))
-                .foregroundStyle(DesignPalette.ink2)
+          Picker(
+            "Framing",
+            selection: Binding(
+              get: { model.configuration.creative.framing },
+              set: { model.updateCreativeFraming($0) }
+            )
+          ) {
+            ForEach(IdleScreenSceneFraming.allCases) { framing in
+              Text(framing.displayName).tag(framing)
             }
-            Text("Topograph uses a horizon across the scene.")
-              .font(DesignFont.sans(DesignFont.caption))
-              .foregroundStyle(DesignPalette.ink2)
-          } else {
-            Picker(
-              "Framing",
-              selection: Binding(
-                get: { model.configuration.creative.framing },
-                set: { model.updateCreativeFraming($0) }
-              )
-            ) {
-              ForEach(IdleScreenSceneFraming.allCases) { framing in
-                Text(framing.displayName).tag(framing)
-              }
-            }
-            .pickerStyle(.segmented)
           }
+          .pickerStyle(.segmented)
         }
 
         StudioSection(title: "Appearance") {
@@ -1911,50 +1926,6 @@ struct StudioView: View {
     }
   }
 
-}
-
-private struct SaverChooserCard: View {
-  let title: String
-  let subtitle: String
-  let art: SaverTileArt
-  let isSelected: Bool
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      SaverTile(art: art, cornerRadius: 8)
-        .frame(height: 54)
-
-      HStack(spacing: 4) {
-        Text(title)
-          .font(DesignFont.sans(DesignFont.caption, .semibold))
-          .foregroundStyle(DesignPalette.ink)
-          .lineLimit(1)
-        Spacer(minLength: 0)
-        if isSelected {
-          Image(systemName: "checkmark.circle.fill")
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(DesignPalette.accentMark)
-        }
-      }
-      Text(subtitle)
-        .font(DesignFont.sans(DesignFont.eyebrow))
-        .foregroundStyle(DesignPalette.ink2)
-        .lineLimit(1)
-    }
-    .padding(6)
-    .background(
-      isSelected ? DesignPalette.accentSoft : DesignPalette.sel,
-      in: RoundedRectangle(cornerRadius: 10)
-    )
-    .overlay {
-      RoundedRectangle(cornerRadius: 10)
-        .strokeBorder(
-          isSelected ? DesignPalette.accentMark : DesignPalette.hair2,
-          lineWidth: isSelected ? 1.5 : 1
-        )
-    }
-    .contentShape(RoundedRectangle(cornerRadius: 10))
-  }
 }
 
 private struct SavedLookChooserCard: View {
@@ -2687,6 +2658,28 @@ extension IdleScreenConfiguration {
 }
 
 // MARK: - Components
+
+private struct SaverLibraryRow: View {
+  let title: String
+  let art: SaverTileArt
+  let isSelected: Bool
+
+  var body: some View {
+    HStack(spacing: 8) {
+      SaverTile(art: art, cornerRadius: 4).frame(width: 44, height: 30)
+      Text(title).font(DesignFont.sans(DesignFont.caption, isSelected ? .semibold : .regular))
+        .foregroundStyle(DesignPalette.ink)
+        .lineLimit(2)
+      Spacer(minLength: 0)
+    }
+    .padding(6)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(
+      isSelected ? DesignPalette.accentSoft : .clear, in: RoundedRectangle(cornerRadius: 6)
+    )
+    .contentShape(Rectangle())
+  }
+}
 
 struct PalettePair: View {
   var a: Color, b: Color
