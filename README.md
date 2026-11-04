@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/idlescreen-logo.png">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/idlescreen-logo.png">
-    <img src="docs/assets/idlescreen-logo.png" width="200" height="200" alt="idlescreen logo: a pixel-art cream CRT with a green dithered glow on a cobalt background">
+    <img src="docs/assets/idlescreen-logo.png" width="200" height="200" alt="idlescreen logo: a silver low-poly CRT with luminous ASCII terrain on a dark slate background">
   </picture>
 </p>
 
