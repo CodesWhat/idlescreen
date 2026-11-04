@@ -136,6 +136,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
   }
 
   func applicationWillTerminate(_ notification: Notification) {
+    IdleScreenAquariumController.shared.stop()
     detachDisplayHost()
   }
 
@@ -150,6 +151,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
   }
 
   func showMainWindow() {
+    IdleScreenAquariumController.shared.start()
     logger.info("showMainWindow requested existing=\(self.mainWindow != nil, privacy: .public)")
     // Ordered before activation: an .accessory app cannot take key focus.
     applyDockPresentation(showsMainWindow: true)

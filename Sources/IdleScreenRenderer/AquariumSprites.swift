@@ -4,6 +4,7 @@ enum IdleScreenAquariumSpecies: CaseIterable, Equatable {
   case cherryShrimp
   case mantisShrimp
   case lionfish
+  case neonTetra, corydoras, snail
 
   func sprite(
     phase: Int, facingRight: Bool,
@@ -15,6 +16,9 @@ enum IdleScreenAquariumSpecies: CaseIterable, Equatable {
     case .mantisShrimp:
       sprite = Self.mantis(phase: phase & 3, activity: activity, strikeProgress: strikeProgress)
     case .lionfish: sprite = Self.lion(phase: phase & 3)
+    case .neonTetra: sprite = Self.smallFish(bottom: false, phase: phase & 3)
+    case .corydoras: sprite = Self.smallFish(bottom: true, phase: phase & 3)
+    case .snail: sprite = Self.snail(phase: phase & 3)
     }
     if facingRight {
       for y in 0..<sprite.height {
@@ -186,6 +190,46 @@ enum IdleScreenAquariumSpecies: CaseIterable, Equatable {
     s.line(10, 26, 13, 26, edge)
     s.line(13, 21, 11, 17, cream)
     s.line(14, 30, 12, 34, cream)
+    return s
+  }
+
+  private static func smallFish(bottom: Bool, phase: Int) -> IdleScreenAquariumSprite {
+    var s = IdleScreenAquariumSprite(width: 30, height: 16)
+    let edge = color(30, 65, 72)
+    let body = bottom ? color(174, 161, 116) : color(100, 175, 184)
+    let tail = phase % 2
+    s.polygon([(18, 7), (28, 2 + tail), (29, 12 + tail), (19, 10)], edge)
+    s.line(20, 8, 27, 5 + tail, body)
+    s.line(20, 9, 27, 11 + tail, body)
+    s.polygon([(1, 8), (6, 4), (13, 3), (22, 7), (22, 10), (14, 13), (6, 12)], body)
+    s.polygon([(10, 4), (13, 0), (17, 5)], edge)
+    s.line(10, 12, 15, 15, edge)
+    s.line(4, 8, 20, 8, bottom ? color(91, 76, 55) : color(42, 215, 239))
+    if bottom {
+      s.line(2, 9, 0, 13, body)
+      for x in [8, 12, 17] { s.rect(x, 5, 2, 1, edge) }
+    } else {
+      s.line(12, 10, 21, 10, color(227, 53, 78))
+    }
+    s.rect(4, 6, 2, 2, edge)
+    s.rect(4, 6, 1, 1, color(245, 239, 192))
+    return s
+  }
+
+  private static func snail(phase: Int) -> IdleScreenAquariumSprite {
+    var s = IdleScreenAquariumSprite(width: 24, height: 20)
+    let shell = color(182, 130, 76)
+    let dark = color(88, 64, 54)
+    let body = color(140, 157, 120)
+    s.polygon([(4, 17), (3, 7), (8, 2), (16, 1), (21, 6), (22, 14), (18, 17)], shell)
+    s.line(8, 6, 16, 5, dark)
+    s.line(16, 5, 18, 12, dark)
+    s.line(18, 12, 11, 14, dark)
+    s.line(11, 14, 9, 9, dark)
+    s.rect(11, 8, 4, 3, dark)
+    s.polygon([(0, 18), (4, 14), (11, 16), (22, 17), (23, 19), (0, 19)], body)
+    s.line(4, 15, 2, 9 + phase % 2, body)
+    s.line(5, 15, 6, 10 - phase % 2, body)
     return s
   }
 

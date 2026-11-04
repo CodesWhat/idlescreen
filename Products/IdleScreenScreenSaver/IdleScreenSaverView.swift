@@ -225,6 +225,8 @@ final class IdleScreenSaverView: ScreenSaverView {
   private let injectedDisplayHostFrame: DisplayTopology.Rect?
   private var displayResolutionWorkItem: DispatchWorkItem?
   private var sharedPaths: IdleScreenSharedPaths?
+  private var aquariumSnapshot: IdleScreenAquariumLibrary?
+  private var aquariumLastReadAt: TimeInterval?
   private var configurationMonitor: IdleScreenConfigurationMonitor?
   private var agentSignalMonitor: IdleScreenAgentSignalMonitor?
   private var activeAgentSignal: IdleScreenAgentSignal?
@@ -802,7 +804,8 @@ final class IdleScreenSaverView: ScreenSaverView {
       )
     return IdleScreenRendererConfigurationBridge.configuration(
       for: presentedConfiguration,
-      assignment: displayAssignment
+      assignment: displayAssignment,
+      aquarium: aquariumSnapshot
     )
   }
 
@@ -991,6 +994,17 @@ final class IdleScreenSaverView: ScreenSaverView {
   }
 
   private func refreshConfiguration(at monotonicTime: TimeInterval) {
+    if aquariumLastReadAt == nil || monotonicTime - (aquariumLastReadAt ?? 0) >= 1 {
+      aquariumLastReadAt = monotonicTime
+      do {
+        aquariumSnapshot = try IdleScreenAquariumStore(
+          fileURL: IdleScreenAquariumProduct.storeURL()
+        ).read()
+      } catch {
+        viewLogger.error(
+          "Unable to read aquarium snapshot: \(error.localizedDescription, privacy: .public)")
+      }
+    }
     guard configurationMonitor != nil else { return }
     do {
       guard let updated = try configurationMonitor?.readChange(at: monotonicTime) else {

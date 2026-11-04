@@ -18,6 +18,7 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
   public var viewport: IdleScreenRendererViewport
   public var sceneSeed: UInt64
   public var sceneBrightness: Double
+  public var aquariumSettings: IdleScreenAquariumRenderSettings?
   public var pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings
 
   public init(
@@ -30,7 +31,8 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
     viewport: IdleScreenRendererViewport = .full,
     sceneSeed: UInt64 = 0,
     sceneBrightness: Double = 1,
-    pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings = .init()
+    pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings = .init(),
+    aquariumSettings: IdleScreenAquariumRenderSettings? = nil
   ) {
     self.glyphScale = glyphScale
     self.contrast = contrast
@@ -45,6 +47,7 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
       ? min(1, max(0, sceneBrightness))
       : 1
     self.pixelMaterialsSettings = pixelMaterialsSettings
+    self.aquariumSettings = aquariumSettings
   }
 
   public static let `default` = IdleScreenRendererConfiguration(
@@ -900,8 +903,10 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     if configuration.patternRawValue == "aquarium", mode != .camera {
       proceduralDebugState = .init(usesComputePipeline: false, instanceCount: count)
       let pixels = IdleScreenAquarium.frame(
-        at: TimeInterval(elapsed) * configuration.proceduralSettings.normalized.speed,
-        seed: configuration.sceneSeed
+        at: configuration.aquariumSettings?.elapsed(at: Date())
+          ?? (TimeInterval(elapsed) * configuration.proceduralSettings.normalized.speed),
+        seed: configuration.aquariumSettings?.seed ?? configuration.sceneSeed,
+        settings: configuration.aquariumSettings
       )
       for row in 0..<rows {
         for column in 0..<columns {
@@ -1470,7 +1475,8 @@ extension IdleScreenRendererConfiguration {
       viewport: viewport,
       sceneSeed: sceneSeed,
       sceneBrightness: sceneBrightness,
-      pixelMaterialsSettings: pixelMaterialsSettings
+      pixelMaterialsSettings: pixelMaterialsSettings,
+      aquariumSettings: aquariumSettings
     )
   }
 

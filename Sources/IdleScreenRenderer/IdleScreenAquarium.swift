@@ -6,7 +6,11 @@ public enum IdleScreenAquarium {
   public static let width = 384
   public static let height = 216
 
-  public static func frame(at elapsed: TimeInterval, seed: UInt64) -> [SIMD4<Float>] {
+  public static func frame(
+    at elapsed: TimeInterval, seed: UInt64,
+    settings: IdleScreenAquariumRenderSettings? = nil
+  ) -> [SIMD4<Float>] {
+    let elapsed = settings?.reduceMotion == true ? 0 : elapsed
     let time = elapsed.isFinite ? max(0, elapsed).truncatingRemainder(dividingBy: 86_400) : 0
     var canvas = Canvas()
     let phase = Double(seed % 997) / 997 * 6.28
@@ -22,47 +26,92 @@ public enum IdleScreenAquarium {
       let y = Int((Double(i * 43) - time * 1.8).truncatingRemainder(dividingBy: 180) + 180) % 180
       canvas.rect(x, y, 1, 1, .init(0.10, 0.24, 0.30, 1))
     }
-    for layer in 0..<3 {
-      for i in 0..<12 {
-        plant(
-          &canvas, x: i * 37 - 12 + layer * 14, base: 183 + layer * 8,
-          length: 28 + (i * 19 + layer * 11) % 65, time: time,
-          phase: Double(i) + phase, foreground: layer == 2)
+    if settings == nil {
+      for layer in 0..<3 {
+        for i in 0..<12 {
+          plant(
+            &canvas, x: i * 37 - 12 + layer * 14, base: 183 + layer * 8,
+            length: 28 + (i * 19 + layer * 11) % 65, time: time,
+            phase: Double(i) + phase, foreground: layer == 2)
+        }
       }
     }
-    for y in 182..<height {
+    let depth = settings?.substrateDepth ?? 0.14
+    let safeDepth = depth.isFinite ? min(0.24, max(0.08, depth)) : 0.14
+    let floor = Int(Double(height) * (1 - safeDepth))
+    for y in max(0, floor - 5)..<height {
       for x in stride(from: 0, to: width, by: 3) {
-        let ridge = 186 + Int(sin(Double(x) * 0.032 + phase) * 4)
+        let ridge = floor + Int(sin(Double(x) * 0.032 + phase) * 4)
         guard y >= ridge else { continue }
         let shade = Float(hash(x / 3, y / 2, seed) % 7) / 6
-        canvas.rect(
-          x, y, 3, 1, .init(0.16 + shade * 0.18, 0.16 + shade * 0.13, 0.19 + shade * 0.14, 1))
+        var color = SIMD4<Float>(0.16 + shade * 0.18, 0.16 + shade * 0.13, 0.19 + shade * 0.14, 1)
+        switch settings?.substrate {
+        case "creamSand":
+          color = .init(0.46 + shade * 0.25, 0.40 + shade * 0.22, 0.29 + shade * 0.19, 1)
+        case "riverGravel":
+          color = .init(0.25 + shade * 0.22, 0.23 + shade * 0.19, 0.20 + shade * 0.15, 1)
+        case "plantedSoil":
+          color = .init(0.12 + shade * 0.12, 0.09 + shade * 0.08, 0.08 + shade * 0.07, 1)
+        case "neonGravel":
+          color =
+            (x / 3 + y / 2) % 3 == 0
+            ? .init(0.30, 0.19 + shade * 0.23, 0.49, 1) : .init(0.08, 0.23 + shade * 0.15, 0.30, 1)
+        default: break
+        }
+        canvas.rect(x, y, 3, 1, color)
       }
     }
-    // Flat, stepped stones give the shrimp places to graze.
-    for i in 0..<7 {
-      let x = i * 61 + 8
-      let y = 181 + i % 3 * 6
-      canvas.rect(x + 3, y, 21, 3, .init(0.26, 0.29, 0.31, 1))
-      canvas.rect(x, y + 3, 28, 5, .init(0.18, 0.22, 0.24, 1))
-      canvas.rect(x + 4, y + 8, 22, 2, .init(0.11, 0.16, 0.18, 1))
+    if settings == nil {
+      // Flat, stepped stones give the shrimp places to graze.
+      for i in 0..<7 {
+        let x = i * 61 + 8
+        let y = 181 + i % 3 * 6
+        canvas.rect(x + 3, y, 21, 3, .init(0.26, 0.29, 0.31, 1))
+        canvas.rect(x, y + 3, 28, 5, .init(0.18, 0.22, 0.24, 1))
+        canvas.rect(x + 4, y + 8, 22, 2, .init(0.11, 0.16, 0.18, 1))
+      }
     }
-    let animals = IdleScreenAquariumBehavior.animals(at: time, seed: seed)
-    for animal in animals.sorted(by: { $0.scale < $1.scale }) {
-      let sprite = animal.species.sprite(
-        phase: animal.animationPhase, facingRight: animal.facingRight,
-        activity: animal.activity, strikeProgress: animal.strikeProgress)
-      canvas.sprite(sprite, animal: animal)
+    if let settings {
+      for item in settings.objects.prefix(24) where !item.foreground {
+        canvas.object(item, time: time)
+      }
+      for inhabitant in settings.inhabitants.prefix(32) {
+        let pose = savedAnimal(inhabitant, at: time, seed: seed, settings: settings)
+        var sprite = pose.species.sprite(
+          phase: pose.animationPhase, facingRight: pose.facingRight,
+          activity: pose.activity, strikeProgress: pose.strikeProgress)
+        if pose.species == .cherryShrimp {
+          sprite = coloredShrimp(sprite, variant: inhabitant.variant, eggs: inhabitant.carryingEggs)
+        }
+        canvas.sprite(sprite, animal: pose)
+      }
+      for item in settings.objects.prefix(24) where item.foreground {
+        canvas.object(item, time: time)
+      }
+      canvas.equipment(settings.equipment)
+    } else {
+      let animals = IdleScreenAquariumBehavior.animals(at: time, seed: seed)
+      for animal in animals.sorted(by: { $0.scale < $1.scale }) {
+        let sprite = animal.species.sprite(
+          phase: animal.animationPhase, facingRight: animal.facingRight,
+          activity: animal.activity, strikeProgress: animal.strikeProgress)
+        canvas.sprite(sprite, animal: animal)
+      }
     }
-    for i in 0..<9 {
-      let y = 178 - Int((time * 9 + Double(i * 23)).truncatingRemainder(dividingBy: 178))
-      let x = 347 + Int(sin(time + Double(i)) * 3)
-      let color = SIMD4<Float>(0.20, 0.37, 0.43, 1)
-      canvas.rect(x + 1, y, 2, 1, color)
-      canvas.rect(x, y + 1, 1, 2, color)
-      canvas.rect(x + 3, y + 1, 1, 2, color)
-      canvas.rect(x + 1, y + 3, 2, 1, color)
+    if settings == nil || settings?.equipment.contains("airStone") == true
+      || settings?.equipment.contains("spongeFilter") == true
+    {
+      for i in 0..<9 {
+        let y = 178 - Int((time * 9 + Double(i * 23)).truncatingRemainder(dividingBy: 178))
+        let x = 347 + Int(sin(time + Double(i)) * 3)
+        let color = SIMD4<Float>(0.20, 0.37, 0.43, 1)
+        canvas.rect(x + 1, y, 2, 1, color)
+        canvas.rect(x, y + 1, 1, 2, color)
+        canvas.rect(x + 3, y + 1, 1, 2, color)
+        canvas.rect(x + 1, y + 3, 2, 1, color)
+      }
     }
+    if let settings { canvas.applyLight(settings, time: time) }
     return canvas.pixels
   }
 
@@ -90,7 +139,7 @@ public enum IdleScreenAquarium {
     }
   }
 
-  private struct Canvas {
+  struct Canvas {
     var pixels = [SIMD4<Float>](repeating: .zero, count: width * height)
 
     mutating func sprite(_ sprite: IdleScreenAquariumSprite, animal: IdleScreenAquariumAnimal) {

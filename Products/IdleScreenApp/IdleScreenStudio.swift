@@ -37,16 +37,18 @@ struct IdleScreenApp: App {
 
 enum Destination: String, CaseIterable, Identifiable {
   case studio = "Studio"
+  case aquarium = "Aquarium"
   case displays = "Displays"
   case integrations = "Agents"
   case status = "Status"
 
-  static let primaryCases: [Destination] = [.studio, .displays, .integrations, .status]
+  static let primaryCases: [Destination] = [.studio, .aquarium, .displays, .integrations, .status]
 
   var id: String { rawValue }
   var symbol: String {
     switch self {
     case .studio: "play.rectangle"
+    case .aquarium: "fish"
     case .displays: "rectangle.3.group"
     case .integrations: "point.3.connected.trianglepath.dotted"
     case .status: "waveform.path.ecg"
@@ -96,6 +98,7 @@ struct ContentView: View {
             onLater: { navigation.setupSession.deferSetup() }
           )
         }
+      case .aquarium: IdleScreenAquariumView()
       case .displays: DisplaysView()
       case .integrations: IntegrationsView()
       case .status: StatusView()
@@ -561,7 +564,8 @@ struct StudioView: View {
 
   private var previewRendererConfiguration: IdleScreenRendererConfiguration {
     model.configurationApplyingActiveAgentSignal()
-      .rendererConfiguration(for: previewAssignment)
+      .rendererConfiguration(
+        for: previewAssignment, aquarium: IdleScreenAquariumController.shared.library)
   }
 
   private var cameraSourceSelected: Bool {
@@ -2884,11 +2888,13 @@ extension IdleScreenConfiguration {
   }
 
   func rendererConfiguration(
-    for assignment: DisplaySceneAssignment?
+    for assignment: DisplaySceneAssignment?,
+    aquarium: IdleScreenAquariumLibrary? = nil
   ) -> IdleScreenRendererConfiguration {
     IdleScreenRendererConfigurationBridge.configuration(
       for: self,
-      assignment: assignment
+      assignment: assignment,
+      aquarium: aquarium
     )
   }
 }

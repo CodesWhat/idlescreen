@@ -63,6 +63,7 @@ struct IdleScreenAppCompileGateSmokeTests {
     #expect(
       Destination.allCases.map(\.rawValue) == [
         "Studio",
+        "Aquarium",
         "Displays",
         "Agents",
         "Status",
