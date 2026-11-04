@@ -98,8 +98,12 @@ struct DesignLanguageRenderTests {
     try Self.save(failed, name: "integrations-failure-light")
   }
 
-  @Test("the entire workbench follows the system window appearance")
-  func studioWindowIsDark() throws {
+  @Test("the entire workbench follows the system window appearance", arguments: [false, true])
+  func studioWindowFollowsSystem(dark: Bool) throws {
+    let application = NSApplication.shared
+    let previousAppearance = application.appearance
+    application.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+    defer { application.appearance = previousAppearance }
     #expect(ContentView.windowAppearance(for: .studio) == nil)
     #expect(ContentView.windowAppearance(for: .studio, showsSetup: true) == nil)
     for destination in [Destination.displays, .integrations, .status] {
@@ -109,19 +113,24 @@ struct DesignLanguageRenderTests {
     let window = NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [], backing: .buffered,
       defer: false)
-    window.appearance = NSAppearance(named: .aqua)
-    #expect(window.effectiveAppearance.isDarkAqua == false)
+    window.appearance = application.appearance
+    #expect(window.effectiveAppearance.isDarkAqua == dark)
     let host = NSHostingView(
       rootView: Color.clear.windowAppearance(ContentView.windowAppearance(for: .studio)))
     window.contentView = host
     host.layoutSubtreeIfNeeded()
-    #expect(!window.effectiveAppearance.isDarkAqua)
-    #expect(!host.effectiveAppearance.isDarkAqua)
+    #expect(window.appearance == nil)
+    #expect(window.effectiveAppearance.isDarkAqua == dark)
+    #expect(host.effectiveAppearance.isDarkAqua == dark)
 
   }
 
   @Test("the workbench chrome stays light under a light system appearance")
-  func studioRendersDarkUnderLightSystem() throws {
+  func studioChromeFollowsLightSystem() throws {
+    let application = NSApplication.shared
+    let previousAppearance = application.appearance
+    application.appearance = NSAppearance(named: .aqua)
+    defer { application.appearance = previousAppearance }
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
     harness.navigation.destination = .studio
