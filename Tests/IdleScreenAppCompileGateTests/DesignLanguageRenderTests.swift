@@ -27,7 +27,7 @@ struct DesignLanguageRenderTests {
   private static let width: CGFloat = 980
 
   @Test(
-    "each page renders in light and dark, and opening Details adds content below the collapsed page"
+    "each workbench page renders in light and dark, and Details changes its content"
   )
   func pagesRender() throws {
     let harness = try RenderHarness()
@@ -43,10 +43,6 @@ struct DesignLanguageRenderTests {
         let name = "\(page.rawValue)-\(dark ? "dark" : "light")"
         #expect(Self.hasVisibleContent(collapsed), "\(name) rendered a blank image")
         #expect(
-          Self.contentBottom(expanded) > Self.contentBottom(collapsed) + 40,
-          "\(name): expanded Details should be taller than collapsed"
-        )
-        #expect(
           Self.differingFraction(collapsed, expanded) > 0.005,
           "\(name): detailsInitiallyExpanded changed nothing"
         )
@@ -60,10 +56,10 @@ struct DesignLanguageRenderTests {
   func pagesRenderAtWindowSizes() throws {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
-    // Content area: window width minus the 81 pt rail.
+    // Workbench pages use the entire content area below the toolbar.
     let sizes: [(String, NSSize)] = [
-      ("1900x950", NSSize(width: 1_819, height: 950)),
-      ("min", NSSize(width: 819, height: 600)),
+      ("1900x950", NSSize(width: 1_900, height: 862)),
+      ("min", NSSize(width: 900, height: 512)),
     ]
     for page in Page.allCases {
       for (sizeName, size) in sizes {
@@ -102,9 +98,9 @@ struct DesignLanguageRenderTests {
     try Self.save(failed, name: "integrations-failure-light")
   }
 
-  @Test("Studio forces a dark window under a light system appearance; the pages follow the system")
+  @Test("the entire workbench follows the system window appearance")
   func studioWindowIsDark() throws {
-    #expect(ContentView.windowAppearance(for: .studio)?.isDarkAqua == true)
+    #expect(ContentView.windowAppearance(for: .studio) == nil)
     #expect(ContentView.windowAppearance(for: .studio, showsSetup: true) == nil)
     for destination in [Destination.displays, .integrations, .status] {
       #expect(ContentView.windowAppearance(for: destination) == nil)
@@ -119,12 +115,12 @@ struct DesignLanguageRenderTests {
       rootView: Color.clear.windowAppearance(ContentView.windowAppearance(for: .studio)))
     window.contentView = host
     host.layoutSubtreeIfNeeded()
-    #expect(window.effectiveAppearance.isDarkAqua)
-    #expect(host.effectiveAppearance.isDarkAqua)
+    #expect(!window.effectiveAppearance.isDarkAqua)
+    #expect(!host.effectiveAppearance.isDarkAqua)
 
   }
 
-  @Test("Studio rendered under a light system window comes out dark")
+  @Test("the workbench chrome stays light under a light system appearance")
   func studioRendersDarkUnderLightSystem() throws {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
@@ -148,10 +144,10 @@ struct DesignLanguageRenderTests {
     window.contentView = view
     view.setFrameSize(size)
     view.layoutSubtreeIfNeeded()
-    #expect(window.effectiveAppearance.isDarkAqua)
+    #expect(!window.effectiveAppearance.isDarkAqua)
     let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
     view.cacheDisplay(in: view.bounds, to: bitmap)
-    #expect(Self.averageLuma(bitmap) < 0.5)
+    #expect(Self.averageLuma(bitmap) > 0.5)
     try Self.save(bitmap, name: "studio-under-light-system")
 
     harness.navigation.destination = .status
@@ -173,7 +169,7 @@ struct DesignLanguageRenderTests {
   }
 
   @Test(
-    "the Studio controls render on the dark canvas in every dock state, and each state changes the panel"
+    "the scene inspector renders each source and its advanced controls"
   )
   func studioControlsRender() throws {
     var bitmaps: [StudioScene: NSBitmapImageRep] = [:]
@@ -183,7 +179,7 @@ struct DesignLanguageRenderTests {
       let bitmap = try harness.renderStudio(
         scene: scene.rawValue, size: NSSize(width: 1_200, height: 820))
       #expect(Self.hasVisibleContent(bitmap), "\(scene.rawValue) rendered a blank image")
-      #expect(Self.averageLuma(bitmap) < 0.5, "\(scene.rawValue): Studio must stay dark")
+      #expect(Self.averageLuma(bitmap) < 0.5, "\(scene.rawValue): dark workbench must stay dark")
       bitmaps[scene] = bitmap
       try Self.save(bitmap, name: "studio-\(scene.rawValue)")
     }
@@ -198,7 +194,7 @@ struct DesignLanguageRenderTests {
     #expect(Self.differingFraction(materials, advanced) > 0.005, "opening Advanced changed nothing")
   }
 
-  @Test("the saver chooser shows most of the tiles in a tall Studio window")
+  @Test("the horizontal scene library renders in a tall workbench")
   func studioChooserShowsMoreTiles() throws {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
@@ -209,7 +205,7 @@ struct DesignLanguageRenderTests {
     try Self.save(bitmap, name: "studio-chooser-tall")
   }
 
-  @Test("the Studio controls render the same dark canvas under a light system appearance")
+  @Test("scene controls follow the window appearance around the dark preview")
   func studioControlsIgnoreSystemAppearance() throws {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
@@ -217,8 +213,7 @@ struct DesignLanguageRenderTests {
     let dark = try harness.renderStudio(scene: "expanded-pixel-materials-advanced", size: size)
     let underLight = try harness.renderStudio(
       scene: "expanded-pixel-materials-advanced", size: size, systemLight: true)
-    #expect(Self.averageLuma(underLight) < 0.5)
-    #expect(Self.differingFraction(dark, underLight) < 0.02)
+    #expect(Self.averageLuma(underLight) > Self.averageLuma(dark) + 0.2)
   }
 
   @Test("the palette resolves from the appearance it is given, with no workspace state")
@@ -301,6 +296,43 @@ struct DesignLanguageRenderTests {
       }
     }
     return count == 0 ? 0 : total / count
+  }
+
+  @Test("all four workbench pages fit the default and minimum windows in both appearances")
+  func workbenchShellRenders() throws {
+    let harness = try RenderHarness()
+    defer { harness.removeScratchDirectory() }
+    harness.navigation.isSetupDeferred = true
+    for size in [NSSize(width: 1_180, height: 780), NSSize(width: 900, height: 600)] {
+      for dark in [false, true] {
+        for destination in Destination.allCases {
+          harness.navigation.destination = destination
+          let host = NSHostingView(
+            rootView:
+              ContentView()
+              .environment(harness.model).environment(harness.cameraClient)
+              .environment(harness.navigation).environment(harness.coordinator)
+              .environment(\.colorScheme, dark ? .dark : .light)
+              .frame(width: size.width, height: size.height)
+          )
+          let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: size), styleMask: [], backing: .buffered,
+            defer: false)
+          window.contentView = host
+          host.setFrameSize(size)
+          host.layoutSubtreeIfNeeded()
+          let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+          host.cacheDisplay(in: host.bounds, to: bitmap)
+          #expect(Self.hasVisibleContent(bitmap))
+          #expect(!window.isVisible)
+          try Self.save(
+            bitmap,
+            name:
+              "workbench-\(destination.rawValue.lowercased())-\(Int(size.width))-\(dark ? "dark" : "light")"
+          )
+        }
+      }
+    }
   }
 
   private static func save(_ bitmap: NSBitmapImageRep, name: String) throws {
@@ -427,8 +459,7 @@ struct DesignLanguageRenderTests {
             .environment(navigation)
             .environment(coordinator)
             .frame(width: size.width, height: size.height)
-            .environment(\.colorScheme, .dark)
-            .windowAppearance(ContentView.windowAppearance(for: .studio))
+            .environment(\.colorScheme, systemLight ? .light : .dark)
         )
       )
       let window = NSWindow(

@@ -170,7 +170,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
       .frame(minWidth: 900, minHeight: 600)
     let hostingController = NSHostingController(rootView: rootView)
     let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 1040, height: 680),
+      contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
       styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
       backing: .buffered,
       defer: false
@@ -437,7 +437,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
     window.setContentSize(targetContentSize)
 
     logger.info(
-      "Main window aspect locked to screen ratio \(aspectRatio, privacy: .public)"
+      "Main window display ratio updated to \(aspectRatio, privacy: .public)"
     )
   }
 

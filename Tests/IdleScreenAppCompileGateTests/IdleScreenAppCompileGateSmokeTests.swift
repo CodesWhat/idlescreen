@@ -7,66 +7,61 @@ import Testing
 @Suite("Companion source compile gate")
 struct IdleScreenAppCompileGateSmokeTests {
   @MainActor
-  @Test("width-driven window resize excludes preview chrome from aspect ratio")
-  func previewWindowWidthDrivenResize() {
-    let content = IdleScreenAppDelegate.constrainedPreviewContentSize(
-      proposed: CGSize(width: 1_681, height: 600),
-      current: CGSize(width: 1_081, height: 600),
-      previewAspectRatio: 1.6
-    )
-
-    #expect(content.width == 1_681)
-    let previewRatio =
-      (content.width - IdleScreenPreviewWindowGeometry.leadingChromeWidth) / content.height
-    #expect(abs(previewRatio - 1.6) < 0.000_001)
+  @Test("window resize keeps the proposed width and height independent of the display")
+  func previewWindowFreeResize() {
+    for ratio in [16.0 / 9, 9.0 / 16, 21.0 / 9] {
+      let content = IdleScreenAppDelegate.constrainedPreviewContentSize(
+        proposed: CGSize(width: 1_200, height: 800),
+        current: CGSize(width: 1_040, height: 680),
+        previewAspectRatio: ratio
+      )
+      #expect(content == CGSize(width: 1_200, height: 800))
+    }
   }
 
   @MainActor
-  @Test("height-driven window resize grows width around fixed preview chrome")
-  func previewWindowHeightDrivenResize() {
-    let content = IdleScreenAppDelegate.constrainedPreviewContentSize(
-      proposed: CGSize(width: 1_081, height: 900),
-      current: CGSize(width: 1_081, height: 600),
-      previewAspectRatio: 1.6
-    )
-
-    #expect(content == CGSize(width: 1_521, height: 900))
-  }
-
-  @MainActor
-  @Test("preview window cannot resize below a chrome-adjusted minimum")
+  @Test("small window proposals clamp each dimension without changing their other dimension")
   func previewWindowMinimumSize() {
     let content = IdleScreenAppDelegate.constrainedPreviewContentSize(
-      proposed: CGSize(width: 500, height: 300),
-      current: CGSize(width: 1_081, height: 600),
-      previewAspectRatio: 1.6
+      proposed: CGSize(width: 500, height: 800),
+      current: CGSize(width: 1_200, height: 800),
+      previewAspectRatio: 9.0 / 16
     )
-
-    #expect(content == CGSize(width: 1_041, height: 600))
+    #expect(content == CGSize(width: 900, height: 800))
   }
 
-  @Test("saved window geometry normalizes to the preview aspect")
+  @Test("switching preview displays keeps saved window geometry intact")
   func previewWindowNormalization() {
-    let content = IdleScreenPreviewWindowGeometry.normalizedContentSize(
-      current: CGSize(width: 1_200, height: 900),
-      previewAspectRatio: 1.6
-    )
-    let previewRatio =
-      (content.width - IdleScreenPreviewWindowGeometry.leadingChromeWidth) / content.height
-
-    #expect(content.width == 1_200)
-    #expect(abs(previewRatio - 1.6) < 0.000_001)
+    for ratio in [16.0 / 9, 9.0 / 16, 21.0 / 9] {
+      let content = IdleScreenPreviewWindowGeometry.normalizedContentSize(
+        current: CGSize(width: 1_200, height: 900),
+        previewAspectRatio: ratio
+      )
+      #expect(content == CGSize(width: 1_200, height: 900))
+    }
   }
 
-  @Test("all companion destinations are linked into the non-app test bundle")
+  @Test("all workbench destinations are available")
   func companionSourcesAreLinked() {
+    #expect(Destination.allCases.map(\.rawValue) == ["Scene", "Displays", "Agents", "Settings"])
+  }
+
+  @Test("the entire preview fits landscape, portrait and ultrawide displays")
+  func previewFitsDisplay() {
+    let available = CGSize(width: 600, height: 400)
+    for ratio in [16.0 / 9, 9.0 / 16, 21.0 / 9] {
+      let fitted = IdleScreenPreviewWindowGeometry.fittedPreviewSize(
+        inside: available, aspectRatio: ratio)
+      #expect(fitted.width <= available.width && fitted.height <= available.height)
+      #expect(abs(fitted.width / fitted.height - ratio) < 0.000_001)
+      #expect(fitted.width == available.width || fitted.height == available.height)
+    }
     #expect(
-      Destination.allCases.map(\.rawValue) == [
-        "Studio",
-        "Displays",
-        "Agents",
-        "Status",
-      ])
+      IdleScreenPreviewWindowGeometry.fittedPreviewSize(inside: available, aspectRatio: .nan)
+        == .zero)
+    #expect(
+      IdleScreenPreviewWindowGeometry.fittedPreviewSize(inside: .zero, aspectRatio: 16.0 / 9)
+        == .zero)
   }
 
   @Test("shared Pixel Materials configuration maps every product input")

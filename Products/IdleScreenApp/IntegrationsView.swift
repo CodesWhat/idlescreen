@@ -5,6 +5,7 @@ import SwiftUI
 
 struct IntegrationsView: View {
   @Environment(IdleScreenAppModel.self) private var model
+  @Environment(IdleScreenCompanionNavigation.self) private var navigation
   @State private var expandedSnippet: IdleScreenAgentProvider?
   @State private var previewStartedAt = Date()
   private let detailsInitiallyExpanded: Bool
@@ -14,22 +15,35 @@ struct IntegrationsView: View {
   }
 
   var body: some View {
-    DesignPage(
-      title: "Agents",
-      summary:
-        "Show short-lived Codex and Claude status on IdleScreen. Prompt, transcript, tool, command, assistant, credential, and error content is never imported."
-    ) {
-      if let status = model.agentIntegrationStatus {
-        DesignNotice(kind: Self.statusKind(status), text: status)
+    WorkbenchSplit(showsInspector: navigation.isInspectorVisible) {
+      VStack(spacing: 0) {
+        WorkbenchHeader(
+          title: "Agents", summary: "Your agents appear as small characters in the scene."
+        ) { EmptyView() }
+        ScrollView {
+          VStack(alignment: .leading, spacing: 22) {
+            if let status = model.agentIntegrationStatus {
+              DesignNotice(kind: Self.statusKind(status), text: status)
+            }
+            preview
+            providerSection(.codex)
+            providerSection(.claude)
+            Text(
+              "Prompt, transcript, tool, command, assistant, credential, and error content is never imported."
+            )
+            .font(DesignFont.sans(DesignFont.caption)).foregroundStyle(DesignPalette.ink2)
+            details
+          }
+          .padding(28)
+        }
       }
-      DesignColumns {
-        preview
-        providerSection(.codex)
-        providerSection(.claude)
+    } inspector: {
+      WorkbenchInspector(
+        eyebrow: "Agents", title: "Presentation", summary: "Control how status appears."
+      ) {
         presentationControls
         stateStyles
       }
-      details
     }
     .onAppear {
       model.refreshAgentHookInstallationStatus()
@@ -58,6 +72,7 @@ struct IntegrationsView: View {
           cameraFrame: nil
         )
       }
+      .environment(\.colorScheme, .dark)
       .frame(height: 200)
       .clipShape(RoundedRectangle(cornerRadius: 8))
       .accessibilityLabel("Saver preview with agent status sprites")
@@ -134,7 +149,7 @@ struct IntegrationsView: View {
         .labelsHidden()
         .accessibilityLabel("Message timeout")
         .accessibilityValue("\(Int(model.configuration.agentIntegration.messageTimeout)) seconds")
-        .frame(width: 180)
+        .frame(width: 140)
         Text("\(Int(model.configuration.agentIntegration.messageTimeout)) sec")
           .font(DesignFont.mono(DesignFont.detail))
           .foregroundStyle(DesignPalette.ink2)
