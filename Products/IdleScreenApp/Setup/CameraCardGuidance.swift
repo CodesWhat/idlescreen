@@ -20,7 +20,7 @@ struct CameraCardGuidance: Equatable {
     case .openSetup: "Open setup"
     case .allowAccess: "Allow camera access"
     case .openCameraPrivacy: "Open camera privacy"
-    case .openStatus: "Open status"
+    case .openStatus: "Open Settings"
     case .none: nil
     }
   }
@@ -47,7 +47,7 @@ struct CameraCardGuidance: Equatable {
         action: .none)
     case .unknown, .observed(.authorized):
       return CameraCardGuidance(
-        title: "The camera isn't working",
+        title: setupCompleted ? "The camera isn't working" : "Finish camera setup",
         detail: setupCompleted ? "Open Settings to check it." : finishSetup,
         action: setupCompleted ? .openStatus : .openSetup)
     }

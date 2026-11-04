@@ -215,13 +215,21 @@ struct CameraCardGuidanceTests {
     }
   }
 
-  @Test("a runtime fault with access granted or unknown opens Status")
+  @Test("a runtime fault with access granted or unknown opens Settings")
   func runtimeFault() {
     for authorization in [CameraAgentAuthorizationObservation.unknown, .observed(.authorized)] {
       let card = CameraCardGuidance.make(authorization: authorization, setupCompleted: true)
       #expect(card.title == "The camera isn't working")
       #expect(card.action == .openStatus)
+      #expect(card.actionTitle == "Open Settings")
     }
+  }
+
+  @Test("an unknown camera before setup asks to finish setup without reporting a camera fault")
+  func unknownBeforeSetup() {
+    let card = CameraCardGuidance.make(authorization: .unknown, setupCompleted: false)
+    #expect(card.title == "Finish camera setup")
+    #expect(card.action == .openSetup)
   }
 
   @Test("before setup is finished, actionable states point back to setup")
