@@ -8,22 +8,13 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## Unreleased
 
-### Changed
-
-- Replaced the companion's floating controls and navigation rail with a Workbench
-  layout: top navigation, a collapsible scene library, and a separate inspector.
-- Let the app window resize freely while each preview keeps its display's aspect
-  ratio, including portrait and ultrawide displays.
-- Replaced the flat pixel CRT logo with CRT Silver, a low-poly monitor with
-  luminous ASCII terrain, across the app, README, website and docs.
-
-## 0.3.0 - 2026-11-03
+## 0.3.0 - 2026-11-04
 
 ### Added
 
 - Added a docs site at `idlescreen.codeswhat.com/docs` (Fumadocs) next to the
   marketing website, with browser checks in the required build-and-test job.
-  Neither is deployed yet.
+
 - Added a Topograph scene, agent status sprites in the saver and the Agents
   preview, and a one-signal-per-agent feed that drives them.
 - Added real saver thumbnails and a plain status pill to Studio.
@@ -31,6 +22,17 @@ All notable changes to idlescreen are documented here. The project follows
   now run every offline release fixture.
 
 ### Changed
+
+- Gave the companion a large display-shaped preview with compact bottom controls,
+  a scene-library popover, and an inspector available through More.
+- Added top navigation for Scene, Displays, Agents and Settings, consistent
+  Instrument typography, and simpler settings rows.
+- Remembered inspector visibility, the library tab and the selected display;
+  added keyboard shortcuts for navigation, the library and the inspector.
+- Let the app window resize freely while previews keep each display's proportions,
+  and fitted oversized restored windows to the available screen.
+- Replaced the flat pixel CRT logo with CRT Silver across the app and website.
+
 
 - Framed the saver on a horizon, with Cobalt as the default palette, a sprite
   lattice, Departure Mono glyphs, per-seed variation, aspect handling, a

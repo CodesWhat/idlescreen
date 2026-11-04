@@ -2,6 +2,7 @@ import SwiftUI
 
 extension EnvironmentValues {
   @Entry var workbenchInspector = false
+  @Entry var workbenchPage = false
 }
 
 struct WorkbenchSplit<Main: View, Inspector: View>: View {
@@ -12,6 +13,7 @@ struct WorkbenchSplit<Main: View, Inspector: View>: View {
   var body: some View {
     HStack(spacing: 0) {
       main().frame(maxWidth: .infinity, maxHeight: .infinity)
+        .environment(\.workbenchPage, true)
       if showsInspector {
         Divider()
         inspector()
@@ -21,7 +23,7 @@ struct WorkbenchSplit<Main: View, Inspector: View>: View {
           .environment(\.workbenchInspector, true)
       }
     }
-    .background(DesignPalette.bg)
+    .background(DesignPalette.surface)
   }
 }
 
@@ -32,8 +34,8 @@ struct WorkbenchHeader<Trailing: View>: View {
 
   var body: some View {
     DesignPageHeader(title: title, summary: summary, trailing: trailing)
-      .padding(.horizontal, 28)
-      .padding(.vertical, 18)
+      .padding(.horizontal, 24)
+      .padding(.vertical, 16)
       .background(DesignPalette.surface)
       .overlay(alignment: .bottom) { DesignHairline() }
   }

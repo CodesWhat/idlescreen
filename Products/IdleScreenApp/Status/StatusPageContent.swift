@@ -36,7 +36,7 @@ struct StatusPageContent<Technical: View>: View {
               technical()
             }
           }
-          .padding(28)
+          .padding(24)
         }
       }
     } inspector: {
@@ -54,7 +54,7 @@ struct StatusPageContent<Technical: View>: View {
     HStack(spacing: 12) {
       Image(systemName: verdictKind.symbol).font(.system(size: 22, weight: .semibold))
         .foregroundStyle(verdictKind.color).accessibilityHidden(true)
-      Text(summary.verdict).font(DesignFont.display(22)).foregroundStyle(DesignPalette.ink)
+      Text(summary.verdict).font(DesignFont.sans(18, .semibold)).foregroundStyle(DesignPalette.ink)
         .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
       Spacer(minLength: 0)
       if let action = summary.primaryAction {
@@ -63,16 +63,9 @@ struct StatusPageContent<Technical: View>: View {
           .accessibilityHint("Fixes the first thing that needs your attention")
       }
     }
-    .padding(.horizontal, 18).padding(.vertical, 16)
+    .padding(.vertical, 12)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(
-      RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous).fill(
-        DesignPalette.surface)
-    )
-    .overlay(
-      RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous)
-        .strokeBorder(DesignPalette.hair2, lineWidth: 1)
-    )
+    .overlay(alignment: .bottom) { DesignHairline() }
     .accessibilityElement(children: .contain)
   }
 

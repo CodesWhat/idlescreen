@@ -34,7 +34,7 @@ struct IntegrationsView: View {
             .font(DesignFont.sans(DesignFont.caption)).foregroundStyle(DesignPalette.ink2)
             details
           }
-          .padding(28)
+          .padding(24)
         }
       }
     } inspector: {
@@ -138,7 +138,7 @@ struct IntegrationsView: View {
   }
 
   private var presentationControls: some View {
-    DesignSection(eyebrow: "Presentation") {
+    DesignSection(eyebrow: "Messages") {
       DesignRow(
         title: "Message timeout",
         detail: "How long a status stays on screen."
@@ -170,7 +170,7 @@ struct IntegrationsView: View {
       DesignRow(
         title: "Position",
         detail:
-          "Agents now run along the bottom of the scene, so the corner setting no longer applies."
+          "Agents run along the bottom edge of the scene."
       ) {
         Text("Bottom")
           .foregroundStyle(DesignPalette.ink2)

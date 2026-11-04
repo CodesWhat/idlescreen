@@ -225,20 +225,20 @@ struct SetupFlowContent: View {
       ScrollView {
         Group {
           if wide {
-            HStack(alignment: .center, spacing: 40) {
+            HStack(alignment: .center, spacing: 32) {
               stepsColumn
                 .frame(width: Self.leadingColumnWidth(in: geometry.size.width))
               SetupPreviewPane(reduceMotion: reduceMotion)
                 .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 48)
+            .padding(.horizontal, 32)
             .padding(.vertical, DesignMetrics.pageBottomMargin + 8)
             .frame(minHeight: geometry.size.height)
           } else {
             stepsColumn
               .frame(maxWidth: 460)
               .padding(.horizontal, DesignMetrics.pageSideMargin)
-              .padding(.top, DesignMetrics.pageTopMargin)
+              .padding(.top, 28)
               .padding(.bottom, DesignMetrics.pageBottomMargin)
               .frame(maxWidth: .infinity)
           }
@@ -294,7 +294,7 @@ struct SetupFlowContent: View {
       Text(cardModel.caption).designEyebrow().padding(.top, 4).accessibilityHidden(true)
     }
     .multilineTextAlignment(.center)
-    .padding(.horizontal, 28).padding(.vertical, 28)
+    .padding(.horizontal, 24).padding(.vertical, 24)
     .frame(maxWidth: .infinity)
     .background(
       RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous).fill(

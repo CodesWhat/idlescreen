@@ -64,7 +64,7 @@ struct DisplaysView: View {
               }
             }
           }
-          .padding(.horizontal, 28)
+          .padding(.horizontal, 24)
           .padding(.vertical, 12)
         }
         .frame(height: detailsInitiallyExpanded ? 300 : 160)
@@ -142,14 +142,14 @@ struct DisplaysView: View {
         showsIdentification: showsIdentification,
         select: { navigation.previewDisplayIdentifier = $0 }
       )
-      .frame(minHeight: 250)
+      .frame(minHeight: 180)
     } else if let failure = coordinator.topologyFailure {
       ContentUnavailableView(
         "Display layout unavailable",
         systemImage: "display.trianglebadge.exclamationmark",
         description: Text(failure.message)
       )
-      .frame(minHeight: 250)
+      .frame(minHeight: 180)
     } else {
       ProgressView("Looking for your displays…")
         .frame(maxWidth: .infinity, minHeight: 250)
@@ -244,10 +244,9 @@ struct DisplaysView: View {
   private func displayLabel(
     _ identifier: DisplayTopology.PersistentDisplayIdentifier
   ) -> String {
-    let index = coordinator.latestSnapshot?.topology.displays.firstIndex {
-      $0.persistentIdentifier == identifier
-    }.map { $0 + 1 }
-    return index.map { "Display \($0)" } ?? "Display"
+    guard let index = renderingDisplays.firstIndex(where: { $0.persistentIdentifier == identifier })
+    else { return "Display" }
+    return renderingDisplays[index].isPrimary ? "Main display" : "Display \(index + 1)"
   }
 }
 
@@ -355,7 +354,7 @@ private struct DisplayArrangementCard: View {
   }
 
   private var displaySubtitle: String {
-    if display.isPrimary { return "Primary" }
+    if display.isPrimary { return "Main display" }
     if display.mirrorTargetIdentifier != nil { return "Mirror" }
     return "Display \(index + 1)"
   }
