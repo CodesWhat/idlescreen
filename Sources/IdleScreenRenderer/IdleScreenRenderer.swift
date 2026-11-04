@@ -22,8 +22,7 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
   /// Agent sprites drawn into the scene, at most two. Empty leaves the
   /// rendered output untouched.
   public var agentSprites: [IdleScreenAgentSprite]
-  /// Composition layer over a procedural pattern. Topograph always uses the
-  /// horizon, whatever this says.
+  /// Composition layer over a procedural pattern, including Topograph.
   public var framing: IdleScreenRendererFraming
 
   public init(
