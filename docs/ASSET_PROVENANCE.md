@@ -23,3 +23,16 @@ repository's MIT License.
 
 The menu-bar item uses Apple's `square.grid.3x3.fill` SF Symbol as a template
 image at runtime. It is not redistributed as an asset.
+
+## Bundled app fonts
+
+The Instrument fonts were copied unchanged from
+[CodesWhat/mouthtype at commit `d7a7ede116426caceea0e7ca5194772dbb2476d0`](https://github.com/CodesWhat/mouthtype/tree/d7a7ede116426caceea0e7ca5194772dbb2476d0/Sources/MouthtypeMac/Resources/Fonts):
+`InstrumentSerif-Regular.ttf`, `InstrumentSans-Regular.ttf`,
+`InstrumentSans-Medium.ttf`, and `InstrumentSans-SemiBold.ttf`. All four
+bundled binaries match that source byte for byte.
+
+Their upstream projects are [Instrument Serif](https://github.com/Instrument/instrument-serif)
+and [Instrument Sans](https://github.com/Instrument/instrument-sans). Both use
+the SIL Open Font License 1.1; the app bundles the corresponding OFL notices.
+See `THIRD_PARTY_NOTICES.md` for the other bundled font sources.
