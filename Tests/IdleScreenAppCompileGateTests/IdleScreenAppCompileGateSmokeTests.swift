@@ -64,6 +64,44 @@ struct IdleScreenAppCompileGateSmokeTests {
         == .zero)
   }
 
+  @MainActor
+  @Test(
+    "inspector and library preferences survive a relaunch without restoring transient setup state")
+  func workbenchPreferencesSurviveRelaunch() throws {
+    let suiteName = "IdleScreenWorkbenchTests.\(UUID().uuidString)"
+    let preferences = try #require(UserDefaults(suiteName: suiteName))
+    defer { preferences.removePersistentDomain(forName: suiteName) }
+    let first = IdleScreenCompanionNavigation(preferences: preferences)
+    #expect(!first.isSceneInspectorVisible)
+    #expect(first.isInspectorVisible)
+    first.isSceneInspectorVisible = true
+    first.isInspectorVisible = false
+    first.showsSavedLooks = true
+    first.previewDisplayIdentifier = .init(rawValue: "external-display")
+    first.isSetupDeferred = true
+    first.destination = .integrations
+    let restored = IdleScreenCompanionNavigation(preferences: preferences)
+    #expect(restored.isSceneInspectorVisible)
+    #expect(!restored.isInspectorVisible)
+    #expect(restored.showsSavedLooks)
+    #expect(restored.previewDisplayIdentifier?.rawValue == "external-display")
+    #expect(restored.destination == .studio)
+    #expect(!restored.isSetupDeferred)
+  }
+
+  @Test(
+    "a tall saved window fits the available screen without shrinking its width below the minimum")
+  func restoredWindowFitsScreen() {
+    let fitted = IdleScreenPreviewWindowGeometry.normalizedContentSize(
+      current: CGSize(width: 900, height: 2_200), previewAspectRatio: 16.0 / 9,
+      availableSize: CGSize(width: 1_400, height: 850))
+    #expect(fitted == CGSize(width: 900, height: 850))
+    let wide = IdleScreenPreviewWindowGeometry.normalizedContentSize(
+      current: CGSize(width: 3_000, height: 700), previewAspectRatio: 9.0 / 16,
+      availableSize: CGSize(width: 1_400, height: 850))
+    #expect(wide == CGSize(width: 1_400, height: 700))
+  }
+
   @Test("shared Pixel Materials configuration maps every product input")
   func pixelMaterialsRendererMapping() {
     var configuration = IdleScreenConfiguration.default

@@ -17,12 +17,17 @@ enum IdleScreenPreviewWindowGeometry {
     )
   }
 
-  static func normalizedContentSize(current: CGSize, previewAspectRatio: CGFloat) -> CGSize {
-    guard validSize(current) else { return absoluteMinimumContentSize }
+  static func normalizedContentSize(
+    current: CGSize, previewAspectRatio: CGFloat, availableSize: CGSize? = nil
+  ) -> CGSize {
+    let proposed = validSize(current) ? current : absoluteMinimumContentSize
+    let minimum = absoluteMinimumContentSize
+    let normalized = CGSize(
+      width: max(minimum.width, proposed.width), height: max(minimum.height, proposed.height))
+    guard let availableSize, validSize(availableSize) else { return normalized }
     return CGSize(
-      width: max(absoluteMinimumContentSize.width, current.width),
-      height: max(absoluteMinimumContentSize.height, current.height)
-    )
+      width: min(normalized.width, availableSize.width),
+      height: min(normalized.height, availableSize.height))
   }
 
   static func fittedPreviewSize(inside availableSize: CGSize, aspectRatio: CGFloat) -> CGSize {

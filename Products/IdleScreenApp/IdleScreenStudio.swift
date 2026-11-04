@@ -61,14 +61,42 @@ final class IdleScreenCompanionNavigation {
     get { setupSession.isDeferred }
     set { setupSession.isDeferred = newValue }
   }
-  var isInspectorVisible = true
-  var isSceneInspectorVisible = false
+  private let preferences: UserDefaults?
+
+  private enum Preference {
+    static let savedLooks = "workbench.showsSavedLooks"
+    static let inspector = "workbench.inspectorVisible"
+    static let sceneInspector = "workbench.sceneInspectorVisible"
+    static let display = "workbench.previewDisplay"
+  }
+
+  init(preferences: UserDefaults? = nil) {
+    self.preferences = preferences
+    showsSavedLooks = preferences?.bool(forKey: Preference.savedLooks) ?? false
+    isInspectorVisible = preferences?.object(forKey: Preference.inspector) as? Bool ?? true
+    isSceneInspectorVisible = preferences?.bool(forKey: Preference.sceneInspector) ?? false
+    previewDisplayIdentifier = preferences?.string(forKey: Preference.display).map {
+      .init(rawValue: $0)
+    }
+  }
+
+  var showsSavedLooks = false {
+    didSet { preferences?.set(showsSavedLooks, forKey: Preference.savedLooks) }
+  }
+  var isInspectorVisible = true {
+    didSet { preferences?.set(isInspectorVisible, forKey: Preference.inspector) }
+  }
+  var isSceneInspectorVisible = false {
+    didSet { preferences?.set(isSceneInspectorVisible, forKey: Preference.sceneInspector) }
+  }
 
   var currentInspectorVisible: Bool {
     destination == .studio ? isSceneInspectorVisible : isInspectorVisible
   }
   var displayAspectRatio: CGFloat = 16 / 9
-  var previewDisplayIdentifier: DisplayTopology.PersistentDisplayIdentifier?
+  var previewDisplayIdentifier: DisplayTopology.PersistentDisplayIdentifier? {
+    didSet { preferences?.set(previewDisplayIdentifier?.rawValue, forKey: Preference.display) }
+  }
 
   func showCameraDiagnostics() {
     destination = .status
@@ -124,6 +152,13 @@ struct ContentView: View {
       .frame(height: 22)
     }
     .background(DesignPalette.bg)
+    .background {
+      ForEach(Array(Destination.primaryCases.enumerated()), id: \.element) { index, destination in
+        Button(destination.rawValue) { navigation.destination = destination }
+          .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+          .hidden().accessibilityHidden(true)
+      }
+    }
     .windowAppearance(Self.windowAppearance(for: navigation.destination, showsSetup: showsSetup))
     .ignoresSafeArea()
     .onChange(of: model.configuration.revision, initial: true) { _, revision in
@@ -145,10 +180,8 @@ struct ContentView: View {
   }
 
   private func synchronizePreviewDisplay() {
-    let displays =
-      displayCoordinator.latestSnapshot?.topology.displays.filter {
-        $0.mirrorTargetIdentifier == nil
-      } ?? []
+    guard let topology = displayCoordinator.latestSnapshot?.topology else { return }
+    let displays = topology.displays.filter { $0.mirrorTargetIdentifier == nil }
     let selected =
       displays.first { $0.persistentIdentifier == navigation.previewDisplayIdentifier }
       ?? displays.first(where: \.isPrimary) ?? displays.first
@@ -190,6 +223,7 @@ struct ContentView: View {
           Image(systemName: "sidebar.trailing")
         }
         .buttonStyle(.designSecondary)
+        .keyboardShortcut("i", modifiers: [.command, .option])
         .accessibilityLabel("Inspector")
         .accessibilityValue(navigation.currentInspectorVisible ? "Shown" : "Hidden")
         .help("Show or hide the inspector")
@@ -238,7 +272,6 @@ struct StudioView: View {
   @Environment(IdleScreenCompanionNavigation.self) private var navigation
   @Environment(DisplaySceneCoordinator.self) private var displayCoordinator
   @State private var isSaverChooserExpanded = false
-  @State private var showsSavedLooks = false
   @State private var isPixelAdvancedExpanded = false
   @State private var isLoupeEnabled = false
   @State private var loupePointerLocation: CGPoint?
@@ -325,7 +358,7 @@ struct StudioView: View {
       Button("Cancel", role: .cancel) {}
       Button("Save") {
         if model.saveCurrentLook(named: lookNameDraft) {
-          showsSavedLooks = true
+          navigation.showsSavedLooks = true
           isSaverChooserExpanded = true
         }
       }
@@ -621,6 +654,7 @@ struct StudioView: View {
       } label: {
         Label("Library", systemImage: "rectangle.grid.1x2")
       }
+      .keyboardShortcut("l", modifiers: [.command, .shift])
       .accessibilityValue(isSaverChooserExpanded ? "Shown" : "Hidden")
       .popover(isPresented: $isSaverChooserExpanded, arrowEdge: .bottom) {
         saverChooser.frame(width: 640)
@@ -677,12 +711,14 @@ struct StudioView: View {
   private var saverChooser: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack(spacing: 18) {
-        Button("Scenes") { showsSavedLooks = false }
-          .foregroundStyle(showsSavedLooks ? DesignPalette.ink2 : DesignPalette.ink)
-          .accessibilityAddTraits(showsSavedLooks ? [] : .isSelected)
-        Button("Your looks (\(model.configuration.savedLooks.count))") { showsSavedLooks = true }
-          .foregroundStyle(showsSavedLooks ? DesignPalette.ink : DesignPalette.ink2)
-          .accessibilityAddTraits(showsSavedLooks ? .isSelected : [])
+        Button("Scenes") { navigation.showsSavedLooks = false }
+          .foregroundStyle(navigation.showsSavedLooks ? DesignPalette.ink2 : DesignPalette.ink)
+          .accessibilityAddTraits(navigation.showsSavedLooks ? [] : .isSelected)
+        Button("Your looks (\(model.configuration.savedLooks.count))") {
+          navigation.showsSavedLooks = true
+        }
+        .foregroundStyle(navigation.showsSavedLooks ? DesignPalette.ink : DesignPalette.ink2)
+        .accessibilityAddTraits(navigation.showsSavedLooks ? .isSelected : [])
         Spacer()
         Button {
           animate { isSaverChooserExpanded = false }
@@ -695,7 +731,7 @@ struct StudioView: View {
       .font(DesignFont.sans(DesignFont.caption, .medium))
       ScrollView(.horizontal) {
         HStack(alignment: .top, spacing: 12) {
-          if showsSavedLooks {
+          if navigation.showsSavedLooks {
             if model.configuration.savedLooks.isEmpty {
               Text("Save a look to keep a scene and its adjustments together.")
                 .font(DesignFont.sans(DesignFont.caption)).foregroundStyle(DesignPalette.ink2)
