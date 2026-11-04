@@ -3,7 +3,7 @@ import Testing
 
 @Suite("Dock presentation")
 struct IdleScreenDockPresentationTests {
-  private static let executable = "/Applications/idlescreen.app/Contents/MacOS/IdleScreen"
+  private static let executable = "/Applications/IdleScreen.app/Contents/MacOS/IdleScreen"
   private static let rebindResultPath = "/tmp/idlescreen-phase1-install.42/rebind.json"
 
   /// Resolves the launch-time policy the delegate applies, so these cover the

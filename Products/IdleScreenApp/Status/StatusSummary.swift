@@ -218,6 +218,16 @@ struct StatusAgentRow: Equatable {
 struct StatusSummary: Equatable {
   static let developmentBuildNotice =
     "This is a development build. Camera and agent signals need a signed copy of IdleScreen."
+  static let developmentBuildSetupNotice =
+    "This is a development build. macOS only registers signed copies of IdleScreen."
+
+  /// One answer for "is this an unsigned development build", shared by Status and setup. The signal is the App Group container:
+  /// an app that isn't signed with the team's App Group can't open it, so neither the model nor the camera bootstrap gets one.
+  static func sharedContainerAvailable(
+    hasSharedContainer: Bool, bootstrap: CameraClientBootstrapStatus?
+  ) -> Bool {
+    hasSharedContainer && bootstrap != .appGroupContainerUnavailable
+  }
 
   let saverState: StatusSaverState
   let cameraState: StatusCameraState
@@ -269,6 +279,19 @@ struct StatusSummary: Equatable {
 
   var verdict: String {
     Self.verdict(problemCount: problems.count, isChecking: isChecking)
+  }
+
+  /// The short form of the verdict for Studio's status pill: sentence case, no full stop. A saver that isn't registered or
+  /// selected yet is "Needs setup"; any other trouble is "Needs attention".
+  var pillLabel: String {
+    if problems.isEmpty { return isChecking ? "Checking IdleScreen" : "IdleScreen is ready" }
+    if saverState.isProblem, saverState.action != nil { return "Needs setup" }
+    return "Needs attention"
+  }
+
+  var pillKind: DesignStatusKind {
+    if problems.isEmpty { return isChecking ? .pending : .ok }
+    return problems.contains { $0.kind == .error } ? .error : .attention
   }
 
   /// The one button at the top: the first problem that has something to press.
@@ -355,5 +378,45 @@ enum StatusCameraFault {
     case .unreachable, .timedOut: return true
     case .unknown, .reachable: return false
     }
+  }
+}
+
+/// Turns the model's raw error strings into words a person can act on. The raw string stays in the log and in Status >
+/// Technical details; this is only what the setup flow, the Status page and the Studio pill show. Matching is on the stable
+/// phrases the system layer, the model and the stores produce, with a calm default for anything new.
+enum UserFacingIssue {
+  static let registrationFailed =
+    "macOS didn't accept the screen saver. Try again, or reinstall IdleScreen."
+  static let extensionMissing =
+    "This copy of IdleScreen is missing its screen saver. Reinstall IdleScreen."
+  static let hostRefreshUnavailable =
+    "This build can't refresh the screen saver in macOS. Restart your Mac if it doesn't show up."
+  static let macOSNotResponding = "macOS didn't respond as expected. Try again in a moment."
+  static let notSelected = "Choose IdleScreen in Screen Saver settings first, then try again."
+  static let selectionUnreadable =
+    "IdleScreen couldn't read your screen saver choice from macOS. Try again."
+  static let sharedStorageUnavailable =
+    "Settings can't be saved in a development build. macOS only shares them with signed copies of IdleScreen."
+  static let legacyImportFailed =
+    "IdleScreen couldn't import your old settings. They're untouched, so it can try again."
+  static let fallback =
+    "Something went wrong. Try again. If it keeps happening, see Technical details on the Status page."
+
+  private static let table: [(needles: [String], message: String)] = [
+    (["did not converge", "did not select the embedded"], registrationFailed),
+    (["missing from this app build"], extensionMissing),
+    (["cannot refresh the macOS screen-saver host"], hostRefreshUnavailable),
+    (["in Screen Saver Settings before starting it"], notSelected),
+    (["wallpaper store"], selectionUnreadable),
+    (["until the app is signed", "app-group identifier"], sharedStorageUnavailable),
+    (["Legacy IdleScreen configuration"], legacyImportFailed),
+    (["exited with status", "timed out after", "WallpaperAgent"], macOSNotResponding),
+  ]
+
+  static func message(for raw: String) -> String {
+    for entry in table where entry.needles.contains(where: raw.contains) {
+      return entry.message
+    }
+    return fallback
   }
 }

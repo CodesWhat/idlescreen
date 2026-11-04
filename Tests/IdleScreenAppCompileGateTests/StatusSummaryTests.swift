@@ -23,6 +23,17 @@ struct StatusSummaryTests {
     #expect(!result.isDevelopmentBuild)
   }
 
+  @Test("Studio's pill is the verdict in short sentence case")
+  func pillLabel() {
+    #expect(summary().pillLabel == "IdleScreen is ready")
+    #expect(summary().pillKind == .ok)
+    #expect(summary { $0.saverStatusKnown = false }.pillLabel == "Checking IdleScreen")
+    #expect(summary { $0.registrationLocation = .notRegistered }.pillLabel == "Needs setup")
+    #expect(summary { $0.registrationLocation = .notRegistered }.pillKind == .attention)
+    #expect(summary { $0.extensionEmbedded = false }.pillLabel == "Needs attention")
+    #expect(summary { $0.extensionEmbedded = false }.pillKind == .error)
+  }
+
   @Test("the verdict counts the problems")
   func verdictWords() {
     #expect(StatusSummary.verdict(problemCount: 0, isChecking: false) == "IdleScreen is ready.")
@@ -218,6 +229,81 @@ struct StatusSummaryTests {
     #expect(used.cameraState == .notWorking)
     #expect(used.camera.sentence == "The camera needs a signed copy of IdleScreen.")
     #expect(used.camera.action == nil)
+  }
+
+  @Test(
+    "one derivation says a build is unsigned: no container, or the camera bootstrap can't open it")
+  func developmentBuildDerivation() {
+    #expect(StatusSummary.sharedContainerAvailable(hasSharedContainer: true, bootstrap: nil))
+    #expect(StatusSummary.sharedContainerAvailable(hasSharedContainer: true, bootstrap: .ready))
+    #expect(
+      StatusSummary.sharedContainerAvailable(
+        hasSharedContainer: true, bootstrap: .missingConfiguration))
+    #expect(!StatusSummary.sharedContainerAvailable(hasSharedContainer: false, bootstrap: .ready))
+    #expect(
+      !StatusSummary.sharedContainerAvailable(
+        hasSharedContainer: true, bootstrap: .appGroupContainerUnavailable))
+  }
+
+  // MARK: Plain-language errors
+
+  @Test("raw errors map to plain messages with no internal terms")
+  func userFacingIssues() {
+    let cases: [(raw: String, expected: String)] = [
+      (
+        "pluginkit did not converge on the embedded screen saver at /tmp/x/IdleScreenScreenSaver.appex. It last reported no registered path instead.",
+        UserFacingIssue.registrationFailed
+      ),
+      (
+        "pluginkit did not select the embedded screen saver at /tmp/x. It reports /old instead.",
+        UserFacingIssue.registrationFailed
+      ),
+      (
+        "The embedded screen saver extension is missing from this app build.",
+        UserFacingIssue.extensionMissing
+      ),
+      (
+        "This build cannot refresh the macOS screen-saver host.",
+        UserFacingIssue.hostRefreshUnavailable
+      ),
+      ("/usr/bin/pluginkit exited with status 1: boom", UserFacingIssue.macOSNotResponding),
+      ("Command /bin/x timed out after 5.0 seconds.", UserFacingIssue.macOSNotResponding),
+      (
+        "Expected exactly one current-user Apple WallpaperAgent, found 0.",
+        UserFacingIssue.macOSNotResponding
+      ),
+      (
+        "Select com.x in Screen Saver Settings before starting it. Current: none.",
+        UserFacingIssue.notSelected
+      ),
+      (
+        "The macOS wallpaper store has an unexpected root value.",
+        UserFacingIssue.selectionUnreadable
+      ),
+      (
+        "Shared configuration is unavailable until the app is signed for its App Group.",
+        UserFacingIssue.sharedStorageUnavailable
+      ),
+      (
+        "Legacy IdleScreen configuration exists but could not be imported from: /a.",
+        UserFacingIssue.legacyImportFailed
+      ),
+      ("something nobody has seen before", UserFacingIssue.fallback),
+      ("", UserFacingIssue.fallback),
+    ]
+    for (raw, expected) in cases {
+      #expect(UserFacingIssue.message(for: raw) == expected, "\(raw)")
+    }
+    let internalTerms = ["pluginkit", "converge", "appex", "XPC", "App Group", "WallpaperAgent"]
+    let all =
+      cases.map { UserFacingIssue.message(for: $0.raw) } + [
+        StatusSummary.developmentBuildSetupNotice
+      ]
+    for message in all {
+      for term in internalTerms {
+        #expect(!message.contains(term), "\(message) leaks \(term)")
+      }
+    }
   }
 
   // MARK: Multiple problems

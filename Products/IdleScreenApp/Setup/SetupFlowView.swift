@@ -1,5 +1,6 @@
 import AppKit
 import IdleScreenCamera
+import IdleScreenRenderer
 import SwiftUI
 
 // First-run setup, shown in the main window until it is finished. Steps follow Mouthtype's setup: step dots on top, one card for
@@ -64,8 +65,10 @@ struct SetupFlowView: View {
           cameraAccess: inputs.cameraAccess,
           isRegistering: model.isRegistering,
           extensionMissing: !model.isExtensionEmbedded,
+          isDevelopmentBuild: !StatusSummary.sharedContainerAvailable(
+            hasSharedContainer: model.hasSharedContainer, bootstrap: cameraClient.bootstrapStatus),
           statusMessage: model.saverActionStatus,
-          errorMessage: model.lastError,
+          errorMessage: model.lastError.map(UserFacingIssue.message(for:)),
           actions: SetupFlowActions(
             register: { model.registerExtension() },
             openScreenSaverSettings: { model.openScreenSaverSettings() },
@@ -130,10 +133,12 @@ struct SetupCardModel: Equatable {
   let primaryEnabled: Bool
   let offersSkip: Bool
   let offersLater: Bool
+  /// A calm note under the card. Set on the register step of a development build, where macOS won't take the registration.
+  let notice: String?
 
   init(
     progress: SetupProgress, cameraAccess: SetupCameraAccess, isRegistering: Bool,
-    extensionMissing: Bool = false
+    extensionMissing: Bool = false, isDevelopmentBuild: Bool = false
   ) {
     switch progress.current {
     case .register:
@@ -143,7 +148,7 @@ struct SetupCardModel: Equatable {
         ? "This copy of IdleScreen is missing its screen saver. Reinstall IdleScreen."
         : "Tell macOS that IdleScreen is here. It only takes a moment."
       primaryTitle = isRegistering ? "Registering…" : "Register IdleScreen"
-      primaryEnabled = !isRegistering && !extensionMissing
+      primaryEnabled = !isRegistering && !extensionMissing && !isDevelopmentBuild
     case .choose:
       title = "Choose IdleScreen"
       detail = "Pick IdleScreen as your screen saver in Screen Saver settings."
@@ -185,6 +190,9 @@ struct SetupCardModel: Equatable {
     }
     offersSkip = progress.current == .camera
     offersLater = !progress.isComplete
+    notice =
+      progress.current == .register && isDevelopmentBuild && !extensionMissing
+      ? StatusSummary.developmentBuildSetupNotice : nil
   }
 }
 
@@ -194,6 +202,7 @@ struct SetupFlowContent: View {
   var cameraAccess: SetupCameraAccess = .unknown
   var isRegistering = false
   var extensionMissing = false
+  var isDevelopmentBuild = false
   var statusMessage: String?
   var errorMessage: String?
   var actions = SetupFlowActions()
@@ -201,37 +210,70 @@ struct SetupFlowContent: View {
   private var cardModel: SetupCardModel {
     SetupCardModel(
       progress: progress, cameraAccess: cameraAccess, isRegistering: isRegistering,
-      extensionMissing: extensionMissing)
+      extensionMissing: extensionMissing, isDevelopmentBuild: isDevelopmentBuild)
   }
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+  /// Below this width the preview drops away and the steps stack in one column.
+  static let twoColumnMinWidth: CGFloat = 900
+  static let leadingColumnRange: ClosedRange<CGFloat> = 420...560
+
   var body: some View {
-    ScrollView {
-      VStack(spacing: DesignMetrics.sectionSpacing) {
-        SetupStepDots(progress: progress)
-        card
-          .id(progress.current?.rawValue ?? -1)
-          .transition(reduceMotion ? .identity : .opacity)
-        if let errorMessage, !errorMessage.isEmpty {
-          DesignNotice(kind: .error, text: errorMessage)
+    GeometryReader { geometry in
+      let wide = geometry.size.width >= Self.twoColumnMinWidth
+      ScrollView {
+        Group {
+          if wide {
+            HStack(alignment: .center, spacing: 40) {
+              stepsColumn
+                .frame(width: Self.leadingColumnWidth(in: geometry.size.width))
+              SetupPreviewPane(reduceMotion: reduceMotion)
+                .frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal, 48)
+            .padding(.vertical, DesignMetrics.pageBottomMargin + 8)
+            .frame(minHeight: geometry.size.height)
+          } else {
+            stepsColumn
+              .frame(maxWidth: 460)
+              .padding(.horizontal, DesignMetrics.pageSideMargin)
+              .padding(.top, DesignMetrics.pageTopMargin)
+              .padding(.bottom, DesignMetrics.pageBottomMargin)
+              .frame(maxWidth: .infinity)
+          }
         }
-        stepList
-        if cardModel.offersLater {
-          Button("Set up later", action: actions.later).buttonStyle(.plain)
-            .font(DesignFont.sans(DesignFont.detail)).foregroundStyle(DesignPalette.ink2)
-            .accessibilityHint(
-              "Closes setup for now. Studio keeps a Continue setup button until you finish.")
-        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: progress.current)
       }
-      .frame(maxWidth: 460)
-      .padding(.horizontal, DesignMetrics.pageSideMargin)
-      .padding(.top, DesignMetrics.pageTopMargin)
-      .padding(.bottom, DesignMetrics.pageBottomMargin)
-      .frame(maxWidth: .infinity)
-      .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: progress.current)
     }
     .background(DesignPalette.bg)
+  }
+
+  /// The left column is about 38% of the window, held between 420 and 560 pt.
+  static func leadingColumnWidth(in width: CGFloat) -> CGFloat {
+    min(leadingColumnRange.upperBound, max(leadingColumnRange.lowerBound, width * 0.38))
+  }
+
+  private var stepsColumn: some View {
+    VStack(spacing: DesignMetrics.sectionSpacing) {
+      SetupStepDots(progress: progress)
+      card
+        .id(progress.current?.rawValue ?? -1)
+        .transition(reduceMotion ? .identity : .opacity)
+      if let notice = cardModel.notice {
+        DesignNotice(kind: .attention, text: notice)
+      }
+      if let errorMessage, !errorMessage.isEmpty {
+        DesignNotice(kind: .error, text: errorMessage)
+      }
+      stepList
+      if cardModel.offersLater {
+        Button("Set up later", action: actions.later).buttonStyle(.plain)
+          .font(DesignFont.sans(DesignFont.detail)).foregroundStyle(DesignPalette.ink2)
+          .accessibilityHint(
+            "Closes setup for now. Studio keeps a Continue setup button until you finish.")
+      }
+    }
   }
 
   // MARK: Current step
@@ -391,4 +433,34 @@ struct SetupStepDots: View {
     case .upcoming, .skipped: DesignPalette.track
     }
   }
+}
+
+/// The live screen saver beside the setup steps: the same renderer view Studio's canvas hosts, on the procedural default look
+/// with no camera. Reduce Motion holds one still frame instead of animating.
+struct SetupPreviewPane: View {
+  var reduceMotion = false
+  var caption = "This is IdleScreen."
+
+  var body: some View {
+    VStack(spacing: 12) {
+      IdleScreenMetalPreview(
+        configuration: .default,
+        mode: .generative,
+        cameraFrame: nil,
+        elapsedTime: reduceMotion ? Self.stillFrameTime : nil
+      )
+      .aspectRatio(16.0 / 9.0, contentMode: .fit)
+      .background(Color.black)
+      .clipShape(RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
+      .overlay(
+        RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous)
+          .strokeBorder(DesignPalette.hair2, lineWidth: 1)
+      )
+      .accessibilityHidden(true)
+      Text(caption).font(DesignFont.sans(DesignFont.detail)).foregroundStyle(DesignPalette.ink2)
+    }
+  }
+
+  /// Seconds into the scene for the Reduce Motion still frame, far enough in that the pattern has formed.
+  static let stillFrameTime: TimeInterval = 6
 }

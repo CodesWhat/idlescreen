@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 /absolute/installed/idlescreen.app /absolute/gate/IdleScreenSyntheticGate.app /absolute/manifest.txt -- /absolute/gate-runner [args...]" >&2
+  echo "Usage: $0 /absolute/installed/IdleScreen.app /absolute/gate/IdleScreenSyntheticGate.app /absolute/manifest.txt -- /absolute/gate-runner [args...]" >&2
   exit 64
 }
 
@@ -17,11 +17,11 @@ runner=("$@")
 [[ "$installed_app" = /* && "$gate_candidate" = /* && "$manifest" = /* ]] || usage
 [[ "${runner[0]}" = /* && -x "${runner[0]}" ]] || usage
 
-if [[ "$installed_app" != /Applications/idlescreen.app ||
+if [[ "$installed_app" != /Applications/IdleScreen.app ||
       "${IDLESCREEN_ALLOW_PHYSICAL_TESTS:-}" != YES ||
       "${IDLESCREEN_ALLOW_CAMERA_GATE_A1T:-}" != YES ||
       "${IDLESCREEN_ALLOW_WALLPAPER_AGENT_RESTART:-}" != YES ]]; then
-  echo "REFUSED: the synthetic installer requires the canonical /Applications/idlescreen.app plus explicit physical-test, A1T, and exact WallpaperAgent-restart authorization." >&2
+  echo "REFUSED: the synthetic installer requires the canonical /Applications/IdleScreen.app plus explicit physical-test, A1T, and exact WallpaperAgent-restart authorization." >&2
   exit 65
 fi
 
@@ -406,7 +406,7 @@ synthetic_txn_validate_external_state_snapshot() {
 }
 
 synthetic_txn_retire_production_registration() {
-  [[ "$1" == /Applications/idlescreen.app ]] || return 1
+  [[ "$1" == /Applications/IdleScreen.app ]] || return 1
   synthetic_physical_unregister_extension || return 1
   synthetic_physical_bootout_helper || return 1
   synthetic_physical_restart_wallpaper_agent || return 1
@@ -497,7 +497,7 @@ synthetic_txn_validate_quiescence_inventory() {
 
 synthetic_txn_rebind_gate_registration() {
   local app_path="$1"
-  [[ "$app_path" == /Applications/idlescreen.app ]] || return 1
+  [[ "$app_path" == /Applications/IdleScreen.app ]] || return 1
   synthetic_physical_bootstrap_helper "$app_path" || return 1
   synthetic_physical_rebind_extension "$app_path/$extension_relative"
 }
@@ -518,14 +518,14 @@ synthetic_txn_capture_gate_bound_state() {
 
 synthetic_txn_validate_gate_bound_state() {
   synthetic_physical_validate_state "$1" || return 1
-  local expected_extension="/Applications/idlescreen.app/$extension_relative"
+  local expected_extension="/Applications/IdleScreen.app/$extension_relative"
   [[ "$(synthetic_physical_snapshot_value "$1" launchd_registration)" == loaded &&
      "$(synthetic_physical_snapshot_value "$1" pluginkit_paths)" == "$expected_extension" &&
      "$(synthetic_physical_snapshot_value "$1" selected_path)" == "$expected_extension" ]]
 }
 
 synthetic_txn_retire_gate_registration() {
-  [[ "$1" == /Applications/idlescreen.app ]] || return 1
+  [[ "$1" == /Applications/IdleScreen.app ]] || return 1
   synthetic_physical_unregister_extension || return 1
   synthetic_physical_bootout_helper || return 1
   synthetic_physical_restart_wallpaper_agent || return 1
@@ -542,7 +542,7 @@ synthetic_txn_verify_gate_registration_retired() {
 
 synthetic_txn_restore_production_registration() {
   local snapshot="$1"
-  local app_path=/Applications/idlescreen.app
+  local app_path=/Applications/IdleScreen.app
   local extension_path="$app_path/$extension_relative"
   local expected_launchd expected_runtime expected_plugin expected_selection
   local expected_service current_service
@@ -582,7 +582,7 @@ synthetic_txn_restore_production_registration() {
 
 synthetic_txn_verify_production_registration() {
   local observed
-  observed="$(synthetic_physical_write_state /Applications/idlescreen.app)" || return 1
+  observed="$(synthetic_physical_write_state /Applications/IdleScreen.app)" || return 1
   /usr/bin/cmp -s "$1" <(printf '%s\n' "$observed")
 }
 

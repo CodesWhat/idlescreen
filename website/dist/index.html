@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#3B6CF0">
+  <title>IdleScreen · A Mac screen saver made of animated characters</title>
+  <meta name="description" content="IdleScreen is a signed and notarized macOS screen saver that turns procedural scenes or a live camera into a Metal-rendered field of animated characters. Free and open source, from CodesWhat.">
+  <link rel="canonical" href="https://idlescreen.codeswhat.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="IdleScreen · A Mac screen saver made of animated characters">
+  <meta property="og:description" content="Turn procedural scenes or a live camera into a Metal-rendered field of animated characters. Free and open source, for macOS 26 or newer.">
+  <meta property="og:url" content="https://idlescreen.codeswhat.com/">
+  <meta property="og:site_name" content="IdleScreen">
+  <meta property="og:image" content="https://idlescreen.codeswhat.com/assets/social-card.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="IdleScreen: a pixel CRT logo on cobalt, next to the name and the line &quot;A screen saver made of animated characters.&quot;">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="IdleScreen · A Mac screen saver made of animated characters">
+  <meta name="twitter:description" content="Turn procedural scenes or a live camera into a Metal-rendered field of animated characters. Free and open source, for macOS 26 or newer.">
+  <meta name="twitter:image" content="https://idlescreen.codeswhat.com/assets/social-card.png">
+  <meta name="twitter:image:alt" content="IdleScreen: a pixel CRT logo on cobalt, next to the name and the line &quot;A screen saver made of animated characters.&quot;">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "IdleScreen",
+    "description": "IdleScreen is a free, open-source, signed and notarized macOS screen saver with a native companion app. It renders procedural scenes or a live camera as a Metal-rendered field of animated characters.",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "macOS 26 or later",
+    "url": "https://idlescreen.codeswhat.com/",
+    "downloadUrl": "https://github.com/CodesWhat/idlescreen/releases/latest",
+    "license": "https://opensource.org/licenses/MIT",
+    "sameAs": "https://github.com/CodesWhat/idlescreen",
+    "image": "https://idlescreen.codeswhat.com/assets/social-card.png",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "CodesWhat",
+      "url": "https://codeswhat.com"
+    }
+  }
+  </script>
+  <link rel="icon" href="./assets/logo.png" type="image/png">
+  <link rel="apple-touch-icon" href="./assets/logo.png">
+  <link rel="preload" href="./assets/fonts/DepartureMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./assets/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap header-row">
+      <a class="brand" href="./" aria-label="IdleScreen home"><img src="./assets/logo.png" alt="" width="32" height="32"><span>IdleScreen</span></a>
+      <nav aria-label="Main navigation">
+        <a href="#patterns">Patterns</a>
+        <a href="#camera">Camera</a>
+        <a href="#displays">Displays</a>
+        <a href="#install">Install</a>
+        <a href="/docs">Docs</a>
+        <a href="https://github.com/CodesWhat/idlescreen">GitHub<span aria-hidden="true"> ↗</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero wrap" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Screen saver for macOS 26 and newer</p>
+        <h1 id="hero-title">A screen saver made of animated characters.</h1>
+        <p class="lede">Turn procedural scenes or a live camera into a Metal-rendered field of animated characters.</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/CodesWhat/idlescreen/releases/latest" data-download>Download for Mac<span aria-hidden="true"> ↓</span></a>
+          <a class="button" href="https://github.com/CodesWhat/idlescreen">View on GitHub<span aria-hidden="true"> ↗</span></a>
+        </div>
+        <div class="cmd" data-command>
+          <code id="brew-command">brew install --cask codeswhat/tap/idlescreen</code>
+          <button type="button" class="copy" data-copy="#brew-command" aria-label="Copy the Homebrew install command">Copy</button>
+        </div>
+        <p class="fine">Signed and notarized. Gatekeeper and System Integrity Protection stay enabled.</p>
+      </div>
+      <div class="hero-art">
+        <img src="./assets/logo.png" alt="IdleScreen logo: a pixel-art cream CRT with a green dithered glow on a cobalt background" width="512" height="512">
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="shots-title">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Screenshots</p>
+          <h2 id="shots-title">What it looks like.</h2>
+        </div>
+        <div class="shots">
+          <figure class="shot">
+            <img src="./assets/shots/warp-phosphor.webp" alt="Warp pattern: green phosphor characters swirling into a spiral" width="1600" height="1000">
+            <figcaption>Warp, Phosphor palette.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="./assets/shots/pixel-materials-sand-water.webp" alt="Pixel Materials: amber sand and blue water pouring down terraces, drawn as characters" width="1600" height="1000" loading="lazy">
+            <figcaption>Pixel Materials: sand and water.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="./assets/shots/pulse-blueprint.webp" alt="Pulse pattern: concentric blue rings of characters on a dark blueprint background" width="1600" height="1000" loading="lazy">
+            <figcaption>Pulse, Blueprint palette.</figcaption>
+          </figure>
+        </div>
+        <p class="shots-note">Real frames from IdleScreen's renderer, captured offscreen.</p>
+      </div>
+    </section>
+
+    <section class="section wrap" id="patterns" aria-labelledby="patterns-title">
+      <div class="section-head">
+        <p class="eyebrow">Patterns</p>
+        <h2 id="patterns-title">18 procedural patterns, plus sand and water.</h2>
+      </div>
+      <div class="section-body">
+        <p>Each pattern is drawn as a field of characters. Pick one, or use Auto Cycle to step through them.</p>
+        <ul class="chips" aria-label="Procedural patterns">
+          <li>Perlin Noise</li><li>Plasma</li><li>Sweep</li><li>Rain</li><li>Rainbow Cycle</li><li>Fire Effect</li>
+          <li>Ripple</li><li>Voronoi</li><li>Warp</li><li>Static</li><li>Pulse</li><li>DVD Bounce</li>
+          <li>Metaballs</li><li>Starfield</li><li>Spiral Galaxy</li><li>Terrain</li><li>Rain on Glass</li><li>Aurora</li>
+        </ul>
+        <h3>Pixel Materials</h3>
+        <p>Pixel Materials runs sand and water simulations with deterministic scene state. The terrain and world edges stay stable when a view is recreated or the displays change.</p>
+        <p>Saved Looks keep your settings. Controls cover color, scale, contrast, motion, terrain, materials, camera choice and mirroring.</p>
+      </div>
+    </section>
+
+    <section class="section wrap" id="camera" aria-labelledby="camera-title">
+      <div class="section-head">
+        <p class="eyebrow">Camera mode</p>
+        <h2 id="camera-title">Your camera, as characters. Frames stay local.</h2>
+      </div>
+      <div class="section-body">
+        <p>Camera mode renders the live camera feed through the same character renderer. If a frame is missing or stale, the renderer falls back to a procedural scene. It recovers after permission or device changes.</p>
+        <ul class="facts">
+          <li><strong>Only the camera agent touches the camera.</strong> A separately signed, sandboxed agent owns the whole camera lifecycle. Nothing else in the app links AVFoundation or opens a camera.</li>
+          <li><strong>Frames stay on your Mac.</strong> They pass through a fixed-size local mailbox. They aren't sent over the network, written to logs, or kept as test evidence.</li>
+          <li><strong>It stops when nobody's using it.</strong> Capture starts with the first valid request and stops after the last one ends.</li>
+          <li><strong>You choose when it asks.</strong> Camera access is requested only when you explicitly choose a camera effect.</li>
+        </ul>
+        <p><a href="https://github.com/CodesWhat/idlescreen/blob/main/docs/ARCHITECTURE.md#camera-lifecycle">Camera lifecycle in the architecture guide<span aria-hidden="true"> ↗</span></a></p>
+      </div>
+    </section>
+
+    <section class="section wrap" id="displays" aria-labelledby="displays-title">
+      <div class="section-head">
+        <p class="eyebrow">Multiple displays</p>
+        <h2 id="displays-title">One scene, one each, or one in focus.</h2>
+      </div>
+      <div class="section-body">
+        <dl class="defs">
+          <div><dt>Panorama</dt><dd>One scene stretched across all your displays.</dd></div>
+          <div><dt>Per Display</dt><dd>An independent scene on each display.</dd></div>
+          <div><dt>Focus Display</dt><dd>One display gets the active scene. The others get a quieter treatment.</dd></div>
+        </dl>
+        <p>The companion app's preview and the screen saver use the same display plan, so what you set up is what you get.</p>
+      </div>
+    </section>
+
+    <section class="section wrap" id="agents" aria-labelledby="agents-title">
+      <div class="section-head">
+        <p class="eyebrow">Agent signals</p>
+        <h2 id="agents-title">Optional Codex and Claude status.</h2>
+      </div>
+      <div class="section-body">
+        <p>Turn on the Codex or Claude integration and the saver can show an expiring status overlay for agent activity. It goes through the bundled <code>idlescreenctl</code> command, and every signal expires.</p>
+        <p>The signal carries a status only. No prompts, transcripts, commands or responses go in, and there's no network listener.</p>
+      </div>
+    </section>
+
+    <section class="band" id="install" aria-labelledby="install-title">
+      <div class="wrap section">
+        <div class="section-head">
+          <p class="eyebrow">Install</p>
+          <h2 id="install-title">Get it.</h2>
+        </div>
+        <div class="section-body">
+          <p>Download the signed, notarized DMG from the latest release, or install the Homebrew cask:</p>
+          <div class="cmd">
+            <code id="brew-command-2">brew install --cask codeswhat/tap/idlescreen</code>
+            <button type="button" class="copy" data-copy="#brew-command-2" aria-label="Copy the Homebrew install command">Copy</button>
+          </div>
+          <p>Open IdleScreen once, then select it in System Settings under Wallpaper and Screen Saver. Upgrade with <code>brew upgrade --cask idlescreen</code> or remove it with <code>brew uninstall --cask idlescreen</code>.</p>
+          <h3>Requirements</h3>
+          <ul class="plain">
+            <li>macOS 26 Tahoe or newer.</li>
+            <li>A universal build for Apple silicon and Intel.</li>
+            <li>A camera, only if you want camera mode.</li>
+          </ul>
+          <div class="note" id="not-verified">
+            <h3>Not verified on a device</h3>
+            <p>Some paths have automated or fixture coverage only, including sleep and wake, camera permission changes and Intel Macs. If one breaks for you, please open an issue. The README keeps the current list.</p>
+            <p><a href="https://github.com/CodesWhat/idlescreen#not-verified-on-a-device">Not verified on a device, in the README<span aria-hidden="true"> ↗</span></a></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap" id="faq" aria-labelledby="faq-title">
+      <div class="section-head">
+        <p class="eyebrow">FAQ</p>
+        <h2 id="faq-title">Quick answers.</h2>
+      </div>
+      <div class="section-body faq">
+        <details>
+          <summary>Does it send my camera frames anywhere?</summary>
+          <p>No. Frames stay in a local mailbox on your Mac. They aren't sent over the network or written to logs.</p>
+        </details>
+        <details>
+          <summary>Do I have to use the camera?</summary>
+          <p>No. The camera is asked for only when you choose a camera effect. The procedural patterns and Pixel Materials don't need it.</p>
+        </details>
+        <details>
+          <summary>Why is the install path lowercase?</summary>
+          <p>macOS lists the app, the screen saver and the camera agent as IdleScreen in System Settings. The installed path and the Homebrew cask name stay lowercase: <code>/Applications/idlescreen.app</code>.</p>
+        </details>
+        <details>
+          <summary>Does it run on Intel Macs?</summary>
+          <p>The build is universal, but Intel hasn't been verified on a device yet.</p>
+        </details>
+        <details>
+          <summary>Where do I report a bug?</summary>
+          <p>Use <a href="https://github.com/CodesWhat/idlescreen/issues">GitHub Issues</a>. Report vulnerabilities privately through the <a href="https://github.com/CodesWhat/idlescreen/blob/main/SECURITY.md">security policy</a>.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="band" id="project" aria-labelledby="project-title">
+      <div class="wrap section">
+        <div class="section-head">
+          <p class="eyebrow">Project</p>
+          <h2 id="project-title">Open source, MIT.</h2>
+        </div>
+        <div class="section-body">
+          <p class="badges">
+            <a href="https://codecov.io/gh/CodesWhat/idlescreen"><img src="https://codecov.io/gh/CodesWhat/idlescreen/graph/badge.svg" alt="Codecov coverage for CodesWhat/idlescreen" width="112" height="20"></a>
+          </p>
+          <h3>Star History</h3>
+          <a class="chart" href="https://www.star-history.com/#CodesWhat/idlescreen&amp;Date">
+            <picture>
+              <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=codeswhat/idlescreen&amp;type=date&amp;legend=top-left&amp;theme=dark">
+              <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=codeswhat/idlescreen&amp;type=date&amp;legend=top-left">
+              <img src="https://api.star-history.com/chart?repos=codeswhat/idlescreen&amp;type=date&amp;legend=top-left" alt="Star history chart for CodesWhat/idlescreen" width="600" height="400" loading="lazy">
+            </picture>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <div>
+        <a class="brand" href="./" aria-label="IdleScreen home"><img src="./assets/logo.png" alt="" width="32" height="32"><span>IdleScreen</span></a>
+        <p class="footer-note"><a href="https://codeswhat.com">CodesWhat</a>: small, sharp tools from one developer and a lot of agents.</p>
+        <p class="footer-note">Free software under the <a href="https://github.com/CodesWhat/idlescreen/blob/main/LICENSE">MIT License</a>.</p>
+      </div>
+      <nav aria-label="Project links">
+        <a href="https://github.com/CodesWhat/idlescreen">GitHub<span aria-hidden="true"> ↗</span></a>
+        <a href="https://github.com/CodesWhat/idlescreen/releases">Releases<span aria-hidden="true"> ↗</span></a>
+        <a href="https://github.com/CodesWhat/idlescreen/blob/main/docs/ROADMAP.md">Roadmap<span aria-hidden="true"> ↗</span></a>
+        <a href="https://github.com/CodesWhat/idlescreen/blob/main/SECURITY.md">Security<span aria-hidden="true"> ↗</span></a>
+        <a href="https://github.com/sponsors/scttbnsn">Sponsor<span aria-hidden="true"> ↗</span></a>
+      </nav>
+      <nav aria-label="Also from CodesWhat">
+        <span class="label">Also from CodesWhat</span>
+        <a href="https://dilated.codeswhat.com">Dilated<span aria-hidden="true"> ↗</span></a>
+        <a href="https://mouthtype.app">Mouthtype<span aria-hidden="true"> ↗</span></a>
+      </nav>
+    </div>
+  </footer>
+  <div class="toast" role="status" aria-live="polite" id="toast"></div>
+</body>
+</html>

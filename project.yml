@@ -299,6 +299,8 @@ targets:
     platform: macOS
     sources:
       - path: Sources/IdleScreenRenderer
+      - path: Products/IdleScreenApp/Resources/Fonts/DepartureMono-Regular.otf
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: IdleScreenRenderer
@@ -1182,6 +1184,8 @@ targets:
           - "Info.plist"
       - path: Products/IdleScreenApp/Resources/Fonts
         type: folder
+        buildPhase: resources
+      - path: Products/IdleScreenApp/Assets.xcassets
         buildPhase: resources
       - path: Tests/IdleScreenAppCompileGateTests
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift

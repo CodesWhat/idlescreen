@@ -10,7 +10,7 @@ usage() {
 [[ $# -eq 1 ]] || usage
 
 candidate_app="$1"
-destination_app="/Applications/idlescreen.app"
+destination_app="/Applications/IdleScreen.app"
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 signing_verifier="$project_root/scripts/verify-release-signing.sh"
 camera_product_verifier="$project_root/scripts/test-camera-agent-product.sh"
@@ -65,7 +65,7 @@ if /bin/ps ax -o comm= |
   exit 65
 fi
 if /bin/ps ax -o comm= |
-   grep -Fxq '/Applications/idlescreen.app/Contents/MacOS/IdleScreen'; then
+   grep -Fxiq '/Applications/IdleScreen.app/Contents/MacOS/IdleScreen'; then
   echo "REFUSED: the canonical companion is active; quit it before replacing its bundle." >&2
   exit 65
 fi

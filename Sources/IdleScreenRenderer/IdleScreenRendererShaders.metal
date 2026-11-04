@@ -1,6 +1,10 @@
 #include <metal_stdlib>
 using namespace metal;
 
+// Keep multiply-add pairs rounded separately so the CPU reference in
+// IdleScreenProceduralPatterns.swift hashes to the same cells.
+#pragma clang fp contract(off)
+
 struct IdleScreenCharacterVertexOut {
     float4 position [[position]];
     float2 textureCoordinate;
@@ -11,6 +15,14 @@ struct IdleScreenCharacterVertexOut {
 struct IdleScreenCharacterInstance {
     float4 gridBrightnessGlyph;
     float4 foreground;
+};
+
+struct IdleScreenAgentSpriteOverride {
+    uint cell;
+    uint mode;
+    float brightness;
+    float glyph;
+    float4 color;
 };
 
 struct IdleScreenCameraUniforms {
@@ -51,7 +63,25 @@ struct IdleScreenProceduralUniforms {
     float matrixTrailLength;
     float rainbowAmplitude;
     float fireDecay;
+    uint nextPatternIndex;
+    float blend;
     float4 foreground;
+    float2 seedOffset;
+    float2 seedCenter;
+    float sceneAspect;
+    float horizonRow;
+    uint framingEnabled;
+    float4 accent;
+};
+
+struct IdleScreenSpriteQuad {
+    float4 edges;
+    float4 color;
+};
+
+struct IdleScreenSpriteVertexOut {
+    float4 position [[position]];
+    float4 color;
 };
 
 static float gpuHash2D(float x, float y) {
@@ -131,13 +161,16 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
     float speed = params.speed;
     float scale = params.scale;
     float effectiveIntensity = params.intensity;
+    const float2 so = params.seedOffset;
+    const float2 sc = params.seedCenter;
+    const float asp = params.sceneAspect;
 
     if (patternIndex == 0) {
         // Perlin noise: intensity controls octave count, trailing controls contrast
         int octaves = min(1 + int(effectiveIntensity * 3.0), 4); // 1-4 octaves
         float contrast = 0.5 + params.trailing * 1.5;  // 0.5-2.0
-        float x = u * (10.0 * scale) + timestamp * (0.3 * speed);
-        float y = v * (10.0 * scale) + timestamp * (0.3 * speed);
+        float x = u * (10.0 * scale) + timestamp * (0.3 * speed) + so.x;
+        float y = v * (10.0 * scale) + timestamp * (0.3 * speed) + so.y;
         float noise = 0.0;
         float amp = 1.0;
         float freq = 1.0;
@@ -155,8 +188,8 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         // Plasma: intensity controls wave count, trailing controls amplitude
         int waveCount = min(3 + int(effectiveIntensity * 5.0), 8); // 3-8 waves
         float amplitude = 0.3 + params.trailing * 0.7;    // 0.3-1.0
-        float x = u * (10.0 * scale);
-        float y = v * (10.0 * scale);
+        float x = u * (10.0 * scale) + so.x;
+        float y = v * (10.0 * scale) + so.y;
         float t = timestamp * speed;
         float sum = 0.0;
         for (int w = 0; w < waveCount; w++) {
@@ -170,7 +203,7 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         // Diagonal sweep: intensity controls band count, trailing controls softness
         int bandCount = min(1 + int(effectiveIntensity * 5.0), 6); // 1-6 bands
         float softness = 0.1 + params.trailing * 0.9;    // 0.1-1.0 (hard to soft)
-        float diagonal = (u + v) * (float(bandCount) * scale) + timestamp * (0.2 * speed);
+        float diagonal = (u + v) * (float(bandCount) * scale) + timestamp * (0.2 * speed) + so.x;
         float sweep = fmod(diagonal, 1.0);
         if (sweep < 0.0) sweep += 1.0;
         brightness = gpuSmoothstep(0.0, softness, sweep);
@@ -185,9 +218,9 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
 
         for (int drop = 0; drop < dropCount; drop++) {
             float dropSeed = colSeed * 1.71 + float(drop) * 13.37;
-            float dropSpeed = 0.3 + gpuHash2D(dropSeed, 0.0) * 1.2;
+            float dropSpeed = 0.3 + gpuHash2D(dropSeed, so.x) * 1.2;
             dropSpeed *= speed;
-            float dropOffset = gpuHash2D(dropSeed * 2.93, 1.0 + float(drop)) * totalHeight;
+            float dropOffset = gpuHash2D(dropSeed * 2.93, 1.0 + float(drop) + so.x) * totalHeight;
             float headPos = fmod(timestamp * dropSpeed + dropOffset, totalHeight);
             float dist = headPos - rowF;
             if (dist < 0) dist += totalHeight;
@@ -205,7 +238,7 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         float sum = 0.0;
         for (int l = 0; l < layers; l++) {
             float freq = 1.0 + float(l) * 0.7;
-            float phase = float(l) * 0.5;
+            float phase = float(l) * 0.5 + so.x;
             float hue = fmod((u + v) * scale * freq + timestamp * (0.3 * speed) + phase, 1.0);
             sum += 0.5 + amplitude * sin(hue * 2.0 * M_PI_F);
         }
@@ -217,10 +250,10 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         float turbulence = 0.5 + effectiveIntensity * 1.5;
         float spreadWidth = 10.0 + params.trailing * 30.0;
         // Multiple noise octaves for richer flame shape
-        float baseHeat = gpuSmoothNoise2D(u * (spreadWidth * scale) + timestamp * (2.0 * speed), 0.0);
-        float turb1 = gpuSmoothNoise2D(u * (spreadWidth * 2.0 * scale) + timestamp * (3.0 * speed),
+        float baseHeat = gpuSmoothNoise2D(u * (spreadWidth * scale) + timestamp * (2.0 * speed) + so.x, 0.0);
+        float turb1 = gpuSmoothNoise2D(u * (spreadWidth * 2.0 * scale) + timestamp * (3.0 * speed) + so.x,
                                         v * 5.0 + timestamp * speed);
-        float turb2 = gpuSmoothNoise2D(u * (spreadWidth * 3.0 * scale) + timestamp * (4.0 * speed) + 7.0,
+        float turb2 = gpuSmoothNoise2D(u * (spreadWidth * 3.0 * scale) + timestamp * (4.0 * speed) + 7.0 + so.x,
                                         v * 8.0 - timestamp * speed * 0.5);
         float combinedHeat = clamp(baseHeat * 0.5 + turb1 * 0.3 * turbulence + turb2 * 0.2 * turbulence, 0.0, 1.0);
         // Boost base heat so flames are actually bright
@@ -239,9 +272,9 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         float waveWidth = 4.0 + params.trailing * 12.0;    // 4-16 spatial frequency
         float sum = 0.0;
         for (int i = 0; i < sourceCount; i++) {
-            float cx = gpuHash2D(float(i) * 7.13, 1.0);
-            float cy = gpuHash2D(float(i) * 3.71, 2.0);
-            float dist = length(float2(u - cx, v - cy));
+            float cx = gpuHash2D(float(i) * 7.13, 1.0 + so.x);
+            float cy = gpuHash2D(float(i) * 3.71, 2.0 + so.y);
+            float dist = length(float2((u - cx) * asp, v - cy));
             sum += sin(dist * waveWidth * scale - timestamp * speed);
         }
         brightness = (sum / float(sourceCount)) * 0.5 + 0.5;
@@ -250,13 +283,13 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         int seedCount = min(3 + int(effectiveIntensity * 13.0), 16); // 3-16 seeds
         float minDist2 = 1e10;
         for (int i = 0; i < seedCount; i++) {
-            float bx = gpuHash2D(float(i) * 5.17, 3.0);
-            float by = gpuHash2D(float(i) * 9.31, 4.0);
+            float bx = gpuHash2D(float(i) * 5.17, 3.0 + so.x);
+            float by = gpuHash2D(float(i) * 9.31, 4.0 + so.y);
             float ddx = gpuHash2D(float(i) * 2.53, 5.0) - 0.5;
             float ddy = gpuHash2D(float(i) * 6.79, 6.0) - 0.5;
             float sx = bx + ddx * sin(timestamp * speed * 0.3 + float(i));
             float sy = by + ddy * cos(timestamp * speed * 0.4 + float(i) * 1.3);
-            float dx2 = (u - sx) * scale;
+            float dx2 = (u - sx) * asp * scale;
             float dy2 = (v - sy) * scale;
             float dist2 = dx2 * dx2 + dy2 * dy2;
             minDist2 = min(minDist2, dist2);
@@ -269,8 +302,8 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         // Warp: intensity controls angular frequency (spiral arms), trailing controls distortion depth
         float angularFreq = 1.0 + effectiveIntensity * 7.0;  // 1-8 spiral arms
         float distortion = 5.0 + params.trailing * 15.0;   // 5-20 radial frequency
-        float2 center = float2(0.5, 0.5);
-        float2 delta = float2(u - center.x, v - center.y);
+        float2 center = float2(0.5, 0.5) + sc;
+        float2 delta = float2((u - center.x) * asp, v - center.y);
         float radius = length(delta) + 0.001;
         float angle = atan2(delta.y, delta.x);
         brightness = sin(log(radius) * distortion * scale - timestamp * speed + angle * angularFreq) * 0.5 + 0.5;
@@ -279,15 +312,15 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         float glitchRate = 3.0 + effectiveIntensity * 27.0;   // 3-30 updates/sec
         float bandSize = 1.0 + params.trailing * 4.0;       // 1-5 row grouping
         float quantizedRow = floor(float(row) / bandSize) * bandSize;
-        float bandOffset = gpuHash2D(quantizedRow + floor(timestamp * glitchRate * speed), 0.0);
-        float noise = gpuHash2D(float(col) + bandOffset * float(columns), quantizedRow + floor(timestamp * (glitchRate * 2.0) * speed));
+        float bandOffset = gpuHash2D(quantizedRow + floor(timestamp * glitchRate * speed), so.y);
+        float noise = gpuHash2D(float(col) + bandOffset * float(columns), quantizedRow + floor(timestamp * (glitchRate * 2.0) * speed) + so.x);
         brightness = noise;
     } else if (patternIndex == 10) {
         // Pulse: expanding sonar rings from center with trailing glow
         int ringCount = min(2 + int(effectiveIntensity * 6.0), 8);   // 2-8 rings
         float ringWidth = 0.02 + params.trailing * 0.13;   // 0.02-0.15 thickness
-        float2 center = float2(0.5, 0.5);
-        float dist = length(float2((u - center.x) * scale, (v - center.y) * scale));
+        float2 center = float2(0.5, 0.5) + sc;
+        float dist = length(float2((u - center.x) * asp * scale, (v - center.y) * scale));
         float maxRadius = 1.5 * scale;
         float ringSpacing = maxRadius / float(ringCount);
         float sum = 0.0;
@@ -310,8 +343,8 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         // Bounce position via triangle wave (ping-pong)
         float rangeX = 1.0 - logoW;
         float rangeY = 1.0 - logoH;
-        float px = fmod(timestamp * speed * vx, rangeX * 2.0);
-        float py = fmod(timestamp * speed * vy, rangeY * 2.0);
+        float px = fmod((timestamp + so.x) * speed * vx, rangeX * 2.0);
+        float py = fmod((timestamp + so.y) * speed * vy, rangeY * 2.0);
         if (px > rangeX) px = rangeX * 2.0 - px;
         if (py > rangeY) py = rangeY * 2.0 - py;
         // Distance from pixel to logo rectangle
@@ -329,13 +362,13 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         int blobCount = min(3 + int(effectiveIntensity * 7.0), 10); // 3-10 blobs
         float field = 0.0;
         for (int i = 0; i < blobCount; i++) {
-            float bx = gpuHash2D(float(i) * 5.17, 3.0);
-            float by = gpuHash2D(float(i) * 9.31, 4.0);
+            float bx = gpuHash2D(float(i) * 5.17, 3.0 + so.x);
+            float by = gpuHash2D(float(i) * 9.31, 4.0 + so.y);
             float ox = 0.3 * sin(timestamp * speed * 0.4 + float(i) * 2.1);
             float oy = 0.3 * cos(timestamp * speed * 0.3 + float(i) * 1.7);
             float cx = bx + ox;
             float cy = by + oy;
-            float dx = (u - cx) * scale;
+            float dx = (u - cx) * asp * scale;
             float dy = (v - cy) * scale;
             float dist2 = dx * dx + dy * dy + 0.001;
             // Blob radius controlled by trailing: larger trailing = fatter blobs
@@ -353,8 +386,8 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
             // Tile the UV space to create a grid of stars
             float tileSize = 0.08 / (scale * layerDepth);
             float offsetT = timestamp * layerSpeed * 0.1;
-            float su = fmod(u + offsetT * 0.3 + float(layer) * 0.13, 1.0);
-            float sv = fmod(v + offsetT * 0.2 + float(layer) * 0.17, 1.0);
+            float su = fmod(u + offsetT * 0.3 + float(layer) * 0.13 + so.x, 1.0);
+            float sv = fmod(v + offsetT * 0.2 + float(layer) * 0.17 + so.y, 1.0);
             float cellX = floor(su / tileSize);
             float cellY = floor(sv / tileSize);
             float localU = fmod(su, tileSize) / tileSize;
@@ -372,8 +405,8 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         brightness = clamp(starBright, 0.0, 1.0);
     } else if (patternIndex == 14) {
         // Spiral Galaxy: rotating logarithmic spiral arms with bright core
-        float2 center = float2(0.5, 0.5);
-        float dx = (u - center.x) * scale;
+        float2 center = float2(0.5, 0.5) + sc;
+        float dx = (u - center.x) * asp * scale;
         float dy = (v - center.y) * scale;
         float radius = length(float2(dx, dy)) + 0.001;
         float angle = atan2(dy, dx);
@@ -392,8 +425,8 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         brightness = clamp(core + arms, 0.0, 1.0);
     } else if (patternIndex == 15) {
         // Terrain: animated topographic contour lines from layered noise
-        float nx = u * 6.0 * scale + timestamp * speed * 0.05;
-        float ny = v * 6.0 * scale + timestamp * speed * 0.03;
+        float nx = u * 6.0 * scale + timestamp * speed * 0.05 + so.x;
+        float ny = v * 6.0 * scale + timestamp * speed * 0.03 + so.y;
         // Multi-octave noise for terrain height
         float height = gpuSmoothNoise2D(nx, ny) * 0.6
                       + gpuSmoothNoise2D(nx * 2.0 + 5.0, ny * 2.0 + 5.0) * 0.3
@@ -414,15 +447,15 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
         int streakCount = min(5 + int(effectiveIntensity * 10.0), 15); // 5-15 streaks
         for (int i = 0; i < streakCount; i++) {
             // Each streak has a random X position, width, speed
-            float streakX = gpuHash2D(float(i) * 7.13, 1.0);
-            float streakWidth = 0.01 + gpuHash2D(float(i) * 3.71, 2.0) * 0.03;
-            float streakSpeed = 0.1 + gpuHash2D(float(i) * 11.37, 3.0) * 0.3;
+            float streakX = gpuHash2D(float(i) * 7.13, 1.0 + so.x);
+            float streakWidth = 0.01 + gpuHash2D(float(i) * 3.71, 2.0 + so.x) * 0.03;
+            float streakSpeed = 0.1 + gpuHash2D(float(i) * 11.37, 3.0 + so.x) * 0.3;
             // Wobble the streak horizontally
             float wobble = 0.01 * sin(v * 20.0 * scale + timestamp * speed + float(i) * 5.0);
             float xDist = abs(u - streakX - wobble);
             if (xDist < streakWidth) {
                 // The streak head moves down vertically
-                float headY = fmod(timestamp * speed * streakSpeed + gpuHash2D(float(i) * 5.0, 4.0), 1.3);
+                float headY = fmod(timestamp * speed * streakSpeed + gpuHash2D(float(i) * 5.0, 4.0 + so.x), 1.3);
                 float trailLen = 0.1 + params.trailing * 0.4;
                 float yDist = headY - v;
                 if (yDist > 0.0 && yDist < trailLen) {
@@ -446,15 +479,15 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
             float waveSpeed = (0.5 + float(i) * 0.3) * speed;
             // Horizontal wave creating curtain shape
             float wave = baseY
-                        + 0.08 * sin(u * 8.0 * scale + timestamp * waveSpeed + float(i) * 2.0)
-                        + 0.04 * sin(u * 15.0 * scale - timestamp * waveSpeed * 0.7 + float(i) * 5.0)
+                        + 0.08 * sin(u * 8.0 * scale + timestamp * waveSpeed + float(i) * 2.0 + so.x)
+                        + 0.04 * sin(u * 15.0 * scale - timestamp * waveSpeed * 0.7 + float(i) * 5.0 + so.y)
                         + 0.02 * sin(u * 25.0 * scale + timestamp * waveSpeed * 1.3);
             // Vertical falloff from curtain center
             float dist = abs(v - wave);
             float curtainWidth = 0.03 + params.trailing * 0.08;
             float curtainBright = gpuSmoothstep(curtainWidth, 0.0, dist);
             // Shimmer
-            float shimmer = 0.7 + 0.3 * sin(u * 40.0 * scale + timestamp * speed * 3.0 + float(i) * 11.0);
+            float shimmer = 0.7 + 0.3 * sin(u * 40.0 * scale + timestamp * speed * 3.0 + float(i) * 11.0 + so.x);
             auroraSum += curtainBright * shimmer * (0.6 + 0.4 / float(i + 1));
         }
         brightness = clamp(auroraSum, 0.0, 1.0);
@@ -463,6 +496,21 @@ static float2 generatePattern(uint col, uint row, uint columns, uint rows,
     uint charIndex = uint(brightness * float(characterCount - 1));
     charIndex = min(charIndex, characterCount - 1);
     return float2(float(charIndex), brightness);
+}
+
+/// Framing mask: a quiet sky above the horizon row, the pattern as ground
+/// below. Mirrors IdleScreenSceneFramingMask in Swift.
+static float idleScreenFramingMask(float row, float horizonRow, float originRow) {
+    if (row < horizonRow) {
+        const float sceneHorizon = horizonRow + originRow;
+        const float t = sceneHorizon > 0.0
+            ? clamp((row + originRow) / sceneHorizon, 0.0, 1.0)
+            : 1.0;
+        return 0.10 + (0.24 - 0.10) * t;
+    }
+    const float t = clamp((row - horizonRow) / 8.0, 0.0, 1.0);
+    const float eased = t * t * (3.0 - 2.0 * t);
+    return 0.55 + (1.0 - 0.55) * eased;
 }
 
 kernel void idleScreenProceduralInstances(
@@ -492,9 +540,28 @@ kernel void idleScreenProceduralInstances(
         uniforms.glyphCount,
         uniforms
     );
-    const float sourceBrightness = clamp(sample.y, 0.0, 1.0);
+    float sourceBrightness = clamp(sample.y, 0.0, 1.0);
     uint glyphIndex = uint(sample.x);
-    if (uniforms.patternIndex == 3) {
+    uint shuffledPattern = uniforms.patternIndex;
+    if (uniforms.blend > 0.0) {
+        const float2 nextSample = generatePattern(
+            sceneColumn,
+            sceneRow,
+            uniforms.sceneSize.x,
+            uniforms.sceneSize.y,
+            uniforms.nextPatternIndex,
+            uniforms.timestamp,
+            uniforms.glyphCount,
+            uniforms
+        );
+        sourceBrightness += (clamp(nextSample.y, 0.0, 1.0) - sourceBrightness)
+            * uniforms.blend;
+        glyphIndex = uint(sourceBrightness * float(uniforms.glyphCount - 1));
+        if (uniforms.blend >= 0.5) {
+            shuffledPattern = uniforms.nextPatternIndex;
+        }
+    }
+    if (shuffledPattern == 3) {
         const float shuffleRate = sourceBrightness > 0.01 ? 6.0 : 0.5;
         const float tick = floor(uniforms.timestamp * shuffleRate);
         const float signal = gpuHash2D(
@@ -510,6 +577,26 @@ kernel void idleScreenProceduralInstances(
         0.0,
         1.0
     );
+    if (uniforms.framingEnabled != 0) {
+        const float mask = idleScreenFramingMask(
+            float(position.y),
+            uniforms.horizonRow,
+            float(uniforms.sceneOrigin.y)
+        );
+        brightness *= mask;
+        if (shuffledPattern != 3) {
+            glyphIndex = min(
+                uint(sourceBrightness * mask * float(uniforms.glyphCount - 1)),
+                uniforms.glyphCount - 1
+            );
+        }
+    }
+    float4 foreground = uniforms.foreground;
+    if (uniforms.accent.w > 0.0
+        && brightness >= 0.80
+        && brightness <= 0.905) {
+        foreground = uniforms.accent;
+    }
     brightness *= uniforms.sceneBrightness;
     const uint instanceIndex = position.y * uniforms.gridSize.x + position.x;
     instances[instanceIndex].gridBrightnessGlyph = float4(
@@ -518,7 +605,36 @@ kernel void idleScreenProceduralInstances(
         brightness,
         float(glyphIndex)
     );
-    instances[instanceIndex].foreground = uniforms.foreground;
+    instances[instanceIndex].foreground = foreground;
+}
+
+// Sparse sprite pass, run after whichever kernel filled the instance buffer.
+// Mode 0 scales the scene brightness; mode 1 replaces brightness, glyph and
+// colour. Overrides are unique per cell, so threads never race.
+kernel void idleScreenAgentSpriteOverrides(
+    device IdleScreenCharacterInstance *instances [[buffer(0)]],
+    const device IdleScreenAgentSpriteOverride *overrides [[buffer(1)]],
+    constant uint2 &limits [[buffer(2)]],
+    uint index [[thread_position_in_grid]]
+) {
+    if (index >= limits.x) {
+        return;
+    }
+    const IdleScreenAgentSpriteOverride entry = overrides[index];
+    if (entry.cell >= limits.y) {
+        return;
+    }
+    if (entry.mode == 0) {
+        // Halo: flag the cell with a negative brightness. The fragment applies
+        // the tone floors first and the halo factor after, so a dimmed glyph
+        // really clears instead of sitting on the floor.
+        instances[entry.cell].gridBrightnessGlyph.z =
+            -fabs(instances[entry.cell].gridBrightnessGlyph.z);
+    } else {
+        instances[entry.cell].gridBrightnessGlyph.z = entry.brightness;
+        instances[entry.cell].gridBrightnessGlyph.w = entry.glyph;
+        instances[entry.cell].foreground = entry.color;
+    }
 }
 
 kernel void idleScreenCameraInstances(
@@ -683,6 +799,54 @@ fragment float4 idleScreenCharacterFragment(
 ) {
     constexpr sampler atlasSampler(filter::linear, address::clamp_to_edge);
     const float alpha = atlas.sample(atlasSampler, input.textureCoordinate).a;
-    const float intensity = mix(0.12, 1.0, input.brightness);
-    return float4(input.foreground.rgb * intensity, alpha * input.brightness);
+    // Gamma lifts mid-tones; the floors keep a dim glyph legible. A cell at
+    // zero brightness stays invisible (dimmed displays), so the floors fade
+    // in over the first few percent.
+    // A negative brightness marks a sprite halo cell: the factor multiplies
+    // the final colour and alpha, after the floors. Keep it equal to
+    // AgentSpriteLayout.haloFactor.
+    const float brightness = fabs(input.brightness);
+    const float halo = input.brightness < 0.0 ? 0.10 : 1.0;
+    const float lum = pow(clamp(brightness, 0.0, 1.0), 0.7);
+    const float presence = smoothstep(0.0, 0.04, brightness);
+    const float colorScale = mix(0.22, 1.0, lum) * presence * halo;
+    const float alphaScale = mix(0.35, 1.0, lum) * presence * halo;
+    return float4(input.foreground.rgb * colorScale, alpha * alphaScale);
+}
+
+// Sprite lattice pass: one solid quad per lattice pixel, positions in view
+// points so the pixels stay square whatever the grid is.
+vertex IdleScreenSpriteVertexOut idleScreenSpriteVertex(
+    uint vertexID [[vertex_id]],
+    uint instanceID [[instance_id]],
+    constant float2 &viewSize [[buffer(0)]],
+    constant IdleScreenSpriteQuad *quads [[buffer(1)]]
+) {
+    const float2 corners[6] = {
+        float2(0, 0),
+        float2(1, 0),
+        float2(0, 1),
+        float2(0, 1),
+        float2(1, 0),
+        float2(1, 1),
+    };
+    const IdleScreenSpriteQuad quad = quads[instanceID];
+    const float2 corner = corners[vertexID];
+    const float x = corner.x > 0.5 ? quad.edges.z : quad.edges.x;
+    const float y = corner.y > 0.5 ? quad.edges.w : quad.edges.y;
+    IdleScreenSpriteVertexOut output;
+    output.position = float4(
+        x / viewSize.x * 2.0 - 1.0,
+        1.0 - y / viewSize.y * 2.0,
+        0,
+        1
+    );
+    output.color = quad.color;
+    return output;
+}
+
+fragment float4 idleScreenSpriteFragment(
+    IdleScreenSpriteVertexOut input [[stage_in]]
+) {
+    return input.color;
 }

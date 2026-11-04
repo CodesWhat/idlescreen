@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
+import camera_gate_app_paths
+
 
 class EvidenceFailure(Exception):
     pass
@@ -893,12 +895,16 @@ def parse_evidence_manifest(
         fail("evidence manifest log SHA-256 is malformed")
     if sha256_file(log_path) != values["log_sha256"]:
         fail("combined log differs from its recorded SHA-256")
+    try:
+        app_path = camera_gate_app_paths.app_path_named_by(values["helper_path"])
+    except ValueError as error:
+        fail(str(error))
     expected_helper_path = (
-        "/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/"
+        f"{app_path}/Contents/Helpers/IdleScreenCameraAgent.app/"
         "Contents/MacOS/IdleScreenCameraAgent"
     )
     expected_extension_path = (
-        "/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/"
+        f"{app_path}/Contents/PlugIns/IdleScreenScreenSaver.appex/"
         "Contents/MacOS/IdleScreenScreenSaver"
     )
     if values["helper_path"] != expected_helper_path:

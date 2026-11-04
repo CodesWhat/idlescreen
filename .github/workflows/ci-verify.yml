@@ -26,7 +26,7 @@ permissions:
 jobs:
   build-and-test:
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Harden runner
@@ -38,8 +38,13 @@ jobs:
             formulae.brew.sh:443
             ghcr.io:443
             github.com:443
+            nodejs.org:443
             objects.githubusercontent.com:443
             pkg-containers.githubusercontent.com:443
+            playwright.download.prss.microsoft.com:443
+            cdn.playwright.dev:443
+            storage.googleapis.com:443
+            registry.npmjs.org:443
             release-assets.githubusercontent.com:443
 
       - name: Checkout
@@ -85,6 +90,27 @@ jobs:
           ./scripts/test-release-archive-provenance-fixtures.sh
           ./scripts/test-r1-release-candidate-fixtures.sh
           ./scripts/test-public-release-contract.sh
+          ./scripts/test-camera-gate-c4-evidence-fixtures.py
+          ./scripts/test-camera-gate-c5-evidence-fixtures.py
+          ./scripts/test-camera-agent-profile-policy.sh
+          ./scripts/test-camera-gate-a1-config.sh
+          ./scripts/test-camera-gate-a1-runner.sh
+          ./scripts/test-companion-launch-policy.sh
+          ./scripts/test-console-lock-state.sh
+          ./scripts/test-host-lifecycle-log.sh
+          ./scripts/test-host-lifecycle-matrix-evidence.sh
+          ./scripts/test-host-lifecycle-matrix-guard.sh
+          ./scripts/test-idle-activation-log.sh
+          ./scripts/test-install-phase1-release-registration.sh
+          ./scripts/test-live-configuration-delivery-guard.sh
+          ./scripts/test-physical-state-transition.sh
+          ./scripts/test-product-identity-verifier.sh
+          ./scripts/test-record-host-lifecycle-matrix-cycle.sh
+          ./scripts/test-selection-probe.sh
+          ./scripts/test-shared-state-verifier.sh
+          ./scripts/test-synthetic-gate-contracts.sh
+          ./scripts/test-synthetic-gate-transaction.sh
+          ./scripts/test-release-sbom-symlinks.sh
 
       - name: Build canonical companion product
         run: |
@@ -95,6 +121,14 @@ jobs:
             -derivedDataPath /tmp/idlescreen-ci-product \
             CODE_SIGNING_ALLOWED=NO \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+
+      - name: Set up Node.js for website and docs checks
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      - name: Website and docs build and browser checks (Chromium, Firefox, WebKit)
+        run: ./scripts/verify-website-browsers.sh
 
   coverage:
     if: github.event_name == 'push'

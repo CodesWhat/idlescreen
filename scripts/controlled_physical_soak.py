@@ -46,7 +46,7 @@ MAX_COLLECTOR_BYTES = 1024 * 1024
 MAX_PLAN_BYTES = 1024 * 1024
 SAMPLE_INTERVAL_SECONDS = 1
 MAX_LIFECYCLE_EVENTS = 256
-APP_PATH = Path("/Applications/idlescreen.app")
+APP_PATH = Path("/Applications/IdleScreen.app")
 APP_EXECUTABLE_PATH = APP_PATH / "Contents/MacOS/IdleScreen"
 HELPER_PATH = APP_PATH / "Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent"
 EXTENSION_PATH = APP_PATH / "Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver"
@@ -370,7 +370,7 @@ def build_plan(
     ):
         raise ControlledSoakError("duration must be between 10 and 900 seconds")
     if candidate_path != APP_PATH:
-        raise ControlledSoakError("candidate path must be /Applications/idlescreen.app")
+        raise ControlledSoakError("candidate path must be /Applications/IdleScreen.app")
     definition = _C8.load_matrix_definition(matrix_path)
     _C8.validate_pending_row(definition, "soak")
     created = now or datetime.now(timezone.utc).replace(microsecond=0)

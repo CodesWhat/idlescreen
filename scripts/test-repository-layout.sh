@@ -246,4 +246,43 @@ grep -Fq 'git ls-files --others --exclude-standard -- IdleScreen.xcodeproj' \
 grep -Fq 'Metal-rendered field of animated characters' README.md ||
   fail "README.md does not identify the product"
 
+# Release-gate parity: every scripts/test-* or test_* file must run in CI and in
+# scripts/verify.sh, or sit in the explicit allowlist below. Twice a release-only
+# fixture broke because neither gate ran it.
+#
+# Allowlist: tests that are physical, consented, credential-bound, or need a
+# built artifact argument. Never add a hardware-free, consent-free fixture here.
+# Format: <basename> <reason>
+nonfixture_tests="
+test-camera-agent-product.sh needs a built IdleScreen.app path and Debug|Release; inspects a real product
+test-camera-gate-c2.sh xcodegen plus xcodebuild aggregate; its fixtures run individually and its schemes run in test-modern-schemes.sh
+test-camera-gate-c3.sh needs a provisioned Release .xcarchive (exits BLOCKED without one); its fixture gate runs via test-release-archive-provenance-fixtures.sh
+test-host-lifecycle.sh physical: launches ScreenSaverEngine; requires IDLESCREEN_ALLOW_PHYSICAL_TESTS=YES
+test-host-lifecycle-matrix.sh physical: repeated focus-changing screen-saver cycles; requires IDLESCREEN_ALLOW_PHYSICAL_TESTS=YES
+test-idle-lifecycle.sh physical: waits on a real idle activation of an installed app
+test-live-configuration-delivery.sh physical: live companion delivery; requires IDLESCREEN_ALLOW_PHYSICAL_TESTS=YES
+test-modern-product.sh needs a built IdleScreen.app path; launches the product
+test-phase1.sh physical: builds and may register the product; requires IDLESCREEN_ALLOW_PHYSICAL_TESTS=YES
+test-synthetic-gate-product.sh needs built synthetic gate product artifacts and inspects real signatures
+"
+ci_text="$(cat .github/workflows/ci-verify.yml)"
+verify_text="$(cat scripts/verify.sh)"
+allowlisted() {
+  printf '%s\n' "$nonfixture_tests" | awk -v n="$1" '$1 == n { found = 1 } END { exit !found }'
+}
+for allowed in $(printf '%s\n' "$nonfixture_tests" | awk 'NF { print $1 }'); do
+  [[ -f "scripts/$allowed" ]] ||
+    fail "release-gate allowlist names a script that no longer exists: $allowed"
+done
+for test_path in scripts/test-*.sh scripts/test-*.py scripts/test_*.py; do
+  [[ -f "$test_path" ]] || continue
+  test_name="$(basename "$test_path")"
+  allowlisted "$test_name" && continue
+  # test-repository-layout.sh and test-project-contracts.sh run in the contracts step.
+  grep -Fq "scripts/$test_name" <<<"$ci_text" ||
+    fail "$test_name is not run by CI; add it to the deterministic fixtures step or to the physical/credential allowlist"
+  grep -Fq "scripts/$test_name" <<<"$verify_text" ||
+    fail "$test_name is not run by scripts/verify.sh; add it to release_fixtures or to the physical/credential allowlist"
+done
+
 echo "PASS: one canonical modern project is active and private planning material is excluded."

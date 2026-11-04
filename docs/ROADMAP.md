@@ -20,7 +20,7 @@ release is prepared as `0.2.0` build 65.
 - Rebuild the Displays, Integrations and System settings pages on a shared
   design language that follows the system appearance and Increase Contrast.
 - Show "IdleScreen" as the app, saver and camera agent name in macOS. The
-  installed path stays `/Applications/idlescreen.app`.
+  installed path is now `/Applications/IdleScreen.app`.
 - Keep the companion in the menu bar and drop its Dock tile when the main
   window closes.
 - Give the app icon a phosphor background so the CRT chassis reads at Dock size.

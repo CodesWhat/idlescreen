@@ -1,0 +1,312 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+@source "../../node_modules/fumadocs-ui/dist/**/*.js";
+
+/*
+ * IdleScreen identity, font and colour only: Departure Mono headings, Inter text, cobalt accent.
+ * Values match website/dist/styles.css. Fumadocs' own --color-fd-* palette is pointed at them so
+ * every Fumadocs component follows the mode with no component swap.
+ */
+:root {
+  --is-bg: #ffffff;
+  --is-bg-alt: #f3f5fb;
+  --is-fg: #14161c;
+  --is-muted: #525a6b;
+  --is-line: #d9deea;
+  --is-accent: #3b6cf0;
+  --is-accent-text: #2f5bd8;
+  --is-on-accent: #ffffff;
+  --is-code-bg: #eef1f9;
+  --is-mono: var(--font-departure-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --is-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-fd-background: var(--is-bg);
+  --color-fd-foreground: var(--is-fg);
+  --color-fd-muted: var(--is-bg-alt);
+  --color-fd-muted-foreground: var(--is-muted);
+  --color-fd-popover: var(--is-bg);
+  --color-fd-popover-foreground: var(--is-fg);
+  --color-fd-card: var(--is-bg-alt);
+  --color-fd-card-foreground: var(--is-fg);
+  --color-fd-border: var(--is-line);
+  --color-fd-primary: var(--is-accent-text);
+  --color-fd-primary-foreground: var(--is-on-accent);
+  --color-fd-secondary: var(--is-bg-alt);
+  --color-fd-secondary-foreground: var(--is-fg);
+  --color-fd-accent: color-mix(in srgb, var(--is-accent) 10%, transparent);
+  --color-fd-accent-foreground: var(--is-fg);
+  --color-fd-ring: var(--is-accent);
+}
+.dark {
+  --is-bg: #0e1117;
+  --is-bg-alt: #141923;
+  --is-fg: #eef1f8;
+  --is-muted: #a3acbf;
+  --is-line: #262d3b;
+  --is-accent-text: #7f9fff;
+  --is-code-bg: #1a2030;
+  --color-fd-background: var(--is-bg);
+  --color-fd-foreground: var(--is-fg);
+  --color-fd-muted: var(--is-bg-alt);
+  --color-fd-muted-foreground: var(--is-muted);
+  --color-fd-popover: var(--is-bg-alt);
+  --color-fd-popover-foreground: var(--is-fg);
+  --color-fd-card: var(--is-bg-alt);
+  --color-fd-card-foreground: var(--is-fg);
+  --color-fd-border: var(--is-line);
+  --color-fd-primary: var(--is-accent-text);
+  --color-fd-secondary: var(--is-bg-alt);
+  --color-fd-secondary-foreground: var(--is-fg);
+  --color-fd-accent: color-mix(in srgb, var(--is-accent) 18%, transparent);
+  --color-fd-accent-foreground: var(--is-fg);
+}
+/* neutral.css re-tints the sidebar in dark mode; the palette above already owns those colours. */
+.dark #nd-sidebar {
+  --color-fd-muted: var(--is-bg-alt);
+  --color-fd-secondary: var(--is-bg-alt);
+}
+
+@layer base {
+  html {
+    scroll-padding-top: 72px;
+    background: var(--is-bg);
+  }
+  body {
+    margin: 0;
+    background: var(--is-bg);
+    color: var(--is-fg);
+    font-family: var(--is-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 3px solid var(--is-accent);
+    outline-offset: 2px;
+  }
+}
+
+.skip {
+  position: absolute;
+  left: -999px;
+  top: 8px;
+  z-index: 100;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--is-accent);
+  color: var(--is-on-accent);
+}
+.skip:focus {
+  left: 8px;
+}
+
+/* Docs layout: 1600px wide, as on the other CodesWhat docs. */
+#nd-docs-layout {
+  --fd-layout-width: 1600px;
+}
+
+/* ------------------------------------------------------------------ header: logo, Docs, GitHub */
+.wrap {
+  width: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
+  padding-inline: 15px;
+}
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--is-bg) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--is-line);
+}
+.top .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 60px;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--is-fg);
+  text-decoration: none;
+  font: 400 1.1rem var(--is-mono);
+}
+.brand img {
+  border-radius: 7px;
+  image-rendering: pixelated;
+}
+.nav {
+  display: flex;
+  gap: 4px 20px;
+}
+.nav a {
+  color: var(--is-muted);
+  text-decoration: none;
+  font-size: 0.95rem;
+  padding: 10px 0;
+}
+.nav a:hover,
+.nav a[aria-current="page"] {
+  color: var(--is-fg);
+}
+
+/* ------------------------------------------------------------------ sidebar and sub-header */
+#nd-sidebar {
+  background: transparent;
+  font-size: 14px;
+}
+#nd-sidebar a[data-active="true"] {
+  background: color-mix(in srgb, var(--is-accent) 12%, transparent);
+  color: var(--is-accent-text);
+  font-weight: 500;
+}
+/* The site header carries the brand, so the sidebar's own title and collapse button are hidden. */
+#nd-sidebar .subnav-label,
+#nd-sidebar button[aria-label="Collapse Sidebar"] {
+  display: none;
+}
+#nd-subnav {
+  background: var(--is-bg);
+  backdrop-filter: none;
+  border-color: var(--is-line);
+}
+#nd-subnav .subnav-label {
+  font: 400 0.95rem var(--is-mono);
+}
+[data-toc-popover] header {
+  background: var(--is-bg);
+  backdrop-filter: none;
+}
+/* fumadocs positions its sidebar below its own nav; ours is the sticky .top header (60px). */
+#nd-docs-layout {
+  --fd-banner-height: 60px;
+}
+
+/* ------------------------------------------------------------------ page and prose */
+#nd-page h1,
+.prose :is(h2, h3, h4) {
+  font-family: var(--is-mono);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--is-fg);
+}
+#nd-page h1 {
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 1.1;
+}
+.prose :is(h2, h3, h4) > a {
+  color: inherit;
+  text-decoration: none;
+}
+.prose h2 {
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+.prose h3 {
+  font-size: 1.15rem;
+}
+.prose h4 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.prose a:not([data-card]) {
+  color: var(--is-accent-text);
+  text-underline-offset: 3px;
+}
+.prose :not(pre) > code {
+  font-family: var(--is-mono);
+  font-size: 0.9em;
+  background: var(--is-code-bg);
+  border: 0;
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  color: var(--is-fg);
+  overflow-wrap: anywhere;
+}
+.prose table {
+  font-size: 0.92rem;
+}
+.prose th {
+  font-family: var(--is-mono);
+  font-weight: 400;
+}
+figure.shiki {
+  border: 1px solid var(--is-line);
+  border-radius: 8px;
+  box-shadow: none;
+  font-family: var(--is-mono);
+}
+figure.shiki pre,
+figure.shiki code {
+  font-family: var(--is-mono);
+  font-size: 0.85rem;
+}
+#nd-toc h3 {
+  font: 400 0.8rem var(--is-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--is-muted);
+}
+#nd-toc a[data-active="true"] {
+  color: var(--is-accent-text);
+}
+
+/* ------------------------------------------------------------------ footer */
+footer {
+  margin-top: 72px;
+  border-top: 1px solid var(--is-line);
+  background: var(--is-bg-alt);
+}
+.fgrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 32px;
+  padding-block: 40px 32px;
+}
+.fh {
+  margin: 0 0 10px;
+  font: 400 0.8rem var(--is-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--is-muted);
+}
+.fgrid ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.fgrid a {
+  color: var(--is-accent-text);
+  text-underline-offset: 3px;
+}
+.fnote {
+  margin: 10px 0 0;
+  font-size: 0.92rem;
+  color: var(--is-muted);
+  max-width: 46ch;
+}
+
+@media (max-width: 767px) {
+  .wrap {
+    padding-inline: 16px;
+  }
+  .fgrid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    transition: none !important;
+  }
+}

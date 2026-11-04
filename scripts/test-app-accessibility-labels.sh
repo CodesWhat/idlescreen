@@ -1,5 +1,6 @@
 #!/bin/bash
-# Lint for the companion app's SwiftUI controls. Fails on a control with an empty title, and on `.labelsHidden()` with no
+# Lint for the companion app's SwiftUI controls. Fails on a control with an empty title (on the initializer line or alone on
+# a later line), and on `.labelsHidden()` with no
 # explicit `.accessibilityLabel(` in the same control: the label must sit between this control's initializer and the next
 # control's initializer, so a neighbouring control's label cannot satisfy it. Hiding the visible label leaves VoiceOver with
 # nothing to read. A scope that matches no Swift files fails instead of passing vacuously.
@@ -8,14 +9,14 @@ set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 app_dir="${1:-$project_root/Products/IdleScreenApp}"
-# Without an argument, lint the Design components, the setup flow and the settings pages. Studio has its own pass.
+# Without an argument, lint the Design components, the setup flow, the settings pages and Studio.
 default_scope=1
 [[ $# -gt 0 ]] && default_scope=0
 dir_is_app=0
 
 filter() {
   if [[ "$default_scope" == 1 && "$dir_is_app" == 1 ]]; then
-    /usr/bin/grep -E '/(Design/|Setup/|Status/|DisplaysView|IntegrationsView|SystemViews)' || true
+    /usr/bin/grep -E '/(Design/|Setup/|Status/|DisplaysView|IntegrationsView|SystemViews|IdleScreenStudio)' || true
   else
     /bin/cat
   fi
@@ -26,6 +27,16 @@ scan() {
   while IFS= read -r file; do
     count=$((count + 1))
     if /usr/bin/grep -nE '\b(Toggle|Picker|Slider|DatePicker|Stepper|TextField|SecureField|Button|Menu|Label)\(\s*""' "$file"; then
+      echo "FAIL: $file has a control with an empty title." >&2
+      status=1
+    fi
+    # Multiline form: the initializer ends its line on the open paren and the "" title sits alone on a later line.
+    if ! /usr/bin/awk '
+      /(^|[^A-Za-z.])(Toggle|Picker|Slider|DatePicker|Stepper|TextField|SecureField|Button|Menu|Label)[(][ \t]*$/ { pending = 1; next }
+      pending && /^[ \t]*$/ { next }
+      pending && /^[ \t]*""/ { printf "%d:%s\n", NR, $0; bad = 1 }
+      { pending = 0 }
+      END { exit bad }' "$file"; then
       echo "FAIL: $file has a control with an empty title." >&2
       status=1
     fi
@@ -80,6 +91,9 @@ expect_fail() {
 }
 
 expect_fail EmptyTitle 'Toggle("", isOn: $x)\n' 'empty title'
+# The "" title may sit on its own line below the initializer.
+expect_fail EmptyTitleMultiline 'Button(\n  "",\n  action: {}\n)\n' 'empty title'
+expect_fail EmptyTitleMultilineToggle 'Toggle(\n\n  "", isOn: $x\n)\n' 'empty title'
 expect_fail Hidden 'Toggle("On", isOn: $x)\n  .labelsHidden()\n' 'without .accessibilityLabel'
 # A neighbouring control's label, before or after, must not satisfy this control.
 expect_fail LabelAfter 'Toggle("On", isOn: $x)\n  .labelsHidden()\nToggle("Off", isOn: $y)\n  .labelsHidden()\n  .accessibilityLabel("Off")\n' 'without .accessibilityLabel'

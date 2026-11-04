@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 /absolute/path/to/idlescreen.app [timeout-seconds]" >&2
+  echo "Usage: $0 /absolute/path/to/IdleScreen.app [timeout-seconds]" >&2
   exit 64
 }
 
@@ -72,8 +72,8 @@ health_directory="$shared_container/Health"
 
 [[ "$extension_id" == "$app_id.screensaver" ]] || fail "app and extension bundle identifiers do not match"
 if [[ "$extension_id" == com.idlescreen.app.screensaver ]]; then
-  [[ "$app_path" == /Applications/idlescreen.app ]] ||
-    fail "the production configuration test requires /Applications/idlescreen.app"
+  [[ "$app_path" == /Applications/IdleScreen.app ]] ||
+    fail "the production configuration test requires /Applications/IdleScreen.app"
 fi
 [[ -f "$configuration_path" && -d "$health_directory" ]] || fail "shared App Group state is unavailable"
 

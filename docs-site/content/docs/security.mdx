@@ -1,0 +1,45 @@
+---
+title: Security and privacy
+description: What stays on your Mac, the security invariants and how to report a vulnerability.
+---
+
+## Privacy
+
+- Camera frames stay inside the local App Group mailbox. They are not sent over the network, written to logs or retained as test evidence.
+- Camera access is requested only when you explicitly choose a camera effect.
+- Agent signals never include prompt text, transcripts, commands, tool payloads, assistant responses, credentials or raw hook payloads, and there is no network listener.
+- No camera pixels or private agent content enter diagnostics or retained evidence.
+
+## Invariants
+
+- The companion and the camera agent carry the camera entitlement, but only the camera agent links AVFoundation or calls camera APIs.
+- The screen saver can request camera demand only after the checked-in generated activation decision and shipping policy accept the observed host surface.
+- The camera agent admits only the expected Team ID and bundle identities.
+- Release builds reject `get-task-allow` and require hardened runtime.
+- App Group files are validated without following attacker-controlled symlinks.
+- Shared snapshots are private from creation and published atomically.
+- Distribution verification covers every nested signature, entitlement, provisioning profile, code directory hash and the mounted DMG contents.
+
+The active private screen-saver declarations live in `Products/IdleScreenScreenSaver/Private`, with attribution in `THIRD_PARTY_NOTICES.md`. Apple's private screen-saver extension declarations are a compatibility risk, not a security vulnerability by themselves.
+
+## Supported versions
+
+Security fixes ship on the latest public release line only.
+
+| Version | Supported |
+| --- | --- |
+| 0.2.x | Yes |
+| 0.1.x | No |
+| Older release lines | No |
+
+## Reporting a vulnerability
+
+Don't open a public issue. Use [GitHub private vulnerability reporting](https://github.com/CodesWhat/idlescreen/security/advisories/new) or email security@codeswhat.com. Include the affected version and build, macOS version, architecture, install method, a minimal reproduction, observed and expected behavior, and impact. Redact camera content, usernames, paths, credentials, hook payloads, prompts and transcripts.
+
+You can expect an acknowledgement within 48 hours and a status update within seven days. The full policy is [SECURITY.md](https://github.com/CodesWhat/idlescreen/blob/main/SECURITY.md).
+
+In scope: the companion app and embedded screen-saver extension; the camera agent, XPC admission, leases and App Group frame transport; configuration, display topology, saved looks and AgentSignal storage; `idlescreenctl` and the Codex or Claude hook installation; signing, notarization, DMG packaging and published Homebrew casks; and the exact binaries attached to a CodesWhat GitHub release.
+
+## Asset provenance
+
+The logo and app icon are an original pixel-art CRT created for this repository by CodesWhat, drawn in code and regenerated with `python3 -I design/icon/export.py`. The screen-saver thumbnail artwork was also created by CodesWhat, and its editable source is `docs/assets/idlescreen-saver.svg`. The menu-bar item uses Apple's `square.grid.3x3.fill` SF Symbol as a template image at runtime and doesn't redistribute it. Generated artwork is distributed under the repository's MIT License. The fonts, Departure Mono and Inter, are bundled under the SIL Open Font License.

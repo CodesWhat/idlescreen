@@ -50,6 +50,9 @@ fi
 manifest_root="$(/bin/realpath "$(/usr/bin/dirname "$manifest")")"
 manifest_name="$(/usr/bin/basename "$manifest")"
 snapshot_parent="$(mktemp -d /tmp/idlescreen-release-sbom.XXXXXX)"
+# /tmp is a symlink to /private/tmp on macOS, so realpath of anything inside the
+# snapshot would never match an uncanonicalised root.
+snapshot_parent="$(/bin/realpath "$snapshot_parent")"
 snapshot_root="$snapshot_parent/candidate"
 /usr/bin/ditto --clone "$manifest_root" "$snapshot_root"
 snapshot_symlinks="$snapshot_parent/symlinks"

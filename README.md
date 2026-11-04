@@ -44,6 +44,7 @@ lifecycle.
 - [Why idlescreen](#why-idlescreen)
 - [Features](#features)
 - [Supported Integrations](#supported-integrations)
+- [Star History](#star-history)
 - [Roadmap](#roadmap)
 - [Built With](#built-with)
 - [Community and Support](#community-and-support)
@@ -64,7 +65,9 @@ Upgrade with `brew upgrade --cask idlescreen` or remove it with
 `brew uninstall --cask idlescreen`.
 
 macOS lists the app, the screen saver and the camera agent as IdleScreen in
-System Settings. The installed path is still `/Applications/idlescreen.app`.
+System Settings. The installed path is `/Applications/IdleScreen.app`. Earlier
+Homebrew installs used `/Applications/idlescreen.app`; `brew upgrade` removes
+that copy and installs the new one.
 
 ## Not verified on a device
 
@@ -134,6 +137,16 @@ the last valid consumer lease ends.
 | Codex | Optional local lifecycle status through bundled `idlescreenctl` |
 | Claude | Optional local lifecycle status through bundled `idlescreenctl` |
 | macOS ScreenSaverEngine | Embedded modern screen-saver extension |
+
+## Star History
+
+<a href="https://www.star-history.com/#CodesWhat/idlescreen&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=codeswhat/idlescreen&type=date&legend=top-left&theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=codeswhat/idlescreen&type=date&legend=top-left">
+    <img alt="Star history chart for CodesWhat/idlescreen" src="https://api.star-history.com/chart?repos=codeswhat/idlescreen&type=date&legend=top-left">
+  </picture>
+</a>
 
 ## Roadmap
 

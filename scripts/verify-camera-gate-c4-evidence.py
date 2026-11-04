@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+import camera_gate_app_paths
 import verify_camera_gate_a1_log as a1
 
 
@@ -29,17 +30,25 @@ MACH_SERVICE = "group.com.idlescreen.shared.camera-agent"
 APP_ID = "com.idlescreen.app"
 HELPER_ID = "com.idlescreen.camera-agent"
 EXTENSION_ID = "com.idlescreen.app.screensaver"
-INSTALLED_APP = "/Applications/idlescreen.app"
-HELPER_BUNDLE = (
-    f"{INSTALLED_APP}/Contents/Helpers/IdleScreenCameraAgent.app"
-)
-HELPER_EXECUTABLE = f"{HELPER_BUNDLE}/Contents/MacOS/IdleScreenCameraAgent"
-EXTENSION_BUNDLE = (
-    f"{INSTALLED_APP}/Contents/PlugIns/IdleScreenScreenSaver.appex"
-)
-EXTENSION_EXECUTABLE = (
-    f"{EXTENSION_BUNDLE}/Contents/MacOS/IdleScreenScreenSaver"
-)
+INSTALLED_APP = camera_gate_app_paths.CURRENT_APP_PATH
+HELPER_BUNDLE = ""
+HELPER_EXECUTABLE = ""
+EXTENSION_BUNDLE = ""
+EXTENSION_EXECUTABLE = ""
+
+
+def bind_installed_app(app_path: str) -> None:
+    """Bind the installed-app constants to the path one evidence set names."""
+    global INSTALLED_APP, HELPER_BUNDLE, HELPER_EXECUTABLE
+    global EXTENSION_BUNDLE, EXTENSION_EXECUTABLE
+    INSTALLED_APP = app_path
+    HELPER_BUNDLE = f"{app_path}/Contents/Helpers/IdleScreenCameraAgent.app"
+    HELPER_EXECUTABLE = f"{HELPER_BUNDLE}/Contents/MacOS/IdleScreenCameraAgent"
+    EXTENSION_BUNDLE = f"{app_path}/Contents/PlugIns/IdleScreenScreenSaver.appex"
+    EXTENSION_EXECUTABLE = f"{EXTENSION_BUNDLE}/Contents/MacOS/IdleScreenScreenSaver"
+
+
+bind_installed_app(camera_gate_app_paths.CURRENT_APP_PATH)
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
 CDHASH = re.compile(r"[0-9a-fA-F]{40}")
@@ -990,6 +999,10 @@ def verify(manifest_path: Path) -> None:
     if not manifest_path.is_absolute() or manifest_path.is_symlink() or not manifest_path.is_file():
         fail("C4 evidence manifest must be an absolute regular file")
     root = manifest_path.parent.resolve()
+    try:
+        bind_installed_app(camera_gate_app_paths.app_path_named_by_tree(root))
+    except ValueError as error:
+        fail(str(error))
     top = parse_kv(manifest_path, TOP_FIELDS, "C4 evidence manifest")
     require_equal(
         top,

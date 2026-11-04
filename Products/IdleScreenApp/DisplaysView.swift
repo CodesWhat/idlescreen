@@ -28,90 +28,93 @@ struct DisplaysView: View {
         .accessibilityHint("Reads the display layout again")
       }
     ) {
-      DesignSection(
-        eyebrow: "Layout",
-        footer: "Select a display to preview it in Studio."
-      ) {
-        arrangement
-      }
-
-      DesignSection(eyebrow: "Scene") {
-        DesignRow(title: "Scene layout", detail: policyDetail) {
-          DesignSegmented(
-            title: "Scene layout",
-            selection: policyBinding,
-            choices: [
-              DesignChoice("Panorama", DisplayScenePolicy.panorama),
-              DesignChoice("Per Display", DisplayScenePolicy.perDisplay),
-              DesignChoice("Focus Display", DisplayScenePolicy.focusDisplay),
-            ]
-          )
+      DesignColumns {
+        DesignSection(
+          eyebrow: "Layout",
+          footer: "Select a display to preview it in Studio."
+        ) {
+          arrangement
         }
-        if model.configuration.display.policy == .focusDisplay {
-          DesignRow(
-            title: "Focus display",
-            detail: "The display that shows the scene."
-          ) {
-            DesignPopup(
-              title: "Focus display",
-              selection: focalDisplayBinding,
-              choices: renderingDisplays.map {
-                DesignChoice(
-                  displayLabel($0.persistentIdentifier),
-                  Optional($0.persistentIdentifier)
-                )
-              }
-            )
-          }
-          DesignRow(
-            title: "Other displays",
-            detail: "How the displays without the scene look."
-          ) {
-            DesignPopup(
-              title: "Other displays",
-              selection: quietBinding,
+
+        DesignSection(eyebrow: "Scene") {
+          DesignRow(title: "Scene layout", detail: policyDetail) {
+            DesignSegmented(
+              title: "Scene layout",
+              selection: policyBinding,
               choices: [
-                DesignChoice("Black", DisplayQuietTreatment.black),
-                DesignChoice("Subdued", DisplayQuietTreatment.subdued),
+                DesignChoice("Panorama", DisplayScenePolicy.panorama),
+                DesignChoice("Per Display", DisplayScenePolicy.perDisplay),
+                DesignChoice("Focus Display", DisplayScenePolicy.focusDisplay),
               ]
             )
           }
-        }
-      }
-
-      DesignSection(eyebrow: "Edges and preview") {
-        DesignRow(title: "Outer edges", detail: boundaryDetail) {
-          DesignPopup(
-            title: "Outer edges",
-            selection: boundaryBinding,
-            choices: [
-              DesignChoice("Wall", DisplayOuterBoundaryBehavior.wall),
-              DesignChoice("Drain", DisplayOuterBoundaryBehavior.drain),
-              DesignChoice("Off-world", DisplayOuterBoundaryBehavior.offWorld),
-            ]
-          )
-        }
-        DesignRow(
-          title: "Show display numbers",
-          detail: "Number each display in the layout above."
-        ) {
-          Toggle("Show display numbers", isOn: $showsIdentification)
-            .labelsHidden()
-            .accessibilityLabel("Show display numbers")
-            .toggleStyle(.designSwitch)
-        }
-        DesignRow(
-          title: "Preview in Studio",
-          detail: "Show the selected display in the Studio preview."
-        ) {
-          Button("Open in Studio") {
-            navigation.destination = .studio
+          if model.configuration.display.policy == .focusDisplay {
+            DesignRow(
+              title: "Focus display",
+              detail: "The display that shows the scene."
+            ) {
+              DesignPopup(
+                title: "Focus display",
+                selection: focalDisplayBinding,
+                choices: renderingDisplays.map {
+                  DesignChoice(
+                    displayLabel($0.persistentIdentifier),
+                    Optional($0.persistentIdentifier)
+                  )
+                }
+              )
+            }
+            DesignRow(
+              title: "Other displays",
+              detail: "How the displays without the scene look."
+            ) {
+              DesignPopup(
+                title: "Other displays",
+                selection: quietBinding,
+                choices: [
+                  DesignChoice("Black", DisplayQuietTreatment.black),
+                  DesignChoice("Subdued", DisplayQuietTreatment.subdued),
+                ]
+              )
+            }
           }
-          .buttonStyle(.designSecondary)
-          .accessibilityLabel("Open in Studio")
-          .accessibilityHint("Shows the selected display in the Studio preview")
-          .disabled(navigation.previewDisplayIdentifier == nil)
         }
+
+        DesignSection(eyebrow: "Edges and preview") {
+          DesignRow(title: "Outer edges", detail: boundaryDetail) {
+            DesignPopup(
+              title: "Outer edges",
+              selection: boundaryBinding,
+              choices: [
+                DesignChoice("Wall", DisplayOuterBoundaryBehavior.wall),
+                DesignChoice("Drain", DisplayOuterBoundaryBehavior.drain),
+                DesignChoice("Off-world", DisplayOuterBoundaryBehavior.offWorld),
+              ]
+            )
+          }
+          DesignRow(
+            title: "Show display numbers",
+            detail: "Number each display in the layout above."
+          ) {
+            Toggle("Show display numbers", isOn: $showsIdentification)
+              .labelsHidden()
+              .accessibilityLabel("Show display numbers")
+              .toggleStyle(.designSwitch)
+          }
+          DesignRow(
+            title: "Preview in Studio",
+            detail: "Show the selected display in the Studio preview."
+          ) {
+            Button("Open in Studio") {
+              navigation.destination = .studio
+            }
+            .buttonStyle(.designSecondary)
+            .accessibilityLabel("Open in Studio")
+            .accessibilityHint("Shows the selected display in the Studio preview")
+            .disabled(navigation.previewDisplayIdentifier == nil)
+          }
+        }
+
       }
 
       DesignDetails(initiallyExpanded: detailsInitiallyExpanded) {
