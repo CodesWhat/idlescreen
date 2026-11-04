@@ -536,6 +536,9 @@ final class IdleScreenCompanionCameraClient {
   private static let repairVerificationTimeout: TimeInterval = 12
   private static let cameraDevicePollInterval: TimeInterval = 2
   static let authorizationRefreshInterval: TimeInterval = 2
+  /// How long an "Allow camera access" click made before the helper was
+  /// reachable stays redeemable. In memory only; never persisted.
+  static let pendingAllowIntentLifetime: TimeInterval = 120
   private static let stalledFrameConfirmationCount = 2
 
   private static let frameEvidenceLogger = Logger(
@@ -596,6 +599,8 @@ final class IdleScreenCompanionCameraClient {
     (any IdleScreenCompanionCameraScheduledWork)?
   @ObservationIgnored private var repairVerificationTimeoutWork:
     (any IdleScreenCompanionCameraScheduledWork)?
+  @ObservationIgnored private var pendingAllowIntentExpiryWork:
+    (any IdleScreenCompanionCameraScheduledWork)?
   @ObservationIgnored private var backgroundRebindCompletion:
     (
       (
@@ -614,6 +619,9 @@ final class IdleScreenCompanionCameraClient {
   private var isCameraDiagnosticsSelected = false
   private var isBackgroundCameraAgentRebindActive = false
   private var cameraPrivacyRoundTripPending = false
+  /// A user click on "Allow camera access" that could not be served yet
+  /// because the helper was not registered or reachable.
+  private(set) var isAllowRequestPending = false
   private var preservesPreviewRequestDuringAgentReplacement = false
   private var repairPreviousProcessIdentifier: Int32?
   private var repairReceipt: IdleScreenCompanionCameraAgentRebindReceipt?
@@ -751,6 +759,7 @@ final class IdleScreenCompanionCameraClient {
     guard isMainWindowOpen else { return }
     isMainWindowOpen = false
     mainWindowPresentationIsActive = false
+    clearPendingAllowIntent()
     endVisibleSession()
   }
 
@@ -870,15 +879,78 @@ final class IdleScreenCompanionCameraClient {
   /// The setup card's camera button. It follows the authorization the card
   /// shows, because `recommendedRepair` ranks a still-unknown live snapshot
   /// above authorization and would refresh diagnostics instead of asking.
+  ///
+  /// When the helper is not registered or its control session is not up,
+  /// the click is remembered for `pendingAllowIntentLifetime` so the request
+  /// is issued once as soon as the helper is verified and still reports
+  /// `notDetermined`, instead of asking the user to click again.
   func performSetupCameraAction() {
     switch stateMachine.snapshot.authorization {
     case .observed(.notDetermined):
-      requestCameraAuthorization()
+      if isVisible, !controlRequestIsPending, controlSession != nil {
+        clearPendingAllowIntent()
+        requestCameraAuthorization()
+      } else {
+        recordPendingAllowIntent()
+        if !controlRequestIsPending {
+          performRecommendedRepair()
+        }
+      }
     case .observed(.denied):
+      clearPendingAllowIntent()
       openCameraPrivacySettings()
-    case .unknown, .observed(.authorized), .observed(.restricted):
+    case .unknown:
+      recordPendingAllowIntent()
+      performRecommendedRepair()
+    case .observed(.authorized), .observed(.restricted):
+      clearPendingAllowIntent()
       performRecommendedRepair()
     }
+  }
+
+  private func recordPendingAllowIntent() {
+    isAllowRequestPending = true
+    pendingAllowIntentExpiryWork?.cancel()
+    pendingAllowIntentExpiryWork = scheduler.schedule(
+      after: Self.pendingAllowIntentLifetime
+    ) { [weak self] in
+      self?.pendingAllowIntentExpiryWork = nil
+      self?.isAllowRequestPending = false
+    }
+  }
+
+  private func clearPendingAllowIntent() {
+    isAllowRequestPending = false
+    pendingAllowIntentExpiryWork?.cancel()
+    pendingAllowIntentExpiryWork = nil
+  }
+
+  /// Redeems a remembered click exactly once, and only against verified
+  /// evidence: a current helper identity, an accepted live snapshot, a
+  /// reachable control session and a nonprompting `notDetermined` reading.
+  /// Any other observed authorization settles the intent without prompting.
+  private func redeemPendingAllowIntentIfReady() {
+    guard isAllowRequestPending else { return }
+    switch stateMachine.snapshot.authorization {
+    case .observed(.notDetermined):
+      break
+    case .observed:
+      clearPendingAllowIntent()
+      return
+    case .unknown:
+      return
+    }
+    guard isVisible,
+      !controlRequestIsPending,
+      controlSession != nil,
+      controlReachability == .reachable,
+      stateMachine.snapshot.identity == .current,
+      stateMachine.snapshot.liveSnapshot == .accepted
+    else {
+      return
+    }
+    clearPendingAllowIntent()
+    requestCameraAuthorization()
   }
 
   /// Opens the only macOS surface that can change Camera authorization and
@@ -1428,6 +1500,7 @@ final class IdleScreenCompanionCameraClient {
     acceptLiveDiagnosticForCameraDevices()
     requestCameraDeviceSnapshot(showLoading: true)
     reconcilePreviewDemand()
+    redeemPendingAllowIntentIfReady()
     if preservesPreviewRequestDuringAgentReplacement {
       preservesPreviewRequestDuringAgentReplacement = false
       scheduleAuthorizationRefresh()
@@ -1757,6 +1830,7 @@ final class IdleScreenCompanionCameraClient {
     case .initialStatus, .explicitRefresh, .explicitPermission:
       break
     }
+    redeemPendingAllowIntentIfReady()
   }
 
   private func receiveControlEvent(_ event: CameraAgentControlConnectionEvent) {

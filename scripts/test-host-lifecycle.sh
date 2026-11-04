@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 /absolute/path/to/idlescreen.app [start-timeout-seconds] [invalidation-timeout-seconds] [minimum-sustain-seconds]" >&2
+  echo "Usage: $0 /absolute/path/to/IdleScreen.app [start-timeout-seconds] [invalidation-timeout-seconds] [minimum-sustain-seconds]" >&2
   exit 64
 }
 
@@ -60,7 +60,7 @@ fail() {
 
 extension_id="$(plutil -extract CFBundleIdentifier raw "$extension_info")"
 if [[ "$extension_id" == "com.idlescreen.app.screensaver" ]]; then
-  canonical_release_app="/Applications/idlescreen.app"
+  canonical_release_app="/Applications/IdleScreen.app"
   [[ "$(/bin/realpath "$app_path")" == "$canonical_release_app" ]] ||
     fail "the Release app must be installed exactly at $canonical_release_app before physical host testing"
 fi

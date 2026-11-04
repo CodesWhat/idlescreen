@@ -1,0 +1,20 @@
+{
+  "title": "IdleScreen",
+  "pages": [
+    "index",
+    "getting-started",
+    "---Using IdleScreen---",
+    "studio",
+    "displays",
+    "camera",
+    "agent-signals",
+    "menu-bar",
+    "---Help---",
+    "troubleshooting",
+    "---Project---",
+    "building",
+    "architecture",
+    "security",
+    "changelog"
+  ]
+}

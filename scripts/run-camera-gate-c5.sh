@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 /Applications/idlescreen.app /absolute/C3-provenance.txt /absolute/C4-a1tr-transaction-manifest.txt /absolute/new-C5-evidence [--record-targeted-tcc-reset] [--open-camera-settings]" >&2
+  echo "Usage: $0 /Applications/IdleScreen.app /absolute/C3-provenance.txt /absolute/C4-a1tr-transaction-manifest.txt /absolute/new-C5-evidence [--record-targeted-tcc-reset] [--open-camera-settings]" >&2
   exit 64
 }
 
@@ -31,7 +31,7 @@ while (($# > 0)); do
   shift
 done
 
-[[ "$app_path" == /Applications/idlescreen.app &&
+[[ "$app_path" == /Applications/IdleScreen.app &&
    "$c3_manifest" = /* && "$c4_restoration_manifest" = /* &&
    "$evidence_root" = /* && "$evidence_root" != / ]] || usage
 [[ -f "$c3_manifest" && ! -L "$c3_manifest" &&

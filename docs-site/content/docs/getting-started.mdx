@@ -1,0 +1,46 @@
+---
+title: Getting started
+description: Install IdleScreen, check the requirements and finish the first-run setup.
+---
+
+## Requirements
+
+- macOS 26 Tahoe or newer.
+- An Apple silicon or Intel Mac. The release is a universal build, though Intel Macs are on the [not verified on a device](/troubleshooting#not-verified-on-a-device) list.
+
+## Install
+
+Install the official Homebrew cask, which installs the signed and notarized DMG:
+
+```sh
+brew install --cask codeswhat/tap/idlescreen
+```
+
+You can also download the DMG from the [latest GitHub release](https://github.com/CodesWhat/idlescreen/releases/latest). Gatekeeper and System Integrity Protection stay enabled either way.
+
+Upgrade or remove it with:
+
+```sh
+brew upgrade --cask idlescreen
+brew uninstall --cask idlescreen
+```
+
+macOS lists the app, the screen saver and the camera agent as IdleScreen in System Settings. The installed path is still `/Applications/idlescreen.app`.
+
+## First run
+
+Open IdleScreen once. The setup flow has three steps, and you can leave and come back to it later.
+
+1. **Register IdleScreen.** This tells macOS that IdleScreen is installed.
+2. **Choose IdleScreen.** Pick it as your screen saver in System Settings under Wallpaper and Screen Saver. The button opens Screen Saver settings for you.
+3. **Add your camera.** Optional. Some looks react to you, and the camera is processed on this Mac and never leaves it. You can skip it.
+
+When setup is complete, the last card says you're all set and offers to open Studio, where you pick a look.
+
+Camera access is requested only when you explicitly choose a camera effect. See [Camera mode](/camera).
+
+## Where it lives
+
+IdleScreen stays in the menu bar. Closing the main window drops the Dock tile and keeps the menu bar item. The menu bar icon shows whether IdleScreen needs setup, [what it is doing](/menu-bar) and when something needs your attention.
+
+If something looks off, open the Status page. See [Troubleshooting](/troubleshooting).

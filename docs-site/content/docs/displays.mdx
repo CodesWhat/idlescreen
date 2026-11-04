@@ -1,0 +1,34 @@
+---
+title: Displays
+description: Panorama, Per Display and Focus Display layouts for more than one screen.
+---
+
+The Displays page shows your screens as arranged in macOS. Select a display to preview it in Studio.
+
+One coordinator per process turns the current display topology into an immutable plan, and the Studio preview and the screen saver read the same plan.
+
+## Scene layout
+
+| Layout | What it does |
+| --- | --- |
+| Panorama | One scene spans every display, sharing one normalized viewport. |
+| Per Display | Each display gets its own independent, deterministic scene. |
+| Focus Display | One display shows the scene. The others stay quiet. |
+
+With Focus Display you also choose which display is the focus, and what the other displays do: **Black** or **Subdued**.
+
+## Outer edges
+
+For Pixel Materials, the outer edges decide what happens to sand and water at the edge of the world:
+
+- **Wall**: edges are solid, so sand and water stay on screen.
+- **Drain**: sand and water that reach the bottom edge drain away.
+- **Off-world**: sand and water that reach the bottom edge leave the scene.
+
+## Other options
+
+- **Show display numbers** numbers each display in the layout so you can tell them apart.
+- **Open in Studio** shows the selected display in the Studio preview.
+- The Details section lists the display layout version, the scene plan and the configuration revision.
+
+Multiple displays, Spaces and mixed-scale hot-plug beyond the maintainer's own setup are on the [not verified on a device](/troubleshooting#not-verified-on-a-device) list.

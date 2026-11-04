@@ -29,9 +29,13 @@ struct StatusPageContent<Technical: View>: View {
         DesignNotice(kind: .attention, text: lastError)
       }
       verdict
-      cardSection(summary.saver)
-      cardSection(summary.camera)
-      agentsSection
+      DesignColumns {
+        VStack(spacing: DesignMetrics.sectionSpacing) {
+          cardSection(summary.saver)
+          cardSection(summary.camera)
+        }
+        agentsSection
+      }
       DesignDetails(title: "Technical details", initiallyExpanded: detailsInitiallyExpanded) {
         technical()
       }

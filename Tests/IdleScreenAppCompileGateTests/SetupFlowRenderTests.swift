@@ -15,6 +15,7 @@ struct SetupFlowRenderTests {
     let current: SetupStep?
     let primary: String
     var offersSkip = false
+    var developmentBuild = false
   }
 
   private static func inputs(
@@ -47,6 +48,15 @@ struct SetupFlowRenderTests {
       name: "error", inputs: inputs(registered: false, selected: false, camera: .unknown),
       error: "The embedded screen saver extension is missing from this app build.",
       current: .register, primary: "Register IdleScreen"),
+    Scene(
+      name: "1-register-dev-build",
+      inputs: inputs(registered: false, selected: false, camera: .unknown),
+      current: .register, primary: "Register IdleScreen", developmentBuild: true),
+    Scene(
+      name: "error-registration",
+      inputs: inputs(registered: false, selected: false, camera: .unknown),
+      error: UserFacingIssue.registrationFailed,
+      current: .register, primary: "Register IdleScreen"),
   ]
 
   @Test("each step renders non-empty in light and dark")
@@ -66,10 +76,12 @@ struct SetupFlowRenderTests {
     for scene in Self.scenes {
       let progress = SetupProgress(scene.inputs)
       let card = SetupCardModel(
-        progress: progress, cameraAccess: scene.inputs.cameraAccess, isRegistering: false)
+        progress: progress, cameraAccess: scene.inputs.cameraAccess, isRegistering: false,
+        isDevelopmentBuild: scene.developmentBuild)
       #expect(progress.current == scene.current, "\(scene.name) current step")
       #expect(card.primaryTitle == scene.primary, "\(scene.name) primary action")
-      #expect(card.primaryEnabled, "\(scene.name) primary enabled")
+      #expect(card.primaryEnabled == !scene.developmentBuild, "\(scene.name) primary enabled")
+      #expect((card.notice != nil) == scene.developmentBuild, "\(scene.name) dev notice")
       #expect(card.offersSkip == scene.offersSkip, "\(scene.name) skip")
       #expect(card.offersLater == (scene.current != nil), "\(scene.name) later")
     }
@@ -99,6 +111,23 @@ struct SetupFlowRenderTests {
     #expect(restricted.offersSkip)
   }
 
+  @Test("a development build explains itself and disables Register, but lets the user go later")
+  func developmentBuildRegister() {
+    let progress = SetupProgress(Self.inputs(registered: false, selected: false, camera: .unknown))
+    let card = SetupCardModel(
+      progress: progress, cameraAccess: .unknown, isRegistering: false, isDevelopmentBuild: true)
+    #expect(
+      card.notice
+        == "This is a development build. macOS only registers signed copies of IdleScreen."
+    )
+    #expect(!card.primaryEnabled)
+    #expect(card.offersLater)
+    let later = SetupProgress(Self.inputs(registered: true, selected: false, camera: .unknown))
+    let chooseCard = SetupCardModel(
+      progress: later, cameraAccess: .unknown, isRegistering: false, isDevelopmentBuild: true)
+    #expect(chooseCard.notice == nil && chooseCard.primaryEnabled)
+  }
+
   @Test("registering disables the register action and says so")
   func registeringState() {
     let progress = SetupProgress(Self.inputs(registered: false, selected: false, camera: .unknown))
@@ -115,13 +144,39 @@ struct SetupFlowRenderTests {
     #expect(Self.averageLuma(light) > Self.averageLuma(dark) + 0.25)
   }
 
-  private static func render(_ scene: Scene, dark: Bool) throws -> NSBitmapImageRep {
-    let size = NSSize(width: 980, height: 760)
+  /// The main window's content area at 1900x950 (minus the 81 pt rail) and at the 900x600 minimum.
+  private static let windowSizes: [(name: String, size: NSSize)] = [
+    ("1900x950", NSSize(width: 1_819, height: 950)),
+    ("min", NSSize(width: 819, height: 600)),
+  ]
+
+  @Test("each step renders at the default and minimum window sizes, one or two columns")
+  func stepsRenderAtWindowSizes() throws {
+    for scene in Self.scenes {
+      for (sizeName, size) in Self.windowSizes {
+        let bitmap = try Self.render(scene, dark: false, size: size)
+        #expect(Self.hasVisibleContent(bitmap), "\(scene.name) \(sizeName) rendered a blank image")
+        try Self.save(bitmap, name: "setup-\(scene.name)-\(sizeName)")
+      }
+    }
+  }
+
+  @Test("the left column is 38% of the window, held between 420 and 560 pt")
+  func leadingColumnWidthIsClamped() {
+    #expect(SetupFlowContent.leadingColumnWidth(in: 900) == 420)
+    #expect(SetupFlowContent.leadingColumnWidth(in: 1_300) == 494)
+    #expect(SetupFlowContent.leadingColumnWidth(in: 1_819) == 560)
+  }
+
+  private static func render(
+    _ scene: Scene, dark: Bool, size: NSSize = NSSize(width: 980, height: 760)
+  ) throws -> NSBitmapImageRep {
     let view = NSHostingView(
       rootView: AnyView(
         SetupFlowContent(
           progress: SetupProgress(scene.inputs),
           cameraAccess: scene.inputs.cameraAccess,
+          isDevelopmentBuild: scene.developmentBuild,
           statusMessage: scene.status,
           errorMessage: scene.error
         )

@@ -20,32 +20,32 @@ write_snapshot() {
   local display_id="$3"
   local helper_job_available="${4:-false}"
   local helper_pid="${5:-}"
-  local helper_executable='/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent'
+  local helper_executable='/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent'
 
   mkdir -p "$root"
   printf 'capture.txt\t0\n' >"$root/status.tsv"
   printf 'kern.bootsessionuuid: %s\n' "$boot_uuid" >"$root/boot-session.txt"
   cat >"$root/product-identities.txt" <<'EOF'
-appPath=/Applications/idlescreen.app
+appPath=/Applications/IdleScreen.app
 appBundleIdentifier=com.idlescreen.app
 appExecutable=IdleScreen
 appSigningIdentifier=com.idlescreen.app
 appTeamIdentifier=3524374A2S
 appCDHash=1111111111111111111111111111111111111111
-extensionPath=/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex
+extensionPath=/Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex
 extensionBundleIdentifier=com.idlescreen.app.screensaver
 extensionExecutable=IdleScreenScreenSaver
 extensionSigningIdentifier=com.idlescreen.app.screensaver
 extensionTeamIdentifier=3524374A2S
 extensionCDHash=2222222222222222222222222222222222222222
-helperPath=/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app
+helperPath=/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app
 helperBundleIdentifier=com.idlescreen.camera-agent
 helperExecutable=IdleScreenCameraAgent
 helperSigningIdentifier=com.idlescreen.camera-agent
 helperTeamIdentifier=3524374A2S
 helperCDHash=3333333333333333333333333333333333333333
 machServiceName=group.com.idlescreen.shared.camera-agent
-launchAgentPath=/Applications/idlescreen.app/Contents/Library/LaunchAgents/group.com.idlescreen.shared.camera-agent.plist
+launchAgentPath=/Applications/IdleScreen.app/Contents/Library/LaunchAgents/group.com.idlescreen.shared.camera-agent.plist
 launchAgentLabel=group.com.idlescreen.shared.camera-agent
 launchAgentBundleProgram=Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent
 launchAgentAssociatedBundleIdentifier=com.idlescreen.app
@@ -54,17 +54,17 @@ launchAgentProcessType=Interactive
 EOF
   printf '%s\t%s\t%s\n' \
     app aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-    /Applications/idlescreen.app/Contents/MacOS/IdleScreen \
+    /Applications/IdleScreen.app/Contents/MacOS/IdleScreen \
     extension bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
-    /Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver \
+    /Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver \
     camera-helper cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc \
-    /Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent \
+    /Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent \
     launch-agent dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd \
-    /Applications/idlescreen.app/Contents/Library/LaunchAgents/group.com.idlescreen.shared.camera-agent.plist \
+    /Applications/IdleScreen.app/Contents/Library/LaunchAgents/group.com.idlescreen.shared.camera-agent.plist \
     >"$root/product-sha256.txt"
   printf 'providers=com.idlescreen.app.screensaver\nselectedEverywhere=true\n' >"$root/selection.txt"
-  printf '+    com.idlescreen.app.screensaver(0.1)\tUUID-A\t2026-07-31 20:00:00 +0000\t/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex\n' >"$root/screen-saver-registrations.txt"
-  printf '/Applications/idlescreen.app\n' >"$root/physical-copies.txt"
+  printf '+    com.idlescreen.app.screensaver(0.1)\tUUID-A\t2026-07-31 20:00:00 +0000\t/Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex\n' >"$root/screen-saver-registrations.txt"
+  printf '/Applications/IdleScreen.app\n' >"$root/physical-copies.txt"
   printf 'displayID\tname\tlogicalResolution\tpixelResolution\tmain\tmirror\n%s\tDisplay\t1920 x 1080\t3840 x 2160\tspdisplays_yes\tspdisplays_off\n' "$display_id" >"$root/online-displays.tsv"
   printf 'displayIdentifier\tmanagedSpaceID\tuuid\tspaceCount\nMain\t1\tspace-a\t2\n' >"$root/current-spaces.tsv"
   printf '2026-07-31 19:00:00 -0400 Notification Display is turned on\n' >"$root/power-history.txt"
@@ -151,10 +151,10 @@ write_snapshot "$after" boot-a 2 true 902
 "$verifier" "$before" "$after" same same >/dev/null ||
   fail "a registered camera helper remaining resident with a new PID was rejected"
 
-sed -i '' 's#/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent#/tmp/foreign/IdleScreenCameraAgent#' \
+sed -i '' 's#/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent#/tmp/foreign/IdleScreenCameraAgent#' \
   "$after/helper-launchd-job.txt"
 printf 'unrelated-note = %s\n' \
-  '/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent' \
+  '/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent' \
   >>"$after/helper-launchd-job.txt"
 if "$verifier" "$before" "$after" same same >/dev/null 2>&1; then
   fail "an unrelated launchd field was accepted as the helper job program"
@@ -181,7 +181,7 @@ fi
 write_snapshot "$before" boot-a 2 true 301
 write_snapshot "$after" boot-a 2 true 902
 
-sed -i '' 's#/Applications/idlescreen.app/Contents/Helpers#/tmp/foreign/Helpers#' \
+sed -i '' 's#/Applications/IdleScreen.app/Contents/Helpers#/tmp/foreign/Helpers#' \
   "$after/camera-helper-processes.tsv"
 if "$verifier" "$before" "$after" same same >/dev/null 2>&1; then
   fail "a camera helper running outside the canonical app was accepted"
@@ -189,7 +189,7 @@ fi
 write_snapshot "$after" boot-a 2 true 902
 
 printf '903\t1\t%s\t%s\n' "$fixture_uid" \
-  '/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent' \
+  '/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/IdleScreenCameraAgent' \
   >>"$after/camera-helper-processes.tsv"
 if "$verifier" "$before" "$after" same same >/dev/null 2>&1; then
   fail "multiple camera-helper processes were accepted"
@@ -271,7 +271,7 @@ printf '%s\n' \
   fail "a valid system sleep/wake cycle was rejected"
 cp "$before/power-history.txt" "$after/power-history.txt"
 
-printf '27781 1 00:02 /Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver\n' >>"$after/relevant-processes.txt"
+printf '27781 1 00:02 /Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver\n' >>"$after/relevant-processes.txt"
 if "$verifier" "$before" "$after" same same >/dev/null 2>&1; then
   fail "an orphaned screen-saver extension was accepted"
 fi

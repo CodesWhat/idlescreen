@@ -151,7 +151,7 @@ fi
 
 module_resolution_log="$fixture_root/module-resolution.log"
 printf '%s\n' \
-  '2026-07-31 20:47:37.698 Df WallpaperAgent[77296:55c] [com.apple.ScreenSaver] Failed to find screen saver module at /Users/test/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex' \
+  '2026-07-31 20:47:37.698 Df WallpaperAgent[77296:55c] [com.apple.ScreenSaver] Failed to find screen saver module at /Users/test/Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex' \
   '2026-07-31 20:47:37.699 E  WallpaperAgent[77296:55c] [com.apple.ScreenSaver] Failed to translate LiveContentKey for third-party screen saver' \
   '2026-07-31 20:47:37.700 Df WallpaperAgent[77296:55c] [com.apple.ScreenSaver] contentSettingsFailedToTranslate provider=com.apple.wallpaper.choice.aerials' \
   >"$module_resolution_log"

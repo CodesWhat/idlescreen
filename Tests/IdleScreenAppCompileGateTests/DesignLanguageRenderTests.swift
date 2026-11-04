@@ -56,6 +56,25 @@ struct DesignLanguageRenderTests {
     }
   }
 
+  @Test("each page renders at the 1900x950 window and the minimum window")
+  func pagesRenderAtWindowSizes() throws {
+    let harness = try RenderHarness()
+    defer { harness.removeScratchDirectory() }
+    // Content area: window width minus the 81 pt rail.
+    let sizes: [(String, NSSize)] = [
+      ("1900x950", NSSize(width: 1_819, height: 950)),
+      ("min", NSSize(width: 819, height: 600)),
+    ]
+    for page in Page.allCases {
+      for (sizeName, size) in sizes {
+        let bitmap = try harness.render(
+          page: page, dark: false, detailsExpanded: false, size: size)
+        #expect(Self.hasVisibleContent(bitmap), "\(page.rawValue) \(sizeName) rendered blank")
+        try Self.save(bitmap, name: "page-\(page.rawValue)-\(sizeName)")
+      }
+    }
+  }
+
   @Test("light and dark renders differ, so the pages follow the appearance")
   func appearanceChangesPixels() throws {
     let harness = try RenderHarness()
@@ -142,6 +161,64 @@ struct DesignLanguageRenderTests {
       RunLoop.current.run(until: Date().addingTimeInterval(0.02))
     }
     #expect(window.appearance == nil)  // the window follows the system again; the host's own appearance is not ours to assert
+  }
+
+  /// The Studio controls: the compact dock, the expanded dock for each saver kind, and the Pixel Materials dock with Advanced open.
+  private enum StudioScene: String, CaseIterable {
+    case compact
+    case expandedProcedural = "expanded-procedural"
+    case expandedCamera = "expanded-camera"
+    case expandedPixelMaterials = "expanded-pixel-materials"
+    case expandedPixelMaterialsAdvanced = "expanded-pixel-materials-advanced"
+  }
+
+  @Test(
+    "the Studio controls render on the dark canvas in every dock state, and each state changes the panel"
+  )
+  func studioControlsRender() throws {
+    var bitmaps: [StudioScene: NSBitmapImageRep] = [:]
+    for scene in StudioScene.allCases {
+      let harness = try RenderHarness()
+      defer { harness.removeScratchDirectory() }
+      let bitmap = try harness.renderStudio(
+        scene: scene.rawValue, size: NSSize(width: 1_200, height: 820))
+      #expect(Self.hasVisibleContent(bitmap), "\(scene.rawValue) rendered a blank image")
+      #expect(Self.averageLuma(bitmap) < 0.5, "\(scene.rawValue): Studio must stay dark")
+      bitmaps[scene] = bitmap
+      try Self.save(bitmap, name: "studio-\(scene.rawValue)")
+    }
+    let compact = try #require(bitmaps[.compact])
+    let procedural = try #require(bitmaps[.expandedProcedural])
+    let camera = try #require(bitmaps[.expandedCamera])
+    let materials = try #require(bitmaps[.expandedPixelMaterials])
+    let advanced = try #require(bitmaps[.expandedPixelMaterialsAdvanced])
+    #expect(Self.differingFraction(compact, procedural) > 0.005)
+    #expect(Self.differingFraction(procedural, camera) > 0.005)
+    #expect(Self.differingFraction(procedural, materials) > 0.005)
+    #expect(Self.differingFraction(materials, advanced) > 0.005, "opening Advanced changed nothing")
+  }
+
+  @Test("the saver chooser shows most of the tiles in a tall Studio window")
+  func studioChooserShowsMoreTiles() throws {
+    let harness = try RenderHarness()
+    defer { harness.removeScratchDirectory() }
+    let bitmap = try harness.renderStudio(
+      scene: "compact", size: NSSize(width: 1_200, height: 1_900))
+    #expect(Self.hasVisibleContent(bitmap), "the tall chooser rendered a blank image")
+    #expect(Self.averageLuma(bitmap) < 0.5)
+    try Self.save(bitmap, name: "studio-chooser-tall")
+  }
+
+  @Test("the Studio controls render the same dark canvas under a light system appearance")
+  func studioControlsIgnoreSystemAppearance() throws {
+    let harness = try RenderHarness()
+    defer { harness.removeScratchDirectory() }
+    let size = NSSize(width: 1_200, height: 820)
+    let dark = try harness.renderStudio(scene: "expanded-pixel-materials-advanced", size: size)
+    let underLight = try harness.renderStudio(
+      scene: "expanded-pixel-materials-advanced", size: size, systemLight: true)
+    #expect(Self.averageLuma(underLight) < 0.5)
+    #expect(Self.differingFraction(dark, underLight) < 0.02)
   }
 
   @Test("the palette resolves from the appearance it is given, with no workspace state")
@@ -329,6 +406,40 @@ struct DesignLanguageRenderTests {
       let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
       view.cacheDisplay(in: view.bounds, to: bitmap)
       #expect(!window.isVisible)
+      return bitmap
+    }
+
+    func renderStudio(scene: String, size: NSSize, systemLight: Bool = false) throws
+      -> NSBitmapImageRep
+    {
+      navigation.isSetupDeferred = true
+      model.updateSource(scene == "expanded-camera" ? .camera : .generative)
+      model.updateCreativePattern(
+        scene.contains("pixel-materials") ? .pixelMaterials : .perlin)
+      let content = StudioView(
+        initiallyMoreExpanded: scene != "compact",
+        pixelAdvancedInitiallyExpanded: scene.hasSuffix("advanced"))
+      let view = NSHostingView(
+        rootView: AnyView(
+          content
+            .environment(model)
+            .environment(cameraClient)
+            .environment(navigation)
+            .environment(coordinator)
+            .frame(width: size.width, height: size.height)
+            .environment(\.colorScheme, .dark)
+            .windowAppearance(ContentView.windowAppearance(for: .studio))
+        )
+      )
+      let window = NSWindow(
+        contentRect: NSRect(origin: .zero, size: size), styleMask: [], backing: .buffered,
+        defer: false)
+      window.appearance = NSAppearance(named: systemLight ? .aqua : .darkAqua)
+      window.contentView = view
+      view.setFrameSize(size)
+      view.layoutSubtreeIfNeeded()
+      let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+      view.cacheDisplay(in: view.bounds, to: bitmap)
       return bitmap
     }
 

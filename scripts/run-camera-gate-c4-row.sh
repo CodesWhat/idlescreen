@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 /Applications/idlescreen.app /absolute/transaction-evidence /absolute/new-a1-evidence MODE" >&2
+  echo "Usage: $0 /Applications/IdleScreen.app /absolute/transaction-evidence /absolute/new-a1-evidence MODE" >&2
   exit 64
 }
 
@@ -12,7 +12,7 @@ app_path="$1"
 transaction_evidence="$2"
 a1_evidence="$3"
 mode="$4"
-[[ "$app_path" == /Applications/idlescreen.app && "$transaction_evidence" = /* &&
+[[ "$app_path" == /Applications/IdleScreen.app && "$transaction_evidence" = /* &&
    "$a1_evidence" = /* && ( "$mode" == a1t || "$mode" == a1tr ) ]] || usage
 [[ "${IDLESCREEN_C4_AUTHORIZE_HOST_ACTIVATION:-}" == YES ]] || {
   echo "REFUSED: C4 host activation requires IDLESCREEN_C4_AUTHORIZE_HOST_ACTIVATION=YES." >&2

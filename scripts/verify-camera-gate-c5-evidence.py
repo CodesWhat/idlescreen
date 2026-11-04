@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence
 
+import camera_gate_app_paths
 import verify_camera_gate_a1_log as gate_a
 
 
@@ -30,16 +31,28 @@ MACH_SERVICE = "group.com.idlescreen.shared.camera-agent"
 APP_ID = "com.idlescreen.app"
 HELPER_ID = "com.idlescreen.camera-agent"
 EXTENSION_ID = "com.idlescreen.app.screensaver"
-APP_PATH = "/Applications/idlescreen.app"
-APP_EXECUTABLE = f"{APP_PATH}/Contents/MacOS/IdleScreen"
-HELPER_EXECUTABLE = (
-    f"{APP_PATH}/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/"
-    "IdleScreenCameraAgent"
-)
-EXTENSION_EXECUTABLE = (
-    f"{APP_PATH}/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/"
-    "IdleScreenScreenSaver"
-)
+APP_PATH = ""
+APP_EXECUTABLE = ""
+HELPER_EXECUTABLE = ""
+EXTENSION_EXECUTABLE = ""
+
+
+def bind_installed_app(app_path: str) -> None:
+    """Bind the installed-app constants to the path one evidence set names."""
+    global APP_PATH, APP_EXECUTABLE, HELPER_EXECUTABLE, EXTENSION_EXECUTABLE
+    APP_PATH = app_path
+    APP_EXECUTABLE = f"{app_path}/Contents/MacOS/IdleScreen"
+    HELPER_EXECUTABLE = (
+        f"{app_path}/Contents/Helpers/IdleScreenCameraAgent.app/Contents/MacOS/"
+        "IdleScreenCameraAgent"
+    )
+    EXTENSION_EXECUTABLE = (
+        f"{app_path}/Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/"
+        "IdleScreenScreenSaver"
+    )
+
+
+bind_installed_app(camera_gate_app_paths.CURRENT_APP_PATH)
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
 CDHASH = re.compile(r"[0-9a-f]{40}")
@@ -508,6 +521,12 @@ def event_between(
 def verify(manifest_path: Path) -> None:
     if not manifest_path.is_absolute() or manifest_path.is_symlink() or not manifest_path.is_file():
         fail("C5 evidence manifest must be an absolute nonsymlink regular file")
+    try:
+        bind_installed_app(
+            camera_gate_app_paths.app_path_named_by_tree(manifest_path.parent.resolve())
+        )
+    except ValueError as error:
+        fail(str(error))
     top = parse_kv(manifest_path, MANIFEST_FIELDS, "C5 evidence manifest")
     require_equal(
         top,

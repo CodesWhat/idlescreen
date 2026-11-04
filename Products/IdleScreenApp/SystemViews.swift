@@ -27,22 +27,7 @@ struct StatusView: View {
   }
 
   private var inputs: StatusInputs {
-    StatusInputs(
-      saverStatusKnown: model.hasFreshSaverStatus,
-      extensionEmbedded: model.isExtensionEmbedded,
-      macOSCompatible: model.compatibility.isCompatible,
-      registrationLocation: model.registrationAssessment.location,
-      selectedEverywhere: model.selection?.isSelectedEverywhere == true,
-      sharedContainerAvailable: model.hasSharedContainer
-        && cameraClient.bootstrapStatus != .appGroupContainerUnavailable,
-      setupCompleted: setupCompleted,
-      cameraInUse: model.configuration.source == .camera,
-      cameraAuthorization: cameraClient.readinessSnapshot.authorization,
-      cameraHasFault: StatusCameraFault.hasFault(
-        snapshot: cameraClient.readinessSnapshot, bootstrap: cameraClient.bootstrapStatus,
-        control: cameraClient.controlReachability),
-      codexHooksInstalled: model.codexHooksInstalled,
-      claudeHooksInstalled: model.claudeHooksInstalled)
+    StatusInputs.live(model: model, cameraClient: cameraClient, setupCompleted: setupCompleted)
   }
 
   @AppStorage(IdleScreenSetupStore.completedKey) private var setupCompleted = false
@@ -50,7 +35,7 @@ struct StatusView: View {
   var body: some View {
     StatusPageContent(
       summary: StatusSummary(inputs),
-      lastError: model.lastError,
+      lastError: model.lastError.map(UserFacingIssue.message(for:)),
       isRefreshing: model.isRefreshing,
       detailsInitiallyExpanded: detailsInitiallyExpanded,
       perform: perform,
@@ -96,6 +81,9 @@ struct StatusView: View {
         ?? "This app doesn't include the screen saver.",
       kind: model.isExtensionEmbedded ? .ok : .error
     )
+    if let rawError = model.lastError, !rawError.isEmpty {
+      checkRow(title: "Last error", value: "Reported", detail: rawError, kind: .attention)
+    }
     checkRow(
       title: "Registration",
       value: registrationValue,
@@ -707,5 +695,30 @@ private struct ProcessHealthRow: View {
       components.append("View \(instanceIdentifier.prefix(8))")
     }
     return components.joined(separator: " · ")
+  }
+}
+
+extension StatusInputs {
+  /// The live facts for the Status page and for the verdict pill in Studio, so the two cannot disagree.
+  @MainActor
+  static func live(
+    model: IdleScreenAppModel, cameraClient: IdleScreenCompanionCameraClient, setupCompleted: Bool
+  ) -> StatusInputs {
+    StatusInputs(
+      saverStatusKnown: model.hasFreshSaverStatus,
+      extensionEmbedded: model.isExtensionEmbedded,
+      macOSCompatible: model.compatibility.isCompatible,
+      registrationLocation: model.registrationAssessment.location,
+      selectedEverywhere: model.selection?.isSelectedEverywhere == true,
+      sharedContainerAvailable: StatusSummary.sharedContainerAvailable(
+        hasSharedContainer: model.hasSharedContainer, bootstrap: cameraClient.bootstrapStatus),
+      setupCompleted: setupCompleted,
+      cameraInUse: model.configuration.source == .camera,
+      cameraAuthorization: cameraClient.readinessSnapshot.authorization,
+      cameraHasFault: StatusCameraFault.hasFault(
+        snapshot: cameraClient.readinessSnapshot, bootstrap: cameraClient.bootstrapStatus,
+        control: cameraClient.controlReachability),
+      codexHooksInstalled: model.codexHooksInstalled,
+      claudeHooksInstalled: model.claudeHooksInstalled)
   }
 }

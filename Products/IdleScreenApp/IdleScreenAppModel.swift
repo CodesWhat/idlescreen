@@ -131,8 +131,18 @@ final class IdleScreenAppModel {
   var isRegistering = false
   var isStartingScreenSaver = false
   var saverActionStatus: String?
-  var lastError: String?
+  /// The raw error from macOS, the system layer or a store. Views show `UserFacingIssue.message(for:)`; the raw text stays here,
+  /// in the log and in Status > Technical details.
+  var lastError: String? {
+    didSet {
+      if let lastError, lastError != oldValue {
+        Self.logger.error("Last error: \(lastError, privacy: .public)")
+      }
+    }
+  }
   var activeAgentSignal: IdleScreenAgentSignal?
+  /// The strongest live signal per provider, which drive the scene's sprites.
+  var activeAgentSignals: [IdleScreenAgentSignal] = []
   var agentIgnoredEventCounts: [IdleScreenAgentProvider: UInt64] = [:]
   var codexHooksInstalled = false
   var claudeHooksInstalled = false
@@ -566,6 +576,11 @@ final class IdleScreenAppModel {
     commitConfiguration()
   }
 
+  func updateCreativeFraming(_ framing: IdleScreenSceneFraming) {
+    configuration.creative.framing = framing
+    commitConfiguration()
+  }
+
   func updateCreativeSpeed(_ speed: Double) {
     updateCreativeSettings { $0.speed = speed }
   }
@@ -634,6 +649,7 @@ final class IdleScreenAppModel {
       let agentSignalStore
     else {
       activeAgentSignal = nil
+      activeAgentSignals = []
       agentIgnoredEventCounts = [:]
       return
     }
@@ -668,13 +684,31 @@ final class IdleScreenAppModel {
     )
   }
 
+  /// Presentations for every live agent, after the same policy gates the
+  /// saver applies. They become sprites in the preview scene.
+  func agentPresentations(at date: Date? = nil) -> [IdleScreenAgentOverlayPresentation] {
+    let date = date ?? clock()
+    let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+    let minute = (components.hour ?? 0) * 60 + (components.minute ?? 0)
+    return activeAgentSignals.compactMap {
+      IdleScreenAgentPresentationPolicy.presentation(
+        for: $0,
+        configuration: configuration.agentIntegration,
+        at: date,
+        minuteOfDay: minute
+      )
+    }
+  }
+
   func configurationApplyingActiveAgentSignal(
     at date: Date? = nil
   ) -> IdleScreenConfiguration {
-    guard agentPresentation(at: date) != nil else { return configuration }
+    let first = agentPresentations(at: date).first
+    guard first != nil else { return configuration }
     return IdleScreenAgentPresentationPolicy.configuration(
       configuration,
-      applyingTemporaryLookFrom: activeAgentSignal
+      applyingTemporaryLookFrom: IdleScreenAgentPresentationPolicy.signal(
+        behind: first, in: activeAgentSignals)
     )
   }
 
@@ -790,6 +824,7 @@ final class IdleScreenAppModel {
     do {
       _ = try agentSignalStore.apply(.clearAll, at: date)
       activeAgentSignal = nil
+      activeAgentSignals = []
       refreshAgentSignals(at: date)
       agentIntegrationStatus = "All agent signals cleared."
     } catch {
@@ -857,6 +892,7 @@ final class IdleScreenAppModel {
           agentSignalMonitor = monitor
           if let change {
             activeAgentSignal = change.signal
+            activeAgentSignals = change.signals
             agentIgnoredEventCounts = change.ignoredEventCounts
           }
         }
@@ -867,6 +903,7 @@ final class IdleScreenAppModel {
         }
       case .failed(_, let message):
         activeAgentSignal = nil
+        activeAgentSignals = []
         agentIntegrationStatus = "Agent signal inbox unavailable: \(message)"
       }
     }

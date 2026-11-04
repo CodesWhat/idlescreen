@@ -86,13 +86,13 @@ def identity(
         "row_id": row_id,
         "row_run_id": run_id,
         "captured_at_utc": captured_at,
-        "app_path": "/Applications/idlescreen.app",
+        "app_path": "/Applications/IdleScreen.app",
         "helper_path": (
-            "/Applications/idlescreen.app/Contents/Helpers/IdleScreenCameraAgent.app/"
+            "/Applications/IdleScreen.app/Contents/Helpers/IdleScreenCameraAgent.app/"
             "Contents/MacOS/IdleScreenCameraAgent"
         ),
         "extension_path": (
-            "/Applications/idlescreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/"
+            "/Applications/IdleScreen.app/Contents/PlugIns/IdleScreenScreenSaver.appex/"
             "Contents/MacOS/IdleScreenScreenSaver"
         ),
         "team_identifier": candidate["team_identifier"],  # type: ignore[index]
@@ -536,6 +536,27 @@ def main() -> int:
         verified = run(str(VERIFIER), str(valid / "matrix.json"))
         if "all 17" not in verified.stdout:
             fail("complete C8 matrix did not pass")
+
+        # Evidence captured before the install-path rename must still replay.
+        legacy_path = copy_fixture(valid, scratch / "legacy-path")
+
+        def use_legacy_path(value: dict[str, object], root: Path) -> None:
+            for name in ("identity_before", "identity_after"):
+                reference = value["evidence"][name]  # type: ignore[index]
+                artifact = root / reference["path"]
+                document = load(artifact)
+                for key in ("app_path", "helper_path", "extension_path"):
+                    document[key] = str(document[key]).replace(
+                        "/Applications/IdleScreen.app", "/Applications/idlescreen.app", 1
+                    )
+                save(artifact, document)
+                reference["sha256"] = digest(artifact)
+
+        for ordinal in range(1, len(ROWS) + 1):
+            mutate_row(legacy_path, ordinal, use_legacy_path)
+        legacy_verified = run(str(VERIFIER), str(legacy_path / "matrix.json"))
+        if "all 17" not in legacy_verified.stdout:
+            fail("legacy-path C8 matrix did not pass")
 
         candidate_drift = copy_fixture(valid, scratch / "candidate-drift")
         mutate_row(

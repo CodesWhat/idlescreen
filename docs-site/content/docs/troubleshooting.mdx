@@ -1,0 +1,74 @@
+---
+title: Troubleshooting
+description: What the Status page means, camera permission states and development build limits.
+---
+
+Open **Status** in the Studio sidebar and press **Refresh** to check again. At the top is one verdict: "IdleScreen is ready.", "One thing needs your attention." or "N things need your attention." The big button beside it fixes the first thing that has a fix. Below are three cards, and the raw diagnostics sit under **Technical details**.
+
+## Screen saver card
+
+| Word | Sentence | What to do |
+| --- | --- | --- |
+| Ready | IdleScreen is your screen saver. | Nothing. |
+| Not registered | macOS doesn't know about IdleScreen yet. | Register IdleScreen. |
+| Not selected | Pick IdleScreen in Screen Saver settings. | Open Screen Saver settings and choose it. |
+| Out of date | macOS is using an older copy of IdleScreen. | Repair IdleScreen. |
+| Missing from this copy | This copy of IdleScreen is missing its screen saver. | Reinstall IdleScreen. |
+| Not supported | This version of macOS can't run the IdleScreen screen saver. | IdleScreen needs macOS 26 Tahoe or newer. |
+| Checking | Checking this Mac… | Wait a moment. |
+
+## Camera card
+
+A camera nothing uses is **Off**, whatever its permission or agent is doing. Only a camera that your chosen look reads can be a problem.
+
+| Word | Means | What to do |
+| --- | --- | --- |
+| Off | Nothing you've chosen uses the camera. | Nothing. |
+| Ready | The camera is allowed and working. | Nothing. |
+| Needs permission | Camera access hasn't been granted. | Allow camera access, or turn it on in Camera privacy settings. |
+| Blocked by policy | A policy on this Mac blocks the camera. | Ask whoever manages the Mac. |
+| Not working | The runtime, agent, identity, status check or service has a fault. | Fix camera, then check Technical details. |
+| Checking | Checking the camera… | Wait a moment. |
+
+### Camera permission states
+
+macOS reports one of four states, and IdleScreen words each one:
+
+- **Not asked yet**: "Allow camera access". IdleScreen needs your OK to use the camera.
+- **Denied**: "Camera access is off". Turn it on in Camera privacy settings.
+- **Restricted**: "Camera access is restricted". A policy on this Mac blocks it, so there's no button.
+- **Allowed**: if the camera still doesn't work, the card reads "The camera isn't working" and points you to Status.
+
+If setup isn't finished, these cards ask you to finish setup first.
+
+## Agent signals card
+
+Codex and Claude each show **Installed**, **Not installed** or **Unavailable in this build**. Agent signals are optional, so they never count as a problem. See [Agent signals](/agent-signals).
+
+## Development builds
+
+A build you made from source with development signing has no signed App Group container. The Status page says "This is a development build. Camera and agent signals need a signed copy of IdleScreen." In a development build:
+
+- the camera card reads Not working if a look uses the camera, and Off otherwise;
+- the Agents page can't install hooks, and the agent rows read Unavailable in this build.
+
+Install the signed release to use the camera and agent signals. See [Getting started](/getting-started).
+
+## Not verified on a device
+
+These paths have automated or fixture coverage only. They haven't been verified on a device for 0.3.0:
+
+- Sleep and wake.
+- Reboot and login.
+- Turning Background Items off and back on.
+- Replacing the app with a newer copy while the old one is running.
+- Granting and revoking camera permission.
+- Camera contention with another app.
+- Disconnecting and reconnecting the selected camera.
+- Multiple screen saver views, displays, Spaces and users at once.
+- Helper and extension crash recovery.
+- A long soak run.
+- Intel Macs.
+- Mixed-scale multi-display hot-plug beyond the maintainer's own setup.
+
+If one of them breaks for you, please [open an issue](https://github.com/CodesWhat/idlescreen/issues).

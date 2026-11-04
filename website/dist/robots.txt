@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://idlescreen.codeswhat.com/sitemap.xml
+Sitemap: https://idlescreen.codeswhat.com/docs/sitemap.xml

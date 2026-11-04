@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 /absolute/path/to/idlescreen.app /absolute/path/to/product-sha256.txt" >&2
+  echo "Usage: $0 /absolute/path/to/IdleScreen.app /absolute/path/to/product-sha256.txt" >&2
   exit 64
 }
 

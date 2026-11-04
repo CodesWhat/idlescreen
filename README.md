@@ -44,6 +44,7 @@ lifecycle.
 - [Why idlescreen](#why-idlescreen)
 - [Features](#features)
 - [Supported Integrations](#supported-integrations)
+- [Star History](#star-history)
 - [Roadmap](#roadmap)
 - [Built With](#built-with)
 - [Community and Support](#community-and-support)
@@ -64,11 +65,13 @@ Upgrade with `brew upgrade --cask idlescreen` or remove it with
 `brew uninstall --cask idlescreen`.
 
 macOS lists the app, the screen saver and the camera agent as IdleScreen in
-System Settings. The installed path is still `/Applications/idlescreen.app`.
+System Settings. The installed path is `/Applications/IdleScreen.app`. Earlier
+Homebrew installs used `/Applications/idlescreen.app`; `brew upgrade` removes
+that copy and installs the new one.
 
 ## Not verified on a device
 
-Not verified on a device for 0.2.0:
+Not verified on a device for 0.3.0:
 
 - Sleep and wake.
 - Reboot and login.
@@ -88,13 +91,13 @@ you, please open an issue.
 
 ## Recent Updates
 
-Version 0.2.0 adds a CRT menu bar icon that shows setup, attention, camera
-preview, running and idle states, a first-run setup flow, and a plain-language
-Status page. The System page is now Status and Integrations is now Agents. The
-Displays, Agents and Status pages follow the system appearance and Increase
-Contrast, and the app has a new pixel CRT logo and icon, Departure Mono and
-Inter typefaces and a cobalt accent. macOS now shows IdleScreen as the app,
-saver and camera agent name. See the [changelog](CHANGELOG.md) for the complete release notes.
+Version 0.3.0 reframes the saver on a horizon with a Cobalt default palette, a
+sprite lattice and Departure Mono glyphs, and adds a Topograph scene and agent
+status sprites driven by a one-signal-per-agent feed. Studio now shows real
+saver thumbnails and a plain status pill, and setup fills the window in two
+columns. The app now installs at `/Applications/IdleScreen.app`; `brew upgrade
+--cask idlescreen` removes the old `idlescreen.app` copy first. See the
+[changelog](CHANGELOG.md) for the complete release notes.
 
 ## Screenshot
 
@@ -134,6 +137,16 @@ the last valid consumer lease ends.
 | Codex | Optional local lifecycle status through bundled `idlescreenctl` |
 | Claude | Optional local lifecycle status through bundled `idlescreenctl` |
 | macOS ScreenSaverEngine | Embedded modern screen-saver extension |
+
+## Star History
+
+<a href="https://www.star-history.com/#CodesWhat/idlescreen&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=codeswhat/idlescreen&type=date&legend=top-left&theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=codeswhat/idlescreen&type=date&legend=top-left">
+    <img alt="Star history chart for CodesWhat/idlescreen" src="https://api.star-history.com/chart?repos=codeswhat/idlescreen&type=date&legend=top-left">
+  </picture>
+</a>
 
 ## Roadmap
 

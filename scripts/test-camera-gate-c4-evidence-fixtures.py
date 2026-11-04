@@ -16,13 +16,28 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 VERIFIER = PROJECT_ROOT / "scripts/verify-camera-gate-c4-evidence.py"
 TEAM = "3524374A2S"
 APP_GROUP = "group.com.idlescreen.shared"
-APP = "/Applications/idlescreen.app"
-HELPER_BUNDLE = f"{APP}/Contents/Helpers/IdleScreenCameraAgent.app"
-HELPER = f"{HELPER_BUNDLE}/Contents/MacOS/IdleScreenCameraAgent"
-HELPER_MARKER = f"{HELPER_BUNDLE}/Contents/Info.plist"
-EXTENSION_BUNDLE = f"{APP}/Contents/PlugIns/IdleScreenScreenSaver.appex"
-EXTENSION = f"{EXTENSION_BUNDLE}/Contents/MacOS/IdleScreenScreenSaver"
-EXTENSION_MARKER = f"{EXTENSION_BUNDLE}/Contents/Info.plist"
+APP = ""
+HELPER_BUNDLE = ""
+HELPER = ""
+HELPER_MARKER = ""
+EXTENSION_BUNDLE = ""
+EXTENSION = ""
+EXTENSION_MARKER = ""
+
+
+def use_installed_app(app_path: str) -> None:
+    global APP, HELPER_BUNDLE, HELPER, HELPER_MARKER
+    global EXTENSION_BUNDLE, EXTENSION, EXTENSION_MARKER
+    APP = app_path
+    HELPER_BUNDLE = f"{APP}/Contents/Helpers/IdleScreenCameraAgent.app"
+    HELPER = f"{HELPER_BUNDLE}/Contents/MacOS/IdleScreenCameraAgent"
+    HELPER_MARKER = f"{HELPER_BUNDLE}/Contents/Info.plist"
+    EXTENSION_BUNDLE = f"{APP}/Contents/PlugIns/IdleScreenScreenSaver.appex"
+    EXTENSION = f"{EXTENSION_BUNDLE}/Contents/MacOS/IdleScreenScreenSaver"
+    EXTENSION_MARKER = f"{EXTENSION_BUNDLE}/Contents/Info.plist"
+
+
+use_installed_app("/Applications/IdleScreen.app")
 PRODUCTION_APP_HASH = "a" * 40
 PRODUCTION_HELPER_HASH = "b" * 40
 PRODUCTION_EXTENSION_HASH = "c" * 40
@@ -575,6 +590,14 @@ def main() -> int:
         result = subprocess.run((str(VERIFIER), str(valid)), text=True, capture_output=True, check=False)
         if result.returncode != 0:
             raise AssertionError(f"valid C4 fixture rejected: {result.stdout}{result.stderr}")
+
+        # Evidence captured before the install-path rename must still replay.
+        use_installed_app("/Applications/idlescreen.app")
+        legacy = build_bundle(scratch / "legacy")
+        result = subprocess.run((str(VERIFIER), str(legacy)), text=True, capture_output=True, check=False)
+        use_installed_app("/Applications/IdleScreen.app")
+        if result.returncode != 0:
+            raise AssertionError(f"legacy-path C4 fixture rejected: {result.stdout}{result.stderr}")
 
         def c3_not_release(root: Path) -> None:
             c3 = root / "c3-provenance.txt"

@@ -45,10 +45,10 @@ run_verifier() {
   set -e
 }
 
-product="$fixture_root/idlescreen.app"
+product="$fixture_root/IdleScreen.app"
 manifest="$fixture_root/product-sha256.txt"
 make_product "$product" 'companion-v1' 'extension-v1'
-write_manifest "$product" "$manifest" '/different/build/root/idlescreen.app'
+write_manifest "$product" "$manifest" '/different/build/root/IdleScreen.app'
 
 [[ -x "$verifier" ]] || fail "missing executable product-identity verifier"
 
@@ -62,7 +62,7 @@ run_verifier "$product" "$fixture_root/missing-product-sha256.txt"
 [[ "$verifier_status" -eq 1 ]] || fail "missing evidence must be incomplete"
 grep -Fq 'INCOMPLETE:' <<<"$verifier_output" || fail "missing evidence must be labeled INCOMPLETE"
 
-printf 'not-a-sha256  /evidence/idlescreen.app/Contents/MacOS/IdleScreen\n' >"$fixture_root/malformed.txt"
+printf 'not-a-sha256  /evidence/IdleScreen.app/Contents/MacOS/IdleScreen\n' >"$fixture_root/malformed.txt"
 run_verifier "$product" "$fixture_root/malformed.txt"
 [[ "$verifier_status" -eq 2 ]] || fail "malformed evidence must be fatal"
 grep -Fq 'FAIL:' <<<"$verifier_output" || fail "malformed evidence must be labeled FAIL"
