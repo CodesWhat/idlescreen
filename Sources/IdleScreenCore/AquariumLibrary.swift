@@ -13,6 +13,29 @@ extension IdleScreenAquariumChoice {
 
 public enum IdleScreenAquariumHabitat: String, IdleScreenAquariumChoice {
   case fantasy, freshwater, marine
+
+  /// Bounds for the simplified game, not husbandry targets for individual species.
+  public var temperatureRange: ClosedRange<Double> {
+    switch self {
+    case .fantasy: 18...30
+    case .freshwater: 18...28
+    case .marine: 22...28
+    }
+  }
+  public var phRange: ClosedRange<Double> {
+    switch self {
+    case .fantasy: 5...9
+    case .freshwater: 6...8
+    case .marine: 7.8...8.5
+    }
+  }
+  public var salinityRange: ClosedRange<Double> {
+    switch self {
+    case .fantasy: 0...40
+    case .freshwater: 0...0
+    case .marine: 30...36
+    }
+  }
 }
 public enum IdleScreenAquariumSubstrate: String, IdleScreenAquariumChoice {
   case basalt, riverGravel, creamSand, plantedSoil, neonGravel

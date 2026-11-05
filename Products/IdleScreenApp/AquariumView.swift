@@ -437,7 +437,10 @@ struct IdleScreenAquariumView: View {
             .help("Adjusts the current and filter turnover.")
         }
         LabeledContent("Heater set point") {
-          Slider(value: tankBinding(\.automation.heaterTemperature), in: 18...30)
+          Slider(
+            value: tankBinding(\.automation.heaterTemperature),
+            in: controller.selectedTank.keeperMode
+              ? controller.selectedTank.habitat.temperatureRange : 18...30)
         }
         Stepper(
           "Feed every \(controller.selectedTank.automation.feedEveryMinutes) game minutes",
@@ -460,30 +463,56 @@ struct IdleScreenAquariumView: View {
   }
 
   private var carePanel: some View {
-    Form {
-      Toggle("Keeper rules", isOn: tankBinding(\.keeperMode))
-      choice("Habitat", selection: tankBinding(\.habitat))
-      Text(
-        controller.selectedTank.keeperMode
-          ? controller.selectedTank.water.summary : "Display mode is maintenance-free"
-      )
-      .font(.headline)
-      HStack {
-        Button("Feed") { controller.perform { try $0.feed() } }
-        Button("Change 25% water") { controller.perform { try $0.changeWater(fraction: 0.25) } }
-      }
-      let water = controller.selectedTank.water
-      meter("Waste", water.waste)
-      meter("Ammonia", water.ammonia)
-      meter("Nitrite", water.nitrite)
-      meter("Nitrate", water.nitrate)
-      meter("Oxygen", water.oxygen)
-      meter("Filter maturity", water.filterMaturity)
-      Text(
-        "Care uses simplified game values. Growth catches up for at most six hours, and animals aren't lost while you're away."
-      )
-      .font(.caption).foregroundStyle(.secondary)
-    }.padding(16)
+    ScrollView {
+      Form {
+        Toggle(
+          "Keeper rules",
+          isOn: Binding(
+            get: { controller.selectedTank.keeperMode },
+            set: { enabled in controller.perform { try $0.setKeeperMode(enabled) } }))
+        choice(
+          "Habitat",
+          selection: Binding(
+            get: { controller.selectedTank.habitat },
+            set: { habitat in controller.perform { try $0.setHabitat(habitat) } }))
+        Text(
+          "Enabling Keeper supplies a free filter, feeder and timer, applies game habitat bounds, and schedules 6–12 hours of daylight. You can adjust the equipment afterward."
+        )
+        .font(.caption).foregroundStyle(.secondary)
+        if controller.selectedTank.habitat == .fantasy {
+          Text(
+            "Fantasy allows a mixed display community. Choose Freshwater or Marine for habitat stocking rules."
+          )
+          .font(.caption).foregroundStyle(.secondary)
+        }
+        Text(
+          controller.selectedTank.keeperMode
+            ? controller.selectedTank.water.summary : "Display mode is maintenance-free"
+        )
+        .font(.headline)
+        HStack {
+          Button("Feed") { controller.perform { try $0.feed() } }
+          Button("Change 25% water") { controller.perform { try $0.changeWater(fraction: 0.25) } }
+        }
+        let water = controller.selectedTank.water
+        meter("Waste", water.waste)
+        meter("Ammonia", water.ammonia)
+        meter("Nitrite", water.nitrite)
+        meter("Nitrate", water.nitrate)
+        meter("Oxygen", water.oxygen)
+        meter("Filter maturity", water.filterMaturity)
+        if controller.selectedTank.keeperMode {
+          Text(
+            "Temperature: \(water.temperature, specifier: "%.1f") °C · pH: \(water.ph, specifier: "%.1f") · Salinity: \(water.salinity, specifier: "%.1f")"
+          )
+          .font(.caption)
+        }
+        Text(
+          "Care uses simplified game values. Growth catches up for at most six hours, and animals aren't lost while you're away."
+        )
+        .font(.caption).foregroundStyle(.secondary)
+      }.padding(16)
+    }
   }
 
   private var collectionPanel: some View {

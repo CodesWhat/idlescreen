@@ -5,6 +5,85 @@ import Testing
 
 @Suite("Aquarium collection and care")
 struct AquariumSimulationTests {
+  @Test func enablingKeeperSuppliesBasicsAndBoundsHabitatWithoutErasingWaste() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    library.economy = .collection
+    library.balance = 0
+    library.tanks[0].animals = [.init(species: .mantisShrimp)]
+    library.tanks[0].habitat = .marine
+    library.tanks[0].automation.equipment = [.heater]
+    library.tanks[0].automation.inactiveEquipment = [.spongeFilter, .feeder, .lightTimer]
+    library.tanks[0].automation.heaterTemperature = 18
+    library.tanks[0].lighting.durationHours = 18
+    let originalWater = library.tanks[0].water
+    let animals = library.tanks[0].animals
+    try library.setKeeperMode(true)
+    let tank = library.tanks[0]
+    #expect(tank.keeperMode)
+    #expect(tank.automation.equipment == [.heater, .spongeFilter, .feeder, .lightTimer])
+    #expect(tank.automation.inactiveEquipment == nil)
+    #expect(tank.lighting.preset == .automatic)
+    #expect(tank.lighting.durationHours <= 12)
+    #expect(tank.habitat.temperatureRange.contains(tank.automation.heaterTemperature))
+    #expect(tank.habitat.temperatureRange.contains(tank.water.temperature))
+    #expect(tank.habitat.phRange.contains(tank.water.ph))
+    #expect(tank.habitat.salinityRange.contains(tank.water.salinity))
+    #expect(tank.water.waste == originalWater.waste)
+    #expect(tank.water.ammonia == originalWater.ammonia)
+    #expect(tank.animals == animals)
+    #expect(library.balance == 0)
+    try library.validate()
+    let configured = library
+    try library.setKeeperMode(true)
+    #expect(library == configured)
+    try library.setKeeperMode(false)
+    #expect(!library.tanks[0].keeperMode)
+    #expect(library.tanks[0].water == configured.tanks[0].water)
+    #expect(library.tanks[0].automation == configured.tanks[0].automation)
+  }
+
+  @Test func keeperAndHabitatChangesRejectIncompatibleStockAtomically() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    try library.setHabitat(.freshwater)
+    let original = library
+    #expect(throws: IdleScreenAquariumError.incompatibleHabitat) {
+      try library.setKeeperMode(true)
+    }
+    #expect(library == original)
+    library.tanks[0].animals = [.init(species: .cherryShrimp)]
+    try library.setKeeperMode(true)
+    let freshwater = library
+    #expect(throws: IdleScreenAquariumError.incompatibleHabitat) {
+      try library.setHabitat(.marine)
+    }
+    #expect(library == freshwater)
+    library.tanks[0].animals = []
+    try library.setHabitat(.marine)
+    #expect(library.tanks[0].water.salinity >= 30)
+    try library.setHabitat(.freshwater)
+    #expect(library.tanks[0].water.salinity == 0)
+    try library.validate()
+  }
+
+  @Test func keeperTicksBoundLegacyWaterAndHeaterSettingsWithoutTouchingDisplayMode() {
+    var library = IdleScreenAquariumLibrary.starter
+    library.tanks[0].habitat = .marine
+    library.tanks[0].animals = []
+    library.tanks[0].water.temperature = 15
+    library.tanks[0].automation.equipment = [.heater]
+    library.tanks[0].automation.heaterTemperature = 18
+    let start = Date(timeIntervalSince1970: 0)
+    library.advance(to: start)
+    let water = library.tanks[0].water
+    library.advance(to: start.addingTimeInterval(60))
+    #expect(library.tanks[0].water == water)
+    library.tanks[0].keeperMode = true
+    library.advance(to: start.addingTimeInterval(120))
+    #expect(library.tanks[0].water.salinity >= 30)
+    #expect(library.tanks[0].habitat.phRange.contains(library.tanks[0].water.ph))
+    #expect(library.tanks[0].habitat.temperatureRange.contains(library.tanks[0].water.temperature))
+  }
+
   @Test func purchasesRespectPricesHabitatAndOwnedInventory() throws {
     var library = IdleScreenAquariumLibrary.starter
     library.economy = .collection

@@ -2,6 +2,36 @@ import CryptoKit
 import Foundation
 
 extension IdleScreenAquariumLibrary {
+  public mutating func setKeeperMode(_ enabled: Bool) throws {
+    let index = try selectedIndex()
+    guard tanks[index].keeperMode != enabled else { return }
+    var tank = tanks[index]
+    tank.keeperMode = enabled
+    if enabled {
+      let basics: Set<IdleScreenAquariumEquipment> = [.spongeFilter, .feeder, .lightTimer]
+      tank.automation.equipment.formUnion(basics)
+      tank.automation.inactiveEquipment?.subtract(basics)
+      if tank.automation.inactiveEquipment?.isEmpty == true {
+        tank.automation.inactiveEquipment = nil
+      }
+      tank.lighting.preset = .automatic
+      tank.lighting.durationHours = min(12, max(6, tank.lighting.durationHours))
+      tank.boundHabitatWater()
+    }
+    try tank.validate()
+    tanks[index] = tank
+  }
+
+  public mutating func setHabitat(_ habitat: IdleScreenAquariumHabitat) throws {
+    let index = try selectedIndex()
+    guard tanks[index].habitat != habitat else { return }
+    var tank = tanks[index]
+    tank.habitat = habitat
+    if tank.keeperMode { tank.boundHabitatWater() }
+    try tank.validate()
+    tanks[index] = tank
+  }
+
   public mutating func buyAnimal(
     _ species: IdleScreenAquariumSpeciesKind,
     variant: IdleScreenAquariumVariant, sex: IdleScreenAquariumSex,
@@ -224,6 +254,7 @@ extension IdleScreenAquariumTank {
       }
     }
     guard keeperMode else { return }
+    boundHabitatWater()
     let equipment = automation.equipment
     let load = Double(animals.count) / Double(capacity)
     if equipment.contains(.feeder), simulationStep.isMultiple(of: automation.feedEveryMinutes) {
@@ -274,6 +305,16 @@ extension IdleScreenAquariumTank {
     water.nitrite *= 1 - fraction
     water.nitrate *= 1 - fraction
     water.oxygen = min(1, water.oxygen + fraction * 0.1)
+  }
+
+  fileprivate mutating func boundHabitatWater() {
+    let temperature = habitat.temperatureRange
+    water.temperature = min(temperature.upperBound, max(temperature.lowerBound, water.temperature))
+    automation.heaterTemperature = min(
+      temperature.upperBound, max(temperature.lowerBound, automation.heaterTemperature))
+    water.ph = min(habitat.phRange.upperBound, max(habitat.phRange.lowerBound, water.ph))
+    water.salinity = min(
+      habitat.salinityRange.upperBound, max(habitat.salinityRange.lowerBound, water.salinity))
   }
 
   private static func childID(brood: UUID, ordinal: Int) -> UUID {

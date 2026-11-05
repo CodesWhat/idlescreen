@@ -5,6 +5,26 @@ import Testing
 @Suite("Aquarium editing controller")
 @MainActor
 struct AquariumControllerTests {
+  @Test func keeperSetupPersistsAndRejectedHabitatDoesNotChangeTheStore() throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "aquariums.json")
+    let controller = IdleScreenAquariumController(fileURL: url)
+    let animals = controller.selectedTank.animals
+    #expect(controller.perform { try $0.setKeeperMode(true) })
+    let saved = controller.library
+    #expect(saved.selectedTank?.lighting.preset == .automatic)
+    #expect(saved.selectedTank?.animals == animals)
+    let reopened = IdleScreenAquariumController(fileURL: url)
+    #expect(reopened.library == saved)
+    let bytes = try Data(contentsOf: url)
+    #expect(!controller.perform { try $0.setHabitat(.freshwater) })
+    #expect(controller.library == saved)
+    #expect(try Data(contentsOf: url) == bytes)
+    #expect(
+      controller.errorMessage == IdleScreenAquariumError.incompatibleHabitat.localizedDescription)
+  }
+
   @Test func editsPersistAndUndoDoesNotRollBackAnimalsOrCoins() throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
