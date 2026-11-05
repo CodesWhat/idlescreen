@@ -58,4 +58,5 @@ Copyright 2022 The Instrument Serif Project Authors (https://github.com/Instrume
 Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans)
 
 - Licence: SIL OFL 1.1, `Products/IdleScreenApp/Resources/Fonts/OFL-InstrumentSerif.txt` and `OFL-InstrumentSans.txt`
+- Source: [CodesWhat/mouthtype, commit `d7a7ede116426caceea0e7ca5194772dbb2476d0`](https://github.com/CodesWhat/mouthtype/tree/d7a7ede116426caceea0e7ca5194772dbb2476d0/Sources/MouthtypeMac/Resources/Fonts), `InstrumentSerif-Regular.ttf` and `InstrumentSans-{Regular,Medium,SemiBold}.ttf`
 - Used for: companion app headings, controls, and body text
