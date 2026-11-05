@@ -171,7 +171,8 @@ struct IdleScreenAquariumView: View {
         Color.black
         ZStack(alignment: .topLeading) {
           IdleScreenAquariumMetalPreview(tank: displayedTank)
-          ForEach(selectedTab == "layout" ? controller.selectedTank.decorations : []) { item in
+          ForEach(selectedTab == "layout" ? controller.selectedTank.placedDecorations : []) {
+            item in
             let width =
               item.placementSize.width / Double(controller.selectedTank.worldWidth)
               * fitted.width
@@ -260,13 +261,15 @@ struct IdleScreenAquariumView: View {
         Divider().padding(.vertical, 8)
         presetControls
       }.frame(maxWidth: .infinity)
-      if let item = controller.selectedTank.decorations.first(where: { $0.id == selectedObject }) {
+      if let item = controller.selectedTank.placedDecorations.first(where: {
+        $0.id == selectedObject
+      }) {
         ScrollView { objectInspector(item) }.frame(maxWidth: .infinity)
       } else {
         VStack(alignment: .leading) {
           Text("Placed objects").font(.headline)
           ScrollView {
-            ForEach(controller.selectedTank.decorations) { item in
+            ForEach(controller.selectedTank.placedDecorations) { item in
               Button(item.kind.title) { selectedObject = item.id }.buttonStyle(.plain).padding(3)
             }
           }
@@ -315,15 +318,21 @@ struct IdleScreenAquariumView: View {
   private func objectInspector(_ item: IdleScreenAquariumDecoration) -> some View {
     Form {
       Text(item.kind.title).font(.headline)
+      if item.kind == .moss { mossAttachmentControls(item) }
       LabeledContent("Horizontal") { Slider(value: objectBinding(item, \.x), in: 0.04...0.96) }
-      LabeledContent("Bottom") { Slider(value: objectBinding(item, \.y), in: 0.55...0.96) }
+      LabeledContent("Bottom") {
+        Slider(value: objectBinding(item, \.y), in: (item.kind == .moss ? 0.22 : 0.55)...0.96)
+      }
       LabeledContent("Size") { Slider(value: objectBinding(item, \.scale), in: 0.5...1.5) }
       Picker(
         "Tilt",
         selection: Binding(
-          get: { controller.selectedTank.decorations.first { $0.id == item.id }?.tilt ?? .upright },
+          get: {
+            controller.selectedTank.placedDecorations.first { $0.id == item.id }?.tilt ?? .upright
+          },
           set: { tilt in
-            var updated = controller.selectedTank.decorations.first { $0.id == item.id } ?? item
+            var updated =
+              controller.selectedTank.placedDecorations.first { $0.id == item.id } ?? item
             updated.tilt = tilt == .upright ? nil : tilt
             controller.updateDecoration(updated)
           })
@@ -336,6 +345,35 @@ struct IdleScreenAquariumView: View {
         controller.removeDecoration(item.id)
         selectedObject = nil
       }
+    }
+  }
+
+  private func mossAttachmentControls(_ item: IdleScreenAquariumDecoration) -> some View {
+    VStack(alignment: .leading) {
+      Picker(
+        "Attach to",
+        selection: Binding<UUID?>(
+          get: { item.attachment?.parentID },
+          set: { parentID in
+            controller.editTank(recordLayout: true) { tank in
+              if let parentID {
+                try tank.attachMoss(id: item.id, to: parentID)
+              } else {
+                try tank.detachMoss(id: item.id)
+              }
+            }
+          })
+      ) {
+        Text("Unattached").tag(Optional<UUID>.none)
+        ForEach(controller.selectedTank.placedDecorations.filter { $0.kind.supportsMoss }) {
+          parent in
+          Text("\(parent.kind.title) · \(Int(parent.x * 100))% across").tag(Optional(parent.id))
+        }
+      }
+      Text(
+        "Attached moss follows its support's position, size, flip, tilt and layer. Editing the moss directly detaches it."
+      )
+      .font(.caption).foregroundStyle(.secondary)
     }
   }
 
@@ -633,10 +671,11 @@ struct IdleScreenAquariumView: View {
   ) -> Binding<Value> {
     Binding(
       get: {
-        (controller.selectedTank.decorations.first { $0.id == item.id } ?? item)[keyPath: path]
+        (controller.selectedTank.placedDecorations.first { $0.id == item.id } ?? item)[
+          keyPath: path]
       },
       set: { value in
-        var updated = controller.selectedTank.decorations.first { $0.id == item.id } ?? item
+        var updated = controller.selectedTank.placedDecorations.first { $0.id == item.id } ?? item
         updated[keyPath: path] = value
         controller.updateDecoration(updated)
       })

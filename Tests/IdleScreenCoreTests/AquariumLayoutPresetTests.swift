@@ -5,6 +5,22 @@ import Testing
 
 @Suite("Aquarium layout presets")
 struct AquariumLayoutPresetTests {
+  @Test func applyingAPresetRebindsMossToTheCopiedSupport() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    let wood = IdleScreenAquariumDecoration(kind: .driftwood, x: 0.5, y: 0.9)
+    let moss = IdleScreenAquariumDecoration(kind: .moss, x: 0.3, y: 0.9)
+    library.tanks[0].decorations = [wood, moss]
+    try library.tanks[0].attachMoss(id: moss.id, to: wood.id)
+    let preset = UUID()
+    try library.saveLayoutPreset(id: preset, name: "Mossy wood")
+    try library.applyLayoutPreset(id: preset)
+    let copiedWood = try #require(library.tanks[0].decorations.first { $0.kind == .driftwood })
+    let copiedMoss = try #require(library.tanks[0].decorations.first { $0.kind == .moss })
+    #expect(copiedWood.id != wood.id && copiedMoss.id != moss.id)
+    #expect(copiedMoss.attachment?.parentID == copiedWood.id)
+    try library.validate()
+  }
+
   @Test func savedDesignRoundTripsWithoutLivestockOrEquipment() throws {
     var library = IdleScreenAquariumLibrary.starter
     let id = UUID()

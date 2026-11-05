@@ -84,7 +84,7 @@ extension IdleScreenAquariumLibrary {
     guard inventory[kind.rawValue, default: 0] < 99 else {
       throw IdleScreenAquariumError.capacityReached
     }
-    tanks[index].decorations.remove(at: position)
+    try tanks[index].removeDecoration(id: id)
     inventory[kind.rawValue, default: 0] += 1
   }
 

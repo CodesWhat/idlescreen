@@ -2,9 +2,72 @@ import Foundation
 import IdleScreenCore
 import Testing
 
+@testable import IdleScreenRenderer
+
 @Suite("Aquarium editing controller")
 @MainActor
 struct AquariumControllerTests {
+  @Test func attachedMossUsesResolvedRenderingAndUndoSurvivesDirectEdits() throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let controller = IdleScreenAquariumController(
+      fileURL: directory.appending(path: "aquariums.json"))
+    var wood = IdleScreenAquariumDecoration(kind: .driftwood, x: 0.5, y: 0.9)
+    let moss = IdleScreenAquariumDecoration(kind: .moss, x: 0.3, y: 0.9)
+    controller.editTank { $0.decorations = [wood, moss] }
+    controller.editTank(recordLayout: true) { try $0.attachMoss(id: moss.id, to: wood.id) }
+    wood.x = 0.6
+    wood.flipped = true
+    wood.tilt = .left
+    controller.updateDecoration(wood)
+    let posed = try #require(controller.selectedTank.placedDecorations.last)
+    let mapped = try #require(
+      IdleScreenAquariumProduct.settings(for: controller.selectedTank).objects.last)
+    #expect(mapped.x == posed.x && mapped.x != moss.x)
+    #expect(mapped.flipped && mapped.tiltDegrees == -15)
+    let panorama = IdleScreenAquariumProduct.settings(
+      for: controller.selectedTank, worldAspect: 3.5)
+    let expandedMoss = try #require(panorama.objects.last)
+    #expect(
+      abs(
+        (expandedMoss.x - wood.x) * Double(panorama.worldWidth)
+          - (posed.x - wood.x) * Double(controller.selectedTank.worldWidth)) < 0.00001)
+    controller.updateDecoration(posed)
+    #expect(controller.selectedTank.decorations.last?.attachment == nil)
+    controller.undoLayout()
+    #expect(controller.selectedTank.decorations.last?.attachment?.parentID == wood.id)
+    controller.reload()
+    #expect(controller.selectedTank.placedDecorations.last == posed)
+  }
+
+  @Test func attachedMossTouchesThePaintedSupportAcrossTransforms() throws {
+    for kind in [IdleScreenAquariumDecorationKind.rock, .slate, .cave, .driftwood, .hollowLog] {
+      for tilt in IdleScreenAquariumObjectTilt.allCases {
+        for flipped in [false, true] {
+          var tank = IdleScreenAquariumTank()
+          let parent = IdleScreenAquariumDecoration(
+            kind: kind, x: 0.5, y: 0.9, scale: 1.25, flipped: flipped, tilt: tilt)
+          let moss = IdleScreenAquariumDecoration(kind: .moss, x: 0.3, y: 0.9, scale: 0.8)
+          tank.decorations = [parent, moss]
+          try tank.attachMoss(id: moss.id, to: parent.id)
+          let settings = IdleScreenAquariumProduct.settings(for: tank)
+          var support = IdleScreenAquarium.Canvas()
+          var plant = IdleScreenAquarium.Canvas()
+          support.object(settings.objects[0], time: 0)
+          plant.object(settings.objects[1], time: 0)
+          let supportPixels = Set(support.pixels.indices.filter { support.pixels[$0].w > 0 })
+          let touching = plant.pixels.indices.contains { index in
+            plant.pixels[index].w > 0
+              && [index, index - 1, index + 1, index - 384, index + 384].contains {
+                supportPixels.contains($0)
+              }
+          }
+          #expect(touching, "Disconnected moss: \(kind), \(tilt), flipped \(flipped)")
+        }
+      }
+    }
+  }
+
   @Test func keeperSetupPersistsAndRejectedHabitatDoesNotChangeTheStore() throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }

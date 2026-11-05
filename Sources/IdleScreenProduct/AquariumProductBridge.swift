@@ -63,7 +63,7 @@ enum IdleScreenAquariumProduct {
     settings.flow = tank.automation.flow
     settings.cloudiness =
       tank.keeperMode ? min(0.25, tank.water.waste * 0.15 + tank.water.algae * 0.1) : 0
-    settings.objects = tank.decorations.map {
+    settings.objects = tank.placedDecorations(inWorldWidth: settings.worldWidth).map {
       .init(
         kind: $0.kind.rawValue, x: $0.x, y: $0.y, scale: $0.scale, flipped: $0.flipped,
         foreground: $0.foreground, tiltDegrees: $0.tilt?.degrees ?? 0)

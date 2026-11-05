@@ -92,9 +92,20 @@ extension IdleScreenAquariumLibrary {
     }
     var proposed = tanks[index]
     layout.apply(to: &proposed)
-    proposed.decorations = proposed.decorations.map {
+    let identities = proposed.decorations.reduce(into: [UUID: UUID]()) { $0[$1.id] = UUID() }
+    proposed.decorations = try proposed.decorations.map {
       var copy = $0
-      copy.id = UUID()
+      guard let identity = identities[copy.id] else {
+        throw IdleScreenAquariumError.invalidPlacement
+      }
+      copy.id = identity
+      if var attachment = copy.attachment {
+        guard let parent = identities[attachment.parentID] else {
+          throw IdleScreenAquariumError.invalidPlacement
+        }
+        attachment.parentID = parent
+        copy.attachment = attachment
+      }
       return copy
     }
     try proposed.validate()

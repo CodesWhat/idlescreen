@@ -174,13 +174,14 @@ public enum IdleScreenAquariumObjectTilt: String, IdleScreenAquariumChoice {
 public struct IdleScreenAquariumDecoration: Codable, Equatable, Identifiable, Sendable {
   public var id: UUID
   public var kind: IdleScreenAquariumDecorationKind
-  /// Center x and bottom y in the tank's authored design space, normalized to 0...1.
+  /// Unattached center x and bottom y in the authored design space, normalized to 0...1.
   public var x: Double
   public var y: Double
   public var scale: Double
   public var flipped: Bool
   public var foreground: Bool
   public var tilt: IdleScreenAquariumObjectTilt?
+  public var attachment: IdleScreenAquariumMossAttachment?
 
   public init(
     id: UUID = UUID(), kind: IdleScreenAquariumDecorationKind, x: Double, y: Double,
@@ -210,7 +211,7 @@ public struct IdleScreenAquariumDecoration: Codable, Equatable, Identifiable, Se
   public func validate(worldWidth: Int = 384) throws {
     guard (384...1152).contains(worldWidth), x.isFinite, y.isFinite, scale.isFinite,
       (0.5...1.5).contains(scale),
-      (0.55...0.96).contains(y),
+      ((kind == .moss ? 0.22 : 0.55)...0.96).contains(y),
       x - placementSize.width / (2 * Double(worldWidth)) >= 0,
       x + placementSize.width / (2 * Double(worldWidth)) <= 1,
       y - placementSize.height / 216 >= 0.22
@@ -356,6 +357,7 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
       throw IdleScreenAquariumError.invalidTank
     }
     for item in decorations { try item.validate(worldWidth: worldWidth) }
+    try validateMossAttachments()
     for animal in animals + nursery {
       guard (0...1_000_000_000).contains(animal.ageMinutes), animal.parents.count <= 2,
         (0...100).contains(animal.purchaseValue)
@@ -397,12 +399,15 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
 
   public mutating func place(_ decoration: IdleScreenAquariumDecoration) throws {
     try decoration.validate(worldWidth: worldWidth)
-    if let index = decorations.firstIndex(where: { $0.id == decoration.id }) {
-      decorations[index] = decoration
+    var proposed = self
+    if let index = proposed.decorations.firstIndex(where: { $0.id == decoration.id }) {
+      proposed.decorations[index] = decoration
     } else {
       guard decorations.count < 24 else { throw IdleScreenAquariumError.capacityReached }
-      decorations.append(decoration)
+      proposed.decorations.append(decoration)
     }
+    try proposed.validate()
+    self = proposed
   }
 }
 

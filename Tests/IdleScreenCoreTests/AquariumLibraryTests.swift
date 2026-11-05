@@ -5,6 +5,70 @@ import Testing
 
 @Suite("Saved aquarium library")
 struct AquariumLibraryTests {
+  @Test func returningASupportPreservesAndDetachesItsMoss() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    let rock = IdleScreenAquariumDecoration(kind: .rock, x: 0.5, y: 0.9)
+    let moss = IdleScreenAquariumDecoration(kind: .moss, x: 0.3, y: 0.9)
+    library.tanks[0].decorations = [rock, moss]
+    try library.tanks[0].attachMoss(id: moss.id, to: rock.id)
+    var expected = try #require(library.tanks[0].placedDecorations.last)
+    expected.attachment = nil
+    try library.removeDecoration(id: rock.id)
+    #expect(library.tanks[0].decorations == [expected])
+    #expect(library.inventory["rock"] == 1)
+    try library.validate()
+  }
+
+  @Test func attachedMossFollowsItsSupportAndDetachesAtItsCurrentPose() throws {
+    var tank = IdleScreenAquariumTank()
+    var wood = IdleScreenAquariumDecoration(kind: .driftwood, x: 0.5, y: 0.9)
+    let moss = IdleScreenAquariumDecoration(kind: .moss, x: 0.3, y: 0.9, scale: 0.8)
+    tank.decorations = [wood, moss]
+    try tank.attachMoss(id: moss.id, to: wood.id)
+    let first = try #require(tank.placedDecorations.first { $0.id == moss.id })
+    #expect(first.x != moss.x && first.attachment?.parentID == wood.id)
+    wood.x = 0.6
+    wood.scale = 1.2
+    wood.flipped = true
+    wood.tilt = .right
+    wood.foreground = true
+    try tank.place(wood)
+    let moved = try #require(tank.placedDecorations.first { $0.id == moss.id })
+    #expect(moved.x != first.x && moved.y != first.y)
+    #expect(abs(moved.scale - 0.96) < 0.00001)
+    #expect(moved.flipped && moved.foreground && moved.tilt == .right)
+    let pixelOffset = (moved.x - wood.x) * Double(tank.worldWidth)
+    tank.worldSize = .wide
+    let wide = try #require(tank.placedDecorations.first { $0.id == moss.id })
+    #expect(abs((wide.x - wood.x) * Double(tank.worldWidth) - pixelOffset) < 0.00001)
+    try tank.detachMoss(id: moss.id)
+    let detached = try #require(tank.decorations.first { $0.id == moss.id })
+    #expect(detached.attachment == nil)
+    #expect(detached.x == wide.x && detached.y == wide.y && detached.scale == wide.scale)
+    try tank.validate()
+  }
+
+  @Test func mossLinksRoundTripRejectDanglingSupportsAndKeepMovesAtomic() throws {
+    var tank = IdleScreenAquariumTank()
+    var rock = IdleScreenAquariumDecoration(kind: .rock, x: 0.5, y: 0.9)
+    let moss = IdleScreenAquariumDecoration(kind: .moss, x: 0.3, y: 0.9, scale: 1.5)
+    tank.decorations = [rock, moss]
+    try tank.attachMoss(id: moss.id, to: rock.id)
+    let before = tank
+    rock.x = 0.05
+    #expect(throws: IdleScreenAquariumError.invalidPlacement) { try tank.place(rock) }
+    #expect(tank == before)
+    let saved = try JSONDecoder().decode(
+      IdleScreenAquariumTank.self, from: JSONEncoder().encode(tank))
+    #expect(saved == tank && saved.placedDecorations == tank.placedDecorations)
+    #expect(throws: IdleScreenAquariumError.invalidPlacement) {
+      try tank.attachMoss(id: moss.id, to: moss.id)
+    }
+    #expect(tank == before)
+    tank.decorations.removeFirst()
+    #expect(throws: IdleScreenAquariumError.invalidPlacement) { try tank.validate() }
+  }
+
   @Test func interruptedFeedingCommandCannotAddFoodTwice() throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }

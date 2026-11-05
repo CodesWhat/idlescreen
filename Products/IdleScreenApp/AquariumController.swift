@@ -196,7 +196,9 @@ final class IdleScreenAquariumController {
   }
 
   func updateDecoration(_ item: IdleScreenAquariumDecoration) {
-    editTank(recordLayout: true) { try $0.place(item) }
+    var updated = item
+    updated.attachment = nil
+    editTank(recordLayout: true) { try $0.place(updated) }
   }
 
   func undoLayout() {
