@@ -405,6 +405,12 @@ struct AgentSpriteRenderTests {
     try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
     let shots = [
       Shot(
+        name: "claude-walk-0", pattern: "topograph", palette: "Cobalt",
+        sprites: [(.claude, .working, 4.1, false)], framing: .horizon),
+      Shot(
+        name: "claude-walk-1", pattern: "topograph", palette: "Cobalt",
+        sprites: [(.claude, .working, 4.3, false)], framing: .horizon),
+      Shot(
         name: "attention-warp-phosphor", pattern: "warp", palette: "Phosphor",
         sprites: Self.attention),
       Shot(
