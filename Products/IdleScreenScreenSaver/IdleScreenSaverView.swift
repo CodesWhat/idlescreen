@@ -808,7 +808,8 @@ final class IdleScreenSaverView: ScreenSaverView {
     return IdleScreenRendererConfigurationBridge.configuration(
       for: presentedConfiguration,
       assignment: displayAssignment,
-      aquarium: aquariumSnapshot
+      aquarium: aquariumSnapshot,
+      reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     )
   }
 

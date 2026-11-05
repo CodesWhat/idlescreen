@@ -305,7 +305,7 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
     }
     for surface in surfaces {
       let elapsed = max(0, date.timeIntervalSince(surface.tank.presentationEpoch))
-      surface.renderer.draw(at: policy.reduceMotion ? 0 : elapsed)
+      surface.renderer.draw(at: elapsed)
     }
   }
 

@@ -260,21 +260,26 @@ extension IdleScreenAquarium.Canvas {
   }
 
   mutating func applyLight(_ settings: IdleScreenAquariumRenderSettings, time: Double) {
-    var preset = settings.light
-    if preset == "automatic" {
+    var daylight = 1.0
+    if settings.light == "automatic" {
       let seconds = time + (settings.epoch ?? 0) + Double(settings.hourOffset)
       let hour =
         ((seconds.truncatingRemainder(dividingBy: 86_400) + 86_400).truncatingRemainder(
           dividingBy: 86_400)) / 3600
       let sinceStart = (hour - Double(settings.lightStartHour) + 24).truncatingRemainder(
         dividingBy: 24)
-      preset = sinceStart < Double(settings.lightDurationHours) ? "daylight" : "moonBlue"
+      let duration = Double(settings.lightDurationHours)
+      let ramp = min(1, max(0, min(sinceStart, duration - sinceStart) / 0.5))
+      daylight = ramp * ramp * (3 - 2 * ramp)
     }
     let tint: SIMD3<Float>
-    switch preset {
+    switch settings.light {
     case "sunset": tint = .init(1.1, 0.72, 0.56)
     case "moonBlue": tint = .init(0.43, 0.63, 1)
     case "blacklight": tint = .init(0.85, 0.47, 1.5)
+    case "automatic":
+      let night = SIMD3<Float>(0.43, 0.63, 1)
+      tint = night + (SIMD3<Float>(repeating: 1) - night) * Float(daylight)
     default: tint = .init(repeating: 1)
     }
     let brightness =

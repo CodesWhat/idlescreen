@@ -2348,6 +2348,7 @@ struct IdleScreenMetalPreview: View {
 /// deferred to the main actor so SwiftUI is never mutated during view creation.
 @MainActor
 private struct IdleScreenMetalViewHost: NSViewRepresentable {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   let configuration: IdleScreenRendererConfiguration
   let mode: IdleScreenRendererMode
   let cameraFrame: IdleScreenRendererCameraFrame?
@@ -2355,6 +2356,18 @@ private struct IdleScreenMetalViewHost: NSViewRepresentable {
   let elapsedTime: TimeInterval?
   let pointerLocationDidChange: ((CGPoint?) -> Void)?
   let status: IdleScreenMetalPreviewStatus
+
+  private var presentedConfiguration: IdleScreenRendererConfiguration {
+    var value = configuration
+    value.aquariumSettings?.reduceMotion =
+      reduceMotion || configuration.aquariumSettings?.reduceMotion == true
+    return value
+  }
+
+  private var staticAquarium: Bool {
+    configuration.patternRawValue == "aquarium" && mode != .camera
+      && presentedConfiguration.aquariumSettings?.reduceMotion == true
+  }
 
   @MainActor
   final class Coordinator {
@@ -2400,10 +2413,12 @@ private struct IdleScreenMetalViewHost: NSViewRepresentable {
     do {
       let renderer = try IdleScreenRenderer(
         metalView: metalView,
-        configuration: configuration,
+        configuration: presentedConfiguration,
         mode: mode,
-        automaticallyDraws: elapsedTime == nil
+        automaticallyDraws: elapsedTime == nil && !staticAquarium
       )
+      metalView.enableSetNeedsDisplay = staticAquarium
+      if staticAquarium { metalView.needsDisplay = true }
       context.coordinator.renderer = renderer
       context.coordinator.subscribe(
         renderer: renderer,
@@ -2429,8 +2444,11 @@ private struct IdleScreenMetalViewHost: NSViewRepresentable {
     context: Context
   ) {
     metalView.pointerLocationDidChange = pointerLocationDidChange
+    metalView.isPaused = elapsedTime != nil || staticAquarium
+    metalView.enableSetNeedsDisplay = staticAquarium
+    if staticAquarium { metalView.needsDisplay = true }
     guard let renderer = context.coordinator.renderer else { return }
-    renderer.update(configuration: configuration)
+    renderer.update(configuration: presentedConfiguration)
     renderer.update(mode: mode)
     context.coordinator.subscribe(
       renderer: renderer,
@@ -2902,7 +2920,8 @@ extension IdleScreenConfiguration {
     IdleScreenRendererConfigurationBridge.configuration(
       for: self,
       assignment: assignment,
-      aquarium: aquarium
+      aquarium: aquarium,
+      reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     )
   }
 }

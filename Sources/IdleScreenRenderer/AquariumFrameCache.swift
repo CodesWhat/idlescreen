@@ -18,6 +18,11 @@ final class IdleScreenAquariumFrameCache {
   func frame(at time: TimeInterval, seed: UInt64, settings: IdleScreenAquariumRenderSettings?)
     -> [SIMD4<Float>]
   {
+    let time: TimeInterval = {
+      guard settings?.reduceMotion == true else { return time }
+      guard settings?.light == "automatic", time.isFinite else { return 0 }
+      return floor(max(0, time) / 60) * 60
+    }()
     if let index = entries.firstIndex(where: {
       $0.time == time && $0.seed == seed && $0.settings == settings
     }) {

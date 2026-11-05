@@ -23,7 +23,25 @@ struct AquariumPresentationTests {
     settings.reduceMotion = true
     #expect(
       IdleScreenAquariumFrameClock.resolve(
-        explicit: 5, automatic: 0, settings: settings, now: Date()) == 0)
+        explicit: 5, automatic: 0, settings: settings, now: Date()) == 5)
+  }
+
+  @Test func reducedMotionFreezesAnimalsButKeepsScheduledLightAndDawnRamp() {
+    var settings = IdleScreenAquariumRenderSettings()
+    settings.epoch = 0
+    settings.light = "automatic"
+    settings.reduceMotion = true
+    settings.inhabitants = [.init(identity: 7, species: "cherryShrimp")]
+    let night = IdleScreenAquarium.frame(at: 3 * 3600, seed: 42, settings: settings)
+    let dawn = IdleScreenAquarium.frame(at: 9.25 * 3600, seed: 42, settings: settings)
+    let day = IdleScreenAquarium.frame(at: 12 * 3600, seed: 42, settings: settings)
+    #expect(night[0].x < dawn[0].x)
+    #expect(dawn[0].x < day[0].x)
+    #expect(abs(dawn[0].x - (night[0].x + day[0].x) / 2) < 0.00001)
+    settings.light = "daylight"
+    #expect(
+      IdleScreenAquarium.frame(at: 0, seed: 42, settings: settings)
+        == IdleScreenAquarium.frame(at: 100, seed: 42, settings: settings))
   }
 
   @Test(arguments: [

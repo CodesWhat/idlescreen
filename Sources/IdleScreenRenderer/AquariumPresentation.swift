@@ -6,7 +6,6 @@ public enum IdleScreenAquariumFrameClock {
     explicit: TimeInterval?, automatic: TimeInterval,
     settings: IdleScreenAquariumRenderSettings?, now: Date
   ) -> TimeInterval {
-    if settings?.reduceMotion == true { return 0 }
     let value = explicit ?? settings?.elapsed(at: now) ?? automatic
     return value.isFinite ? max(0, value).truncatingRemainder(dividingBy: 86_400) : 0
   }

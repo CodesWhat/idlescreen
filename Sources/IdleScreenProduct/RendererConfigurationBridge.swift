@@ -9,7 +9,8 @@ enum IdleScreenRendererConfigurationBridge {
   static func configuration(
     for configuration: IdleScreenConfiguration,
     assignment: DisplaySceneAssignment?,
-    aquarium: IdleScreenAquariumLibrary? = nil
+    aquarium: IdleScreenAquariumLibrary? = nil,
+    reduceMotion: Bool = false
   ) -> IdleScreenRendererConfiguration {
     let creative = configuration.creative
     let settings = creative.settings
@@ -87,9 +88,11 @@ enum IdleScreenRendererConfigurationBridge {
       ),
       aquariumSettings: aquarium.map {
         let bounds = $0.presentation == .panorama ? assignment?.scene?.bounds : nil
-        return IdleScreenAquariumProduct.settings(
+        var settings = IdleScreenAquariumProduct.settings(
           for: $0.tank(for: assignment?.representativeIdentifier.rawValue),
           worldAspect: bounds.map { $0.width / $0.height })
+        settings.reduceMotion = reduceMotion
+        return settings
       }
     )
   }

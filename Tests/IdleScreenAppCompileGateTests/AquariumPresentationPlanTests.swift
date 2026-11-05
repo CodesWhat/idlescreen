@@ -60,6 +60,13 @@ struct AquariumPresentationPlanTests {
     #expect(settings.worldWidth == 756)
   }
 
+  @Test func productMappingPropagatesReducedMotionForStudioAndSaver() {
+    let library = IdleScreenAquariumLibrary.starter
+    let mapped = IdleScreenRendererConfigurationBridge.configuration(
+      for: .default, assignment: nil, aquarium: library, reduceMotion: true)
+    #expect(mapped.aquariumSettings?.reduceMotion == true)
+  }
+
   @Test func lifecycleAndEnergyPolicyHaveExplicitStopConditions() {
     var policy = IdleScreenAquariumPresentationPolicy()
     #expect(policy.framesPerSecond == 30)
@@ -84,6 +91,24 @@ struct AquariumPresentationPlanTests {
     let host = NSHostingView(
       rootView: IdleScreenAquariumMetalPreview(tank: tank, reduceMotion: true)
         .frame(width: 384, height: 216))
+    host.frame = .init(x: 0, y: 0, width: 384, height: 216)
+    host.layoutSubtreeIfNeeded()
+    func metalView(in view: NSView) -> MTKView? {
+      if let view = view as? MTKView { return view }
+      return view.subviews.compactMap { metalView(in: $0) }.first
+    }
+    let metal = try #require(metalView(in: host))
+    #expect(metal.device != nil)
+    #expect(metal.isPaused)
+  }
+
+  @Test func studioAquariumAlsoStopsItsContinuousClockForReducedMotion() throws {
+    var configuration = IdleScreenAquariumProduct.configuration(
+      for: try #require(IdleScreenAquariumLibrary.starter.selectedTank))
+    configuration.aquariumSettings?.reduceMotion = true
+    let host = NSHostingView(
+      rootView: IdleScreenMetalPreview(
+        configuration: configuration, mode: .generative, cameraFrame: nil))
     host.frame = .init(x: 0, y: 0, width: 384, height: 216)
     host.layoutSubtreeIfNeeded()
     func metalView(in view: NSView) -> MTKView? {

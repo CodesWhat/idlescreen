@@ -10,6 +10,7 @@ public enum IdleScreenAquarium {
     at elapsed: TimeInterval, seed: UInt64,
     settings: IdleScreenAquariumRenderSettings? = nil
   ) -> [SIMD4<Float>] {
+    let lightTime = elapsed.isFinite ? max(0, elapsed) : 0
     let elapsed = settings?.reduceMotion == true ? 0 : elapsed
     let time = elapsed.isFinite ? max(0, elapsed).truncatingRemainder(dividingBy: 86_400) : 0
     let width = min(1152, max(384, settings?.worldWidth ?? Self.width))
@@ -114,7 +115,7 @@ public enum IdleScreenAquarium {
         canvas.rect(x + 1, y + 3, 2, 1, color)
       }
     }
-    if let settings { canvas.applyLight(settings, time: time) }
+    if let settings { canvas.applyLight(settings, time: lightTime) }
     return canvas.pixels
   }
 
