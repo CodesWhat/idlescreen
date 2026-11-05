@@ -95,6 +95,37 @@ struct AquariumNavigationTests {
     #expect(changed.allSatisfy { opening.contains(CGPoint(x: $0 % 384, y: $0 / 384)) })
   }
 
+  @Test func crabScuttlesInTheFrontFloorLaneInsteadOfFloatingOverBranches() {
+    var settings = settings
+    settings.objects.append(.init(kind: "driftwood", x: 0.5, y: 0.9))
+    let geometry = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
+    let crab = IdleScreenAquariumRenderInhabitant(identity: 77, species: "clawedCrab")
+    for time in stride(from: 0.0, through: 160, by: 0.5) {
+      let pose = IdleScreenAquarium.savedAnimal(
+        crab, at: time, seed: 42, settings: settings, navigation: geometry)
+      #expect(pose.y >= geometry.floor - 2)
+      #expect(pose.activity != .swimming)
+      #expect(pose.shelterIndex == nil)
+    }
+  }
+
+  @Test func largeGroundAnimalsKeepTheirWholeBodyInsideTheWorldAtEdgeObjects() {
+    var settings = settings
+    settings.objects = [.init(kind: "rock", x: 0.045, y: 0.9)]
+    let geometry = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
+    for species in ["mantisShrimp", "clawedCrab", "snail"] {
+      let item = IdleScreenAquariumRenderInhabitant(identity: 77, species: species)
+      for time in stride(from: 0.0, through: 400, by: 1) {
+        let pose = IdleScreenAquarium.savedAnimal(
+          item, at: time, seed: 42, settings: settings, navigation: geometry)
+        let sprite = pose.species.sprite(phase: pose.animationPhase, facingRight: pose.facingRight)
+        let half = Double(sprite.width) * pose.scale * pose.horizontalScale / 2
+        #expect(pose.x - half >= 0)
+        #expect(pose.x + half <= 384)
+      }
+    }
+  }
+
   @Test func wideWorldRoutesRemainBoundedAndClockSamplesRepeat() {
     var settings = settings
     settings.worldWidth = 768

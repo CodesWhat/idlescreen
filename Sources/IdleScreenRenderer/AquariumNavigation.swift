@@ -131,13 +131,18 @@ struct IdleScreenAquariumNavigation {
       grazingAnchors.isEmpty
       ? Anchor(x: Double(worldWidth) * 0.25, y: floor)
       : grazingAnchors[Int(identity % UInt64(grazingAnchors.count))]
-    let shelter = shelters.isEmpty ? nil : shelters[Int(identity % UInt64(shelters.count))]
-    let a = Anchor(x: graze.x, y: surface(at: graze.x, radius: radius))
+    let floorWalker = species == .clawedCrab
+    let shelter =
+      floorWalker || shelters.isEmpty ? nil : shelters[Int(identity % UInt64(shelters.count))]
+    let aX = min(Double(worldWidth - 32), max(32, graze.x))
+    let a = Anchor(x: aX, y: floorWalker ? floor + 3 : surface(at: aX, radius: radius))
     let bX = shelter.map { Double($0.opening.midX) } ?? Double(worldWidth) * 0.75
     let inset = shelter == nil ? 0 : (bX >= a.x ? 10 : -10) * scale
     let b = Anchor(
-      x: min(Double(worldWidth - 24), max(24, bX + inset)),
-      y: shelter.map { Double($0.opening.maxY) + 2 * scale } ?? surface(at: bX, radius: radius))
+      x: min(Double(worldWidth - 32), max(32, bX + inset)),
+      y: floorWalker
+        ? floor + 3
+        : shelter.map { Double($0.opening.maxY) + 2 * scale } ?? surface(at: bX, radius: radius))
     let safeTime = time.isFinite ? max(0, time) : 0
     let rate = species == .snail ? 0.22 : 1.0
     let local = (safeTime * rate + Double(identity % 997) * 0.17).truncatingRemainder(
@@ -150,7 +155,7 @@ struct IdleScreenAquariumNavigation {
     let start = outbound ? b : a
     let end = outbound ? a : b
     let x = start.x + (end.x - start.x) * progress
-    let travel = height(in: travelSurfaces, at: x, radius: radius)
+    let travel = floorWalker ? floor + 3 : height(in: travelSurfaces, at: x, radius: radius)
     let fromEnd = min(1, max(0, (1 - progress) * 6))
     let fromStart = min(1, max(0, progress * 6))
     let middleWeight = fromEnd * fromStart
