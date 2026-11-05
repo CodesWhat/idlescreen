@@ -115,6 +115,17 @@ public enum IdleScreenAquariumEquipment: String, IdleScreenAquariumChoice {
   }
 }
 
+public enum IdleScreenAquariumObjectTilt: String, IdleScreenAquariumChoice {
+  case left, upright, right
+  public var degrees: Double {
+    switch self {
+    case .left: -15
+    case .upright: 0
+    case .right: 15
+    }
+  }
+}
+
 public struct IdleScreenAquariumDecoration: Codable, Equatable, Identifiable, Sendable {
   public var id: UUID
   public var kind: IdleScreenAquariumDecorationKind
@@ -124,10 +135,12 @@ public struct IdleScreenAquariumDecoration: Codable, Equatable, Identifiable, Se
   public var scale: Double
   public var flipped: Bool
   public var foreground: Bool
+  public var tilt: IdleScreenAquariumObjectTilt?
 
   public init(
     id: UUID = UUID(), kind: IdleScreenAquariumDecorationKind, x: Double, y: Double,
-    scale: Double = 1, flipped: Bool = false, foreground: Bool = false
+    scale: Double = 1, flipped: Bool = false, foreground: Bool = false,
+    tilt: IdleScreenAquariumObjectTilt? = nil
   ) {
     self.id = id
     self.kind = kind
@@ -136,15 +149,26 @@ public struct IdleScreenAquariumDecoration: Codable, Equatable, Identifiable, Se
     self.scale = scale
     self.flipped = flipped
     self.foreground = foreground
+    self.tilt = tilt
+  }
+
+  public var placementSize: (width: Double, height: Double) {
+    let angle = (tilt?.degrees ?? 0) * .pi / 180
+    let c = abs(cos(angle))
+    let s = abs(sin(angle))
+    return (
+      ceil(kind.size.width * c + kind.size.height * s) * scale,
+      ceil(kind.size.width * s + kind.size.height * c) * scale
+    )
   }
 
   public func validate(worldWidth: Int = 384) throws {
     guard (384...1152).contains(worldWidth), x.isFinite, y.isFinite, scale.isFinite,
       (0.5...1.5).contains(scale),
       (0.55...0.96).contains(y),
-      x - kind.size.width * scale / (2 * Double(worldWidth)) >= 0,
-      x + kind.size.width * scale / (2 * Double(worldWidth)) <= 1,
-      y - kind.size.height * scale / 216 >= 0.22
+      x - placementSize.width / (2 * Double(worldWidth)) >= 0,
+      x + placementSize.width / (2 * Double(worldWidth)) <= 1,
+      y - placementSize.height / 216 >= 0.22
     else {
       throw IdleScreenAquariumError.invalidPlacement
     }

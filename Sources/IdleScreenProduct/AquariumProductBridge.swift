@@ -54,7 +54,7 @@ enum IdleScreenAquariumProduct {
     settings.objects = tank.decorations.map {
       .init(
         kind: $0.kind.rawValue, x: $0.x, y: $0.y, scale: $0.scale, flipped: $0.flipped,
-        foreground: $0.foreground)
+        foreground: $0.foreground, tiltDegrees: $0.tilt?.degrees ?? 0)
     }
     settings.inhabitants = tank.animals.map { animal in
       let bytes = withUnsafeBytes(of: animal.id.uuid) { Array($0) }

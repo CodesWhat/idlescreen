@@ -19,6 +19,7 @@ struct IdleScreenAquariumNavigation {
   private let surfaces: [Double]
   private let travelSurfaces: [Double]
   private let owners: [Int16]
+  private let portals: [Int16]
 
   init(settings: IdleScreenAquariumRenderSettings, worldWidth: Int) {
     self.worldWidth = min(1152, max(384, worldWidth))
@@ -30,6 +31,7 @@ struct IdleScreenAquariumNavigation {
     let phase = Double(settings.seed % 997) / 997 * 6.28
     var heights = (0..<width).map { floor + Double(Int(sin(Double($0) * 0.032 + phase) * 4)) }
     var owners = [Int16](repeating: -1, count: width * 216)
+    var portals = owners
     var grazes: [Anchor] = []
     var shelters: [Shelter] = []
     for (index, object) in settings.objects.prefix(24).enumerated() {
@@ -37,22 +39,28 @@ struct IdleScreenAquariumNavigation {
         !["grass", "fern", "purplePlant"].contains(object.kind)
       else { continue }
       let sprite = IdleScreenAquarium.objectSprite(kind: object.kind, time: 0)
-      let scale = min(1.5, max(0.5, object.scale))
-      let w = max(1, Int(Double(sprite.width) * scale))
-      let h = max(1, Int(Double(sprite.height) * scale))
+      let transform = IdleScreenAquariumObjectTransform(
+        object: object,
+        sourceWidth: sprite.width, sourceHeight: sprite.height)
+      let w = transform.width
+      let h = transform.height
       let left = Int(min(1, max(0, object.x)) * Double(width)) - w / 2
       let top = Int(min(1, max(0, object.y)) * 216) - h
+      let opening = Self.opening(for: object.kind)
       for row in 0..<h {
         let y = top + row
         guard (0..<216).contains(y) else { continue }
         for column in 0..<w {
           let x = left + column
-          guard (0..<width).contains(x) else { continue }
-          let sourceX = column * sprite.width / w
-          let mirroredX = object.flipped ? sprite.width - sourceX - 1 : sourceX
-          guard sprite.pixels[(row * sprite.height / h) * sprite.width + mirroredX].w > 0 else {
-            continue
+          guard (0..<width).contains(x),
+            let source = transform.sourcePixel(column: column, row: row)
+          else { continue }
+          if opening?.contains(CGPoint(x: Double(source.x) + 0.5, y: Double(source.y) + 0.5))
+            == true
+          {
+            portals[y * width + x] = Int16(index)
           }
+          guard sprite.pixels[source.y * sprite.width + source.x].w > 0 else { continue }
           heights[x] = min(heights[x], Double(y))
           owners[y * width + x] = Int16(index)
         }
@@ -61,26 +69,9 @@ struct IdleScreenAquariumNavigation {
         let x = min(width - 24, max(24, left + w / 2))
         grazes.append(.init(x: Double(x), y: heights[x]))
       }
-      let opening: CGRect?
-      switch object.kind {
-      case "cave": opening = .init(x: 13, y: 15, width: 22, height: 15)
-      case "hollowLog": opening = .init(x: 4, y: 9, width: 8, height: 10)
-      case "castle": opening = .init(x: 19, y: 37, width: 11, height: 21)
-      case "skull": opening = .init(x: 5, y: 8, width: 6, height: 6)
-      case "shipwreck": opening = .init(x: 15, y: 20, width: 22, height: 10)
-      case "pirateChest": opening = .init(x: 0, y: 12, width: 8, height: 12)
-      default: opening = nil
-      }
       if let opening {
-        let x = object.flipped ? Double(sprite.width) - opening.maxX : opening.minX
-        shelters.append(
-          .init(
-            objectIndex: index,
-            opening: .init(
-              x: Double(left) + x * Double(w) / Double(sprite.width),
-              y: Double(top) + opening.minY * Double(h) / Double(sprite.height),
-              width: opening.width * Double(w) / Double(sprite.width),
-              height: opening.height * Double(h) / Double(sprite.height))))
+        let rect = transform.bounds(of: opening).offsetBy(dx: Double(left), dy: Double(top))
+        shelters.append(.init(objectIndex: index, opening: rect))
       }
     }
     surfaces = heights
@@ -92,6 +83,7 @@ struct IdleScreenAquariumNavigation {
     }
     travelSurfaces = heights
     self.owners = owners
+    self.portals = portals
     grazingAnchors = grazes
     self.shelters = shelters
   }
@@ -101,22 +93,26 @@ struct IdleScreenAquariumNavigation {
   }
 
   func masks(x: Int, y: Int, shelterIndex: Int?, hiding: Bool = false) -> Bool {
-    if hiding, let shelterIndex,
-      let shelter = shelters.first(where: { $0.objectIndex == shelterIndex }),
-      !shelter.opening.contains(CGPoint(x: x, y: y))
-    {
-      return true
-    }
-    guard (0..<worldWidth).contains(x), (0..<216).contains(y) else { return false }
-    let owner = owners[y * worldWidth + x]
+    guard (0..<worldWidth).contains(x), (0..<216).contains(y) else { return hiding }
+    let position = y * worldWidth + x
+    let portal = portals[position]
+    if hiding, let shelterIndex, portal != shelterIndex { return true }
+    let owner = owners[position]
     guard owner >= 0 else { return false }
-    if let shelterIndex, owner == shelterIndex,
-      let shelter = shelters.first(where: { $0.objectIndex == shelterIndex }),
-      shelter.opening.contains(CGPoint(x: x, y: y))
-    {
-      return false
-    }
+    if let shelterIndex, owner == shelterIndex, portal == shelterIndex { return false }
     return true
+  }
+
+  private static func opening(for kind: String) -> CGRect? {
+    switch kind {
+    case "cave": .init(x: 13, y: 15, width: 22, height: 15)
+    case "hollowLog": .init(x: 4, y: 9, width: 8, height: 10)
+    case "castle": .init(x: 19, y: 37, width: 11, height: 21)
+    case "skull": .init(x: 5, y: 8, width: 6, height: 6)
+    case "shipwreck": .init(x: 15, y: 20, width: 22, height: 10)
+    case "pirateChest": .init(x: 0, y: 12, width: 8, height: 12)
+    default: nil
+    }
   }
 
   func groundPose(

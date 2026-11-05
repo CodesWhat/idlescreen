@@ -210,22 +210,16 @@ extension IdleScreenAquarium {
 extension IdleScreenAquarium.Canvas {
   mutating func object(_ object: IdleScreenAquariumRenderObject, time: Double, flow: Double = 0.5) {
     guard object.x.isFinite, object.y.isFinite, object.scale.isFinite else { return }
-    var sprite = IdleScreenAquarium.objectSprite(kind: object.kind, time: time, flow: flow)
-    if object.flipped {
-      for y in 0..<sprite.height {
-        let range = (y * sprite.width)..<((y + 1) * sprite.width)
-        sprite.pixels.replaceSubrange(range, with: sprite.pixels[range].reversed())
-      }
-    }
-    let scale = min(1.5, max(0.5, object.scale))
-    let w = max(1, Int(Double(sprite.width) * scale))
-    let h = max(1, Int(Double(sprite.height) * scale))
-    let x = Int(min(1, max(0, object.x)) * Double(width)) - w / 2
-    let y = Int(min(1, max(0, object.y)) * 216) - h
-    for row in 0..<h {
-      for column in 0..<w {
-        let color = sprite.pixels[
-          (row * sprite.height / h) * sprite.width + column * sprite.width / w]
+    let sprite = IdleScreenAquarium.objectSprite(kind: object.kind, time: time, flow: flow)
+    let transform = IdleScreenAquariumObjectTransform(
+      object: object,
+      sourceWidth: sprite.width, sourceHeight: sprite.height)
+    let x = Int(min(1, max(0, object.x)) * Double(width)) - transform.width / 2
+    let y = Int(min(1, max(0, object.y)) * 216) - transform.height
+    for row in 0..<transform.height {
+      for column in 0..<transform.width {
+        guard let source = transform.sourcePixel(column: column, row: row) else { continue }
+        let color = sprite.pixels[source.y * sprite.width + source.x]
         if color.w > 0 { rect(x + column, y + row, 1, 1, color) }
       }
     }

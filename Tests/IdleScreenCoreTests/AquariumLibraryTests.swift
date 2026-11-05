@@ -80,6 +80,26 @@ struct AquariumLibraryTests {
     #expect(throws: IdleScreenAquariumError.invalidPlacement) { try library.validate() }
   }
 
+  @Test func limitedTiltRoundTripsAndExpandedBoundsStayInsideTheTank() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    var item = IdleScreenAquariumDecoration(kind: .rock, x: 0.045, y: 0.9)
+    try item.validate()
+    item.tilt = .right
+    #expect(item.placementSize.width > item.kind.size.width)
+    #expect(throws: IdleScreenAquariumError.invalidPlacement) { try item.validate() }
+    item.x = 0.5
+    try library.tanks[0].place(item)
+    let saved = try JSONDecoder().decode(
+      IdleScreenAquariumLibrary.self,
+      from: JSONEncoder().encode(library))
+    #expect(saved.tanks[0].decorations.last?.tilt == .right)
+    #expect(IdleScreenAquariumDecoration(kind: .rock, x: 0.5, y: 0.9).tilt == nil)
+    var tall = IdleScreenAquariumDecoration(kind: .shipwreck, x: 0.5, y: 0.6, scale: 1.5)
+    try tall.validate()
+    tall.tilt = .left
+    #expect(throws: IdleScreenAquariumError.invalidPlacement) { try tall.validate() }
+  }
+
   @Test func storeTransactionsAreAtomicAndRetriesDoNotChargeAgain() throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }

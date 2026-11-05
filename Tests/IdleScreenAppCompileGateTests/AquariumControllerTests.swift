@@ -75,6 +75,24 @@ struct AquariumControllerTests {
     #expect(controller.selectedTank.animals == animals)
   }
 
+  @Test func decorationTiltReachesTheRendererAndSurvivesUndoAndReload() throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "aquariums.json")
+    let controller = IdleScreenAquariumController(fileURL: url)
+    var item = try #require(controller.selectedTank.decorations.first { $0.kind == .rock })
+    item.tilt = .left
+    controller.updateDecoration(item)
+    #expect(
+      IdleScreenAquariumProduct.settings(for: controller.selectedTank).objects
+        .first { $0.kind == "rock" }?.tiltDegrees == -15)
+    controller.undoLayout()
+    #expect(controller.selectedTank.decorations.first { $0.id == item.id }?.tilt == nil)
+    controller.redoLayout()
+    let reopened = IdleScreenAquariumController(fileURL: url)
+    #expect(reopened.selectedTank.decorations.first { $0.id == item.id }?.tilt == .left)
+  }
+
   @Test func invalidEditsLeaveSavedStateAndHistoryUntouched() throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }

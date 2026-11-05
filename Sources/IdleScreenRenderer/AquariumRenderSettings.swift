@@ -7,9 +7,10 @@ public struct IdleScreenAquariumRenderObject: Equatable, Sendable {
   public var scale: Double
   public var flipped: Bool
   public var foreground: Bool
+  public var tiltDegrees: Double
   public init(
     kind: String, x: Double, y: Double, scale: Double = 1,
-    flipped: Bool = false, foreground: Bool = false
+    flipped: Bool = false, foreground: Bool = false, tiltDegrees: Double = 0
   ) {
     self.kind = kind
     self.x = x
@@ -17,6 +18,7 @@ public struct IdleScreenAquariumRenderObject: Equatable, Sendable {
     self.scale = scale
     self.flipped = flipped
     self.foreground = foreground
+    self.tiltDegrees = tiltDegrees
   }
 }
 

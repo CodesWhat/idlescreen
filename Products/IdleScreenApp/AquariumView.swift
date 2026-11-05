@@ -160,9 +160,9 @@ struct IdleScreenAquariumView: View {
           IdleScreenAquariumMetalPreview(tank: controller.selectedTank)
           ForEach(controller.selectedTank.decorations) { item in
             let width =
-              item.kind.size.width * item.scale / Double(controller.selectedTank.worldWidth)
+              item.placementSize.width / Double(controller.selectedTank.worldWidth)
               * fitted.width
-            let height = item.kind.size.height * item.scale / 216 * fitted.height
+            let height = item.placementSize.height / 216 * fitted.height
             Rectangle().fill(.clear)
               .overlay {
                 Rectangle().stroke(
@@ -293,6 +293,18 @@ struct IdleScreenAquariumView: View {
       LabeledContent("Horizontal") { Slider(value: objectBinding(item, \.x), in: 0.04...0.96) }
       LabeledContent("Bottom") { Slider(value: objectBinding(item, \.y), in: 0.55...0.96) }
       LabeledContent("Size") { Slider(value: objectBinding(item, \.scale), in: 0.5...1.5) }
+      Picker(
+        "Tilt",
+        selection: Binding(
+          get: { controller.selectedTank.decorations.first { $0.id == item.id }?.tilt ?? .upright },
+          set: { tilt in
+            var updated = controller.selectedTank.decorations.first { $0.id == item.id } ?? item
+            updated.tilt = tilt == .upright ? nil : tilt
+            controller.updateDecoration(updated)
+          })
+      ) {
+        ForEach(IdleScreenAquariumObjectTilt.allCases) { tilt in Text(tilt.title).tag(tilt) }
+      }
       Toggle("Flip", isOn: objectBinding(item, \.flipped))
       Toggle("Foreground", isOn: objectBinding(item, \.foreground))
       Button("Return to collection", role: .destructive) {
