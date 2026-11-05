@@ -136,6 +136,8 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
   }
 
   func applicationWillTerminate(_ notification: Notification) {
+    IdleScreenAquariumPresentationHost.shared.shutdown()
+    IdleScreenAquariumController.shared.stop()
     detachDisplayHost()
   }
 
@@ -150,6 +152,8 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
   }
 
   func showMainWindow() {
+    IdleScreenAquariumController.shared.start()
+    IdleScreenAquariumPresentationHost.shared.start()
     logger.info("showMainWindow requested existing=\(self.mainWindow != nil, privacy: .public)")
     // Ordered before activation: an .accessory app cannot take key focus.
     applyDockPresentation(showsMainWindow: true)
@@ -360,8 +364,10 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
     guard displayHostToken == nil else { return }
     let configuration = IdleScreenAppModel.shared.configuration
     displayHostToken = displayCoordinator.attach(
-      settings: configuration.display,
-      configurationRevision: configuration.revision
+      settings: IdleScreenAquariumProduct.displaySettings(
+        configuration: configuration, library: IdleScreenAquariumController.shared.library),
+      configurationRevision: IdleScreenAquariumProduct.presentationRevision(
+        configuration: configuration, library: IdleScreenAquariumController.shared.library)
     )
   }
 

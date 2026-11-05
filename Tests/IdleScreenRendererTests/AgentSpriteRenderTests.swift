@@ -193,6 +193,43 @@ struct AgentSpriteRenderTests {
   }
 
   @MainActor
+  @Test("aquarium solid pixels retain the agent halo on GPU and CPU fill paths")
+  func aquariumAgentHalo() throws {
+    let shot = Shot(
+      name: "aquarium", pattern: "aquarium", palette: "Cobalt", sprites: Self.attention)
+    for cpu in [false, true] {
+      let plain = try render(shot, withSprites: false, onCPU: cpu)
+      var spriteFrame: (columns: Int, rows: Int, layer: AgentSpriteLayer)?
+      let drawn = try render(shot, withSprites: true, onCPU: cpu) {
+        spriteFrame = $0.lastSpriteFrame
+      }
+      let frame = try #require(spriteFrame)
+      var sampled = 0
+      for halo in frame.layer.halo {
+        let x =
+          (Double(Int(halo.cell) % frame.columns) + 0.5) / Double(frame.columns)
+          * Double(Self.width)
+        let y =
+          (Double(Int(halo.cell) / frame.columns) + 0.5) / Double(frame.rows) * Double(Self.height)
+        guard
+          !frame.layer.quads.contains(where: {
+            Float(x / 2) >= $0.edges.x && Float(x / 2) <= $0.edges.z
+              && Float(y / 2) >= $0.edges.y && Float(y / 2) <= $0.edges.w
+          })
+        else { continue }
+        let offset = (Int(y) * Self.width + Int(x)) * 4
+        let before = Int(plain[offset]) + Int(plain[offset + 1]) + Int(plain[offset + 2])
+        let after = Int(drawn[offset]) + Int(drawn[offset + 1]) + Int(drawn[offset + 2])
+        if before > 15 {
+          #expect(after < before / 3, "aquarium halo did not dim a solid pixel")
+          sampled += 1
+        }
+      }
+      #expect(sampled > 5)
+    }
+  }
+
+  @MainActor
   @Test("Topograph honors full bleed and horizon on both render paths")
   func topographHonorsFraming() throws {
     for cpu in [false, true] {

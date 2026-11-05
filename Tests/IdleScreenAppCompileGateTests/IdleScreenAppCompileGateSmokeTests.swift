@@ -43,7 +43,10 @@ struct IdleScreenAppCompileGateSmokeTests {
 
   @Test("all workbench destinations are available")
   func companionSourcesAreLinked() {
-    #expect(Destination.allCases.map(\.rawValue) == ["Scene", "Displays", "Agents", "Settings"])
+    #expect(
+      Destination.allCases.map(\.rawValue) == [
+        "Scene", "Aquarium", "Displays", "Agents", "Settings",
+      ])
   }
 
   @Test("the entire preview fits landscape, portrait and ultrawide displays")

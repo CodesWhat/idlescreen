@@ -84,6 +84,7 @@ struct SaverThumbnailCaptureTests {
       ("terrain", 0, 1, 6, 0.25, 1, 1),
       ("rainOnGlass", 1, 1, 11, 1, 1, 20),
       ("aurora", 1, 1, 11, 0.5, 1, 1),
+      ("aquarium", 1, 1, 20, 1, 1, 1),
     ]
 
   @MainActor

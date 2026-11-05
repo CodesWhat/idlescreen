@@ -32,16 +32,18 @@ struct IdleScreenApp: App {
 
 enum Destination: String, CaseIterable, Identifiable {
   case studio = "Scene"
+  case aquarium = "Aquarium"
   case displays = "Displays"
   case integrations = "Agents"
   case status = "Settings"
 
-  static let primaryCases: [Destination] = [.studio, .displays, .integrations, .status]
+  static let primaryCases: [Destination] = [.studio, .aquarium, .displays, .integrations, .status]
 
   var id: String { rawValue }
   var symbol: String {
     switch self {
     case .studio: "play.rectangle"
+    case .aquarium: "fish"
     case .displays: "rectangle.3.group"
     case .integrations: "point.3.connected.trianglepath.dotted"
     case .status: "waveform.path.ecg"
@@ -125,6 +127,7 @@ struct ContentView: View {
               onLater: { navigation.setupSession.deferSetup() }
             )
           }
+        case .aquarium: IdleScreenAquariumView()
         case .displays: DisplaysView()
         case .integrations: IntegrationsView()
         case .status: StatusView()
@@ -161,9 +164,11 @@ struct ContentView: View {
     }
     .windowAppearance(Self.windowAppearance(for: navigation.destination, showsSetup: showsSetup))
     .ignoresSafeArea()
-    .onChange(of: model.configuration.revision, initial: true) { _, revision in
-      _ = displayCoordinator.update(
-        settings: model.configuration.display, configurationRevision: revision)
+    .onChange(of: model.configuration.revision, initial: true) {
+      _, _ in updateDisplayPresentation()
+    }
+    .onChange(of: IdleScreenAquariumController.shared.library.revision) { _, _ in
+      updateDisplayPresentation()
     }
     .onChange(of: displayCoordinator.latestSnapshot?.generation, initial: true) { _, _ in
       synchronizePreviewDisplay()
@@ -189,6 +194,15 @@ struct ContentView: View {
     if let selected {
       navigation.displayAspectRatio = selected.logicalFrame.width / selected.logicalFrame.height
     }
+  }
+
+  private func updateDisplayPresentation() {
+    let library = IdleScreenAquariumController.shared.library
+    _ = displayCoordinator.update(
+      settings: IdleScreenAquariumProduct.displaySettings(
+        configuration: model.configuration, library: library),
+      configurationRevision: IdleScreenAquariumProduct.presentationRevision(
+        configuration: model.configuration, library: library))
   }
 
   private var showsSetup: Bool { !(setupCompleted || navigation.isSetupDeferred) }
@@ -510,6 +524,7 @@ struct StudioView: View {
     model.configurationApplyingActiveAgentSignal(at: date)
       .rendererConfiguration(
         for: previewAssignment,
+        aquarium: IdleScreenAquariumController.shared.library,
         agentPresentations: model.agentPresentations(at: date),
         reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
       )
@@ -2094,6 +2109,7 @@ struct IdleScreenMetalPreview: View {
 /// deferred to the main actor so SwiftUI is never mutated during view creation.
 @MainActor
 private struct IdleScreenMetalViewHost: NSViewRepresentable {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   let configuration: IdleScreenRendererConfiguration
   let mode: IdleScreenRendererMode
   let cameraFrame: IdleScreenRendererCameraFrame?
@@ -2101,6 +2117,18 @@ private struct IdleScreenMetalViewHost: NSViewRepresentable {
   let elapsedTime: TimeInterval?
   let pointerLocationDidChange: ((CGPoint?) -> Void)?
   let status: IdleScreenMetalPreviewStatus
+
+  private var presentedConfiguration: IdleScreenRendererConfiguration {
+    var value = configuration
+    value.aquariumSettings?.reduceMotion =
+      reduceMotion || configuration.aquariumSettings?.reduceMotion == true
+    return value
+  }
+
+  private var staticAquarium: Bool {
+    configuration.patternRawValue == "aquarium" && mode != .camera
+      && presentedConfiguration.aquariumSettings?.reduceMotion == true
+  }
 
   @MainActor
   final class Coordinator {
@@ -2146,10 +2174,12 @@ private struct IdleScreenMetalViewHost: NSViewRepresentable {
     do {
       let renderer = try IdleScreenRenderer(
         metalView: metalView,
-        configuration: configuration,
+        configuration: presentedConfiguration,
         mode: mode,
-        automaticallyDraws: elapsedTime == nil
+        automaticallyDraws: elapsedTime == nil && !staticAquarium
       )
+      metalView.enableSetNeedsDisplay = staticAquarium
+      if staticAquarium { metalView.needsDisplay = true }
       context.coordinator.renderer = renderer
       context.coordinator.subscribe(
         renderer: renderer,
@@ -2175,8 +2205,11 @@ private struct IdleScreenMetalViewHost: NSViewRepresentable {
     context: Context
   ) {
     metalView.pointerLocationDidChange = pointerLocationDidChange
+    metalView.isPaused = elapsedTime != nil || staticAquarium
+    metalView.enableSetNeedsDisplay = staticAquarium
+    if staticAquarium { metalView.needsDisplay = true }
     guard let renderer = context.coordinator.renderer else { return }
-    renderer.update(configuration: configuration)
+    renderer.update(configuration: presentedConfiguration)
     renderer.update(mode: mode)
     context.coordinator.subscribe(
       renderer: renderer,
@@ -2645,12 +2678,14 @@ extension IdleScreenConfiguration {
 
   func rendererConfiguration(
     for assignment: DisplaySceneAssignment?,
+    aquarium: IdleScreenAquariumLibrary? = nil,
     agentPresentations: [IdleScreenAgentOverlayPresentation] = [],
     reduceMotion: Bool = false
   ) -> IdleScreenRendererConfiguration {
     IdleScreenRendererConfigurationBridge.configuration(
       for: self,
       assignment: assignment,
+      aquarium: aquarium,
       agentPresentations: agentPresentations,
       reduceMotion: reduceMotion
     )

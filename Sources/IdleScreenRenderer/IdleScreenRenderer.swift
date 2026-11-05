@@ -18,6 +18,7 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
   public var viewport: IdleScreenRendererViewport
   public var sceneSeed: UInt64
   public var sceneBrightness: Double
+  public var aquariumSettings: IdleScreenAquariumRenderSettings?
   public var pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings
   /// Agent sprites drawn into the scene, at most two. Empty leaves the
   /// rendered output untouched.
@@ -37,7 +38,8 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
     sceneBrightness: Double = 1,
     pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings = .init(),
     agentSprites: [IdleScreenAgentSprite] = [],
-    framing: IdleScreenRendererFraming = .none
+    framing: IdleScreenRendererFraming = .none,
+    aquariumSettings: IdleScreenAquariumRenderSettings? = nil
   ) {
     self.glyphScale = glyphScale
     self.contrast = contrast
@@ -56,6 +58,7 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
       agentSprites.prefix(IdleScreenAgentSprite.maximumCount)
     )
     self.framing = framing
+    self.aquariumSettings = aquariumSettings
   }
 
   public static let `default` = IdleScreenRendererConfiguration(
@@ -310,6 +313,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
   private let pipelineState: MTLRenderPipelineState
   private let cameraComputePipelineState: MTLComputePipelineState?
   private let proceduralComputePipelineState: MTLComputePipelineState?
+  private let aquariumComputePipelineState: MTLComputePipelineState?
   private let pixelMaterialsComputePipelineState: MTLComputePipelineState?
   private let agentSpriteComputePipelineState: MTLComputePipelineState?
   private let spriteQuadPipelineState: MTLRenderPipelineState?
@@ -343,6 +347,8 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     repeating: nil,
     count: maximumInFlightFrameCount
   )
+  private var aquariumPixelBuffers = [MTLBuffer?](repeating: nil, count: maximumInFlightFrameCount)
+  private var aquariumPixelCapacities = [Int](repeating: 0, count: maximumInFlightFrameCount)
   private var instanceCapacities = [Int](
     repeating: 0,
     count: maximumInFlightFrameCount
@@ -375,7 +381,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     _ in DispatchSemaphore(value: 1)
   }
   private var nextInstanceBufferIndex = 0
-  private var requestedElapsedTime: Float?
+  private var requestedElapsedTime: TimeInterval?
   private var didSubmitRequestedFrame = false
   private var didReportCameraComputeFailure = false
   private var nextPerformanceFrameID: UInt64 = 1
@@ -512,6 +518,11 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       Self.logger.error(
         "Procedural compute function idleScreenProceduralInstances is missing"
       )
+    }
+
+    aquariumComputePipelineState = library.makeFunction(name: "idleScreenAquariumInstances").flatMap
+    {
+      try? device.makeComputePipelineState(function: $0)
     }
 
     if let materialsFunction = library.makeFunction(
@@ -676,6 +687,9 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       count: Self.maximumInFlightFrameCount
     )
     proceduralDebugState = nil
+    if configuration.patternRawValue == "aquarium" { IdleScreenAquariumFrameCache.shared.clear() }
+    aquariumPixelBuffers = .init(repeating: nil, count: Self.maximumInFlightFrameCount)
+    aquariumPixelCapacities = .init(repeating: 0, count: Self.maximumInFlightFrameCount)
   }
 
   /// Draw one frame using a host-owned lifecycle clock.
@@ -686,7 +700,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
   @discardableResult
   public func draw(at elapsedTime: TimeInterval) -> Bool {
     guard !isShutdown, let metalView else { return false }
-    requestedElapsedTime = Float(max(0, elapsedTime))
+    requestedElapsedTime = elapsedTime.isFinite ? max(0, elapsedTime) : 0
     didSubmitRequestedFrame = false
     metalView.draw()
     return didSubmitRequestedFrame
@@ -761,9 +775,11 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     }
 
     autoreleasepool {
-      let elapsed =
-        requestedElapsedTime
-        ?? Float(CACurrentMediaTime() - startedAt)
+      let automaticElapsed = CACurrentMediaTime() - startedAt
+      let aquariumElapsed = IdleScreenAquariumFrameClock.resolve(
+        explicit: requestedElapsedTime, automatic: automaticElapsed,
+        settings: configuration.aquariumSettings, now: Date())
+      let elapsed = Float(requestedElapsedTime ?? automaticElapsed)
       requestedElapsedTime = nil
       let framesPerSecond = preferredFramesPerSecond(
         at: TimeInterval(elapsed)
@@ -780,6 +796,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       let prepared = prepareInstances(
         for: view.bounds.size,
         elapsed: elapsed,
+        aquariumElapsed: aquariumElapsed,
         bufferIndex: bufferIndex
       )
       let grid = prepared.dimensions
@@ -811,6 +828,14 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
           instanceBuffer: instanceBuffer,
           commandBuffer: commandBuffer
         )
+      {
+        dropReason = .encodingFailed
+        return
+      }
+      if let input = prepared.aquariumInput,
+        !encodeAquariumInstances(
+          input, grid: grid, bufferIndex: bufferIndex,
+          instanceBuffer: instanceBuffer, commandBuffer: commandBuffer)
       {
         dropReason = .encodingFailed
         return
@@ -923,6 +948,9 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         let quadBuffer = spriteQuadBuffers[bufferIndex]
       {
         retainedBuffers.append(quadBuffer)
+      }
+      if prepared.aquariumInput != nil, let pixels = aquariumPixelBuffers[bufferIndex] {
+        retainedBuffers.append(pixels)
       }
       let bufferRetention = InFlightBufferRetention(retainedBuffers)
       let performanceObserver = self.performanceObserver
@@ -1140,6 +1168,37 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     }
   }
 
+  private func encodeAquariumInstances(
+    _ input: AquariumComputeInput, grid: GridDimensions,
+    bufferIndex: Int, instanceBuffer: any MTLBuffer,
+    commandBuffer: any MTLCommandBuffer
+  ) -> Bool {
+    guard let pipeline = aquariumComputePipelineState,
+      let pixels = aquariumPixelBuffers[bufferIndex],
+      let encoder = commandBuffer.makeComputeCommandEncoder()
+    else { return false }
+    let viewport = configuration.viewport.normalized
+    var uniforms = AquariumComputeUniforms(
+      gridSize: .init(UInt32(grid.columns), UInt32(grid.rows)),
+      worldSize: .init(UInt32(input.worldWidth), 216),
+      viewport: .init(
+        Float(viewport.x), Float(viewport.y), Float(viewport.width), Float(viewport.height)),
+      contentRect: .init(
+        Float(input.contentRect.minX), Float(input.contentRect.minY),
+        Float(input.contentRect.width), Float(input.contentRect.height)),
+      brightness: Float(configuration.sceneBrightness))
+    encoder.label = "IdleScreen aquarium composition"
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(pixels, offset: 0, index: 0)
+    encoder.setBuffer(instanceBuffer, offset: 0, index: 1)
+    encoder.setBytes(&uniforms, length: MemoryLayout<AquariumComputeUniforms>.stride, index: 2)
+    encoder.dispatchThreads(
+      .init(width: grid.columns, height: grid.rows, depth: 1),
+      threadsPerThreadgroup: .init(width: 8, height: 8, depth: 1))
+    encoder.endEncoding()
+    return true
+  }
+
   private func acquireInstanceBufferIndex() -> Int? {
     for offset in 0..<Self.maximumInFlightFrameCount {
       let index = (nextInstanceBufferIndex + offset) % Self.maximumInFlightFrameCount
@@ -1156,6 +1215,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
   private func prepareInstances(
     for logicalSize: CGSize,
     elapsed: Float,
+    aquariumElapsed: TimeInterval,
     bufferIndex: Int
   ) -> PreparedGrid {
     guard logicalSize.width >= 1, logicalSize.height >= 1 else {
@@ -1168,8 +1228,12 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       glyphPointSize * IdleScreenProceduralPatterns.cellAspect
     )
     let cellHeight = max(6, glyphPointSize)
-    let columns = max(1, Int(logicalSize.width / cellWidth))
-    let rows = max(1, Int(logicalSize.height / cellHeight))
+    let isAquarium = configuration.patternRawValue == "aquarium" && mode != .camera
+    let aquariumFraming = IdleScreenAquariumFraming(
+      logicalSize: logicalSize, viewport: configuration.viewport,
+      worldWidth: configuration.aquariumSettings?.worldWidth ?? 384)
+    let columns = isAquarium ? aquariumFraming.columns : max(1, Int(logicalSize.width / cellWidth))
+    let rows = isAquarium ? aquariumFraming.rows : max(1, Int(logicalSize.height / cellHeight))
     let count = columns * rows
 
     if instanceBuffers[bufferIndex] == nil
@@ -1227,6 +1291,57 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         ),
         pixelMaterialsInput: nil,
         usesProceduralCompute: false
+      )
+    }
+    if configuration.patternRawValue == "aquarium", mode != .camera {
+      proceduralDebugState = .init(usesComputePipeline: false, instanceCount: count)
+      let pixels = IdleScreenAquariumFrameCache.shared.frame(
+        at: aquariumElapsed * configuration.proceduralSettings.normalized.speed,
+        seed: configuration.aquariumSettings?.seed ?? configuration.sceneSeed,
+        settings: configuration.aquariumSettings
+      )
+      if aquariumComputePipelineState != nil, !forcesCPUGlyphFill {
+        proceduralDebugState = .init(usesComputePipeline: true, instanceCount: count)
+        let byteCount = pixels.count * MemoryLayout<SIMD4<Float>>.stride
+        if aquariumPixelCapacities[bufferIndex] < byteCount {
+          aquariumPixelBuffers[bufferIndex] = device.makeBuffer(
+            length: byteCount, options: .storageModeShared)
+          aquariumPixelCapacities[bufferIndex] =
+            aquariumPixelBuffers[bufferIndex] == nil ? 0 : byteCount
+        }
+        guard let inputBuffer = aquariumPixelBuffers[bufferIndex] else { return .empty }
+        pixels.withUnsafeBytes { bytes in
+          if let address = bytes.baseAddress {
+            memcpy(inputBuffer.contents(), address, bytes.count)
+          }
+        }
+        return PreparedGrid(
+          dimensions: GridDimensions(columns: columns, rows: rows), cameraInput: nil,
+          pixelMaterialsInput: nil, usesProceduralCompute: false,
+          aquariumInput: .init(
+            worldWidth: min(1152, max(384, configuration.aquariumSettings?.worldWidth ?? 384)),
+            contentRect: aquariumFraming.contentRect))
+      }
+      for row in 0..<rows {
+        for column in 0..<columns {
+          let coordinate = aquariumFraming.coordinate(
+            u: (Double(column) + 0.5) / Double(columns),
+            v: (Double(row) + 0.5) / Double(rows))
+          let worldWidth = min(1152, max(384, configuration.aquariumSettings?.worldWidth ?? 384))
+          var color =
+            coordinate.map { pixels[$0.y * worldWidth + $0.x] }
+            ?? SIMD4<Float>(0.035, 0.12, 0.19, 1)
+          color *= Float(configuration.sceneBrightness)
+          color.w = 1
+          instances[row * columns + column] = GlyphInstance(
+            gridBrightnessGlyph: SIMD4(Float(column), Float(row), 1, -1),
+            foreground: color
+          )
+        }
+      }
+      return PreparedGrid(
+        dimensions: GridDimensions(columns: columns, rows: rows),
+        cameraInput: nil, pixelMaterialsInput: nil, usesProceduralCompute: false
       )
     }
     if configuration.patternRawValue == "pixelMaterials",
@@ -1724,6 +1839,18 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
 
 }
 
+private struct AquariumComputeInput {
+  let worldWidth: Int
+  let contentRect: CGRect
+}
+private struct AquariumComputeUniforms {
+  let gridSize: SIMD2<UInt32>
+  let worldSize: SIMD2<UInt32>
+  let viewport: SIMD4<Float>
+  let contentRect: SIMD4<Float>
+  let brightness: Float
+}
+
 private struct GlyphInstance {
   let gridBrightnessGlyph: SIMD4<Float>
   let foreground: SIMD4<Float>
@@ -1809,11 +1936,13 @@ private struct PreparedGrid {
   let cameraInput: CameraComputeInput?
   let pixelMaterialsInput: PixelMaterialsComputeInput?
   let usesProceduralCompute: Bool
+  var aquariumInput: AquariumComputeInput? = nil
 
   /// True when a GPU kernel fills the instance buffer, so sparse overrides
   /// must follow it on the GPU rather than touch the buffer from the CPU.
   var populatesOnGPU: Bool {
-    cameraInput != nil || pixelMaterialsInput != nil || usesProceduralCompute
+    cameraInput != nil || pixelMaterialsInput != nil || aquariumInput != nil
+      || usesProceduralCompute
   }
 
   static let empty = PreparedGrid(
@@ -1849,7 +1978,8 @@ extension IdleScreenRendererConfiguration {
       sceneBrightness: sceneBrightness,
       pixelMaterialsSettings: pixelMaterialsSettings,
       agentSprites: agentSprites,
-      framing: framing
+      framing: framing,
+      aquariumSettings: aquariumSettings
     )
   }
 
