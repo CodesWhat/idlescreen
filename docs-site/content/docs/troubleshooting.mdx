@@ -1,9 +1,9 @@
 ---
 title: Troubleshooting
-description: What the Status page means, camera permission states and development build limits.
+description: What the Settings page means, camera permission states and development build limits.
 ---
 
-Open **Status** in the Studio sidebar and press **Refresh** to check again. At the top is one verdict: "IdleScreen is ready.", "One thing needs your attention." or "N things need your attention." The big button beside it fixes the first thing that has a fix. Below are three cards, and the raw diagnostics sit under **Technical details**.
+Open **Settings** in the top navigation and press **Refresh** to check again. At the top is one verdict: "IdleScreen is ready.", "One thing needs your attention." or "N things need your attention." The big button beside it fixes the first thing that has a fix. Screen saver and camera checks are below, agent connections are in the inspector, and raw diagnostics sit under **Technical details**.
 
 ## Screen saver card
 
@@ -37,7 +37,7 @@ macOS reports one of four states, and IdleScreen words each one:
 - **Not asked yet**: "Allow camera access". IdleScreen needs your OK to use the camera.
 - **Denied**: "Camera access is off". Turn it on in Camera privacy settings.
 - **Restricted**: "Camera access is restricted". A policy on this Mac blocks it, so there's no button.
-- **Allowed**: if the camera still doesn't work, the card reads "The camera isn't working" and points you to Status.
+- **Allowed**: if the camera still doesn't work, the card reads "The camera isn't working" and points you to Settings.
 
 If setup isn't finished, these cards ask you to finish setup first.
 
@@ -47,7 +47,7 @@ Codex and Claude each show **Installed**, **Not installed** or **Unavailable in 
 
 ## Development builds
 
-A build you made from source with development signing has no signed App Group container. The Status page says "This is a development build. Camera and agent signals need a signed copy of IdleScreen." In a development build:
+A build you made from source with development signing has no signed App Group container. The Settings page says "This is a development build. Camera and agent signals need a signed copy of IdleScreen." In a development build:
 
 - the camera card reads Not working if a look uses the camera, and Off otherwise;
 - the Agents page can't install hooks, and the agent rows read Unavailable in this build.

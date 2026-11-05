@@ -1,17 +1,20 @@
 ---
-title: Studio and looks
+title: Scene and looks
 description: Pick a pattern, tune it, and keep your favorites as Saved Looks.
 ---
 
-Studio is the companion window where you choose and preview what the screen saver draws. The sidebar has four pages: Studio, Displays, Agents and Status.
+The companion window has four pages in its top navigation: Scene, Displays, Agents and Settings. Scene gives most of the window to the screen saver preview, with a visible scene library on the left and a compact control row along the bottom.
+
+The window resizes freely. The preview keeps the selected display’s proportions, including portrait and ultrawide screens. Use the display picker above the preview to choose a screen. Browse the scene thumbnails and names in the library. Hide library gives the preview more room; Show library brings the choices back. More, or the inspector button, opens every adjustment on the right. IdleScreen remembers your inspector choices and selected display between launches.
 
 ## Patterns
 
-Each pattern is a Metal-rendered field of animated characters. The picker lists them under All Savers, with Camera first. See [Camera mode](/camera) for that one.
+Each pattern is a Metal-rendered field of animated characters. The library lists them under Scenes, with Camera after the procedural patterns. See [Camera mode](/camera) for that one.
 
 | Pattern | Feel |
 | --- | --- |
 | Auto Cycle | Rotates every style |
+| Topograph | Contours with optional horizon framing |
 | Perlin Noise | Organic noise |
 | Plasma | Layered waves |
 | Sweep | Directional motion |
@@ -36,7 +39,7 @@ Auto Cycle rotates through the other styles.
 
 ## Controls
 
-The Studio inspector has native controls for the look of the current pattern: speed, scale, contrast and a quality level where it applies. Palettes are Ember, Phosphor, Ivory, Blueprint and Signal, plus Camera Color for camera looks.
+The compact row has speed or cell scale, palette, glyph size and contrast. Open More for the full inspector. The inspector has native controls for the current scene: speed, scale, glyph size and contrast, where they apply. Pattern-specific adjustments are under Pattern, and quality is under Rendering. The palette swatches select Cobalt, Ember, Phosphor, Ivory, Blueprint or Signal. Camera Color is also available for camera looks.
 
 ## Pixel Materials
 
@@ -53,8 +56,16 @@ Pixel Materials uses the same display boundary as every other pattern, so terrai
 
 ## Saved Looks
 
-A Saved Look brings back an exact saver and its styling in one click. Under Your Looks:
+A Saved Look brings back an exact saver and its styling in one click. Open Your looks in the library:
 
-- **Save current** stores the current look. You can keep up to 32.
+- **Save look…** at the bottom of the inspector stores the current look and opens Your looks. You can keep up to 32.
 - Click a look to apply it.
 - Right-click a look for **Apply**, **Update from Current**, **Rename…** and **Delete…**.
+
+## Keyboard shortcuts
+
+- **Command-1 through Command-4**: Scene, Displays, Agents and Settings.
+- **Option-Command-I**: show or hide the current inspector.
+- **Shift-Command-L**: open or close the scene library.
+
+Procedural scenes, including Topograph, offer Full Bleed or Horizon framing. Full Bleed keeps the pattern visible across the display and is the default for new configurations. Horizon adds a dim sky above the ground. In a panorama across stacked displays, one display may show mostly that sky. The framing menu above the preview changes this directly.

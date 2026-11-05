@@ -43,7 +43,7 @@ struct SetupFlowRenderTests {
       current: .camera, primary: "Open camera privacy", offersSkip: true),
     Scene(
       name: "4-done", inputs: inputs(registered: true, selected: true, camera: .authorized),
-      current: nil, primary: "Open Studio"),
+      current: nil, primary: "Open Scene"),
     Scene(
       name: "error", inputs: inputs(registered: false, selected: false, camera: .unknown),
       error: "The embedded screen saver extension is missing from this app build.",

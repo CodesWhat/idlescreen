@@ -37,6 +37,7 @@ struct StatusView: View {
       summary: StatusSummary(inputs),
       lastError: model.lastError.map(UserFacingIssue.message(for:)),
       isRefreshing: model.isRefreshing,
+      showsInspector: navigation.isInspectorVisible,
       detailsInitiallyExpanded: detailsInitiallyExpanded,
       perform: perform,
       refresh: { model.refresh() }

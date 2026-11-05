@@ -1,11 +1,9 @@
 import SwiftUI
 
-/// The companion-app type scale. Two bundled faces, both OFL: Departure Mono for the display headings, Inter for everything else.
-/// Both fall back to the system fonts if they fail to register. Readouts such as paths stay in the system monospace. 10 pt is
-/// the floor anywhere in the app.
+/// Instrument Serif for page headings, Instrument Sans for controls and text.
 enum DesignFont {
-  /// Page headline. Departure Mono is drawn on an 11 px grid, so it sits on multiples of 11.
-  static let headline: CGFloat = 22
+  /// Page headline.
+  static let headline: CGFloat = 28
   static let body: CGFloat = 13
   static let detail: CGFloat = 12
   static let caption: CGFloat = 11.5
@@ -17,7 +15,7 @@ enum DesignFont {
 
   enum Weight { case regular, medium, semibold }
 
-  /// Departure Mono, one weight. Headings and large figures only.
+  /// Instrument Serif, reserved for page headings and the wordmark.
   static func display(_ size: CGFloat = headline) -> Font {
     DesignFontRegistry.isAvailable
       ? .custom(DesignFontRegistry.displayName, fixedSize: size)
@@ -26,14 +24,16 @@ enum DesignFont {
 
   static func headlineFont(_ size: CGFloat = headline) -> Font { display(size) }
 
-  /// Inter for titles, body and detail.
+  /// Instrument Sans for titles, body and detail.
   static func sans(_ size: CGFloat, _ weight: Weight = .regular) -> Font {
     guard DesignFontRegistry.isAvailable else {
       return .system(
         size: size, weight: weight == .regular ? .regular : weight == .medium ? .medium : .semibold)
     }
     let name =
-      weight == .regular ? "Inter-Regular" : weight == .medium ? "Inter-Medium" : "Inter-SemiBold"
+      weight == .regular
+      ? "InstrumentSans-Regular"
+      : weight == .medium ? "InstrumentSans-Medium" : "InstrumentSans-SemiBold"
     return .custom(name, fixedSize: size)
   }
 
@@ -45,7 +45,7 @@ enum DesignFont {
 }
 
 extension View {
-  /// Inter Medium 10, uppercase, .12em tracking, the third ink. Pass the text as written; the uppercase is applied here.
+  /// Instrument Sans Medium 10, uppercase, .12em tracking, the third ink. Pass the text as written; the uppercase is applied here.
   func designEyebrow() -> some View {
     font(DesignFont.sans(DesignFont.eyebrow, .medium)).tracking(DesignFont.eyebrowTracking)
       .textCase(.uppercase)
