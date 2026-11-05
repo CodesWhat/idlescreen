@@ -1296,7 +1296,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     if configuration.patternRawValue == "aquarium", mode != .camera {
       proceduralDebugState = .init(usesComputePipeline: false, instanceCount: count)
       let pixels = IdleScreenAquariumFrameCache.shared.frame(
-        at: aquariumElapsed * configuration.proceduralSettings.normalized.speed,
+        at: aquariumElapsed,
         seed: configuration.aquariumSettings?.seed ?? configuration.sceneSeed,
         settings: configuration.aquariumSettings
       )

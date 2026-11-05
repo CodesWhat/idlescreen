@@ -53,6 +53,8 @@ struct AgentSpriteRenderTests {
     var glyphScale = 0.38
     var brightness = 1.0
     var framing = IdleScreenRendererFraming.none
+    var speed = 1.0
+    var aquariumSettings: IdleScreenAquariumRenderSettings?
   }
 
   private static func configuration(
@@ -67,6 +69,8 @@ struct AgentSpriteRenderTests {
     value.sceneBrightness = shot.brightness
     value.framing = shot.framing
     value.proceduralSettings.intensity = 1
+    value.proceduralSettings.speed = shot.speed
+    value.aquariumSettings = shot.aquariumSettings
     if shot.pattern == "pixelMaterials" {
       value.pixelMaterialsSettings = .init(
         material: .mixed, terrainStyle: .terraces, emitterCount: 3, emitterWidth: 8,
@@ -153,6 +157,26 @@ struct AgentSpriteRenderTests {
       &bytes, bytesPerRow: texture.width * 4,
       from: MTLRegionMake2D(0, 0, texture.width, texture.height), mipmapLevel: 0)
     return bytes
+  }
+
+  @MainActor
+  @Test(arguments: [false, true])
+  func aquariumLightingKeepsWallClockTimeAcrossSceneSpeed(onCPU: Bool) throws {
+    var settings = IdleScreenAquariumRenderSettings()
+    settings.epoch = 0
+    settings.hourOffset = 0
+    settings.light = "automatic"
+    settings.reduceMotion = true
+    var shot = Shot(name: "aquarium-clock", pattern: "aquarium", palette: "Ember", sprites: [])
+    shot.time = 12 * 3600
+    shot.aquariumSettings = settings
+    let day = try render(shot, withSprites: false, onCPU: onCPU)
+    shot.speed = 2
+    #expect(try render(shot, withSprites: false, onCPU: onCPU) == day)
+    shot.speed = 0.5
+    #expect(try render(shot, withSprites: false, onCPU: onCPU) == day)
+    shot.time = 3 * 3600
+    #expect(try render(shot, withSprites: false, onCPU: onCPU) != day)
   }
 
   /// Count of differing pixels and the topmost differing pixel row.
