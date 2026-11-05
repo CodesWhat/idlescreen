@@ -5,6 +5,57 @@ import Testing
 
 @Suite("Aquarium collection and care")
 struct AquariumSimulationTests {
+  @Test func filterLoadIsBoundedAndServicingPreservesBiologyAndOwnership() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    try library.setKeeperMode(true)
+    try library.buyEquipment(.externalFilter)
+    let start = Date(timeIntervalSince1970: 1_000)
+    library.advance(to: start)
+    library.advance(to: start.addingTimeInterval(360 * 60))
+    #expect((library.tanks[0].water.filterLoad ?? 0) > 0)
+    #expect((library.tanks[0].water.filterLoad ?? 0) <= 0.8)
+    let before = library
+    try library.serviceFilter()
+    var expectedWater = before.tanks[0].water
+    expectedWater.filterLoad = 0
+    #expect(library.tanks[0].water == expectedWater)
+    #expect(library.tanks[0].animals == before.tanks[0].animals)
+    #expect(library.tanks[0].automation == before.tanks[0].automation)
+    #expect(library.balance == before.balance)
+    let reopened = try JSONDecoder().decode(
+      IdleScreenAquariumLibrary.self, from: JSONEncoder().encode(before))
+    #expect(reopened == before)
+    try library.validate()
+  }
+
+  @Test func filterLoadingReducesTurnoverButNeverStopsFiltering() throws {
+    var clean = IdleScreenAquariumLibrary.starter
+    try clean.setKeeperMode(true)
+    clean.tanks[0].water.ammonia = 0.8
+    clean.tanks[0].water.filterMaturity = 1
+    let start = Date(timeIntervalSince1970: 1_000)
+    clean.advance(to: start)
+    var loaded = clean
+    loaded.tanks[0].water.filterLoad = 0.8
+    clean.advance(to: start.addingTimeInterval(60))
+    loaded.advance(to: start.addingTimeInterval(60))
+    #expect(loaded.tanks[0].water.ammonia > clean.tanks[0].water.ammonia)
+    #expect(loaded.tanks[0].water.ammonia < 0.8)
+    #expect(loaded.tanks[0].water.filterMaturity == 1)
+    #expect(loaded.tanks[0].water.filterLoad == 0.8)
+    loaded.tanks[0].keeperMode = false
+    let water = loaded.tanks[0].water
+    loaded.advance(to: start.addingTimeInterval(360 * 60))
+    #expect(loaded.tanks[0].water == water)
+    loaded.tanks[0].automation.equipment = []
+    loaded.tanks[0].automation.inactiveEquipment = nil
+    let before = loaded
+    #expect(throws: IdleScreenAquariumError.missingItem) { try loaded.serviceFilter() }
+    #expect(loaded == before)
+    loaded.tanks[0].water.filterLoad = .nan
+    #expect(throws: IdleScreenAquariumError.invalidTank) { try loaded.validate() }
+  }
+
   @Test func onlyCherryPurchasesCollectShrimpPalettes() throws {
     for species in IdleScreenAquariumSpeciesKind.allCases where species != .cherryShrimp {
       var library = IdleScreenAquariumLibrary.starter

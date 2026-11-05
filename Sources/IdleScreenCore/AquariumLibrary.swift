@@ -260,6 +260,7 @@ public struct IdleScreenAquariumWater: Codable, Equatable, Sendable {
   public var nitrate: Double = 0.1
   public var oxygen: Double = 0.9
   public var filterMaturity: Double = 0.8
+  public var filterLoad: Double?
   public var algae: Double = 0.1
   public var temperature: Double = 24
   public var ph: Double = 7
@@ -271,6 +272,7 @@ public struct IdleScreenAquariumWater: Codable, Equatable, Sendable {
     if ammonia > 0.4 || nitrite > 0.4 { return "Filter is catching up with waste" }
     if nitrate > 0.6 { return "A water change would help" }
     if algae > 0.6 { return "Try a shorter light schedule" }
+    if (filterLoad ?? 0) > 0.6 { return "Filter media could use a rinse" }
     return "Water is stable"
   }
 }
@@ -384,6 +386,7 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
       water.algae,
     ]
     guard concentrations.allSatisfy({ $0.isFinite && (0...1).contains($0) }),
+      water.filterLoad.map({ $0.isFinite && (0...0.8).contains($0) }) ?? true,
       water.temperature.isFinite, (15...35).contains(water.temperature),
       water.ph.isFinite, (5...9).contains(water.ph), water.salinity.isFinite,
       (0...40).contains(water.salinity)

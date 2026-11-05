@@ -173,6 +173,16 @@ extension IdleScreenAquariumLibrary {
     tanks[index].recordFeeding(at: date, waste: 0.15)
   }
 
+  public mutating func serviceFilter() throws {
+    let index = try selectedIndex()
+    let owned = tanks[index].automation.equipment.union(
+      tanks[index].automation.inactiveEquipment ?? [])
+    guard owned.contains(.spongeFilter) || owned.contains(.externalFilter) else {
+      throw IdleScreenAquariumError.missingItem
+    }
+    tanks[index].water.filterLoad = 0
+  }
+
   public mutating func changeWater(fraction: Double) throws {
     guard fraction.isFinite, (0.1...0.5).contains(fraction) else {
       throw IdleScreenAquariumError.invalidOperation
@@ -270,9 +280,12 @@ extension IdleScreenAquariumTank {
     let filtered = equipment.contains(.spongeFilter) || equipment.contains(.externalFilter)
     if filtered {
       water.filterMaturity = min(1, water.filterMaturity + 0.002)
+      let mediaLoad = min(0.8, (water.filterLoad ?? 0) + decay * 0.08)
+      water.filterLoad = mediaLoad
       let capacity =
         (equipment.contains(.externalFilter) ? 0.03 : 0.016) * water.filterMaturity
         * (0.25 + automation.flow * 1.5)
+        * (1 - mediaLoad * 0.25)
       let first = min(water.ammonia, capacity)
       water.ammonia -= first
       water.nitrite = min(1, water.nitrite + first)

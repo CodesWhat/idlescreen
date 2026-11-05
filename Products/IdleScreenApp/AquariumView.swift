@@ -432,6 +432,15 @@ struct IdleScreenAquariumView: View {
                 }
               }))
         }
+        meter("Filter media load", controller.selectedTank.water.filterLoad ?? 0)
+        let owned = controller.selectedTank.automation.equipment.union(
+          controller.selectedTank.automation.inactiveEquipment ?? [])
+        Button("Rinse filter media · Free") { controller.perform { try $0.serviceFilter() } }
+          .disabled(!owned.contains(.spongeFilter) && !owned.contains(.externalFilter))
+        Text(
+          "Rinsing clears captured waste without resetting filter maturity. Media load is bounded, so filtering continues while you're away."
+        )
+        .font(.caption).foregroundStyle(.secondary)
         LabeledContent("Flow") {
           Slider(value: tankBinding(\.automation.flow), in: 0...1)
             .help("Adjusts the current and filter turnover.")
