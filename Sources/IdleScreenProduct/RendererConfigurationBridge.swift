@@ -86,8 +86,10 @@ enum IdleScreenRendererConfigurationBridge {
         regenerationCadence: materials.regenerationCadence
       ),
       aquariumSettings: aquarium.map {
-        IdleScreenAquariumProduct.settings(
-          for: $0.tank(for: assignment?.representativeIdentifier.rawValue))
+        let bounds = $0.presentation == .panorama ? assignment?.scene?.bounds : nil
+        return IdleScreenAquariumProduct.settings(
+          for: $0.tank(for: assignment?.representativeIdentifier.rawValue),
+          worldAspect: bounds.map { $0.width / $0.height })
       }
     )
   }

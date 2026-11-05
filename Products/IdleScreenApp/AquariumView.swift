@@ -8,6 +8,7 @@ struct IdleScreenAquariumView: View {
   @Environment(IdleScreenAppModel.self) private var model
   @Environment(DisplaySceneCoordinator.self) private var displays
   @State private var controller = IdleScreenAquariumController.shared
+  @State private var presentation = IdleScreenAquariumPresentationHost.shared
   @State private var selectedObject: UUID?
   @State private var species: IdleScreenAquariumSpeciesKind = .cherryShrimp
   @State private var variant: IdleScreenAquariumVariant = .red
@@ -37,7 +38,7 @@ struct IdleScreenAquariumView: View {
           .frame(minHeight: 240, idealHeight: 290)
           .disabled(!controller.isWritable)
         }
-        if let message = controller.errorMessage {
+        if let message = controller.errorMessage ?? presentation.errorMessage {
           HStack {
             Image(systemName: "exclamationmark.triangle")
             Text(message).font(.caption)
@@ -125,6 +126,10 @@ struct IdleScreenAquariumView: View {
           }
         }
       Spacer()
+      Button("Window") { presentation.showWindowed() }
+      Button(controller.library.desktopEnabled ? "Stop desktop" : "Show desktop") {
+        presentation.toggleDesktop()
+      }
       Button("Use as saver") {
         model.updateSource(.generative)
         model.updateCreativePattern(.aquarium)
@@ -482,19 +487,34 @@ struct IdleScreenAquariumView: View {
 @MainActor
 struct IdleScreenAquariumMetalPreview: NSViewRepresentable {
   let tank: IdleScreenAquariumTank
+  @Environment(\.accessibilityReduceMotion) private var environmentReduceMotion
+  private let motionOverride: Bool?
+  init(tank: IdleScreenAquariumTank, reduceMotion: Bool? = nil) {
+    self.tank = tank
+    motionOverride = reduceMotion
+  }
+  private var isReducedMotion: Bool { motionOverride ?? environmentReduceMotion }
+  private var configuration: IdleScreenRendererConfiguration {
+    var value = IdleScreenAquariumProduct.configuration(for: tank)
+    value.aquariumSettings?.reduceMotion = isReducedMotion
+    return value
+  }
   final class Coordinator { var renderer: IdleScreenRenderer? }
   func makeCoordinator() -> Coordinator { Coordinator() }
   func makeNSView(context: Context) -> MTKView {
     let view = MTKView(frame: .zero)
     do {
       context.coordinator.renderer = try IdleScreenRenderer(
-        metalView: view, configuration: IdleScreenAquariumProduct.configuration(for: tank))
+        metalView: view, configuration: configuration, automaticallyDraws: !isReducedMotion)
+      view.enableSetNeedsDisplay = isReducedMotion
     } catch { view.isPaused = true }
     return view
   }
   func updateNSView(_ view: MTKView, context: Context) {
-    context.coordinator.renderer?.update(
-      configuration: IdleScreenAquariumProduct.configuration(for: tank))
+    context.coordinator.renderer?.update(configuration: configuration)
+    view.isPaused = isReducedMotion
+    view.enableSetNeedsDisplay = isReducedMotion
+    if isReducedMotion { view.needsDisplay = true }
   }
   static func dismantleNSView(_ view: MTKView, coordinator: Coordinator) {
     coordinator.renderer?.shutdown()

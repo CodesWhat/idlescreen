@@ -40,6 +40,7 @@ public struct IdleScreenAquariumRenderInhabitant: Equatable, Sendable {
 
 /// Product-edge snapshot kept independent from Core's persistence schema.
 public struct IdleScreenAquariumRenderSettings: Equatable, Sendable {
+  public var worldWidth = 384
   public var substrate = "basalt"
   public var substrateDepth = 0.14
   public var light = "daylight"

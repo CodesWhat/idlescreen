@@ -12,7 +12,8 @@ public enum IdleScreenAquarium {
   ) -> [SIMD4<Float>] {
     let elapsed = settings?.reduceMotion == true ? 0 : elapsed
     let time = elapsed.isFinite ? max(0, elapsed).truncatingRemainder(dividingBy: 86_400) : 0
-    var canvas = Canvas()
+    let width = min(1152, max(384, settings?.worldWidth ?? Self.width))
+    var canvas = Canvas(width: width)
     let phase = Double(seed % 997) / 997 * 6.28
     for y in 0..<height {
       let depth = Float(y) / Float(height)
@@ -22,7 +23,8 @@ public enum IdleScreenAquarium {
     // Backlit suspended particles, kept sparse enough to leave open water.
     for i in 0..<32 {
       let x = Int(
-        (Double(i * 71) + sin(time * 0.12 + Double(i)) * 4).truncatingRemainder(dividingBy: 380))
+        (Double(i * 71) + sin(time * 0.12 + Double(i)) * 4).truncatingRemainder(
+          dividingBy: Double(width - 4)))
       let y = Int((Double(i * 43) - time * 1.8).truncatingRemainder(dividingBy: 180) + 180) % 180
       canvas.rect(x, y, 1, 1, .init(0.10, 0.24, 0.30, 1))
     }
@@ -76,7 +78,8 @@ public enum IdleScreenAquarium {
         canvas.object(item, time: time)
       }
       for inhabitant in settings.inhabitants.prefix(32) {
-        let pose = savedAnimal(inhabitant, at: time, seed: seed, settings: settings)
+        let pose = savedAnimal(
+          inhabitant, at: time, seed: seed, settings: settings, worldWidth: width)
         var sprite = pose.species.sprite(
           phase: pose.animationPhase, facingRight: pose.facingRight,
           activity: pose.activity, strikeProgress: pose.strikeProgress)
@@ -103,7 +106,7 @@ public enum IdleScreenAquarium {
     {
       for i in 0..<9 {
         let y = 178 - Int((time * 9 + Double(i * 23)).truncatingRemainder(dividingBy: 178))
-        let x = 347 + Int(sin(time + Double(i)) * 3)
+        let x = width - 37 + Int(sin(time + Double(i)) * 3)
         let color = SIMD4<Float>(0.20, 0.37, 0.43, 1)
         canvas.rect(x + 1, y, 2, 1, color)
         canvas.rect(x, y + 1, 1, 2, color)
@@ -140,7 +143,13 @@ public enum IdleScreenAquarium {
   }
 
   struct Canvas {
-    var pixels = [SIMD4<Float>](repeating: .zero, count: width * height)
+    let width: Int
+    let height = IdleScreenAquarium.height
+    var pixels: [SIMD4<Float>]
+    init(width: Int = IdleScreenAquarium.width) {
+      self.width = width
+      pixels = .init(repeating: .zero, count: width * height)
+    }
 
     mutating func sprite(_ sprite: IdleScreenAquariumSprite, animal: IdleScreenAquariumAnimal) {
       let drawnWidth = max(

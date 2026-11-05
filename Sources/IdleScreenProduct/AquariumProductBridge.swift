@@ -29,8 +29,13 @@ enum IdleScreenAquariumProduct {
       path: "aquariums-v1.json")
   }
 
-  static func settings(for tank: IdleScreenAquariumTank) -> IdleScreenAquariumRenderSettings {
+  static func settings(for tank: IdleScreenAquariumTank, worldAspect: Double? = nil)
+    -> IdleScreenAquariumRenderSettings
+  {
     var settings = IdleScreenAquariumRenderSettings()
+    if let worldAspect, worldAspect.isFinite, worldAspect > 0 {
+      settings.worldWidth = min(1152, max(384, Int((216 * min(12, worldAspect)).rounded())))
+    }
     settings.seed = tank.seed
     settings.epoch = tank.presentationEpoch.timeIntervalSince1970
     settings.substrate = tank.substrate.rawValue
@@ -59,6 +64,26 @@ enum IdleScreenAquariumProduct {
         juvenile: !animal.isAdult, carryingEggs: tank.broods.contains { $0.motherID == animal.id })
     }
     return settings
+  }
+
+  static func displaySettings(
+    configuration: IdleScreenConfiguration, library: IdleScreenAquariumLibrary?
+  ) -> DisplaySceneSettings {
+    guard configuration.source == .generative, configuration.creative.pattern == .aquarium,
+      let library
+    else { return configuration.display }
+    let base = configuration.display
+    return .init(
+      policy: library.presentation == .panorama ? .panorama : .perDisplay,
+      focalDisplayIdentifier: base.focalDisplayIdentifier, quietTreatment: base.quietTreatment,
+      outerBoundaryBehavior: base.outerBoundaryBehavior, baseSeed: base.baseSeed)
+  }
+
+  static func presentationRevision(
+    configuration: IdleScreenConfiguration, library: IdleScreenAquariumLibrary?
+  ) -> UInt64 {
+    let (sum, overflow) = configuration.revision.addingReportingOverflow(library?.revision ?? 0)
+    return overflow ? .max : sum
   }
 
   static func configuration(for tank: IdleScreenAquariumTank) -> IdleScreenRendererConfiguration {

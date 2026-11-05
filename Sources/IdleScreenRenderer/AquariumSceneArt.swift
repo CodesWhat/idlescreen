@@ -128,7 +128,7 @@ extension IdleScreenAquarium {
 extension IdleScreenAquarium {
   static func savedAnimal(
     _ item: IdleScreenAquariumRenderInhabitant, at time: Double, seed: UInt64,
-    settings: IdleScreenAquariumRenderSettings
+    settings: IdleScreenAquariumRenderSettings, worldWidth: Int = 384
   ) -> IdleScreenAquariumAnimal {
     let offset = Double(item.identity % 997) * 0.13
     let prototypes = IdleScreenAquariumBehavior.animals(at: time + offset, seed: seed)
@@ -158,6 +158,7 @@ extension IdleScreenAquarium {
     }
     let depth =
       settings.substrateDepth.isFinite ? min(0.24, max(0.08, settings.substrateDepth)) : 0.14
+    let positionX = base.x * Double(worldWidth) / 384
     var y = base.y
     if y > 170 {
       y += (1 - depth) * 216 - 186
@@ -165,15 +166,15 @@ extension IdleScreenAquarium {
       where !["grass", "fern", "purplePlant", "moss"].contains(object.kind) {
         guard object.x.isFinite, object.y.isFinite, object.scale.isFinite else { continue }
         let sprite = objectSprite(kind: object.kind, time: 0)
-        let center = object.x * 384
+        let center = object.x * Double(worldWidth)
         let half = Double(sprite.width) * min(1.5, max(0.5, object.scale)) / 2
-        let ramp = max(0, min(1, (half + 16 - abs(base.x - center)) / 16))
+        let ramp = max(0, min(1, (half + 16 - abs(positionX - center)) / 16))
         let climb = Double(sprite.height) * ramp * ramp * (3 - 2 * ramp)
         y = min(y, base.y + (1 - depth) * 216 - 186 - climb)
       }
     }
     return .init(
-      species: species, x: base.x, y: y,
+      species: species, x: positionX, y: y,
       scale: base.scale * (item.juvenile ? 0.55 : 1), horizontalScale: base.horizontalScale,
       facingRight: base.facingRight, activity: base.activity,
       animationPhase: base.animationPhase, strikeProgress: base.strikeProgress)
@@ -219,7 +220,7 @@ extension IdleScreenAquarium.Canvas {
     let scale = min(1.5, max(0.5, object.scale))
     let w = max(1, Int(Double(sprite.width) * scale))
     let h = max(1, Int(Double(sprite.height) * scale))
-    let x = Int(min(1, max(0, object.x)) * 384) - w / 2
+    let x = Int(min(1, max(0, object.x)) * Double(width)) - w / 2
     let y = Int(min(1, max(0, object.y)) * 216) - h
     for row in 0..<h {
       for column in 0..<w {
@@ -234,15 +235,15 @@ extension IdleScreenAquarium.Canvas {
     let edge = SIMD4<Float>(0.08, 0.13, 0.15, 1)
     let body = SIMD4<Float>(0.22, 0.28, 0.30, 1)
     if equipment.contains("spongeFilter") {
-      rect(343, 156, 18, 28, edge)
-      rect(345, 158, 14, 24, body)
-      rect(350, 120, 4, 40, body)
-      for y in stride(from: 160, to: 182, by: 4) { rect(345, y, 14, 1, edge) }
+      rect(width - 41, 156, 18, 28, edge)
+      rect(width - 39, 158, 14, 24, body)
+      rect(width - 34, 120, 4, 40, body)
+      for y in stride(from: 160, to: 182, by: 4) { rect(width - 39, y, 14, 1, edge) }
     }
     if equipment.contains("externalFilter") {
-      rect(368, 24, 4, 156, body)
-      rect(364, 174, 10, 6, edge)
-      rect(324, 18, 48, 4, body)
+      rect(width - 16, 24, 4, 156, body)
+      rect(width - 20, 174, 10, 6, edge)
+      rect(width - 60, 18, 48, 4, body)
     }
     if equipment.contains("heater") {
       rect(8, 92, 5, 76, body)
@@ -255,7 +256,7 @@ extension IdleScreenAquarium.Canvas {
     if equipment.contains("lightTimer") { rect(90, 1, 205, 3, body) }
     if equipment.contains("waterChanger") { rect(18, 0, 3, 70, body) }
     if equipment.contains("dosingController") { rect(3, 21, 11, 18, body) }
-    if equipment.contains("uvClarifier") { rect(376, 50, 6, 28, SIMD4(0.25, 0.20, 0.38, 1)) }
+    if equipment.contains("uvClarifier") { rect(width - 8, 50, 6, 28, SIMD4(0.25, 0.20, 0.38, 1)) }
   }
 
   mutating func applyLight(_ settings: IdleScreenAquariumRenderSettings, time: Double) {

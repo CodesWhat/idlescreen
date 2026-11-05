@@ -604,8 +604,10 @@ final class IdleScreenSaverView: ScreenSaverView {
   private func attachDisplayCoordinationIfNeeded() {
     guard let displayCoordinator, displayHostToken == nil else { return }
     displayHostToken = displayCoordinator.attach(
-      settings: configuration.display,
-      configurationRevision: configuration.revision
+      settings: IdleScreenAquariumProduct.displaySettings(
+        configuration: configuration, library: aquariumSnapshot),
+      configurationRevision: IdleScreenAquariumProduct.presentationRevision(
+        configuration: configuration, library: aquariumSnapshot)
     )
     resolvePersistentDisplayIdentity(
       frame: injectedDisplayHostFrame
@@ -733,7 +735,8 @@ final class IdleScreenSaverView: ScreenSaverView {
       } else {
         renderer.clearCameraFrame()
       }
-      if renderer.draw(at: elapsed) {
+      let sceneElapsed = frameConfiguration.aquariumSettings?.elapsed(at: Date()) ?? elapsed
+      if renderer.draw(at: sceneElapsed) {
         hasSubmittedRendererFrame = true
       }
     }
@@ -997,9 +1000,17 @@ final class IdleScreenSaverView: ScreenSaverView {
     if aquariumLastReadAt == nil || monotonicTime - (aquariumLastReadAt ?? 0) >= 1 {
       aquariumLastReadAt = monotonicTime
       do {
+        let previousRevision = aquariumSnapshot?.revision
         aquariumSnapshot = try IdleScreenAquariumStore(
           fileURL: IdleScreenAquariumProduct.storeURL()
         ).read()
+        if previousRevision != aquariumSnapshot?.revision {
+          _ = displayCoordinator?.update(
+            settings: IdleScreenAquariumProduct.displaySettings(
+              configuration: configuration, library: aquariumSnapshot),
+            configurationRevision: IdleScreenAquariumProduct.presentationRevision(
+              configuration: configuration, library: aquariumSnapshot))
+        }
       } catch {
         viewLogger.error(
           "Unable to read aquarium snapshot: \(error.localizedDescription, privacy: .public)")
@@ -1016,8 +1027,10 @@ final class IdleScreenSaverView: ScreenSaverView {
       }
       configuration = updated
       _ = displayCoordinator?.update(
-        settings: updated.display,
-        configurationRevision: updated.revision
+        settings: IdleScreenAquariumProduct.displaySettings(
+          configuration: updated, library: aquariumSnapshot),
+        configurationRevision: IdleScreenAquariumProduct.presentationRevision(
+          configuration: updated, library: aquariumSnapshot)
       )
       updateTypography()
       publishHealth()

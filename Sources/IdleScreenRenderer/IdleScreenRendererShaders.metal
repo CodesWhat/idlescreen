@@ -688,3 +688,32 @@ fragment float4 idleScreenCharacterFragment(
     const float intensity = mix(0.12, 1.0, input.brightness);
     return float4(input.foreground.rgb * intensity, alpha * input.brightness);
 }
+
+struct IdleScreenAquariumUniforms {
+    uint2 gridSize;
+    uint2 worldSize;
+    float4 viewport;
+    float4 contentRect;
+    float brightness;
+};
+
+kernel void idleScreenAquariumInstances(
+    device const float4 *pixels [[buffer(0)]],
+    device IdleScreenCharacterInstance *instances [[buffer(1)]],
+    constant IdleScreenAquariumUniforms &uniforms [[buffer(2)]],
+    uint2 position [[thread_position_in_grid]]
+) {
+    if (any(position >= uniforms.gridSize)) { return; }
+    const float2 local = (float2(position) + 0.5) / float2(uniforms.gridSize);
+    const float2 scene = float2(uniforms.viewport.x, 1.0 - uniforms.viewport.y - uniforms.viewport.w)
+        + local * uniforms.viewport.zw;
+    const float2 source = (scene - uniforms.contentRect.xy) / uniforms.contentRect.zw;
+    float3 color = float3(0.035, 0.12, 0.19);
+    if (all(source >= 0.0) && all(source < 1.0)) {
+        const uint2 cell = min(uniforms.worldSize - 1, uint2(source * float2(uniforms.worldSize)));
+        color = pixels[cell.y * uniforms.worldSize.x + cell.x].rgb;
+    }
+    const uint index = position.y * uniforms.gridSize.x + position.x;
+    instances[index].gridBrightnessGlyph = float4(float2(position), 1.0, -1.0);
+    instances[index].foreground = float4(color * uniforms.brightness, 1.0);
+}

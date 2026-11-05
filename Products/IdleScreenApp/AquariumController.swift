@@ -60,6 +60,7 @@ final class IdleScreenAquariumController {
       errorMessage = nil
       undoStack = []
       redoStack = []
+      didChange?()
     } catch {
       isWritable = false
       errorMessage = error.localizedDescription

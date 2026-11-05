@@ -108,11 +108,10 @@ struct ContentView: View {
     .windowAppearance(Self.windowAppearance(for: navigation.destination, showsSetup: showsSetup))
     .ignoresSafeArea()
     .onChange(of: model.configuration.revision, initial: true) {
-      _, revision in
-      _ = displayCoordinator.update(
-        settings: model.configuration.display,
-        configurationRevision: revision
-      )
+      _, _ in updateDisplayPresentation()
+    }
+    .onChange(of: IdleScreenAquariumController.shared.library.revision) { _, _ in
+      updateDisplayPresentation()
     }
     .task {
       while !Task.isCancelled {
@@ -120,6 +119,15 @@ struct ContentView: View {
         try? await Task.sleep(for: .seconds(1))
       }
     }
+  }
+
+  private func updateDisplayPresentation() {
+    let library = IdleScreenAquariumController.shared.library
+    _ = displayCoordinator.update(
+      settings: IdleScreenAquariumProduct.displaySettings(
+        configuration: model.configuration, library: library),
+      configurationRevision: IdleScreenAquariumProduct.presentationRevision(
+        configuration: model.configuration, library: library))
   }
 
   private var showsSetup: Bool { !(setupCompleted || navigation.isSetupDeferred) }
