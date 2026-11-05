@@ -40,11 +40,12 @@ public enum IdleScreenAquariumPresentation: String, IdleScreenAquariumChoice {
 }
 
 public enum IdleScreenAquariumSpeciesKind: String, IdleScreenAquariumChoice {
-  case cherryShrimp, mantisShrimp, lionfish, neonTetra, corydoras, snail
+  case cherryShrimp, mantisShrimp, lionfish, neonTetra, corydoras, snail, clawedCrab, codexFish
 
   public var habitat: IdleScreenAquariumHabitat {
     switch self {
-    case .mantisShrimp, .lionfish: .marine
+    case .mantisShrimp, .lionfish, .clawedCrab: .marine
+    case .codexFish: .fantasy
     default: .freshwater
     }
   }
@@ -56,6 +57,8 @@ public enum IdleScreenAquariumSpeciesKind: String, IdleScreenAquariumChoice {
     case .neonTetra: 15
     case .corydoras: 25
     case .snail: 8
+    case .clawedCrab: 35
+    case .codexFish: 40
     }
   }
 }

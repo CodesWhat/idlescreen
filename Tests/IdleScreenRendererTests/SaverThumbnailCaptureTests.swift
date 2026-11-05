@@ -149,6 +149,87 @@ struct SaverThumbnailCaptureTests {
 
   /// Dev aid for choosing each pattern's `time`: renders every single-frame shot at a spread of
   /// timestamps, writes them under `sweep/` and scores each as mean luminance x edge density.
+  @MainActor
+  @Test("writes fixed aquarium navigation poses when capture is requested")
+  func writeAquariumNavigationFrames() throws {
+    guard let path = ProcessInfo.processInfo.environment["IDLESCREEN_AQUARIUM_CAPTURE_DIR"],
+      !path.isEmpty
+    else { return }
+    let directory = URL(fileURLWithPath: path, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    var settings = IdleScreenAquariumRenderSettings()
+    settings.objects = [
+      .init(kind: "rock", x: 0.25, y: 0.9),
+      .init(kind: "hollowLog", x: 0.72, y: 0.9),
+      .init(kind: "fern", x: 0.5, y: 0.9),
+    ]
+    settings.inhabitants = [.init(identity: 4, species: "cherryShrimp")]
+    var configuration = IdleScreenRendererConfiguration.default
+    configuration.patternRawValue = "aquarium"
+    configuration.aquariumSettings = settings
+    for (name, time) in [("travel", 4.18), ("graze", 22.18), ("shelter", 62.18)] {
+      try render(
+        Shot(name: name, configuration: configuration, frames: 1, time: time),
+        to: directory.appendingPathComponent("\(name).png"))
+    }
+  }
+
+  @Test("writes native and enlarged new-species sprite sheets when capture is requested")
+  func writeAquariumSpeciesSheet() throws {
+    guard let path = ProcessInfo.processInfo.environment["IDLESCREEN_AQUARIUM_CAPTURE_DIR"],
+      !path.isEmpty
+    else { return }
+    let directory = URL(fileURLWithPath: path, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    for scale in [1, 4] {
+      let width = 64 * 4 * scale
+      let height = 48 * 4 * scale
+      var bytes = [UInt8](repeating: 0, count: width * height * 4)
+      for row in 0..<4 {
+        let species: IdleScreenAquariumSpecies = row < 2 ? .clawedCrab : .codexFish
+        for phase in 0..<4 {
+          let sprite = species.sprite(phase: phase, facingRight: row % 2 != 0)
+          for y in 0..<48 {
+            for x in 0..<64 {
+              let sx = x - (64 - sprite.width) / 2
+              let sy = y - (48 - sprite.height) / 2
+              var color = SIMD4<Float>(0.035, 0.12, 0.19, 1)
+              if (0..<sprite.width).contains(sx), (0..<sprite.height).contains(sy) {
+                let sample = sprite.pixels[sy * sprite.width + sx]
+                if sample.w > 0 { color = sample }
+              }
+              for dy in 0..<scale {
+                for dx in 0..<scale {
+                  let offset =
+                    (((row * 48 + y) * scale + dy) * width
+                      + (phase * 64 + x) * scale + dx) * 4
+                  bytes[offset] = UInt8(min(255, max(0, color.x * 255)))
+                  bytes[offset + 1] = UInt8(min(255, max(0, color.y * 255)))
+                  bytes[offset + 2] = UInt8(min(255, max(0, color.z * 255)))
+                  bytes[offset + 3] = 255
+                }
+              }
+            }
+          }
+        }
+      }
+      let provider = try #require(CGDataProvider(data: Data(bytes) as CFData))
+      let image = try #require(
+        CGImage(
+          width: width, height: height, bitsPerComponent: 8,
+          bitsPerPixel: 32, bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+          bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue), provider: provider,
+          decode: nil, shouldInterpolate: false, intent: .defaultIntent))
+      let url = directory.appendingPathComponent("crab-codex-\(scale)x.png")
+      let destination = try #require(
+        CGImageDestinationCreateWithURL(
+          url as CFURL,
+          UTType.png.identifier as CFString, 1, nil))
+      CGImageDestinationAddImage(destination, image, nil)
+      #expect(CGImageDestinationFinalize(destination))
+    }
+  }
+
   /// Not part of the normal run; set `IDLESCREEN_THUMBNAIL_SWEEP=1` to use it.
   @MainActor
   private func sweepTimestamps(_ shots: [Shot], to outputURL: URL) throws {

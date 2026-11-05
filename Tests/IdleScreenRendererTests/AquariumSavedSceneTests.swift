@@ -50,7 +50,9 @@ struct AquariumSavedSceneTests {
     #expect(blue == IdleScreenAquarium.frame(at: 0, seed: 42, settings: settings))
     settings.inhabitants[0].variant = "yellow"
     #expect(blue != IdleScreenAquarium.frame(at: 0, seed: 42, settings: settings))
-    for species in ["mantisShrimp", "lionfish", "neonTetra", "corydoras", "snail"] {
+    for species in [
+      "mantisShrimp", "lionfish", "neonTetra", "corydoras", "snail", "clawedCrab", "codexFish",
+    ] {
       settings.inhabitants[0].species = species
       #expect(empty != IdleScreenAquarium.frame(at: 0, seed: 42, settings: settings))
     }

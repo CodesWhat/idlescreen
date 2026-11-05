@@ -1,7 +1,7 @@
 import Foundation
 
 enum IdleScreenAquariumActivity: Equatable {
-  case walking, grazing, swimming, exploring, resting, striking, hovering, turning
+  case walking, grazing, swimming, exploring, resting, striking, hovering, turning, hiding
 }
 
 struct IdleScreenAquariumAnimal: Equatable {
@@ -14,6 +14,7 @@ struct IdleScreenAquariumAnimal: Equatable {
   let activity: IdleScreenAquariumActivity
   let animationPhase: Int
   let strikeProgress: Double
+  var shelterIndex: Int? = nil
 }
 
 /// Samples presentation behavior without coupling animal motion to frame rate

@@ -4,7 +4,7 @@ enum IdleScreenAquariumSpecies: CaseIterable, Equatable {
   case cherryShrimp
   case mantisShrimp
   case lionfish
-  case neonTetra, corydoras, snail
+  case neonTetra, corydoras, snail, clawedCrab, codexFish
 
   func sprite(
     phase: Int, facingRight: Bool,
@@ -19,6 +19,8 @@ enum IdleScreenAquariumSpecies: CaseIterable, Equatable {
     case .neonTetra: sprite = Self.smallFish(bottom: false, phase: phase & 3)
     case .corydoras: sprite = Self.smallFish(bottom: true, phase: phase & 3)
     case .snail: sprite = Self.snail(phase: phase & 3)
+    case .clawedCrab: sprite = Self.crab(phase: phase & 3, activity: activity)
+    case .codexFish: sprite = Self.codexFish(phase: phase & 3)
     }
     if facingRight {
       for y in 0..<sprite.height {
@@ -42,7 +44,7 @@ enum IdleScreenAquariumSpecies: CaseIterable, Equatable {
     // Roots remain on the belly. Only knees and feet move through the gait.
     for (i, root) in [(10, 10), (13, 11), (16, 12), (19, 12)].enumerated() {
       let step =
-        activity == .grazing || activity == .resting || activity == .turning
+        activity == .grazing || activity == .resting || activity == .turning || activity == .hiding
         ? 0 : ((phase + i) % 4 < 2 ? -1 : 1)
       s.line(root.0, root.1, root.0 - 1, 14, leg)
       s.line(root.0 - 1, 14, root.0 + step, 15, leg)
@@ -88,7 +90,7 @@ enum IdleScreenAquariumSpecies: CaseIterable, Equatable {
     let orange = color(245, 140, 76)
     for (i, root) in [(18, 18), (23, 20), (29, 21), (35, 22)].enumerated() {
       let step =
-        activity == .resting || activity == .striking || activity == .turning
+        activity == .resting || activity == .striking || activity == .turning || activity == .hiding
         ? 0 : ((phase + i) % 4 < 2 ? -2 : 1)
       s.line(root.0, root.1, root.0 - 3, 25, red)
       s.line(root.0 - 3, 25, root.0 + step, 27, orange)
@@ -140,6 +142,104 @@ enum IdleScreenAquariumSpecies: CaseIterable, Equatable {
     s.rect(16, 2, 4, 1, color(185, 230, 206))
     s.rect(9 + glance, 4, 2, 2, edge)
     s.rect(16 + glance, 3, 2, 2, edge)
+    return s
+  }
+
+  private static func crab(phase: Int, activity: IdleScreenAquariumActivity)
+    -> IdleScreenAquariumSprite
+  {
+    var s = IdleScreenAquariumSprite(width: 48, height: 32)
+    let edge = color(91, 40, 35)
+    let shell = color(198, 83, 49)
+    let light = color(241, 148, 87)
+    let claw = color(225, 107, 63)
+    let walking = activity == .walking || activity == .exploring || activity == .swimming
+    for leg in 0..<4 {
+      let stride = walking ? ((phase + leg) % 2 == 0 ? -1 : 1) : 0
+      s.line(16, 17 + leg * 2, 8 - leg, 22 + leg * 2, shell)
+      s.line(8 - leg, 22 + leg * 2, 3 + leg + stride, 27 + leg, shell)
+      s.line(32, 17 + leg * 2, 40 + leg, 22 + leg * 2, shell)
+      s.line(40 + leg, 22 + leg * 2, 45 - leg - stride, 27 + leg, light)
+    }
+    let lift = phase % 2
+    s.polygon([(14, 19), (8, 16), (5, 10 - lift), (8, 8 - lift), (12, 13), (17, 15)], edge)
+    s.polygon([(14, 17), (9, 14), (7, 10 - lift), (8, 10 - lift), (12, 15), (16, 16)], shell)
+    s.line(8, 11 - lift, 11, 15, light)
+    s.polygon([(31, 16), (37, 12), (40, 8 + lift), (44, 10 + lift), (40, 16), (34, 20)], edge)
+    s.polygon([(33, 17), (38, 13), (41, 10 + lift), (42, 11 + lift), (39, 15), (34, 18)], shell)
+    s.line(35, 17, 40, 12 + lift, light)
+    s.polygon(
+      [
+        (0, 5), (3, 1), (5, 0), (6, 4 + lift), (5, 7), (9, 6),
+        (9, 2), (12, 4), (14, 8), (12, 12), (5, 14), (1, 11),
+      ], edge)
+    s.polygon([(2, 6), (4, 3), (4, 8), (9, 8), (11, 5), (12, 8), (10, 11), (5, 12), (2, 10)], claw)
+    s.line(2, 4, 4, 2, light)
+    s.line(10, 4, 12, 7, light)
+    s.polygon(
+      [
+        (37, 8), (39, 4 + lift), (42, 2 + lift), (44, 3), (42, 7),
+        (46, 6), (47, 9), (44, 13), (39, 12),
+      ], edge)
+    s.polygon([(39, 8), (42, 5 + lift), (41, 9), (45, 8), (44, 11), (40, 11)], claw)
+    s.polygon(
+      [
+        (12, 14), (17, 10), (29, 10), (35, 14), (35, 22), (30, 26),
+        (17, 26), (11, 22),
+      ], edge)
+    s.polygon(
+      [
+        (14, 15), (18, 12), (28, 12), (33, 15), (32, 22), (28, 24),
+        (18, 24), (13, 21),
+      ], shell)
+    s.line(17, 13, 28, 13, light)
+    s.line(19, 17, 28, 17, claw)
+    s.line(16, 21, 29, 22, edge)
+    for x in [19, 27] {
+      s.line(x, 12, x, 7, shell)
+      s.rect(x - 1, 5, 3, 3, edge)
+      s.rect(x - 1, 5, 2, 1, color(253, 231, 187))
+    }
+    return s
+  }
+
+  private static func codexFish(phase: Int) -> IdleScreenAquariumSprite {
+    var s = IdleScreenAquariumSprite(width: 48, height: 32)
+    let edge = color(27, 48, 77)
+    let blue = color(58, 139, 224)
+    let cyan = color(123, 217, 244)
+    let pearl = color(220, 231, 244)
+    let sway = phase % 2
+    s.polygon(
+      [
+        (33, 12), (45, 4 + sway), (47, 7 + sway), (43, 15), (47, 24 - sway),
+        (45, 27 - sway), (33, 19),
+      ], edge)
+    s.line(36, 15, 45, 7 + sway, cyan)
+    s.line(36, 16, 44, 23 - sway, blue)
+    s.polygon([(14, 8), (22, 0), (29, 7), (27, 10)], blue)
+    s.line(19, 6, 23, 2, cyan)
+    s.polygon(
+      [
+        (6, 12), (13, 5), (27, 4), (37, 10), (39, 15), (35, 22),
+        (26, 26), (13, 23), (5, 17),
+      ], edge)
+    s.polygon(
+      [
+        (8, 12), (14, 7), (26, 6), (35, 11), (36, 16), (32, 21),
+        (25, 24), (14, 21), (8, 17),
+      ], pearl)
+    s.polygon([(24, 21), (31, 28 + sway), (29, 30), (19, 24)], blue)
+    s.line(23, 23, 28, 28 + sway, cyan)
+    s.line(20, 10, 17, 14, blue)
+    s.line(17, 14, 20, 18, blue)
+    s.line(28, 10, 31, 14, blue)
+    s.line(31, 14, 28, 18, blue)
+    s.line(25, 11, 23, 17, edge)
+    s.rect(10, 11, 5, 5, edge)
+    s.rect(11, 11, 3, 2, cyan)
+    s.rect(11, 11, 1, 1, color(255, 255, 255))
+    s.line(6, 17, 9, 17, blue)
     return s
   }
 

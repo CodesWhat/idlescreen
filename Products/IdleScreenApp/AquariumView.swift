@@ -259,6 +259,7 @@ struct IdleScreenAquariumView: View {
       Form {
         choice("Species", selection: $species)
         choice("Shrimp variant", selection: $variant)
+          .disabled(species != .cherryShrimp)
         Picker("Sex", selection: $sex) {
           Text("Female").tag(IdleScreenAquariumSex.female)
           Text("Male").tag(IdleScreenAquariumSex.male)
@@ -286,7 +287,7 @@ struct IdleScreenAquariumView: View {
               VStack(alignment: .leading) {
                 Text(animal.species.title)
                 Text(
-                  "\(animal.variant.title) · \(animal.isAdult ? "Adult" : "Juvenile")\(controller.selectedTank.broods.contains(where: { $0.motherID == animal.id }) ? " · Carrying eggs" : "")"
+                  "\(animal.species == .cherryShrimp ? animal.variant.title + " · " : "")\(animal.isAdult ? "Adult" : "Juvenile")\(controller.selectedTank.broods.contains(where: { $0.motherID == animal.id }) ? " · Carrying eggs" : "")"
                 )
                 .font(.caption).foregroundStyle(.secondary)
               }
@@ -423,7 +424,9 @@ struct IdleScreenAquariumView: View {
         Section("Nursery") {
           ForEach(controller.selectedTank.nursery) { animal in
             HStack {
-              Text("\(animal.species.title) · \(animal.variant.title)")
+              Text(
+                animal.species.title
+                  + (animal.species == .cherryShrimp ? " · " + animal.variant.title : ""))
               Spacer()
               Button("Return") { controller.perform { try $0.returnFromNursery(id: animal.id) } }
               Button("Rehome") {

@@ -77,19 +77,22 @@ public enum IdleScreenAquarium {
       }
     }
     if let settings {
+      let navigation = IdleScreenAquariumNavigation(
+        settings: settings, worldWidth: width)
       for item in settings.objects.prefix(24) where !item.foreground {
         canvas.object(item, time: time, flow: flow)
       }
       for inhabitant in settings.inhabitants.prefix(32) {
         let pose = savedAnimal(
-          inhabitant, at: time, seed: seed, settings: settings, worldWidth: width)
+          inhabitant, at: time, seed: seed, settings: settings, worldWidth: width,
+          navigation: navigation)
         var sprite = pose.species.sprite(
           phase: pose.animationPhase, facingRight: pose.facingRight,
           activity: pose.activity, strikeProgress: pose.strikeProgress)
         if pose.species == .cherryShrimp {
           sprite = coloredShrimp(sprite, variant: inhabitant.variant, eggs: inhabitant.carryingEggs)
         }
-        canvas.sprite(sprite, animal: pose)
+        canvas.sprite(sprite, animal: pose, navigation: navigation)
       }
       for item in settings.objects.prefix(24) where item.foreground {
         canvas.object(item, time: time, flow: flow)
@@ -154,7 +157,10 @@ public enum IdleScreenAquarium {
       pixels = .init(repeating: .zero, count: width * height)
     }
 
-    mutating func sprite(_ sprite: IdleScreenAquariumSprite, animal: IdleScreenAquariumAnimal) {
+    mutating func sprite(
+      _ sprite: IdleScreenAquariumSprite, animal: IdleScreenAquariumAnimal,
+      navigation: IdleScreenAquariumNavigation? = nil
+    ) {
       let drawnWidth = max(
         1, Int((Double(sprite.width) * animal.scale * animal.horizontalScale).rounded()))
       let drawnHeight = max(1, Int((Double(sprite.height) * animal.scale).rounded()))
@@ -166,6 +172,17 @@ public enum IdleScreenAquarium {
           var color = sprite.pixels[
             (row * sprite.height / drawnHeight) * sprite.width + column * sprite.width / drawnWidth]
           if color.w > 0 {
+            let behind =
+              animal.species == .lionfish || animal.species == .neonTetra
+              || animal.species == .codexFish
+              || animal.shelterIndex != nil
+            if behind,
+              navigation?.masks(
+                x: x + column, y: y + row,
+                shelterIndex: animal.shelterIndex, hiding: animal.activity == .hiding) == true
+            {
+              continue
+            }
             color *= light
             color.w = 1
             rect(x + column, y + row, 1, 1, color)

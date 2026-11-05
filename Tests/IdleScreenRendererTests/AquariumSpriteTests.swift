@@ -6,9 +6,10 @@ import Testing
 struct AquariumSpriteTests {
   @Test func everyAppendageStaysAttachedThroughoutAnimation() {
     for species in IdleScreenAquariumSpecies.allCases {
-      for pose in 0..<20 {
+      for pose in 0..<24 {
         let activity: IdleScreenAquariumActivity =
-          pose < 4 ? .walking : pose < 8 ? .grazing : pose < 12 ? .resting : .striking
+          pose < 4
+          ? .walking : pose < 8 ? .grazing : pose < 12 ? .resting : pose < 20 ? .striking : .hiding
         let sprite = species.sprite(
           phase: pose % 4, facingRight: false, activity: activity,
           strikeProgress: Double(pose % 5) / 4)
@@ -50,6 +51,33 @@ struct AquariumSpriteTests {
         }
       }
     }
+  }
+
+  @Test func crabClawsAndCodexFishReadAsDifferentSpecies() {
+    let crab = IdleScreenAquariumSpecies.clawedCrab.sprite(phase: 0, facingRight: false)
+    let fish = IdleScreenAquariumSpecies.codexFish.sprite(phase: 0, facingRight: false)
+    #expect(crab.width >= 40)
+    #expect(crab.height >= 28)
+    #expect(
+      crab.pixels.indices.contains {
+        $0 % crab.width < 10 && $0 / crab.width < 12 && crab.pixels[$0].w > 0
+      })
+    #expect(
+      crab.pixels.indices.contains {
+        $0 % crab.width > crab.width - 10 && $0 / crab.width < 12 && crab.pixels[$0].w > 0
+      })
+    #expect(fish.pixels.contains { $0.x > 0.7 && $0.y > 0.7 && $0.z > 0.7 && $0.w > 0 })
+    #expect(fish.pixels.contains { $0.z > $0.x * 1.5 && $0.z > 0.5 && $0.w > 0 })
+    #expect(crab.pixels != fish.pixels)
+  }
+
+  @Test func crabArmJointsHaveReadableWidth() {
+    let crab = IdleScreenAquariumSpecies.clawedCrab.sprite(phase: 0, facingRight: false)
+    let joint = crab.pixels.indices.filter {
+      (7..<12).contains($0 % crab.width) && (13..<18).contains($0 / crab.width)
+        && crab.pixels[$0].w > 0
+    }
+    #expect(joint.count >= 16)
   }
 
   @Test func scaleAndAnimationDistinguishSpecies() {

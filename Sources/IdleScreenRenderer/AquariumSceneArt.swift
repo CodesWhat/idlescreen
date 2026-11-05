@@ -131,7 +131,8 @@ extension IdleScreenAquarium {
 extension IdleScreenAquarium {
   static func savedAnimal(
     _ item: IdleScreenAquariumRenderInhabitant, at time: Double, seed: UInt64,
-    settings: IdleScreenAquariumRenderSettings, worldWidth: Int = 384
+    settings: IdleScreenAquariumRenderSettings, worldWidth: Int = 384,
+    navigation: IdleScreenAquariumNavigation? = nil
   ) -> IdleScreenAquariumAnimal {
     let offset = Double(item.identity % 997) * 0.13
     let prototypes = IdleScreenAquariumBehavior.animals(at: time + offset, seed: seed)
@@ -147,6 +148,12 @@ extension IdleScreenAquarium {
     case "neonTetra":
       species = .neonTetra
       base = prototypes[5 + Int(item.identity % 3)]
+    case "clawedCrab":
+      species = .clawedCrab
+      base = prototypes[Int(item.identity % 5)]
+    case "codexFish":
+      species = .codexFish
+      base = prototypes[6]
     case "corydoras":
       species = .corydoras
       base = prototypes[Int(item.identity % 5)]
@@ -159,23 +166,13 @@ extension IdleScreenAquarium {
       species = .cherryShrimp
       base = prototypes[Int(item.identity % 8)]
     }
-    let depth =
-      settings.substrateDepth.isFinite ? min(0.24, max(0.08, settings.substrateDepth)) : 0.14
-    let positionX = base.x * Double(worldWidth) / 384
-    var y = base.y
-    if y > 170 {
-      y += (1 - depth) * 216 - 186
-      for object in settings.objects.prefix(24)
-      where !["grass", "fern", "purplePlant", "moss"].contains(object.kind) {
-        guard object.x.isFinite, object.y.isFinite, object.scale.isFinite else { continue }
-        let sprite = objectSprite(kind: object.kind, time: 0)
-        let center = object.x * Double(worldWidth)
-        let half = Double(sprite.width) * min(1.5, max(0.5, object.scale)) / 2
-        let ramp = max(0, min(1, (half + 16 - abs(positionX - center)) / 16))
-        let climb = Double(sprite.height) * ramp * ramp * (3 - 2 * ramp)
-        y = min(y, base.y + (1 - depth) * 216 - 186 - climb)
-      }
+    let geometry =
+      navigation ?? IdleScreenAquariumNavigation(settings: settings, worldWidth: worldWidth)
+    if species != .lionfish, species != .neonTetra, species != .codexFish {
+      return geometry.groundPose(item: item, species: species, base: base, time: time, seed: seed)
     }
+    let positionX = base.x * Double(worldWidth) / 384
+    let y = species == .codexFish ? 133 + sin(time * 0.1 + offset) * 5 : base.y
     return .init(
       species: species, x: positionX, y: y,
       scale: base.scale * (item.juvenile ? 0.55 : 1), horizontalScale: base.horizontalScale,

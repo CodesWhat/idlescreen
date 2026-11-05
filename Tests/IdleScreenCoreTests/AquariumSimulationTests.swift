@@ -76,6 +76,24 @@ struct AquariumSimulationTests {
     #expect(library.tanks[0].animals == [mantis])
   }
 
+  @Test func crabAndCodexFishArePurchasablePersistentCatalogSpecies() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    library.economy = .collection
+    let balance = library.balance
+    try library.buyAnimal(.clawedCrab, variant: .orange, sex: .female, id: UUID())
+    try library.buyAnimal(.codexFish, variant: .blue, sex: .male, id: UUID())
+    #expect(
+      library.balance == balance - IdleScreenAquariumSpeciesKind.clawedCrab.price
+        - IdleScreenAquariumSpeciesKind.codexFish.price)
+    let reopened = try JSONDecoder().decode(
+      IdleScreenAquariumLibrary.self, from: JSONEncoder().encode(library))
+    #expect(reopened.tanks[0].animals.contains { $0.species == .clawedCrab })
+    #expect(reopened.tanks[0].animals.contains { $0.species == .codexFish })
+    #expect(IdleScreenAquariumSpeciesKind.clawedCrab.habitat == .marine)
+    #expect(IdleScreenAquariumSpeciesKind.codexFish.habitat == .fantasy)
+    try reopened.validate()
+  }
+
   @Test func breedingIsBoundedAndRepeatedResumeCannotDuplicateBirths() throws {
     var library = IdleScreenAquariumLibrary.starter
     library.tanks[0].breedingEnabled = true
