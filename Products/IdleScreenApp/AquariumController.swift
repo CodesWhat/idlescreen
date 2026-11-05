@@ -18,12 +18,16 @@ final class IdleScreenAquariumController {
 
   private struct Layout {
     let tankID: UUID
+    let seed: UInt64
+    let lighting: IdleScreenAquariumLighting
     let substrate: IdleScreenAquariumSubstrate
     let worldSize: IdleScreenAquariumWorldSize?
     let depth: Double
     let objects: [IdleScreenAquariumDecoration]
     init(_ tank: IdleScreenAquariumTank) {
       tankID = tank.id
+      seed = tank.seed
+      lighting = tank.lighting
       substrate = tank.substrate
       worldSize = tank.worldSize
       depth = tank.substrateDepth
@@ -172,6 +176,20 @@ final class IdleScreenAquariumController {
     }
   }
 
+  func savePreset(name: String) {
+    perform { try $0.saveLayoutPreset(id: UUID(), name: name) }
+  }
+
+  func applyPreset(_ id: UUID) {
+    let previous = Layout(selectedTank)
+    if perform({ try $0.applyLayoutPreset(id: id) }) { remember(previous) }
+  }
+
+  func resetLayout() {
+    let previous = Layout(selectedTank)
+    if perform({ try $0.resetLayout() }) { remember(previous) }
+  }
+
   func removeDecoration(_ id: UUID) {
     let previous = Layout(selectedTank)
     if perform({ try $0.removeDecoration(id: id) }) { remember(previous) }
@@ -219,6 +237,8 @@ final class IdleScreenAquariumController {
         library.inventory[item.kind.rawValue, default: 0] -= 1
       }
       library.tanks[index].decorations = layout.objects
+      library.tanks[index].seed = layout.seed
+      library.tanks[index].lighting = layout.lighting
       library.tanks[index].worldSize = layout.worldSize
       library.tanks[index].substrate = layout.substrate
       library.tanks[index].substrateDepth = layout.depth

@@ -14,6 +14,7 @@ struct IdleScreenAquariumView: View {
   @State private var variant: IdleScreenAquariumVariant = .red
   @State private var sex: IdleScreenAquariumSex = .female
   @State private var draftName = ""
+  @State private var presetName = ""
   @State private var deletePrompt = false
   @State private var rehomeID: UUID?
   @State private var rehomeFromNursery = false
@@ -191,41 +192,51 @@ struct IdleScreenAquariumView: View {
 
   private var layoutPanel: some View {
     HStack(alignment: .top, spacing: 16) {
-      Form {
-        Picker(
-          "Tank length",
-          selection: Binding(
-            get: { controller.selectedTank.worldSize ?? .standard },
-            set: { size in controller.editTank(recordLayout: true) { $0.worldSize = size } })
-        ) {
-          ForEach(IdleScreenAquariumWorldSize.allCases) { size in
-            Text(size.title).tag(size)
+      ScrollView {
+        Form {
+          Picker(
+            "Tank length",
+            selection: Binding(
+              get: { controller.selectedTank.worldSize ?? .standard },
+              set: { size in controller.editTank(recordLayout: true) { $0.worldSize = size } })
+          ) {
+            ForEach(IdleScreenAquariumWorldSize.allCases) { size in
+              Text(size.title).tag(size)
+            }
+          }
+          choice("Substrate", selection: tankBinding(\.substrate, layout: true))
+          LabeledContent("Gravel depth") {
+            Slider(value: tankBinding(\.substrateDepth, layout: true), in: 0.08...0.24)
+          }
+          Picker(
+            "Add decoration",
+            selection: Binding<IdleScreenAquariumDecorationKind?>(
+              get: { nil },
+              set: {
+                if let kind = $0 { controller.addDecoration(kind) }
+              })
+          ) {
+            Text("Choose an item…").tag(Optional<IdleScreenAquariumDecorationKind>.none)
+            ForEach(IdleScreenAquariumDecorationKind.allCases) { kind in
+              Text("\(kind.title) · \(price(kind.price))").tag(Optional(kind))
+            }
+          }
+          Text(
+            "Drag objects in the tank, or select one to adjust it. The upper swimming lane stays clear."
+          )
+          .font(.caption).foregroundStyle(.secondary)
+          Button(
+            "Reset layout · \(layoutPrice(.init(tank: IdleScreenAquariumLibrary.starter.tanks[0])))"
+          ) {
+            controller.resetLayout()
+            selectedObject = nil
           }
         }
-        choice("Substrate", selection: tankBinding(\.substrate, layout: true))
-        LabeledContent("Gravel depth") {
-          Slider(value: tankBinding(\.substrateDepth, layout: true), in: 0.08...0.24)
-        }
-        Picker(
-          "Add decoration",
-          selection: Binding<IdleScreenAquariumDecorationKind?>(
-            get: { nil },
-            set: {
-              if let kind = $0 { controller.addDecoration(kind) }
-            })
-        ) {
-          Text("Choose an item…").tag(Optional<IdleScreenAquariumDecorationKind>.none)
-          ForEach(IdleScreenAquariumDecorationKind.allCases) { kind in
-            Text("\(kind.title) · \(price(kind.price))").tag(Optional(kind))
-          }
-        }
-        Text(
-          "Drag objects in the tank, or select one to adjust it. The upper swimming lane stays clear."
-        )
-        .font(.caption).foregroundStyle(.secondary)
+        Divider().padding(.vertical, 8)
+        presetControls
       }.frame(maxWidth: .infinity)
       if let item = controller.selectedTank.decorations.first(where: { $0.id == selectedObject }) {
-        objectInspector(item).frame(maxWidth: .infinity)
+        ScrollView { objectInspector(item) }.frame(maxWidth: .infinity)
       } else {
         VStack(alignment: .leading) {
           Text("Placed objects").font(.headline)
@@ -237,6 +248,43 @@ struct IdleScreenAquariumView: View {
         }.frame(maxWidth: .infinity)
       }
     }.padding(12)
+  }
+
+  private var presetControls: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Saved layouts").font(.headline)
+      TextField("Preset name", text: $presetName)
+      Button("Save layout preset") {
+        controller.savePreset(name: presetName)
+      }
+      .disabled(
+        presetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+          || presetName.count > 64 || (controller.library.layoutPresets?.count ?? 0) >= 16)
+      ForEach(controller.library.layoutPresets ?? []) { preset in
+        HStack {
+          Text(preset.name).lineLimit(1)
+          Spacer()
+          Button("Apply · \(layoutPrice(preset.layout))") {
+            controller.applyPreset(preset.id)
+            selectedObject = nil
+          }
+          Button {
+            controller.perform { try $0.deleteLayoutPreset(id: preset.id) }
+          } label: {
+            Image(systemName: "trash")
+          }.accessibilityLabel("Delete preset \(preset.name)")
+        }
+      }
+      Text(
+        "Layouts contain decorations, substrate, tank length and lighting. Animals and equipment stay in their tank."
+      )
+      .font(.caption).foregroundStyle(.secondary)
+    }
+  }
+
+  private func layoutPrice(_ layout: IdleScreenAquariumLayout) -> String {
+    guard let cost = try? controller.library.costToApplyLayout(layout) else { return "Unavailable" }
+    return price(cost)
   }
 
   private func objectInspector(_ item: IdleScreenAquariumDecoration) -> some View {

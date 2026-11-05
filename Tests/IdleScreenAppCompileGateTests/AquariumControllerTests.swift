@@ -38,6 +38,43 @@ struct AquariumControllerTests {
     #expect(reopened.selectedTank.animals == animals)
   }
 
+  @Test func applyingAndResettingPresetsUndoOnlyCosmeticState() throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let controller = IdleScreenAquariumController(
+      fileURL: directory.appending(path: "aquariums.json"))
+    controller.editTank {
+      $0.worldSize = .wide
+      $0.seed = 91
+      $0.lighting.preset = .blacklight
+    }
+    controller.savePreset(name: "Night wood")
+    let preset = try #require(controller.library.layoutPresets?.first)
+    controller.editTank {
+      $0.worldSize = .standard
+      $0.seed = 42
+      $0.lighting.preset = .daylight
+    }
+    controller.applyPreset(preset.id)
+    #expect(controller.selectedTank.worldWidth == 768)
+    #expect(controller.selectedTank.lighting.preset == .blacklight)
+    controller.perform { try $0.buyAnimal(.cherryShrimp, variant: .blue, sex: .female, id: UUID()) }
+    let animals = controller.selectedTank.animals
+    let balance = controller.library.balance
+    controller.undoLayout()
+    #expect(controller.selectedTank.worldWidth == 384)
+    #expect(controller.selectedTank.seed == 42)
+    #expect(controller.selectedTank.lighting.preset == .daylight)
+    #expect(controller.selectedTank.animals == animals)
+    #expect(controller.library.balance == balance)
+    controller.redoLayout()
+    controller.resetLayout()
+    #expect(controller.selectedTank.worldWidth == 384)
+    controller.undoLayout()
+    #expect(controller.selectedTank.worldWidth == 768)
+    #expect(controller.selectedTank.animals == animals)
+  }
+
   @Test func invalidEditsLeaveSavedStateAndHistoryUntouched() throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }

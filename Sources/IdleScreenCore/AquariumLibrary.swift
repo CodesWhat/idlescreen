@@ -346,6 +346,7 @@ public struct IdleScreenAquariumLibrary: Codable, Equatable, Sendable {
   public var inventory: [String: Int] = [:]
   public var unlockedVariants: Set<IdleScreenAquariumVariant> = [.red]
   public var appliedCommands: [UUID] = []
+  public var layoutPresets: [IdleScreenAquariumLayoutPreset]?
 
   public init(tanks: [IdleScreenAquariumTank], selectedTankID: UUID) {
     self.tanks = tanks
@@ -433,6 +434,11 @@ public struct IdleScreenAquariumLibrary: Codable, Equatable, Sendable {
       }),
       tanks.reduce(0, { $0 + $1.reservedPopulation }) <= 128
     else { throw IdleScreenAquariumError.invalidTank }
+    let presets = layoutPresets ?? []
+    guard presets.count <= 16, Set(presets.map(\.id)).count == presets.count else {
+      throw IdleScreenAquariumError.invalidTank
+    }
+    for preset in presets { try preset.validate() }
     for tank in tanks { try tank.validate() }
     let inhabitants = tanks.flatMap { $0.animals + $0.nursery }
     guard Set(inhabitants.map(\.id)).count == inhabitants.count else {
