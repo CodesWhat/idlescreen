@@ -16,12 +16,18 @@ struct IdleScreenAquariumNavigation {
   let worldWidth: Int
   let grazingAnchors: [Anchor]
   let shelters: [Shelter]
+  private let schoolRanks: [UInt64: Int]
   private let surfaces: [Double]
   private let travelSurfaces: [Double]
   private let owners: [Int16]
   private let portals: [Int16]
 
   init(settings: IdleScreenAquariumRenderSettings, worldWidth: Int) {
+    let school = Set(
+      settings.inhabitants.prefix(32).filter { $0.species == "neonTetra" }.map(\.identity)
+    ).sorted()
+    schoolRanks = Dictionary(
+      uniqueKeysWithValues: school.enumerated().map { ($0.element, $0.offset) })
     self.worldWidth = min(1152, max(384, worldWidth))
     let width = self.worldWidth
     let depth =
@@ -113,6 +119,35 @@ struct IdleScreenAquariumNavigation {
     case "pirateChest": .init(x: 0, y: 12, width: 8, height: 12)
     default: nil
     }
+  }
+
+  func schoolPose(item: IdleScreenAquariumRenderInhabitant, time: Double, seed: UInt64)
+    -> IdleScreenAquariumAnimal
+  {
+    let rank = schoolRanks[item.identity] ?? 0
+    let count = max(1, schoolRanks.count)
+    let columns = min(8, Int(ceil(sqrt(Double(count) * 2))))
+    let row = rank / columns
+    let column = rank % columns
+    let rowCount = min(columns, count - row * columns)
+    let rows = Int(ceil(Double(count) / Double(columns)))
+    let safeTime = time.isFinite ? max(0, time) : 0
+    let period = 96 * Double(worldWidth) / 384
+    let phase =
+      (safeTime.truncatingRemainder(dividingBy: period) / period + Double(seed % 997) / 997) * 2
+      * .pi
+    let direction = cos(phase)
+    let x =
+      Double(worldWidth) / 2 + (Double(worldWidth) / 2 - 85) * sin(phase)
+      + (Double(column) - Double(rowCount - 1) / 2) * 18
+    let sway = sin(safeTime.truncatingRemainder(dividingBy: 6) / 6 * 2 * .pi + Double(rank)) * 1.2
+    let y = 105 + sin(phase * 2) * 8 + (Double(row) - Double(rows - 1) / 2) * 12 + sway
+    return .init(
+      species: .neonTetra, x: x, y: y, scale: item.juvenile ? 0.33 : 0.6,
+      horizontalScale: max(0.12, min(1, abs(direction) * 4)), facingRight: direction >= 0,
+      activity: .swimming,
+      animationPhase: (Int(safeTime.truncatingRemainder(dividingBy: 1) * 8) + rank) & 3,
+      strikeProgress: 0)
   }
 
   func groundPose(

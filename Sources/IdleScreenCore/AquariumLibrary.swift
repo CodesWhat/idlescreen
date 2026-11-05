@@ -79,7 +79,8 @@ public enum IdleScreenAquariumSpeciesKind: String, IdleScreenAquariumChoice {
     case .cherryShrimp: "Bottom grazer. Walks, rests and shelters. Supports colony breeding."
     case .mantisShrimp: "Bottom walker. Shelters and occasionally strikes with its clubs."
     case .lionfish: "Midwater swimmer with broad fins."
-    case .neonTetra: "Small midwater swimmer."
+    case .neonTetra:
+      "Small schooling swimmer. Shares a route and coordinated turns with other neons."
     case .corydoras: "Bottom grazer. Explores surfaces and shelters."
     case .snail: "Slow surface crawler."
     case .clawedCrab: "Clawed floor walker. Follows the open gravel lane."

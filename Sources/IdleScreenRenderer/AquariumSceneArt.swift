@@ -134,6 +134,11 @@ extension IdleScreenAquarium {
     settings: IdleScreenAquariumRenderSettings, worldWidth: Int = 384,
     navigation: IdleScreenAquariumNavigation? = nil
   ) -> IdleScreenAquariumAnimal {
+    if item.species == "neonTetra" {
+      let geometry =
+        navigation ?? IdleScreenAquariumNavigation(settings: settings, worldWidth: worldWidth)
+      return geometry.schoolPose(item: item, time: time, seed: seed)
+    }
     let offset = Double(item.identity % 997) * 0.13
     let prototypes = IdleScreenAquariumBehavior.animals(at: time + offset, seed: seed)
     let species: IdleScreenAquariumSpecies
@@ -145,9 +150,6 @@ extension IdleScreenAquarium {
     case "lionfish":
       species = .lionfish
       base = prototypes[9]
-    case "neonTetra":
-      species = .neonTetra
-      base = prototypes[5 + Int(item.identity % 3)]
     case "clawedCrab":
       species = .clawedCrab
       base = prototypes[Int(item.identity % 5)]

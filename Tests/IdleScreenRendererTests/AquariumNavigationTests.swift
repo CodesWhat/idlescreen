@@ -15,6 +15,41 @@ struct AquariumNavigationTests {
     return value
   }
 
+  @Test func neonsTravelAsABoundedSchoolWithStableSlotsAndCoordinatedTurns() {
+    var settings = settings
+    settings.inhabitants = (1...32).map { .init(identity: UInt64($0), species: "neonTetra") }
+    for width in [384, 768, 1152] {
+      let geometry = IdleScreenAquariumNavigation(settings: settings, worldWidth: width)
+      var reversed = settings
+      reversed.inhabitants.reverse()
+      let reordered = IdleScreenAquariumNavigation(settings: reversed, worldWidth: width)
+      for time in stride(from: 0.0, through: 300, by: 5) {
+        let poses = settings.inhabitants.map {
+          IdleScreenAquarium.savedAnimal(
+            $0, at: time, seed: 42, settings: settings, worldWidth: width, navigation: geometry)
+        }
+        #expect(
+          poses.allSatisfy { $0.activity == .swimming && $0.facingRight == poses[0].facingRight })
+        #expect((poses.map(\.x).max()! - poses.map(\.x).min()!) <= 130)
+        #expect((poses.map(\.y).max()! - poses.map(\.y).min()!) <= 45)
+        #expect(Set(poses.map { "\(Int($0.x)),\(Int($0.y))" }).count == 32)
+        for (item, pose) in zip(settings.inhabitants, poses) {
+          #expect(pose.x >= 10 && pose.x <= Double(width - 10))
+          #expect((65...145).contains(pose.y))
+          let next = IdleScreenAquarium.savedAnimal(
+            item, at: time + 0.1, seed: 42, settings: settings, worldWidth: width,
+            navigation: geometry)
+          #expect(abs(next.x - pose.x) < 2 && abs(next.y - pose.y) < 2)
+          #expect(
+            pose
+              == IdleScreenAquarium.savedAnimal(
+                item, at: time, seed: 42, settings: reversed, worldWidth: width,
+                navigation: reordered))
+        }
+      }
+    }
+  }
+
   @Test func hardscapeProvidesPhysicalSurfacesAndUsableShelterOpenings() throws {
     let geometry = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
     #expect(geometry.grazingAnchors.contains { abs($0.x - 96) < 2 })
