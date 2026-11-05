@@ -338,7 +338,10 @@ struct IdleScreenAquariumView: View {
                 }
               }))
         }
-        LabeledContent("Flow") { Slider(value: tankBinding(\.automation.flow), in: 0...1) }
+        LabeledContent("Flow") {
+          Slider(value: tankBinding(\.automation.flow), in: 0...1)
+            .help("Adjusts the current and filter turnover.")
+        }
         LabeledContent("Heater set point") {
           Slider(value: tankBinding(\.automation.heaterTemperature), in: 18...30)
         }

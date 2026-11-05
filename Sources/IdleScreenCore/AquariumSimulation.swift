@@ -235,7 +235,9 @@ extension IdleScreenAquariumTank {
     let filtered = equipment.contains(.spongeFilter) || equipment.contains(.externalFilter)
     if filtered {
       water.filterMaturity = min(1, water.filterMaturity + 0.002)
-      let capacity = (equipment.contains(.externalFilter) ? 0.03 : 0.016) * water.filterMaturity
+      let capacity =
+        (equipment.contains(.externalFilter) ? 0.03 : 0.016) * water.filterMaturity
+        * (0.25 + automation.flow * 1.5)
       let first = min(water.ammonia, capacity)
       water.ammonia -= first
       water.nitrite = min(1, water.nitrite + first)

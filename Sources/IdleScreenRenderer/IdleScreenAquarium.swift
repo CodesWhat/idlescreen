@@ -13,6 +13,8 @@ public enum IdleScreenAquarium {
     let lightTime = elapsed.isFinite ? max(0, elapsed) : 0
     let elapsed = settings?.reduceMotion == true ? 0 : elapsed
     let time = elapsed.isFinite ? max(0, elapsed).truncatingRemainder(dividingBy: 86_400) : 0
+    let requestedFlow = settings?.flow ?? 0.5
+    let flow = requestedFlow.isFinite ? min(1, max(0, requestedFlow)) : 0.5
     let width = min(1152, max(384, settings?.worldWidth ?? Self.width))
     var canvas = Canvas(width: width)
     let phase = Double(seed % 997) / 997 * 6.28
@@ -24,7 +26,7 @@ public enum IdleScreenAquarium {
     // Backlit suspended particles, kept sparse enough to leave open water.
     for i in 0..<32 {
       let x = Int(
-        (Double(i * 71) + sin(time * 0.12 + Double(i)) * 4).truncatingRemainder(
+        (Double(i * 71) + sin(time * 0.12 + Double(i)) * 4 + time * flow * 4).truncatingRemainder(
           dividingBy: Double(width - 4)))
       let y = Int((Double(i * 43) - time * 1.8).truncatingRemainder(dividingBy: 180) + 180) % 180
       canvas.rect(x, y, 1, 1, .init(0.10, 0.24, 0.30, 1))
@@ -76,7 +78,7 @@ public enum IdleScreenAquarium {
     }
     if let settings {
       for item in settings.objects.prefix(24) where !item.foreground {
-        canvas.object(item, time: time)
+        canvas.object(item, time: time, flow: flow)
       }
       for inhabitant in settings.inhabitants.prefix(32) {
         let pose = savedAnimal(
@@ -90,7 +92,7 @@ public enum IdleScreenAquarium {
         canvas.sprite(sprite, animal: pose)
       }
       for item in settings.objects.prefix(24) where item.foreground {
-        canvas.object(item, time: time)
+        canvas.object(item, time: time, flow: flow)
       }
       canvas.equipment(settings.equipment)
     } else {
@@ -107,7 +109,7 @@ public enum IdleScreenAquarium {
     {
       for i in 0..<9 {
         let y = 178 - Int((time * 9 + Double(i * 23)).truncatingRemainder(dividingBy: 178))
-        let x = width - 37 + Int(sin(time + Double(i)) * 3)
+        let x = width - 37 + Int(sin(time + Double(i)) * 3 - (178 - Double(y)) * flow * 0.08)
         let color = SIMD4<Float>(0.20, 0.37, 0.43, 1)
         canvas.rect(x + 1, y, 2, 1, color)
         canvas.rect(x, y + 1, 1, 2, color)

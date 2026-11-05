@@ -115,6 +115,24 @@ struct AquariumSimulationTests {
     #expect(library.tanks[0].animals.contains { $0.id == mantis.id })
   }
 
+  @Test func filterFlowChangesTurnoverWithoutBypassingTheCareModel() throws {
+    var slow = IdleScreenAquariumLibrary.starter
+    slow.tanks[0].keeperMode = true
+    slow.tanks[0].automation.flow = 0
+    slow.tanks[0].water.ammonia = 0.6
+    slow.tanks[0].water.filterMaturity = 1
+    let start = Date(timeIntervalSince1970: 10_000)
+    slow.advance(to: start)
+    var fast = slow
+    fast.tanks[0].automation.flow = 1
+    slow.advance(to: start.addingTimeInterval(10 * 60))
+    fast.advance(to: start.addingTimeInterval(10 * 60))
+    #expect(fast.tanks[0].water.ammonia < slow.tanks[0].water.ammonia)
+    #expect(fast.tanks[0].water.nitrate > slow.tanks[0].water.nitrate)
+    try slow.validate()
+    try fast.validate()
+  }
+
   @Test func waterRespondsToFoodFilteringAndWaterChangesWithoutOfflineDeaths() throws {
     var library = IdleScreenAquariumLibrary.starter
     library.tanks[0].keeperMode = true

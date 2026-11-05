@@ -25,6 +25,22 @@ struct AquariumSavedSceneTests {
     }
   }
 
+  @Test func currentChangesWaterAndPlantMotionButReducedMotionStaysStill() {
+    var calm = IdleScreenAquariumRenderSettings()
+    calm.flow = 0
+    calm.objects = [.init(kind: "fern", x: 0.5, y: 0.9)]
+    var flowing = calm
+    flowing.flow = 1
+    let first = IdleScreenAquarium.frame(at: 7, seed: 42, settings: calm)
+    let second = IdleScreenAquarium.frame(at: 7, seed: 42, settings: flowing)
+    #expect(first != second)
+    #expect(second == IdleScreenAquarium.frame(at: 7, seed: 42, settings: flowing))
+    flowing.reduceMotion = true
+    #expect(
+      IdleScreenAquarium.frame(at: 7, seed: 42, settings: flowing)
+        == IdleScreenAquarium.frame(at: 70, seed: 42, settings: flowing))
+  }
+
   @Test func savedLivestockAndVariantsAreVisibleAndDeterministic() {
     var settings = IdleScreenAquariumRenderSettings()
     let empty = IdleScreenAquarium.frame(at: 0, seed: 42, settings: settings)

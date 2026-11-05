@@ -1,7 +1,9 @@
 import Foundation
 
 extension IdleScreenAquarium {
-  static func objectSprite(kind: String, time: Double) -> IdleScreenAquariumSprite {
+  static func objectSprite(kind: String, time: Double, flow: Double = 0.5)
+    -> IdleScreenAquariumSprite
+  {
     let sizes: [String: (Int, Int)] = [
       "rock": (32, 12), "slate": (42, 25), "cave": (48, 30), "driftwood": (72, 46),
       "hollowLog": (56, 26), "moss": (30, 16), "grass": (22, 34), "fern": (32, 48),
@@ -95,7 +97,8 @@ extension IdleScreenAquarium {
       for branch in -2...2 {
         let length = size.1 - 3 - abs(branch) * (kind == "moss" ? 2 : 6)
         for step in 0..<max(1, length) {
-          let sway = Int(sin(Double(step) * 0.06 + time * 0.3) * Double(step) * 0.07)
+          let sway = Int(
+            sin(Double(step) * 0.06 + time * 0.3) * Double(step) * 0.07 * (0.3 + flow * 1.4))
           let x = size.0 / 2 + branch * step / 7 + sway
           s.rect(x, base - step, kind == "moss" ? 4 : 3, 1, dark)
           s.rect(x, base - step, 1, 1, green)
@@ -208,9 +211,9 @@ extension IdleScreenAquarium {
 }
 
 extension IdleScreenAquarium.Canvas {
-  mutating func object(_ object: IdleScreenAquariumRenderObject, time: Double) {
+  mutating func object(_ object: IdleScreenAquariumRenderObject, time: Double, flow: Double = 0.5) {
     guard object.x.isFinite, object.y.isFinite, object.scale.isFinite else { return }
-    var sprite = IdleScreenAquarium.objectSprite(kind: object.kind, time: time)
+    var sprite = IdleScreenAquarium.objectSprite(kind: object.kind, time: time, flow: flow)
     if object.flipped {
       for y in 0..<sprite.height {
         let range = (y * sprite.width)..<((y + 1) * sprite.width)
