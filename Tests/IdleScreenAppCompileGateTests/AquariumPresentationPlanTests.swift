@@ -134,6 +134,43 @@ struct AquariumPresentationPlanTests {
     #expect(metal.isPaused)
   }
 
+  @Test func windowHostReceivesTheActualAppKitResizeCallback() throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let controller = IdleScreenAquariumController(
+      fileURL: directory.appending(path: "aquariums.json"))
+    let host = IdleScreenAquariumPresentationHost(controller: controller)
+    #expect(host.responds(to: #selector(NSWindowDelegate.windowDidResize(_:))))
+    host.shutdown()
+  }
+
+  @Test func hostHandlesLocalLifecycleEventsAndUnsubscribesAtShutdown() throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let controller = IdleScreenAquariumController(
+      fileURL: directory.appending(path: "aquariums.json"))
+    let host = IdleScreenAquariumPresentationHost(controller: controller, reducedMotion: { true })
+    host.start()
+    #expect(host.policy.reduceMotion)
+    #expect(!host.isAnimating)
+    let workspace = NSWorkspace.shared.notificationCenter
+    workspace.post(name: NSWorkspace.screensDidSleepNotification, object: nil)
+    #expect(!host.policy.screensAwake)
+    workspace.post(name: NSWorkspace.screensDidWakeNotification, object: nil)
+    #expect(host.policy.screensAwake)
+    workspace.post(name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
+    #expect(!host.policy.sessionActive)
+    workspace.post(name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
+    #expect(host.policy.sessionActive)
+    host.shutdown()
+    workspace.post(name: NSWorkspace.screensDidSleepNotification, object: nil)
+    workspace.post(name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
+    #expect(host.policy.screensAwake)
+    #expect(host.policy.sessionActive)
+    #expect(host.desktopWindowCount == 0)
+    #expect(!host.isAnimating)
+  }
+
   @Test func desktopWindowCannotStealKeyboardOrDesktopMouseInput() {
     let window = IdleScreenAquariumBackgroundWindow(
       frame: .init(x: 0, y: 0, width: 300, height: 200))

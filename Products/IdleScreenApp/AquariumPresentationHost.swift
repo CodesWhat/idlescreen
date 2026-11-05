@@ -93,13 +93,14 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
   @ObservationIgnored private let controller: IdleScreenAquariumController
   @ObservationIgnored private let topology: () throws -> DisplayTopology
   @ObservationIgnored private let clock: () -> Date
+  @ObservationIgnored private let reducedMotion: () -> Bool
   @ObservationIgnored private var desktop: [String: Surface] = [:]
   @ObservationIgnored private var windowed: Surface?
   @ObservationIgnored private var timer: Timer?
   @ObservationIgnored private var timerRate = 0
   @ObservationIgnored private var started = false
   @ObservationIgnored private var reconciling = false
-  @ObservationIgnored private var policy = IdleScreenAquariumPresentationPolicy()
+  @ObservationIgnored private(set) var policy = IdleScreenAquariumPresentationPolicy()
   @ObservationIgnored private var lastReducedFrameRevision: UInt64?
 
   private struct Surface {
@@ -114,11 +115,15 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
     topology: @escaping () throws -> DisplayTopology = {
       try MacDisplayTopologyReader().readTopology()
     },
-    clock: @escaping () -> Date = { Date() }
+    clock: @escaping () -> Date = { Date() },
+    reducedMotion: @escaping () -> Bool = {
+      NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
   ) {
     self.controller = controller
     self.topology = topology
     self.clock = clock
+    self.reducedMotion = reducedMotion
     super.init()
   }
 
@@ -226,8 +231,10 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
   ) throws -> Surface {
     let view = MTKView(frame: window.contentView?.bounds ?? .zero)
     view.autoresizingMask = [.width, .height]
+    var effective = configuration
+    effective.aquariumSettings?.reduceMotion = policy.reduceMotion
     let renderer = try IdleScreenRenderer(
-      metalView: view, configuration: configuration, automaticallyDraws: false)
+      metalView: view, configuration: effective, automaticallyDraws: false)
     window.contentView = view
     return Surface(window: window, view: view, renderer: renderer, tank: tank)
   }
@@ -326,12 +333,18 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
     if let timer { RunLoop.main.add(timer, forMode: .common) }
   }
 
-  @objc private func windowResized() { renderAll(at: clock(), includingOccluded: true) }
-  @objc private func screenChanged() { reconcile() }
+  func windowDidResize(_ notification: Notification) {
+    guard let window = notification.object as? NSWindow, windowed?.window === window else { return }
+    renderAll(at: clock(), includingOccluded: true)
+  }
+  @objc private func screenChanged() {
+    lastReducedFrameRevision = nil
+    reconcile()
+  }
   @objc private func visibilityChanged() { if !reconciling { updateTimer() } }
   @objc private func powerChanged() {
     policy.lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
-    policy.reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    policy.reduceMotion = reducedMotion()
     lastReducedFrameRevision = nil
     reconcile()
   }
@@ -341,6 +354,7 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
   }
   @objc private func screensWake() {
     policy.screensAwake = true
+    lastReducedFrameRevision = nil
     reconcile()
   }
   @objc private func sessionInactive() {
@@ -349,6 +363,7 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
   }
   @objc private func sessionActive() {
     policy.sessionActive = true
+    lastReducedFrameRevision = nil
     reconcile()
   }
 }
