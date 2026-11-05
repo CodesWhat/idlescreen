@@ -202,6 +202,7 @@ public struct IdleScreenAquariumLighting: Codable, Equatable, Sendable {
 
 public struct IdleScreenAquariumAutomation: Codable, Equatable, Sendable {
   public var equipment: Set<IdleScreenAquariumEquipment> = [.spongeFilter, .feeder, .lightTimer]
+  public var inactiveEquipment: Set<IdleScreenAquariumEquipment>?
   public var flow: Double = 0.5
   public var heaterTemperature: Double = 24
   public var feedEveryMinutes: Int = 30
@@ -252,6 +253,7 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
       Set(decorations.map(\.id)).count == decorations.count, decorations.count <= 24,
       lighting.brightness.isFinite, (0.15...1).contains(lighting.brightness),
       (0...23).contains(lighting.startsAtHour), (1...18).contains(lighting.durationHours),
+      automation.equipment.isDisjoint(with: automation.inactiveEquipment ?? []),
       automation.flow.isFinite, (0...1).contains(automation.flow),
       automation.heaterTemperature.isFinite, (18...30).contains(automation.heaterTemperature),
       (5...240).contains(automation.feedEveryMinutes),
@@ -270,9 +272,11 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
       else {
         throw IdleScreenAquariumError.invalidTank
       }
-      if keeperMode, habitat != .fantasy, animal.species.habitat != habitat {
-        throw IdleScreenAquariumError.incompatibleHabitat
-      }
+    }
+    if keeperMode, habitat != .fantasy,
+      animals.contains(where: { $0.species.habitat != habitat })
+    {
+      throw IdleScreenAquariumError.incompatibleHabitat
     }
     for brood in broods {
       guard (1...4).contains(brood.count), brood.dueStep >= simulationStep,
@@ -376,6 +380,15 @@ public struct IdleScreenAquariumLibrary: Codable, Equatable, Sendable {
     copy.lastAdvancedAt = nil
     copy.water = .init()
     try copy.validate()
+    if economy == .collection {
+      let cost =
+        copy.decorations.reduce(0) { $0 + $1.kind.price }
+        + copy.automation.equipment.union(copy.automation.inactiveEquipment ?? []).reduce(0) {
+          $0 + $1.price
+        }
+      guard balance >= cost else { throw IdleScreenAquariumError.insufficientFunds }
+      balance -= cost
+    }
     tanks.append(copy)
     selectedTankID = id
   }

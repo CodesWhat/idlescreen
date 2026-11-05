@@ -63,8 +63,30 @@ extension IdleScreenAquariumLibrary {
     guard !tanks[index].automation.equipment.contains(kind) else {
       throw IdleScreenAquariumError.invalidOperation
     }
-    try charge(kind.price)
+    if tanks[index].automation.inactiveEquipment?.contains(kind) != true {
+      try charge(kind.price)
+    }
+    tanks[index].automation.inactiveEquipment?.remove(kind)
+    if tanks[index].automation.inactiveEquipment?.isEmpty == true {
+      tanks[index].automation.inactiveEquipment = nil
+    }
     tanks[index].automation.equipment.insert(kind)
+  }
+
+  public mutating func setEquipmentActive(_ kind: IdleScreenAquariumEquipment, active: Bool) throws
+  {
+    if active {
+      try buyEquipment(kind)
+      return
+    }
+    let index = try selectedIndex()
+    guard tanks[index].automation.equipment.contains(kind) else {
+      throw IdleScreenAquariumError.missingItem
+    }
+    tanks[index].automation.equipment.remove(kind)
+    var inactive = tanks[index].automation.inactiveEquipment ?? []
+    inactive.insert(kind)
+    tanks[index].automation.inactiveEquipment = inactive
   }
 
   public mutating func moveToNursery(id: UUID) throws {

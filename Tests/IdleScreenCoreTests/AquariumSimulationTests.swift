@@ -29,6 +29,53 @@ struct AquariumSimulationTests {
     #expect(library.balance == balance - 42)
   }
 
+  @Test func disabledEquipmentRemainsOwnedAcrossSavesAndReactivationIsFree() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    library.economy = .collection
+    let originalBalance = library.balance
+    try library.buyEquipment(.heater)
+    let paidBalance = library.balance
+    #expect(paidBalance == originalBalance - IdleScreenAquariumEquipment.heater.price)
+    try library.setEquipmentActive(.heater, active: false)
+    #expect(!library.selectedTank!.automation.equipment.contains(.heater))
+    library = try JSONDecoder().decode(
+      IdleScreenAquariumLibrary.self, from: JSONEncoder().encode(library))
+    try library.buyEquipment(.heater)
+    #expect(library.balance == paidBalance)
+    #expect(library.selectedTank!.automation.equipment.contains(.heater))
+    try library.validate()
+  }
+
+  @Test func existingSavesWithoutInactiveEquipmentStillDecode() throws {
+    let data = try JSONEncoder().encode(IdleScreenAquariumLibrary.starter)
+    var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    var tanks = try #require(object["tanks"] as? [[String: Any]])
+    var automation = try #require(tanks[0]["automation"] as? [String: Any])
+    automation.removeValue(forKey: "inactiveEquipment")
+    tanks[0]["automation"] = automation
+    object["tanks"] = tanks
+    let decoded = try JSONDecoder().decode(
+      IdleScreenAquariumLibrary.self, from: JSONSerialization.data(withJSONObject: object))
+    #expect(decoded == .starter)
+  }
+
+  @Test func nurseryCanHoldIncompatibleAnimalsWhileTankHabitatChanges() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    let mantis = try #require(library.tanks[0].animals.first { $0.species == .mantisShrimp })
+    library.tanks[0].animals = [mantis]
+    try library.moveToNursery(id: mantis.id)
+    library.tanks[0].habitat = .freshwater
+    library.tanks[0].keeperMode = true
+    try library.validate()
+    #expect(throws: IdleScreenAquariumError.incompatibleHabitat) {
+      try library.returnFromNursery(id: mantis.id)
+    }
+    #expect(library.tanks[0].nursery == [mantis])
+    library.tanks[0].habitat = .marine
+    try library.returnFromNursery(id: mantis.id)
+    #expect(library.tanks[0].animals == [mantis])
+  }
+
   @Test func breedingIsBoundedAndRepeatedResumeCannotDuplicateBirths() throws {
     var library = IdleScreenAquariumLibrary.starter
     library.tanks[0].breedingEnabled = true

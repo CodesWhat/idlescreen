@@ -43,6 +43,24 @@ struct AquariumLibraryTests {
     #expect(library.tanks.count == 2)
   }
 
+  @Test func collectionLayoutCopiesPayForMountedObjectsAndDoNotSpendOnFailure() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    library.economy = .collection
+    library.balance = 10_000
+    let original = try #require(library.selectedTank)
+    let cost =
+      original.decorations.reduce(0) { $0 + $1.kind.price }
+      + original.automation.equipment.reduce(0) { $0 + $1.price }
+    try library.duplicateLayout(of: original.id, id: UUID(), name: "Copy")
+    #expect(library.balance == 10_000 - cost)
+    library.balance = 0
+    let before = library
+    #expect(throws: IdleScreenAquariumError.insufficientFunds) {
+      try library.duplicateLayout(of: original.id, id: UUID(), name: "Too expensive")
+    }
+    #expect(library == before)
+  }
+
   @Test func storeTransactionsAreAtomicAndRetriesDoNotChargeAgain() throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -63,6 +81,44 @@ struct AquariumLibraryTests {
       try store.transact(expectedRevision: first.revision, commandID: UUID()) { $0.balance = -1 }
     }
     #expect(try store.read() == first)
+  }
+
+  @Test func concurrentRetriesCommitOnePurchaseAndResumeOneBrood() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenAquariumStore(fileURL: directory.appending(path: "aquariums.json"))
+    let start = Date(timeIntervalSince1970: 10_000)
+    let initial = try store.transact(expectedRevision: 0, commandID: UUID()) {
+      $0.economy = .collection
+      $0.tanks[0].breedingEnabled = true
+      $0.advance(to: start)
+    }
+    let command = UUID()
+    let animalID = UUID()
+    let results = try await withThrowingTaskGroup(of: IdleScreenAquariumLibrary.self) { group in
+      for _ in 0..<4 {
+        group.addTask {
+          try store.transact(expectedRevision: initial.revision, commandID: command) {
+            try $0.buyAnimal(.cherryShrimp, variant: .yellow, sex: .female, id: animalID)
+            $0.advance(to: start.addingTimeInterval(26 * 60))
+          }
+        }
+      }
+      var values: [IdleScreenAquariumLibrary] = []
+      for try await value in group { values.append(value) }
+      return values
+    }
+    let saved = try #require(try store.read())
+    #expect(results.count == 4)
+    #expect(results.allSatisfy { $0 == saved })
+    #expect(saved.revision == initial.revision + 1)
+    #expect(saved.balance == initial.balance - 12)
+    #expect(saved.tanks[0].animals.filter { $0.id == animalID }.count == 1)
+    #expect(saved.tanks[0].animals.contains { !$0.parents.isEmpty })
+    let resumed = try store.transact(expectedRevision: saved.revision, commandID: UUID()) {
+      $0.advance(to: start.addingTimeInterval(26 * 60))
+    }
+    #expect(resumed.tanks == saved.tanks)
   }
 
   @Test func corruptAndFutureStoresArePreserved() throws {

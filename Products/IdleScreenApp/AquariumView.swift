@@ -316,14 +316,14 @@ struct IdleScreenAquariumView: View {
       Form {
         ForEach(IdleScreenAquariumEquipment.allCases) { item in
           Toggle(
-            "\(item.title) · \(price(item.price))",
+            "\(item.title) · \(equipmentPrice(item))",
             isOn: Binding(
               get: { controller.selectedTank.automation.equipment.contains(item) },
               set: { enabled in
                 if enabled {
                   controller.perform { try $0.buyEquipment(item) }
                 } else {
-                  controller.editTank { $0.automation.equipment.remove(item) }
+                  controller.perform { try $0.setEquipmentActive(item, active: false) }
                 }
               }))
         }
@@ -451,6 +451,13 @@ struct IdleScreenAquariumView: View {
   private func meter(_ title: String, _ value: Double) -> some View {
     LabeledContent(title) { ProgressView(value: value, total: 1).frame(maxWidth: 220) }
   }
+  private func equipmentPrice(_ item: IdleScreenAquariumEquipment) -> String {
+    let automation = controller.selectedTank.automation
+    return automation.equipment.contains(item)
+      || automation.inactiveEquipment?.contains(item) == true
+      ? "Owned" : price(item.price)
+  }
+
   private func price(_ value: Int) -> String {
     controller.library.economy == .sandbox ? "Free" : "\(value) coins"
   }
