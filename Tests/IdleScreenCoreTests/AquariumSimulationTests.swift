@@ -5,6 +5,20 @@ import Testing
 
 @Suite("Aquarium collection and care")
 struct AquariumSimulationTests {
+  @Test func onlyCherryPurchasesCollectShrimpPalettes() throws {
+    for species in IdleScreenAquariumSpeciesKind.allCases where species != .cherryShrimp {
+      var library = IdleScreenAquariumLibrary.starter
+      library.economy = .collection
+      let originalBalance = library.balance
+      try library.buyAnimal(species, variant: .blue, sex: .female, id: UUID())
+      #expect(library.unlockedVariants == [.red], "\(species) collected a shrimp palette")
+      #expect(library.balance == originalBalance - species.price)
+      #expect(library.tanks[0].animals.last?.species == species)
+      try library.buyAnimal(.cherryShrimp, variant: .rili, sex: .female, id: UUID())
+      #expect(library.unlockedVariants == [.red, .rili])
+    }
+  }
+
   @Test func feedingPersistsOneEventAndLayoutCopiesDoNotReplayIt() throws {
     var library = IdleScreenAquariumLibrary.starter
     let date = Date(timeIntervalSince1970: 1_000)

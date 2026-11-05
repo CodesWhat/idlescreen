@@ -53,7 +53,7 @@ extension IdleScreenAquariumLibrary {
     var animal = IdleScreenAquariumInhabitant(id: id, species: species, variant: variant, sex: sex)
     animal.purchaseValue = economy == .collection ? species.price : 0
     tanks[index].animals.append(animal)
-    unlockedVariants.insert(variant)
+    if species == .cherryShrimp { unlockedVariants.insert(variant) }
   }
 
   public mutating func buyDecoration(_ kind: IdleScreenAquariumDecorationKind) throws {
