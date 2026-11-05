@@ -5,6 +5,40 @@ import Testing
 
 @Suite("Saved aquarium library")
 struct AquariumLibraryTests {
+  @Test func catalogGroupsCoverEveryDecorationOnce() {
+    #expect(
+      IdleScreenAquariumDecorationKind.allCases.filter { $0.catalogGroup == .plants } == [
+        .moss, .grass, .fern, .purplePlant,
+      ])
+    #expect(
+      IdleScreenAquariumDecorationKind.allCases.filter { $0.catalogGroup == .hardscape } == [
+        .rock, .slate, .cave, .driftwood, .hollowLog,
+      ])
+    #expect(
+      IdleScreenAquariumDecorationKind.allCases.filter { $0.catalogGroup == .kitsch } == [
+        .pirateChest, .skull, .shipwreck, .castle, .diver, .volcano,
+      ])
+  }
+
+  @Test func duplicateQuoteMatchesTheChargeIncludingInactiveEquipment() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    library.tanks[0].decorations = [.init(kind: .rock, x: 0.5, y: 0.9)]
+    library.tanks[0].automation.equipment = [.spongeFilter]
+    library.tanks[0].automation.inactiveEquipment = [.heater]
+    let source = library.selectedTankID
+    #expect(try library.costToDuplicateLayout(of: source) == 0)
+    library.economy = .collection
+    library.inventory["rock"] = 2
+    #expect(try library.costToDuplicateLayout(of: source) == 35)
+    #expect(throws: IdleScreenAquariumError.missingItem) {
+      try library.costToDuplicateLayout(of: UUID())
+    }
+    let before = library.balance
+    try library.duplicateLayout(of: source, id: UUID(), name: "Copy")
+    #expect(library.balance == before - 35)
+    #expect(library.inventory["rock"] == 2)
+  }
+
   @Test func returningASupportPreservesAndDetachesItsMoss() throws {
     var library = IdleScreenAquariumLibrary.starter
     let rock = IdleScreenAquariumDecoration(kind: .rock, x: 0.5, y: 0.9)

@@ -117,9 +117,12 @@ struct IdleScreenAquariumView: View {
         Button {
           controller.duplicateTank()
         } label: {
-          Image(systemName: "doc.on.doc")
-        }.help("Duplicate layout without livestock")
-          .accessibilityLabel("Duplicate layout")
+          Label(duplicatePrice, systemImage: "doc.on.doc")
+            .labelStyle(.titleAndIcon)
+        }.help(
+          "Duplicate layout without livestock. Includes copies of decorations and equipment; stored decorations stay in the collection."
+        )
+        .accessibilityLabel("Duplicate layout · \(duplicatePrice)")
         Button {
           deletePrompt = true
         } label: {
@@ -243,8 +246,14 @@ struct IdleScreenAquariumView: View {
               })
           ) {
             Text("Choose an item…").tag(Optional<IdleScreenAquariumDecorationKind>.none)
-            ForEach(IdleScreenAquariumDecorationKind.allCases) { kind in
-              Text("\(kind.title) · \(price(kind.price))").tag(Optional(kind))
+            ForEach(IdleScreenAquariumDecorationGroup.allCases) { group in
+              Section(group.title) {
+                ForEach(
+                  IdleScreenAquariumDecorationKind.allCases.filter { $0.catalogGroup == group }
+                ) { kind in
+                  Text("\(kind.title) · \(decorationPrice(kind))").tag(Optional(kind))
+                }
+              }
             }
           }
           Text(
@@ -308,6 +317,21 @@ struct IdleScreenAquariumView: View {
       )
       .font(.caption).foregroundStyle(.secondary)
     }
+  }
+
+  private var duplicatePrice: String {
+    guard
+      let cost = try? controller.library.costToDuplicateLayout(
+        of: controller.library.selectedTankID)
+    else {
+      return "Unavailable"
+    }
+    return price(cost)
+  }
+
+  private func decorationPrice(_ kind: IdleScreenAquariumDecorationKind) -> String {
+    let count = controller.library.inventory[kind.rawValue, default: 0]
+    return count > 0 ? "Use owned (\(count))" : price(kind.price)
   }
 
   private func layoutPrice(_ layout: IdleScreenAquariumLayout) -> String {

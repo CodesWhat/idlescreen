@@ -108,6 +108,10 @@ public enum IdleScreenAquariumSpeciesKind: String, IdleScreenAquariumChoice {
   }
 }
 
+public enum IdleScreenAquariumDecorationGroup: String, IdleScreenAquariumChoice {
+  case hardscape, plants, kitsch
+}
+
 public enum IdleScreenAquariumDecorationKind: String, IdleScreenAquariumChoice {
   case rock, slate, cave, driftwood, hollowLog, moss, grass, fern, purplePlant
   case pirateChest, skull, shipwreck, castle, diver, volcano
@@ -140,6 +144,10 @@ public enum IdleScreenAquariumDecorationKind: String, IdleScreenAquariumChoice {
     case .pirateChest, .volcano: 30
     case .shipwreck, .castle: 45
     }
+  }
+  public var catalogGroup: IdleScreenAquariumDecorationGroup {
+    if isPlant { return .plants }
+    return [.rock, .slate, .cave, .driftwood, .hollowLog].contains(self) ? .hardscape : .kitsch
   }
   public var isPlant: Bool { [.moss, .grass, .fern, .purplePlant].contains(self) }
   public var offersShelter: Bool {
@@ -463,6 +471,17 @@ public struct IdleScreenAquariumLibrary: Codable, Equatable, Sendable {
     return selectedTank ?? tanks[0]
   }
 
+  public func costToDuplicateLayout(of tankID: UUID) throws -> Int {
+    guard let tank = tanks.first(where: { $0.id == tankID }) else {
+      throw IdleScreenAquariumError.missingItem
+    }
+    guard economy == .collection else { return 0 }
+    return tank.decorations.reduce(0) { $0 + $1.kind.price }
+      + tank.automation.equipment.union(tank.automation.inactiveEquipment ?? []).reduce(0) {
+        $0 + $1.price
+      }
+  }
+
   public mutating func duplicateLayout(of tankID: UUID, id: UUID, name: String) throws {
     guard tanks.count < Self.maximumTankCount, !tanks.contains(where: { $0.id == id }),
       let original = tanks.first(where: { $0.id == tankID })
@@ -478,15 +497,9 @@ public struct IdleScreenAquariumLibrary: Codable, Equatable, Sendable {
     copy.lastFedAt = nil
     copy.water = .init()
     try copy.validate()
-    if economy == .collection {
-      let cost =
-        copy.decorations.reduce(0) { $0 + $1.kind.price }
-        + copy.automation.equipment.union(copy.automation.inactiveEquipment ?? []).reduce(0) {
-          $0 + $1.price
-        }
-      guard balance >= cost else { throw IdleScreenAquariumError.insufficientFunds }
-      balance -= cost
-    }
+    let cost = try costToDuplicateLayout(of: tankID)
+    guard balance >= cost else { throw IdleScreenAquariumError.insufficientFunds }
+    balance -= cost
     tanks.append(copy)
     selectedTankID = id
   }
