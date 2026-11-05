@@ -18,6 +18,17 @@ struct IdleScreenAquariumView: View {
   @State private var deletePrompt = false
   @State private var rehomeID: UUID?
   @State private var rehomeFromNursery = false
+  @State private var selectedTab = "layout"
+  @State private var previewAnimal = false
+
+  private var isPreviewingAnimal: Bool { selectedTab == "animals" && previewAnimal }
+
+  private var displayedTank: IdleScreenAquariumTank {
+    isPreviewingAnimal
+      ? IdleScreenAquariumProduct.previewTank(
+        for: species, variant: variant, sex: sex, in: controller.selectedTank)
+      : controller.selectedTank
+  }
 
   var body: some View {
     HSplitView {
@@ -27,13 +38,15 @@ struct IdleScreenAquariumView: View {
         Divider()
         VSplitView {
           preview.frame(minHeight: 170, idealHeight: 300)
-          TabView {
-            layoutPanel.tabItem { Label("Layout", systemImage: "square.3.layers.3d") }
-            livestockPanel.tabItem { Label("Animals", systemImage: "fish") }
-            lightingPanel.tabItem { Label("Lighting", systemImage: "lightbulb") }
-            equipmentPanel.tabItem { Label("Equipment", systemImage: "water.waves") }
-            carePanel.tabItem { Label("Care", systemImage: "drop") }
-            collectionPanel.tabItem { Label("Collection", systemImage: "square.stack") }
+          TabView(selection: $selectedTab) {
+            layoutPanel.tabItem { Label("Layout", systemImage: "square.3.layers.3d") }.tag("layout")
+            livestockPanel.tabItem { Label("Animals", systemImage: "fish") }.tag("animals")
+            lightingPanel.tabItem { Label("Lighting", systemImage: "lightbulb") }.tag("lighting")
+            equipmentPanel.tabItem { Label("Equipment", systemImage: "water.waves") }.tag(
+              "equipment")
+            carePanel.tabItem { Label("Care", systemImage: "drop") }.tag("care")
+            collectionPanel.tabItem { Label("Collection", systemImage: "square.stack") }.tag(
+              "collection")
           }
           .padding(8)
           .frame(minHeight: 240, idealHeight: 290)
@@ -157,8 +170,8 @@ struct IdleScreenAquariumView: View {
       ZStack {
         Color.black
         ZStack(alignment: .topLeading) {
-          IdleScreenAquariumMetalPreview(tank: controller.selectedTank)
-          ForEach(controller.selectedTank.decorations) { item in
+          IdleScreenAquariumMetalPreview(tank: displayedTank)
+          ForEach(selectedTab == "layout" ? controller.selectedTank.decorations : []) { item in
             let width =
               item.placementSize.width / Double(controller.selectedTank.worldWidth)
               * fitted.width
@@ -186,6 +199,18 @@ struct IdleScreenAquariumView: View {
           }
         }
         .frame(width: fitted.width, height: fitted.height)
+      }
+      .overlay(alignment: .topLeading) {
+        if isPreviewingAnimal {
+          HStack {
+            Text("Preview: \(species.title) · not added")
+            Button("Show tank") { previewAnimal = false }
+          }
+          .font(.caption).padding(8).background(
+            .regularMaterial, in: RoundedRectangle(cornerRadius: 8)
+          )
+          .padding(8)
+        }
       }
     }
   }
@@ -316,29 +341,37 @@ struct IdleScreenAquariumView: View {
 
   private var livestockPanel: some View {
     HStack(alignment: .top) {
-      Form {
-        choice("Species", selection: $species)
-        choice("Shrimp variant", selection: $variant)
-          .disabled(species != .cherryShrimp)
-        Picker("Sex", selection: $sex) {
-          Text("Female").tag(IdleScreenAquariumSex.female)
-          Text("Male").tag(IdleScreenAquariumSex.male)
+      ScrollView {
+        Form {
+          choice("Species", selection: $species)
+          Text("\(species.sizeDescription) · \(species.habitat.title) · 1 space")
+            .font(.caption).foregroundStyle(.secondary)
+          Text(species.behaviorDescription).font(.caption)
+          Text("Sizes are stylized for readability, not biological proportions.")
+            .font(.caption).foregroundStyle(.secondary)
+          Toggle("Preview selected animal", isOn: $previewAnimal)
+          choice("Shrimp variant", selection: $variant)
+            .disabled(species != .cherryShrimp)
+          Picker("Sex", selection: $sex) {
+            Text("Female").tag(IdleScreenAquariumSex.female)
+            Text("Male").tag(IdleScreenAquariumSex.male)
+          }
+          Button("Add \(species.title) · \(price(species.price))") {
+            controller.perform { try $0.buyAnimal(species, variant: variant, sex: sex, id: UUID()) }
+          }
+          Text(
+            "\(controller.selectedTank.reservedPopulation) / \(controller.selectedTank.capacity) spaces, including carried broods"
+          )
+          .font(.caption).foregroundStyle(.secondary)
+          Stepper(
+            "Tank capacity: \(controller.selectedTank.capacity)", value: tankBinding(\.capacity),
+            in: 4...32)
+          Toggle("Breed cherry shrimp", isOn: tankBinding(\.breedingEnabled))
+          Text(
+            "Adults carry a brood before juveniles appear. These are accelerated game rules. Full tanks pause new broods."
+          )
+          .font(.caption).foregroundStyle(.secondary)
         }
-        Button("Add \(species.title) · \(price(species.price))") {
-          controller.perform { try $0.buyAnimal(species, variant: variant, sex: sex, id: UUID()) }
-        }
-        Text(
-          "\(controller.selectedTank.reservedPopulation) / \(controller.selectedTank.capacity) spaces, including carried broods"
-        )
-        .font(.caption).foregroundStyle(.secondary)
-        Stepper(
-          "Tank capacity: \(controller.selectedTank.capacity)", value: tankBinding(\.capacity),
-          in: 4...32)
-        Toggle("Breed cherry shrimp", isOn: tankBinding(\.breedingEnabled))
-        Text(
-          "Adults carry a brood before juveniles appear. These are accelerated game rules. Full tanks pause new broods."
-        )
-        .font(.caption).foregroundStyle(.secondary)
       }.frame(maxWidth: .infinity)
       ScrollView {
         VStack(alignment: .leading, spacing: 8) {

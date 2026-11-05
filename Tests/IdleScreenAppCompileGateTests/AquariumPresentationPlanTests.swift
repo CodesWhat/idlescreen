@@ -9,6 +9,36 @@ import Testing
 @Suite("Aquarium display presentation planning")
 @MainActor
 struct AquariumPresentationPlanTests {
+  @Test func catalogPreviewUsesTankScaleWithoutPurchasingOrChangingSavedStock() {
+    var library = IdleScreenAquariumLibrary.starter
+    library.tanks[0].worldSize = .wide
+    library.tanks[0].lighting.preset = .blacklight
+    library.tanks[0].nursery = [.init(species: .snail)]
+    let original = library
+    for species in IdleScreenAquariumSpeciesKind.allCases {
+      let preview = IdleScreenAquariumProduct.previewTank(
+        for: species, variant: .red, sex: .male, in: library.tanks[0])
+      #expect(preview.animals.count == 1)
+      #expect(preview.animals[0].species == species)
+      #expect(preview.animals[0].sex == .male)
+      #expect(preview.animals[0].isAdult)
+      #expect(preview.broods.isEmpty)
+      #expect(preview.nursery.isEmpty)
+      #expect(preview.decorations == original.tanks[0].decorations)
+      #expect(preview.lighting == original.tanks[0].lighting)
+      #expect(preview.automation == original.tanks[0].automation)
+      let settings = IdleScreenAquariumProduct.settings(for: preview)
+      #expect(settings.worldWidth == 768)
+      #expect(settings.inhabitants.count == 1)
+      #expect(
+        settings
+          == IdleScreenAquariumProduct.settings(
+            for: IdleScreenAquariumProduct.previewTank(
+              for: species, variant: .red, sex: .male, in: library.tanks[0])))
+    }
+    #expect(library == original)
+  }
+
   @Test func mirrorsDoNotCreateExtraWindowsAndAssignmentsSurviveReorder() throws {
     var library = IdleScreenAquariumLibrary.starter
     let secondID = UUID()

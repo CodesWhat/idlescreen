@@ -42,6 +42,28 @@ public enum IdleScreenAquariumPresentation: String, IdleScreenAquariumChoice {
 public enum IdleScreenAquariumSpeciesKind: String, IdleScreenAquariumChoice {
   case cherryShrimp, mantisShrimp, lionfish, neonTetra, corydoras, snail, clawedCrab, codexFish
 
+  public var sizeDescription: String {
+    switch self {
+    case .snail: "Tiny"
+    case .cherryShrimp, .neonTetra, .corydoras: "Small"
+    case .clawedCrab, .codexFish: "Medium"
+    case .mantisShrimp, .lionfish: "Large"
+    }
+  }
+
+  public var behaviorDescription: String {
+    switch self {
+    case .cherryShrimp: "Bottom grazer. Walks, rests and shelters. Supports colony breeding."
+    case .mantisShrimp: "Bottom walker. Shelters and occasionally strikes with its clubs."
+    case .lionfish: "Midwater swimmer with broad fins."
+    case .neonTetra: "Small midwater swimmer."
+    case .corydoras: "Bottom grazer. Explores surfaces and shelters."
+    case .snail: "Slow surface crawler."
+    case .clawedCrab: "Clawed floor walker. Follows the open gravel lane."
+    case .codexFish: "Fantasy midwater swimmer with a code-bracket marking."
+    }
+  }
+
   public var habitat: IdleScreenAquariumHabitat {
     switch self {
     case .mantisShrimp, .lionfish, .clawedCrab: .marine

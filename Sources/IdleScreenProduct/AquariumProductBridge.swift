@@ -5,6 +5,17 @@ import IdleScreenRenderer
 /// Both product hosts resolve the same immutable saved snapshot. Only the
 /// companion controller calls the transaction and simulation APIs.
 enum IdleScreenAquariumProduct {
+  static func previewTank(
+    for species: IdleScreenAquariumSpeciesKind, variant: IdleScreenAquariumVariant,
+    sex: IdleScreenAquariumSex, in tank: IdleScreenAquariumTank
+  ) -> IdleScreenAquariumTank {
+    var preview = tank
+    preview.animals = [.init(id: tank.id, species: species, variant: variant, sex: sex)]
+    preview.broods = []
+    preview.nursery = []
+    return preview
+  }
+
   static func storeURL(bundle: Bundle = .main) -> URL {
     #if DEBUG
       let arguments = ProcessInfo.processInfo.arguments
