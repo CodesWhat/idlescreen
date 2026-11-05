@@ -98,6 +98,11 @@ public enum IdleScreenAquarium {
         canvas.object(item, time: time, flow: flow)
       }
       canvas.equipment(settings.equipment)
+      if !settings.reduceMotion, let fedAt = settings.lastFeedingElapsed {
+        canvas.food(
+          at: lightTime - fedAt, floor: floor, flow: flow,
+          feeder: settings.equipment.contains("feeder"))
+      }
     } else {
       let animals = IdleScreenAquariumBehavior.animals(at: time, seed: seed)
       for animal in animals.sorted(by: { $0.scale < $1.scale }) {

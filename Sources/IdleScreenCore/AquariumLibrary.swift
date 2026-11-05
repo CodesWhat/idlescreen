@@ -315,6 +315,7 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
   public var nursery: [IdleScreenAquariumInhabitant] = []
   public var simulationStep: Int = 0
   public var lastAdvancedAt: Date?
+  public var lastFedAt: Date?
   public var presentationEpoch = Date(timeIntervalSince1970: 1_767_225_600)
 
   public init(id: UUID = UUID(), name: String = "My Aquarium", seed: UInt64 = 42) {
@@ -347,7 +348,8 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
       automation.waterChangeFraction.isFinite, (0.1...0.5).contains(automation.waterChangeFraction),
       automation.nitrateSetPoint.isFinite, (0.1...0.8).contains(automation.nitrateSetPoint),
       presentationEpoch.timeIntervalSince1970.isFinite,
-      lastAdvancedAt?.timeIntervalSince1970.isFinite != false
+      lastAdvancedAt?.timeIntervalSince1970.isFinite != false,
+      lastFedAt?.timeIntervalSince1970.isFinite != false
     else {
       throw IdleScreenAquariumError.invalidTank
     }
@@ -465,6 +467,7 @@ public struct IdleScreenAquariumLibrary: Codable, Equatable, Sendable {
     copy.nursery = []
     copy.simulationStep = 0
     copy.lastAdvancedAt = nil
+    copy.lastFedAt = nil
     copy.water = .init()
     try copy.validate()
     if economy == .collection {

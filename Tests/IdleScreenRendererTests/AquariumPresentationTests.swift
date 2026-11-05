@@ -16,6 +16,7 @@ struct AquariumPresentationTests {
       explicit: 30_000_000.125, automatic: 99, settings: settings,
       now: Date(timeIntervalSince1970: 1_500))
     #expect(first == second)
+    #expect(first == 30_000_000.125)
     #expect(first.truncatingRemainder(dividingBy: 1) == 0.125)
     #expect(
       IdleScreenAquariumFrameClock.resolve(

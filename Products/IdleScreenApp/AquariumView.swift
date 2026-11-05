@@ -494,6 +494,10 @@ struct IdleScreenAquariumView: View {
           Button("Feed") { controller.perform { try $0.feed() } }
           Button("Change 25% water") { controller.perform { try $0.changeWater(fraction: 0.25) } }
         }
+        if let fedAt = controller.selectedTank.lastFedAt {
+          Text("Last feeding: \(fedAt.formatted(date: .abbreviated, time: .shortened))")
+            .font(.caption).foregroundStyle(.secondary)
+        }
         let water = controller.selectedTank.water
         meter("Waste", water.waste)
         meter("Ammonia", water.ammonia)

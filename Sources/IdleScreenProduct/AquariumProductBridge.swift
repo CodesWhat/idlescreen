@@ -51,6 +51,7 @@ enum IdleScreenAquariumProduct {
     }
     settings.seed = tank.seed
     settings.epoch = tank.presentationEpoch.timeIntervalSince1970
+    settings.lastFeedingElapsed = tank.lastFedAt?.timeIntervalSince(tank.presentationEpoch)
     settings.substrate = tank.substrate.rawValue
     settings.substrateDepth = tank.substrateDepth
     settings.light = tank.lighting.preset.rawValue

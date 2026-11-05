@@ -9,6 +9,23 @@ import Testing
 @Suite("Aquarium display presentation planning")
 @MainActor
 struct AquariumPresentationPlanTests {
+  @Test func feedingEventUsesTheSameEpochInEveryPresentation() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    let fedAt = library.tanks[0].presentationEpoch.addingTimeInterval(90_000)
+    try library.feed(at: fedAt)
+    #expect(IdleScreenAquariumProduct.settings(for: library.tanks[0]).lastFeedingElapsed == 90_000)
+    let topology = try DisplayTopology(displays: [display("main", x: 0, primary: true)])
+    for presentation in [IdleScreenAquariumPresentation.perDisplay, .panorama] {
+      library.presentation = presentation
+      let surfaces = try IdleScreenAquariumPresentationPlanner.surfaces(
+        library: library, topology: topology)
+      #expect(surfaces[0].configuration.aquariumSettings?.lastFeedingElapsed == 90_000)
+    }
+    let saver = IdleScreenRendererConfigurationBridge.configuration(
+      for: .default, assignment: nil, aquarium: library, reduceMotion: false)
+    #expect(saver.aquariumSettings?.lastFeedingElapsed == 90_000)
+  }
+
   @Test func catalogPreviewUsesTankScaleWithoutPurchasingOrChangingSavedStock() {
     var library = IdleScreenAquariumLibrary.starter
     library.tanks[0].worldSize = .wide

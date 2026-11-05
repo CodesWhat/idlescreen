@@ -5,6 +5,24 @@ import Testing
 
 @Suite("Saved aquarium library")
 struct AquariumLibraryTests {
+  @Test func interruptedFeedingCommandCannotAddFoodTwice() throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenAquariumStore(fileURL: directory.appending(path: "aquariums.json"))
+    let command = UUID()
+    let fedAt = Date(timeIntervalSince1970: 1_000)
+    let first = try store.transact(expectedRevision: 0, commandID: command) {
+      try $0.feed(at: fedAt)
+    }
+    let replay = try store.transact(expectedRevision: 0, commandID: command) {
+      try $0.feed(at: fedAt.addingTimeInterval(10))
+    }
+    #expect(replay == first)
+    #expect(replay.selectedTank?.lastFedAt == fedAt)
+    #expect(replay.selectedTank?.water.waste == 0.3)
+    #expect(try store.read() == first)
+  }
+
   @Test func starterHasStableTankAndAnimalIdentities() throws {
     let first = IdleScreenAquariumLibrary.starter
     #expect(first == .starter)

@@ -5,6 +5,47 @@ import Testing
 
 @Suite("Aquarium collection and care")
 struct AquariumSimulationTests {
+  @Test func feedingPersistsOneEventAndLayoutCopiesDoNotReplayIt() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    let date = Date(timeIntervalSince1970: 1_000)
+    try library.feed(at: date)
+    #expect(library.tanks[0].lastFedAt == date)
+    #expect(library.tanks[0].water.waste == 0.3)
+    let saved = try JSONDecoder().decode(
+      IdleScreenAquariumLibrary.self, from: JSONEncoder().encode(library))
+    #expect(saved == library)
+    let original = library
+    #expect(throws: IdleScreenAquariumError.invalidOperation) {
+      try library.feed(at: Date(timeIntervalSince1970: .nan))
+    }
+    #expect(library == original)
+    try library.duplicateLayout(of: library.selectedTankID, id: UUID(), name: "Unfed copy")
+    #expect(library.selectedTank?.lastFedAt == nil)
+    try library.validate()
+  }
+
+  @Test func automaticFeedingUsesLogicalTimeAndResumeDoesNotReplayEvents() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    try library.setKeeperMode(true)
+    library.tanks[0].automation.feedEveryMinutes = 5
+    let start = Date(timeIntervalSince1970: 1_000)
+    library.advance(to: start)
+    library.advance(to: start.addingTimeInterval(6 * 60))
+    #expect(library.tanks[0].lastFedAt == start.addingTimeInterval(5 * 60))
+    let after = library
+    library.advance(to: start.addingTimeInterval(6 * 60))
+    #expect(library == after)
+    library.advance(to: start.addingTimeInterval(365 * 86_400))
+    #expect(library.tanks[0].lastFedAt! < start.addingTimeInterval(367 * 60))
+    try library.feed(at: start.addingTimeInterval(365 * 86_400))
+    let manual = library.tanks[0].lastFedAt
+    try library.feed(at: start)
+    #expect(library.tanks[0].lastFedAt == manual)
+    try library.setEquipmentActive(.feeder, active: false)
+    library.advance(to: start.addingTimeInterval(366 * 86_400))
+    #expect(library.tanks[0].lastFedAt == manual)
+  }
+
   @Test func enablingKeeperSuppliesBasicsAndBoundsHabitatWithoutErasingWaste() throws {
     var library = IdleScreenAquariumLibrary.starter
     library.economy = .collection

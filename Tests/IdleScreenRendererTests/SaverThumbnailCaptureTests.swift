@@ -172,6 +172,16 @@ struct SaverThumbnailCaptureTests {
         Shot(name: name, configuration: configuration, frames: 1, time: time),
         to: directory.appendingPathComponent("\(name).png"))
     }
+    settings.lastFeedingElapsed = 90_000
+    settings.equipment = ["feeder"]
+    configuration.aquariumSettings = settings
+    for age in [2, 12, 22, 30] {
+      try render(
+        Shot(
+          name: "feeding-\(age)", configuration: configuration, frames: 1,
+          time: 90_000 + Double(age)),
+        to: directory.appendingPathComponent("feeding-\(age).png"))
+    }
   }
 
   @Test("writes native and enlarged new-species sprite sheets when capture is requested")

@@ -208,6 +208,20 @@ extension IdleScreenAquarium {
 }
 
 extension IdleScreenAquarium.Canvas {
+  mutating func food(at age: Double, floor: Int, flow: Double, feeder: Bool) {
+    guard age.isFinite, (0..<24).contains(age) else { return }
+    let source = feeder ? 38 : width / 2
+    for index in 0..<12 {
+      let fall = age - Double(index) * 0.12
+      guard fall >= 0, age < 18 + Double(index) * 0.45 else { continue }
+      let drift = sin(fall * 0.8 + Double(index)) * 3 + fall * flow * 0.8
+      let x = min(width - 3, max(1, source + (index * 17) % 31 - 15 + Int(drift)))
+      let y = min(floor - 4 + index % 3, 14 + Int(fall * 12))
+      rect(x, y, 2, 2, .init(0.72, 0.41, 0.15, 1))
+      rect(x, y, 1, 1, .init(0.95, 0.73, 0.34, 1))
+    }
+  }
+
   mutating func object(_ object: IdleScreenAquariumRenderObject, time: Double, flow: Double = 0.5) {
     guard object.x.isFinite, object.y.isFinite, object.scale.isFinite else { return }
     let sprite = IdleScreenAquarium.objectSprite(kind: object.kind, time: time, flow: flow)

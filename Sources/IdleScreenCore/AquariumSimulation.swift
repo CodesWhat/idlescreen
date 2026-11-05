@@ -165,9 +165,12 @@ extension IdleScreenAquariumLibrary {
     }
   }
 
-  public mutating func feed() throws {
+  public mutating func feed(at date: Date = Date()) throws {
+    guard date.timeIntervalSince1970.isFinite else {
+      throw IdleScreenAquariumError.invalidOperation
+    }
     let index = try selectedIndex()
-    tanks[index].water.waste = min(1, tanks[index].water.waste + 0.15)
+    tanks[index].recordFeeding(at: date, waste: 0.15)
   }
 
   public mutating func changeWater(fraction: Double) throws {
@@ -191,9 +194,10 @@ extension IdleScreenAquariumLibrary {
       guard elapsed.isFinite, elapsed >= 60 else { continue }
       let minutes = Int(min(360, elapsed / 60))
       guard tanks[index].simulationStep <= 1_000_000_000 - minutes else { continue }
-      for _ in 0..<minutes {
+      for minute in 1...minutes {
         let globalSpace = max(0, 128 - tanks.reduce(0) { $0 + $1.reservedPopulation })
-        tanks[index].advanceMinute(globalSpace: globalSpace)
+        tanks[index].advanceMinute(
+          globalSpace: globalSpace, at: previous.addingTimeInterval(Double(minute) * 60))
       }
       tanks[index].lastAdvancedAt =
         elapsed > 360 * 60 ? date : previous.addingTimeInterval(Double(minutes) * 60)
@@ -216,7 +220,7 @@ extension IdleScreenAquariumLibrary {
 }
 
 extension IdleScreenAquariumTank {
-  fileprivate mutating func advanceMinute(globalSpace: Int) {
+  fileprivate mutating func advanceMinute(globalSpace: Int, at date: Date) {
     simulationStep += 1
     for index in animals.indices {
       animals[index].ageMinutes = min(1_000_000_000, animals[index].ageMinutes + 1)
@@ -258,7 +262,7 @@ extension IdleScreenAquariumTank {
     let equipment = automation.equipment
     let load = Double(animals.count) / Double(capacity)
     if equipment.contains(.feeder), simulationStep.isMultiple(of: automation.feedEveryMinutes) {
-      water.waste = min(1, water.waste + 0.06)
+      recordFeeding(at: date, waste: 0.06)
     }
     let decay = min(water.waste, 0.012 + load * 0.008)
     water.waste = min(1, max(0, water.waste - decay + load * 0.003))
@@ -305,6 +309,11 @@ extension IdleScreenAquariumTank {
     water.nitrite *= 1 - fraction
     water.nitrate *= 1 - fraction
     water.oxygen = min(1, water.oxygen + fraction * 0.1)
+  }
+
+  fileprivate mutating func recordFeeding(at date: Date, waste: Double) {
+    water.waste = min(1, water.waste + waste)
+    lastFedAt = max(lastFedAt ?? date, date)
   }
 
   fileprivate mutating func boundHabitatWater() {

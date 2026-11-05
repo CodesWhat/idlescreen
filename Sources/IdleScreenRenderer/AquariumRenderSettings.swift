@@ -55,6 +55,7 @@ public struct IdleScreenAquariumRenderSettings: Equatable, Sendable {
   public var flow = 0.5
   public var cloudiness = 0.0
   public var epoch: TimeInterval?
+  public var lastFeedingElapsed: TimeInterval?
   public var hourOffset = 0
   public var seed: UInt64 = 42
   public var reduceMotion = false
