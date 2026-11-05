@@ -222,7 +222,7 @@ struct IdleScreenAquariumView: View {
   private var layoutPanel: some View {
     HStack(alignment: .top, spacing: 16) {
       ScrollView {
-        Form {
+        VStack(alignment: .leading, spacing: 12) {
           Picker(
             "Tank length",
             selection: Binding(
@@ -260,6 +260,7 @@ struct IdleScreenAquariumView: View {
             "Drag objects in the tank, or select one to adjust it. The upper swimming lane stays clear."
           )
           .font(.caption).foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
           Button(
             "Reset layout · \(layoutPrice(.init(tank: IdleScreenAquariumLibrary.starter.tanks[0])))"
           ) {
@@ -340,7 +341,7 @@ struct IdleScreenAquariumView: View {
   }
 
   private func objectInspector(_ item: IdleScreenAquariumDecoration) -> some View {
-    Form {
+    VStack(alignment: .leading, spacing: 12) {
       Text(item.kind.title).font(.headline)
       if item.kind == .moss { mossAttachmentControls(item) }
       LabeledContent("Horizontal") { Slider(value: objectBinding(item, \.x), in: 0.04...0.96) }
@@ -404,13 +405,16 @@ struct IdleScreenAquariumView: View {
   private var livestockPanel: some View {
     HStack(alignment: .top) {
       ScrollView {
-        Form {
+        VStack(alignment: .leading, spacing: 12) {
           choice("Species", selection: $species)
           Text("\(species.sizeDescription) · \(species.habitat.title) · 1 space")
             .font(.caption).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
           Text(species.behaviorDescription).font(.caption)
+            .fixedSize(horizontal: false, vertical: true)
           Text("Sizes are stylized for readability, not biological proportions.")
             .font(.caption).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
           Toggle("Preview selected animal", isOn: $previewAnimal)
           choice("Shrimp variant", selection: $variant)
             .disabled(species != .cherryShrimp)
@@ -425,6 +429,7 @@ struct IdleScreenAquariumView: View {
             "\(controller.selectedTank.reservedPopulation) / \(controller.selectedTank.capacity) spaces, including carried broods"
           )
           .font(.caption).foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
           Stepper(
             "Tank capacity: \(controller.selectedTank.capacity)", value: tankBinding(\.capacity),
             in: 4...32)
@@ -433,6 +438,7 @@ struct IdleScreenAquariumView: View {
             "Adults carry a brood before juveniles appear. These are accelerated game rules. Full tanks pause new broods."
           )
           .font(.caption).foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
         }
       }.frame(maxWidth: .infinity)
       ScrollView {
@@ -445,6 +451,7 @@ struct IdleScreenAquariumView: View {
                   "\(animal.species == .cherryShrimp ? animal.variant.title + " · " : "")\(animal.isAdult ? "Adult" : "Juvenile")\(controller.selectedTank.broods.contains(where: { $0.motherID == animal.id }) ? " · Carrying eggs" : "")"
                 )
                 .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
               }
               Spacer()
               Button("Nursery") { controller.perform { try $0.moveToNursery(id: animal.id) } }
@@ -480,7 +487,7 @@ struct IdleScreenAquariumView: View {
 
   private var equipmentPanel: some View {
     ScrollView {
-      Form {
+      VStack(alignment: .leading, spacing: 12) {
         ForEach(IdleScreenAquariumEquipment.allCases) { item in
           Toggle(
             "\(item.title) · \(equipmentPrice(item))",
@@ -503,6 +510,7 @@ struct IdleScreenAquariumView: View {
           "Rinsing clears captured waste without resetting filter maturity. Media load is bounded, so filtering continues while you're away."
         )
         .font(.caption).foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
         LabeledContent("Flow") {
           Slider(value: tankBinding(\.automation.flow), in: 0...1)
             .help("Adjusts the current and filter turnover.")
@@ -529,13 +537,14 @@ struct IdleScreenAquariumView: View {
           "The dosing controller manages nitrate in this simplified game model. It doesn't replace biological filtration."
         )
         .font(.caption).foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
       }.padding(16)
     }
   }
 
   private var carePanel: some View {
     ScrollView {
-      Form {
+      VStack(alignment: .leading, spacing: 12) {
         Toggle(
           "Keeper rules",
           isOn: Binding(
@@ -550,11 +559,13 @@ struct IdleScreenAquariumView: View {
           "Enabling Keeper supplies a free filter, feeder and timer, applies game habitat bounds, and schedules 6–12 hours of daylight. You can adjust the equipment afterward."
         )
         .font(.caption).foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
         if controller.selectedTank.habitat == .fantasy {
           Text(
             "Fantasy allows a mixed display community. Choose Freshwater or Marine for habitat stocking rules."
           )
           .font(.caption).foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
         }
         Text(
           controller.selectedTank.keeperMode
@@ -568,6 +579,7 @@ struct IdleScreenAquariumView: View {
         if let fedAt = controller.selectedTank.lastFedAt {
           Text("Last feeding: \(fedAt.formatted(date: .abbreviated, time: .shortened))")
             .font(.caption).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
         }
         let water = controller.selectedTank.water
         meter("Waste", water.waste)
@@ -586,6 +598,7 @@ struct IdleScreenAquariumView: View {
           "Care uses simplified game values. Growth catches up for at most six hours, and animals aren't lost while you're away."
         )
         .font(.caption).foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
       }.padding(16)
     }
   }
