@@ -50,6 +50,49 @@ struct AquariumNavigationTests {
     }
   }
 
+  @Test func crowdedMaximumScaleHardscapeKeepsAllSpeciesBodiesInsideTheWorld() {
+    let kinds = [
+      "rock", "slate", "cave", "driftwood", "hollowLog", "moss", "pirateChest", "skull",
+      "shipwreck", "castle", "diver", "volcano",
+    ]
+    let species = [
+      "cherryShrimp", "mantisShrimp", "lionfish", "neonTetra", "corydoras", "snail", "clawedCrab",
+      "codexFish",
+    ]
+    for width in [384, 768, 1152] {
+      var settings = settings
+      settings.objects = []
+      for index in 0..<24 {
+        let x = 0.18 + Double(index % 8) * 0.09
+        let y = 0.88 + Double(index / 8) * 0.025
+        let item = IdleScreenAquariumRenderObject(
+          kind: kinds[index % kinds.count], x: x,
+          y: y, scale: 1.5, flipped: index % 2 == 0, foreground: index % 3 == 0,
+          tiltDegrees: index % 2 == 0 ? 15 : -15)
+        settings.objects.append(item)
+      }
+      settings.inhabitants = species.enumerated().map {
+        .init(identity: UInt64($0.offset + 1), species: $0.element)
+      }
+      let navigation = IdleScreenAquariumNavigation(settings: settings, worldWidth: width)
+      for item in settings.inhabitants {
+        for time in stride(from: 0.0, through: 200, by: 2) {
+          let pose = IdleScreenAquarium.savedAnimal(
+            item, at: time, seed: 42, settings: settings, worldWidth: width, navigation: navigation)
+          let sprite = pose.species.sprite(
+            phase: pose.animationPhase, facingRight: pose.facingRight, activity: pose.activity,
+            strikeProgress: pose.strikeProgress)
+          let half = Double(sprite.width) * pose.scale * pose.horizontalScale / 2
+          #expect(
+            pose.x - half >= 0 && pose.x + half <= Double(width), "\(item.species) time\(time)")
+          #expect(
+            pose.y - Double(sprite.height) * pose.scale >= 0 && pose.y <= 216,
+            "\(item.species) time\(time)")
+        }
+      }
+    }
+  }
+
   @Test func hardscapeProvidesPhysicalSurfacesAndUsableShelterOpenings() throws {
     let geometry = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
     #expect(geometry.grazingAnchors.contains { abs($0.x - 96) < 2 })
