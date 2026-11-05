@@ -60,6 +60,20 @@ struct AquariumPresentationPlanTests {
     #expect(settings.worldWidth == 756)
   }
 
+  @Test func savedWorldLengthReachesEachHostWithoutScalingAnimals() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    library.tanks[0].worldSize = .wide
+    let settings = IdleScreenAquariumProduct.settings(for: library.tanks[0], worldAspect: 2)
+    #expect(settings.worldWidth == 768)
+    let topology = try DisplayTopology(displays: [display("main", x: 0, primary: true)])
+    for presentation in [IdleScreenAquariumPresentation.perDisplay, .panorama] {
+      library.presentation = presentation
+      let surfaces = try IdleScreenAquariumPresentationPlanner.surfaces(
+        library: library, topology: topology)
+      #expect(surfaces[0].configuration.aquariumSettings?.worldWidth == 768)
+    }
+  }
+
   @Test func productMappingPropagatesReducedMotionForStudioAndSaver() {
     let library = IdleScreenAquariumLibrary.starter
     let mapped = IdleScreenRendererConfigurationBridge.configuration(

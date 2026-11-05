@@ -151,15 +151,16 @@ struct IdleScreenAquariumView: View {
 
   private var preview: some View {
     GeometryReader { geometry in
-      let fitted = CGSize(
-        width: min(geometry.size.width, geometry.size.height * 16 / 9),
-        height: min(geometry.size.height, geometry.size.width * 9 / 16))
+      let fitted = IdleScreenPreviewWindowGeometry.fittedPreviewSize(
+        inside: geometry.size, aspectRatio: Double(controller.selectedTank.worldWidth) / 216)
       ZStack {
         Color.black
         ZStack(alignment: .topLeading) {
           IdleScreenAquariumMetalPreview(tank: controller.selectedTank)
           ForEach(controller.selectedTank.decorations) { item in
-            let width = item.kind.size.width * item.scale / 384 * fitted.width
+            let width =
+              item.kind.size.width * item.scale / Double(controller.selectedTank.worldWidth)
+              * fitted.width
             let height = item.kind.size.height * item.scale / 216 * fitted.height
             Rectangle().fill(.clear)
               .overlay {
@@ -191,6 +192,16 @@ struct IdleScreenAquariumView: View {
   private var layoutPanel: some View {
     HStack(alignment: .top, spacing: 16) {
       Form {
+        Picker(
+          "Tank length",
+          selection: Binding(
+            get: { controller.selectedTank.worldSize ?? .standard },
+            set: { size in controller.editTank(recordLayout: true) { $0.worldSize = size } })
+        ) {
+          ForEach(IdleScreenAquariumWorldSize.allCases) { size in
+            Text(size.title).tag(size)
+          }
+        }
         choice("Substrate", selection: tankBinding(\.substrate, layout: true))
         LabeledContent("Gravel depth") {
           Slider(value: tankBinding(\.substrateDepth, layout: true), in: 0.08...0.24)

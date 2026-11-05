@@ -33,8 +33,10 @@ enum IdleScreenAquariumProduct {
     -> IdleScreenAquariumRenderSettings
   {
     var settings = IdleScreenAquariumRenderSettings()
+    settings.worldWidth = tank.worldWidth
     if let worldAspect, worldAspect.isFinite, worldAspect > 0 {
-      settings.worldWidth = min(1152, max(384, Int((216 * min(12, worldAspect)).rounded())))
+      settings.worldWidth = min(
+        1152, max(tank.worldWidth, Int((216 * min(12, worldAspect)).rounded())))
     }
     settings.seed = tank.seed
     settings.epoch = tank.presentationEpoch.timeIntervalSince1970

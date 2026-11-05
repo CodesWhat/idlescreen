@@ -19,11 +19,13 @@ final class IdleScreenAquariumController {
   private struct Layout {
     let tankID: UUID
     let substrate: IdleScreenAquariumSubstrate
+    let worldSize: IdleScreenAquariumWorldSize?
     let depth: Double
     let objects: [IdleScreenAquariumDecoration]
     init(_ tank: IdleScreenAquariumTank) {
       tankID = tank.id
       substrate = tank.substrate
+      worldSize = tank.worldSize
       depth = tank.substrateDepth
       objects = tank.decorations
     }
@@ -217,6 +219,7 @@ final class IdleScreenAquariumController {
         library.inventory[item.kind.rawValue, default: 0] -= 1
       }
       library.tanks[index].decorations = layout.objects
+      library.tanks[index].worldSize = layout.worldSize
       library.tanks[index].substrate = layout.substrate
       library.tanks[index].substrateDepth = layout.depth
     }

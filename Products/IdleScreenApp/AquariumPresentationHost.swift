@@ -52,7 +52,7 @@ enum IdleScreenAquariumPresentationPlanner {
       }
       if library.presentation == .panorama, let bounds = assignment.scene?.bounds {
         configuration.aquariumSettings?.worldWidth = min(
-          1152, max(384, Int((216 * bounds.width / bounds.height).rounded())))
+          1152, max(tank.worldWidth, Int((216 * bounds.width / bounds.height).rounded())))
       }
       return .init(
         displayID: assignment.displayIdentifier.rawValue, frame: display.logicalFrame,

@@ -22,6 +22,22 @@ struct AquariumControllerTests {
     #expect(reopened.library == controller.library)
   }
 
+  @Test func tankLengthPersistsAndParticipatesInLayoutUndo() throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "aquariums.json")
+    let controller = IdleScreenAquariumController(fileURL: url)
+    let animals = controller.selectedTank.animals
+    controller.editTank(recordLayout: true) { $0.worldSize = .wide }
+    #expect(controller.selectedTank.worldWidth == 768)
+    controller.undoLayout()
+    #expect(controller.selectedTank.worldWidth == 384)
+    controller.redoLayout()
+    let reopened = IdleScreenAquariumController(fileURL: url)
+    #expect(reopened.selectedTank.worldWidth == 768)
+    #expect(reopened.selectedTank.animals == animals)
+  }
+
   @Test func invalidEditsLeaveSavedStateAndHistoryUntouched() throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }

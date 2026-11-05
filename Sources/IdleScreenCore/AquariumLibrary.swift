@@ -17,6 +17,16 @@ public enum IdleScreenAquariumHabitat: String, IdleScreenAquariumChoice {
 public enum IdleScreenAquariumSubstrate: String, IdleScreenAquariumChoice {
   case basalt, riverGravel, creamSand, plantedSoil, neonGravel
 }
+public enum IdleScreenAquariumWorldSize: String, IdleScreenAquariumChoice {
+  case standard, long, wide
+  public var width: Int {
+    switch self {
+    case .standard: 384
+    case .long: 576
+    case .wide: 768
+    }
+  }
+}
 public enum IdleScreenAquariumVariant: String, IdleScreenAquariumChoice {
   case red, orange, yellow, blue, dark, rili
 }
@@ -125,11 +135,12 @@ public struct IdleScreenAquariumDecoration: Codable, Equatable, Identifiable, Se
     self.foreground = foreground
   }
 
-  public func validate() throws {
-    guard x.isFinite, y.isFinite, scale.isFinite, (0.5...1.5).contains(scale),
+  public func validate(worldWidth: Int = 384) throws {
+    guard (384...1152).contains(worldWidth), x.isFinite, y.isFinite, scale.isFinite,
+      (0.5...1.5).contains(scale),
       (0.55...0.96).contains(y),
-      x - kind.size.width * scale / 768 >= 0,
-      x + kind.size.width * scale / 768 <= 1,
+      x - kind.size.width * scale / (2 * Double(worldWidth)) >= 0,
+      x + kind.size.width * scale / (2 * Double(worldWidth)) <= 1,
       y - kind.size.height * scale / 216 >= 0.22
     else {
       throw IdleScreenAquariumError.invalidPlacement
@@ -219,6 +230,7 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
   public var habitat: IdleScreenAquariumHabitat = .fantasy
   public var substrate: IdleScreenAquariumSubstrate = .basalt
   public var substrateDepth: Double = 0.14
+  public var worldSize: IdleScreenAquariumWorldSize?
   public var capacity: Int = 24
   public var keeperMode: Bool = false
   public var breedingEnabled: Bool = false
@@ -238,6 +250,8 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
     self.name = name
     self.seed = seed
   }
+
+  public var worldWidth: Int { (worldSize ?? .standard).width }
 
   public var reservedPopulation: Int { animals.count + broods.reduce(0) { $0 + $1.count } }
 
@@ -265,7 +279,7 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
     else {
       throw IdleScreenAquariumError.invalidTank
     }
-    for item in decorations { try item.validate() }
+    for item in decorations { try item.validate(worldWidth: worldWidth) }
     for animal in animals + nursery {
       guard (0...1_000_000_000).contains(animal.ageMinutes), animal.parents.count <= 2,
         (0...100).contains(animal.purchaseValue)
@@ -305,7 +319,7 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
   }
 
   public mutating func place(_ decoration: IdleScreenAquariumDecoration) throws {
-    try decoration.validate()
+    try decoration.validate(worldWidth: worldWidth)
     if let index = decorations.firstIndex(where: { $0.id == decoration.id }) {
       decorations[index] = decoration
     } else {
