@@ -87,7 +87,8 @@ Not verified on a device for 0.3.0:
 - Mixed-scale multi-display hot-plug beyond the maintainer's own setup.
 
 These paths have automated or fixture coverage only. If one of them breaks for
-you, please open an issue.
+you, please open an issue. Report security or privacy concerns through the
+[security policy](SECURITY.md) using private reporting.
 
 ## Recent Updates
 

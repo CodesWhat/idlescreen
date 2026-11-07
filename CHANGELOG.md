@@ -5,6 +5,15 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Remove failed C8 plan output entries after poisoning so a retry can use the
+  same path, while retaining inode ownership checks and refusal errors.
+- Distinguish renderer failures from allowed GPU back-pressure in the
+  three-renderer submission benchmark.
+- Correct the shipped 0.3.0 roadmap, current app install paths and private
+  security-reporting guidance.
+
 ## [0.3.0] - 2026-11-04
 
 ### Added

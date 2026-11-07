@@ -57,3 +57,13 @@ test('llms.txt names the product, the install command and the source', async () 
 test('copy has no em dashes', () => {
   assert.doesNotMatch(html, /—/);
 });
+
+test('current install guidance uses the case-correct released app path', async () => {
+  assert.match(html, /\/Applications\/IdleScreen\.app/);
+  assert.doesNotMatch(html, /\/Applications\/idlescreen\.app/);
+  for (const name of ['getting-started', 'agent-signals']) {
+    const content = await readFile(new URL(`../../docs-site/content/docs/${name}.mdx`, import.meta.url), 'utf8');
+    assert.match(content, /\/Applications\/IdleScreen\.app/);
+    assert.doesNotMatch(content, /\/Applications\/idlescreen\.app/);
+  }
+});
