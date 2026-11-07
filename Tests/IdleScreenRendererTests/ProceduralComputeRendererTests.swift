@@ -232,9 +232,8 @@ struct ProceduralComputeRendererTests {
     let dropCounts = dropCounter.snapshot
     #expect(dropCounts["instanceBufferUnavailable", default: 0] == 0)
     #expect(dropCounts["encodingFailed", default: 0] == 0)
-    let backPressureCount =
-      dropCounts["inFlightSaturated", default: 0]
-      + dropCounts["renderResourcesUnavailable", default: 0]
+    #expect(dropCounts["renderResourcesUnavailable", default: 0] == 0)
+    let backPressureCount = dropCounts["inFlightSaturated", default: 0]
     #expect(backPressureCount == droppedFrameCount)
     #expect(backPressureCount * 2 < submissionMilliseconds.count)
     if enforcesNamedHostBudget {
