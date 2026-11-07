@@ -854,9 +854,9 @@ def main() -> int:
             finally:
                 os.environ.pop(fault_name, None)
                 planner.os.close = original_close
-            assert fault_plan.exists()
-            assert fault_plan.stat().st_size == 0
-            assert stat.S_IMODE(fault_plan.stat().st_mode) == 0
+            assert not fault_plan.exists()
+            planner.write_exclusive_json(fault_plan, {"state": "retry"})
+            assert json.loads(fault_plan.read_text())["state"] == "retry"
             assert closed
 
         parent_fsync_plan = root / "parent-fsync-failure.json"
@@ -880,9 +880,7 @@ def main() -> int:
                 raise AssertionError("final parent fsync fault was not injected")
         finally:
             planner._sync_parent = original_sync_parent
-        assert parent_fsync_plan.exists()
-        assert parent_fsync_plan.stat().st_size == 0
-        assert stat.S_IMODE(parent_fsync_plan.stat().st_mode) == 0
+        assert not parent_fsync_plan.exists()
 
         origin_error_plan = root / "origin-error-plan.json"
         original_sync_parent = planner._sync_parent
@@ -917,9 +915,7 @@ def main() -> int:
                 raise AssertionError("final file fsync fault was not injected")
         finally:
             os.environ.pop("IDLESCREEN_C8_INJECT_FINAL_FSYNC_FAILURE", None)
-        assert final_fsync_plan.exists()
-        assert final_fsync_plan.stat().st_size == 0
-        assert stat.S_IMODE(final_fsync_plan.stat().st_mode) == 0
+        assert not final_fsync_plan.exists()
 
         poison_plan = root / "poison-failure.json"
         original_poison = planner._poison_descriptor

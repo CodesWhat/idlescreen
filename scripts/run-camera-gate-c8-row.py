@@ -402,25 +402,23 @@ def write_exclusive_json(path: Path, value: object) -> None:
         if descriptor is not None:
             try:
                 _poison_descriptor(descriptor)
-            except OSError as poison_error:
-                removed = False
-                try:
-                    removed = _remove_owned_entry(
-                        parent_descriptor, output_name, descriptor
+            except OSError:
+                pass
+            try:
+                removed = _remove_owned_entry(
+                    parent_descriptor, output_name, descriptor
+                )
+            except (OSError, C8EvidenceError) as cleanup_error:
+                operation_error = C8EvidenceError(
+                    f"plan refusal cleanup failed: {cleanup_error}"
+                )
+                operation_cause = error
+            else:
+                if not removed:
+                    operation_error = C8EvidenceError(
+                        "plan refusal cleanup could not remove owned inode"
                     )
-                except (OSError, C8EvidenceError) as cleanup_error:
-                    refusal_error = C8EvidenceError(
-                        f"plan refusal cleanup failed: {cleanup_error}"
-                    )
-                    operation_error = refusal_error
                     operation_cause = error
-                else:
-                    if not removed:
-                        refusal_error = C8EvidenceError(
-                            "plan refusal cleanup could not remove owned inode"
-                        )
-                        refusal_error.__cause__ = error
-                        operation_error = refusal_error
     close_error = None
     if descriptor is not None:
         close_error = _close_output_descriptor(descriptor)
