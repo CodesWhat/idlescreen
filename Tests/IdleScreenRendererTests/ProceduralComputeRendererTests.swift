@@ -150,9 +150,25 @@ struct ProceduralComputeRendererTests {
     )
   }
 
+  @Test("submission drops retain distinct renderer-failure reasons")
+  func submissionDropAccounting() {
+    let counter = SubmissionDropCounter()
+    counter.rendererDidRecordPerformance(.submitted(frameID: 1, cpuDurationMilliseconds: 1))
+    counter.rendererDidRecordPerformance(.dropped(frameID: 2, reason: .inFlightSaturated))
+    counter.rendererDidRecordPerformance(.dropped(frameID: 3, reason: .renderResourcesUnavailable))
+    counter.rendererDidRecordPerformance(.dropped(frameID: 4, reason: .instanceBufferUnavailable))
+    counter.rendererDidRecordPerformance(.dropped(frameID: 5, reason: .encodingFailed))
+    #expect(
+      counter.snapshot == [
+        "inFlightSaturated": 1, "renderResourcesUnavailable": 1,
+        "instanceBufferUnavailable": 1, "encodingFailed": 1,
+      ])
+  }
+
   @MainActor
   @Test("three worst-case renderers stay inside the main-thread frame budget")
   func threeRendererSubmissionBudget() throws {
+    let dropCounter = SubmissionDropCounter()
     let views = (0..<3).map { _ in
       MTKView(frame: .init(x: 0, y: 0, width: 1_728, height: 1_117))
     }
@@ -165,7 +181,8 @@ struct ProceduralComputeRendererTests {
           palette: "Ember",
           patternRawValue: "voronoi"
         ),
-        automaticallyDraws: false
+        automaticallyDraws: false,
+        performanceObserver: dropCounter
       )
     }
     defer {
@@ -212,15 +229,14 @@ struct ProceduralComputeRendererTests {
         + "deadline_miss_ratio=\(missRatio) dropped=\(droppedFrameCount) "
         + "named_host_enforced=\(enforcesNamedHostBudget)"
     )
-    // A dropped frame here is back-pressure, not an error: draw(at:) returns
-    // false only when draw(in:) bailed on `.inFlightSaturated` or
-    // `.renderResourcesUnavailable`, which is the renderer correctly refusing
-    // to queue past the in-flight limit. On a shared runner the GPU is
-    // contended and virtualized, so some drops say nothing about this code.
-    // What is host-independent is that the renderer keeps making progress, so
-    // that is what runs everywhere; zero drops joins the other two budgets
-    // behind the named host they were measured on.
-    #expect(droppedFrameCount * 2 < submissionMilliseconds.count)
+    let dropCounts = dropCounter.snapshot
+    #expect(dropCounts["instanceBufferUnavailable", default: 0] == 0)
+    #expect(dropCounts["encodingFailed", default: 0] == 0)
+    let backPressureCount =
+      dropCounts["inFlightSaturated", default: 0]
+      + dropCounts["renderResourcesUnavailable", default: 0]
+    #expect(backPressureCount == droppedFrameCount)
+    #expect(backPressureCount * 2 < submissionMilliseconds.count)
     if enforcesNamedHostBudget {
       #expect(droppedFrameCount == 0)
       #expect(cpuP95 < 5)
@@ -574,4 +590,24 @@ struct ProceduralComputeRendererTests {
 private struct TestProceduralGlyphInstance {
   let gridBrightnessGlyph: SIMD4<Float>
   let foreground: SIMD4<Float>
+}
+
+private final class SubmissionDropCounter: IdleScreenRendererPerformanceObserving,
+  @unchecked Sendable
+{
+  private let lock = NSLock()
+  private var counts: [String: Int] = [:]
+
+  func rendererDidRecordPerformance(_ event: IdleScreenRendererPerformanceEvent) {
+    guard case .dropped(_, let reason) = event else { return }
+    lock.lock()
+    defer { lock.unlock() }
+    counts[reason.rawValue, default: 0] += 1
+  }
+
+  var snapshot: [String: Int] {
+    lock.lock()
+    defer { lock.unlock() }
+    return counts
+  }
 }
