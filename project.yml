@@ -299,6 +299,11 @@ targets:
     platform: macOS
     sources:
       - path: Sources/IdleScreenRenderer
+        excludes:
+          - Resources
+      - path: Sources/IdleScreenRenderer/Resources/AquariumRuntime
+        type: folder
+        buildPhase: resources
       - path: Products/IdleScreenApp/Resources/Fonts/DepartureMono-Regular.otf
         buildPhase: resources
     settings:
@@ -313,6 +318,8 @@ targets:
         APPLICATION_EXTENSION_API_ONLY: YES
         MTL_FAST_MATH: NO
         MTL_TREAT_WARNINGS_AS_ERRORS: YES
+    dependencies:
+      - sdk: WebKit.framework
 
   IdleScreenCoreTests:
     type: bundle.unit-test
@@ -336,6 +343,11 @@ targets:
     platform: macOS
     sources:
       - path: Tests/IdleScreenRendererTests
+        excludes:
+          - Resources
+      - path: Tests/IdleScreenRendererTests/Resources/WebSurfaceProof
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: IdleScreenRendererTests

@@ -85,6 +85,7 @@
 		0E8F2DE4471BEE3E4CEDC785 /* IdleScreenCompanionCameraClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B4912DD2A54657439C579B /* IdleScreenCompanionCameraClient.swift */; };
 		0F991901FE586FD5F218B417 /* CameraFrameSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE7A35A7CCB7C4F591C8E792 /* CameraFrameSourceTests.swift */; };
 		10D460E5D5BDAA2CDEE9C5BF /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8437E276A7A16A7C0AA6F8B /* main.swift */; };
+		11504D6F70AEACEFFEA09C50 /* SceneLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25AB18F6B418410C99A19DDD /* SceneLibrary.swift */; };
 		11FE837FE76E66DA196C4A80 /* AgentSignalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25F7E0442A9AD381CAD83316 /* AgentSignalTests.swift */; };
 		124EEBACB2915309DF2466F1 /* CoreVideo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7EE85391BE8A694AB764F34B /* CoreVideo.framework */; };
 		15B3D2BCBDA9F03D05467570 /* IdleScreenSaverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD70F8E5E74037F8C39ED941 /* IdleScreenSaverView.swift */; };
@@ -100,6 +101,7 @@
 		1A8628B1A6E939AA71191780 /* IdleScreenCamera.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E9068229D1CD3299655B7C94 /* IdleScreenCamera.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		1AF1D6B10CFEA1A061CA2430 /* IdleScreenAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C5A55D211AB7A478D256177 /* IdleScreenAppDelegate.swift */; };
 		1B301876E34E8EB151FE4B8F /* IdleScreenCreativePatternPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428B7C6DADFF9A7B5AE6FD80 /* IdleScreenCreativePatternPresentation.swift */; };
+		1C54CA9B8F57C0A51C5510E7 /* IdleScreenAquariumWebSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A04DDBBA981BADE49CD93A /* IdleScreenAquariumWebSurface.swift */; };
 		1CD58330E9641C34389335B8 /* DesignStudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA93E2E22E80542529FD036A /* DesignStudio.swift */; };
 		1DFD8AEB00333352FE14FADF /* IdleScreenCompanionCameraClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B4912DD2A54657439C579B /* IdleScreenCompanionCameraClient.swift */; };
 		1E8BFA44425EBF98A1D01EDC /* group.com.idlescreen.shared.camera-agent.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = A3D66D50931C1795435B9134 /* group.com.idlescreen.shared.camera-agent.plist */; };
@@ -165,7 +167,9 @@
 		4082656D12C6614EA9F1BD00 /* IdleScreenCreativePatternPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428B7C6DADFF9A7B5AE6FD80 /* IdleScreenCreativePatternPresentation.swift */; };
 		422BE30A2043A44813CA13B4 /* AgentSignalMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29CD5294E402F2A6616429E /* AgentSignalMonitor.swift */; };
 		426D5D2A8C2F31CB49F22FDE /* IdleScreenCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36B2E35EB7EC8E7688BC3B4B /* IdleScreenCore.framework */; };
+		4279237F54D9E5BA35D192E6 /* IdleScreenAquariumRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9616675F71A77952F695B8F1 /* IdleScreenAquariumRuntime.swift */; };
 		434A030C0A97838DEE00685D /* ScreenSaver.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DEE34107949A4CA21F629B8 /* ScreenSaver.framework */; };
+		43D38CFA6381DE485B39AC65 /* SceneLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77B5FFCFD30080BB90EF8505 /* SceneLibraryTests.swift */; };
 		43FE6CF5D265CF6697895EAA /* CameraAgentRuntimeDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C6C4086FA78CC0C48D48320 /* CameraAgentRuntimeDriver.swift */; };
 		446E9C01A10B95BAACA3795A /* AquariumRenderSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D1681309B184D4318B4B3EE /* AquariumRenderSettings.swift */; };
 		447D706D3D41C2A630D00077 /* IdleScreenSaverCameraClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 061CACB90E67B0D503BC0A5F /* IdleScreenSaverCameraClient.swift */; };
@@ -240,6 +244,7 @@
 		65E1E53A75ED309308951A8E /* IdleScreenRenderer.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 0FC91852518A33A8988F7FE5 /* IdleScreenRenderer.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		65FF021C78DF6988E8A3B875 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 229F7EDF5A9548AF91DD4D9D /* QuartzCore.framework */; };
 		66499F1A17FDD16AF8ED2E12 /* AquariumLayoutPresetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A2D17D514BC8D73A8E6DA75 /* AquariumLayoutPresetTests.swift */; };
+		6657F06AD632B0C09A635E04 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C962CD5C2B8B7F8286CC95C1 /* WebKit.framework */; };
 		67986D57346E4BC52C097B3F /* DisplayScenePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5DA66DF912A9EAF4DC5CC3B /* DisplayScenePlanner.swift */; };
 		67D7FABC4D73864B37961F13 /* AquariumView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E42407C43182FF81F48AA3 /* AquariumView.swift */; };
 		682A5720A578F2305A508BA5 /* CameraAgentRegistrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23DBAB2B5D54905EB3C539D7 /* CameraAgentRegistrationTests.swift */; };
@@ -267,6 +272,7 @@
 		74C835CA092F1B9B004C75A7 /* IdleScreenDisplay.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 9521BB58A24E9BEF82B1692A /* IdleScreenDisplay.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		7530D82E668930E322FBE10F /* IdleScreenScreenSaver.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B62DBCFCC204AAFB15EB4F54 /* IdleScreenScreenSaver.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		76D879EE8B4B9C5E4D349BCE /* IdleScreenAgent.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDB73BF104D765DA90F9ED68 /* IdleScreenAgent.framework */; };
+		7704DA1D6622418A4A01325D /* AquariumRuntime in Resources */ = {isa = PBXBuildFile; fileRef = ABC561565115831F9F5A77EA /* AquariumRuntime */; };
 		770B2DF14042C6F2548573A4 /* ScreenSaver.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DEE34107949A4CA21F629B8 /* ScreenSaver.framework */; };
 		775711489BC46B148C82D985 /* IdleScreenCompanionCameraClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B4912DD2A54657439C579B /* IdleScreenCompanionCameraClient.swift */; };
 		7769630D61326AFFBC0BA632 /* CameraFrameAtomicLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 278298A64AD4EAE3A0C8DE40 /* CameraFrameAtomicLoaderTests.swift */; };
@@ -299,6 +305,7 @@
 		81B2D7D98370D862F5E651AB /* AquariumPresentationHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76C24BD87B246D2C847DD7D6 /* AquariumPresentationHost.swift */; };
 		83528BBE6A109102CFB6580D /* group.com.idlescreen.dev.shared.camera-agent.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = F20FCA2E7D8F4775FE5D207B /* group.com.idlescreen.dev.shared.camera-agent.plist */; };
 		83CB843BF08E6FB97B073E4A /* PixelMaterialsInspectorContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC28FEB285957CC3C80874D /* PixelMaterialsInspectorContract.swift */; };
+		8427FEFB6EA5BECF5B0DC352 /* AquariumWebSurfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B978002C3B261C0D4AAC3B /* AquariumWebSurfaceTests.swift */; };
 		8512359CFEE84DA1DEAACCBB /* IdleScreenRendererViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA922D22BC43F4D141EC1BC9 /* IdleScreenRendererViewport.swift */; };
 		8572F2E759029AFBE3FE4510 /* IdleScreenCamera.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9068229D1CD3299655B7C94 /* IdleScreenCamera.framework */; };
 		85CAC26534B96C0F842A1412 /* IdleScreenCompanionCameraClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE7213968D563463E3BEFDD /* IdleScreenCompanionCameraClientTests.swift */; };
@@ -459,9 +466,11 @@
 		CC816DA52A36E9D043911380 /* DisplaysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 992BC35B510FF1F05D8ECB19 /* DisplaysView.swift */; };
 		CCF06D950960E9EF56E45E6D /* CameraAgentStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B102FC31592B62FFFF2987D7 /* CameraAgentStateMachine.swift */; };
 		CD322E5557410B39C8A6B155 /* CameraAgentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A594A4014C2D5BF340E9306 /* CameraAgentService.swift */; };
+		CDF3471F71BD823437EF0BEF /* WebSurfaceProof in Resources */ = {isa = PBXBuildFile; fileRef = 5469AB16F03ADC33443E1604 /* WebSurfaceProof */; };
 		CDF6F8BCBA142294C33647AA /* AgentSprites.swift in Sources */ = {isa = PBXBuildFile; fileRef = 254FFDE58BC9C91EDEF0A3EF /* AgentSprites.swift */; };
 		CE52870CB4948E35C33CB6AB /* IdleScreenMenuBarGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0350C805B6BC6985B50BA744 /* IdleScreenMenuBarGlyph.swift */; };
 		CE7A23850BCF8457A30913D2 /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 94538690489047F2E20EBF33 /* CoreMedia.framework */; };
+		CF031AA1E0ABC1117C3A93D6 /* AquariumRuntimeBundleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0382190ED7BDCFD263FC2BF /* AquariumRuntimeBundleTests.swift */; };
 		CF73B47472AD9D680A0E1600 /* IdleScreenRenderer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0FC91852518A33A8988F7FE5 /* IdleScreenRenderer.framework */; };
 		CF99B9743336A840FF616A00 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B439A4726BCD0FC4969E4A3 /* Security.framework */; };
 		CFBFEB22F1562E0113D47FB3 /* CameraAgentControlClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DC713DC4152BF0045729888 /* CameraAgentControlClientTests.swift */; };
@@ -1489,6 +1498,7 @@
 		23A5197C15CE905764FA3719 /* IdleScreenProceduralViewportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenProceduralViewportTests.swift; sourceTree = "<group>"; };
 		23DBAB2B5D54905EB3C539D7 /* CameraAgentRegistrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentRegistrationTests.swift; sourceTree = "<group>"; };
 		254FFDE58BC9C91EDEF0A3EF /* AgentSprites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSprites.swift; sourceTree = "<group>"; };
+		25AB18F6B418410C99A19DDD /* SceneLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneLibrary.swift; sourceTree = "<group>"; };
 		25F7E0442A9AD381CAD83316 /* AgentSignalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSignalTests.swift; sourceTree = "<group>"; };
 		278298A64AD4EAE3A0C8DE40 /* CameraFrameAtomicLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraFrameAtomicLoaderTests.swift; sourceTree = "<group>"; };
 		29250586A59AB7E3B75AFB32 /* IdleScreenAgentTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IdleScreenAgentTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1549,6 +1559,7 @@
 		51E66C49A6A282F14F330FC3 /* ScreenSaverRegistrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenSaverRegistrationTests.swift; sourceTree = "<group>"; };
 		538CED28E984A8C2DF79510C /* CommandRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandRunnerTests.swift; sourceTree = "<group>"; };
 		538FAFB69986D52353057C05 /* IdleScreenCameraAgentTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IdleScreenCameraAgentTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5469AB16F03ADC33443E1604 /* WebSurfaceProof */ = {isa = PBXFileReference; lastKnownFileType = folder; name = WebSurfaceProof; path = Tests/IdleScreenRendererTests/Resources/WebSurfaceProof; sourceTree = SOURCE_ROOT; };
 		54F055C5DB3435FAE3A2A8A7 /* CameraAgentXPCListenerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentXPCListenerTests.swift; sourceTree = "<group>"; };
 		55EA561E9283C7A70DE2FF0E /* CameraClientBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraClientBootstrapTests.swift; sourceTree = "<group>"; };
 		563721AD9C0FB858065CF8D7 /* AgentSignalInboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSignalInboxTests.swift; sourceTree = "<group>"; };
@@ -1589,6 +1600,7 @@
 		766E5AFDD0799BD8DDC251E9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		76C24BD87B246D2C847DD7D6 /* AquariumPresentationHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumPresentationHost.swift; sourceTree = "<group>"; };
 		77884D0BEB599468423795F7 /* AquariumController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumController.swift; sourceTree = "<group>"; };
+		77B5FFCFD30080BB90EF8505 /* SceneLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneLibraryTests.swift; sourceTree = "<group>"; };
 		79A3855E0FA92534B98C1D9D /* CameraAgentIdentityCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentIdentityCollector.swift; sourceTree = "<group>"; };
 		79DA8946DDF932E2CB2F86A2 /* IdleScreenStudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenStudio.swift; sourceTree = "<group>"; };
 		7B393987841BA424B9BBBA2C /* AgentIntegrationConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIntegrationConfigurationTests.swift; sourceTree = "<group>"; };
@@ -1622,6 +1634,7 @@
 		93CCB6C07230DE749090FDBA /* AquariumObjectTransform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumObjectTransform.swift; sourceTree = "<group>"; };
 		94538690489047F2E20EBF33 /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
 		9521BB58A24E9BEF82B1692A /* IdleScreenDisplay.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IdleScreenDisplay.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		9616675F71A77952F695B8F1 /* IdleScreenAquariumRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenAquariumRuntime.swift; sourceTree = "<group>"; };
 		98630BAEAE7347003FEC06D6 /* DesignComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignComponents.swift; sourceTree = "<group>"; };
 		992BC35B510FF1F05D8ECB19 /* DisplaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaysView.swift; sourceTree = "<group>"; };
 		9A2D17D514BC8D73A8E6DA75 /* AquariumLayoutPresetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumLayoutPresetTests.swift; sourceTree = "<group>"; };
@@ -1637,6 +1650,7 @@
 		A7220C759882261E1A041FF5 /* SystemViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemViews.swift; sourceTree = "<group>"; };
 		AA5C8F99D149979524D6F019 /* HookConfigurationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookConfigurationManagerTests.swift; sourceTree = "<group>"; };
 		AB2799AA4AE474794C103BCB /* HookAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookAdapterTests.swift; sourceTree = "<group>"; };
+		ABC561565115831F9F5A77EA /* AquariumRuntime */ = {isa = PBXFileReference; lastKnownFileType = folder; name = AquariumRuntime; path = Sources/IdleScreenRenderer/Resources/AquariumRuntime; sourceTree = SOURCE_ROOT; };
 		AF0AA88A9B7904E749DC72A8 /* PerformanceHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceHarness.swift; sourceTree = "<group>"; };
 		AFF1EABB3E1155B7D851CEE3 /* SiteCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiteCaptureTests.swift; sourceTree = "<group>"; };
 		B0387D9EB922DB01E75EEDB3 /* AgentIntegrationConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIntegrationConfiguration.swift; sourceTree = "<group>"; };
@@ -1661,6 +1675,7 @@
 		BD70F8E5E74037F8C39ED941 /* IdleScreenSaverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenSaverView.swift; sourceTree = "<group>"; };
 		BE3DDFF9D16E7EA77639A3D8 /* RendererConfigurationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendererConfigurationBridge.swift; sourceTree = "<group>"; };
 		C03815AEEB38865008ECE7AB /* AgentSignalMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSignalMonitorTests.swift; sourceTree = "<group>"; };
+		C0382190ED7BDCFD263FC2BF /* AquariumRuntimeBundleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumRuntimeBundleTests.swift; sourceTree = "<group>"; };
 		C15C7C1628D3BFBF5DC23354 /* StatusSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusSummary.swift; sourceTree = "<group>"; };
 		C2253D7A35264E6B20CCE855 /* IdleScreenCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IdleScreenCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C3E7FC72EF275BB41DE98723 /* AquariumBehavior.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumBehavior.swift; sourceTree = "<group>"; };
@@ -1668,6 +1683,7 @@
 		C4E42407C43182FF81F48AA3 /* AquariumView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumView.swift; sourceTree = "<group>"; };
 		C6E0CD146D5590C0DF616158 /* ColorSync.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ColorSync.framework; path = System/Library/Frameworks/ColorSync.framework; sourceTree = SDKROOT; };
 		C79F20369C2FF46A1DE5EB6B /* AVFoundationCameraCaptureComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationCameraCaptureComposition.swift; sourceTree = "<group>"; };
+		C962CD5C2B8B7F8286CC95C1 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		CA530F987B30C9947A4E6792 /* IdleScreenProceduralPatterns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenProceduralPatterns.swift; sourceTree = "<group>"; };
 		CA8CF6ED371021EDB976389A /* ProceduralComputeRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProceduralComputeRendererTests.swift; sourceTree = "<group>"; };
 		CA922D22BC43F4D141EC1BC9 /* IdleScreenRendererViewport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenRendererViewport.swift; sourceTree = "<group>"; };
@@ -1686,8 +1702,10 @@
 		D3C33C07A092B6AE369F1FF0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D414C9225D45192E1AE5C9D7 /* CameraAgentOnboardingStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentOnboardingStateMachine.swift; sourceTree = "<group>"; };
 		D4A2580EE1C5928BCDF24D1A /* PixelMaterialsSceneCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelMaterialsSceneCoordinator.swift; sourceTree = "<group>"; };
+		D5A04DDBBA981BADE49CD93A /* IdleScreenAquariumWebSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenAquariumWebSurface.swift; sourceTree = "<group>"; };
 		D7BDE60D5ED7922FCAFF3B8A /* DesignMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignMetrics.swift; sourceTree = "<group>"; };
 		D7E828AD142BA58A34D1A54C /* IdleScreenRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenRenderer.swift; sourceTree = "<group>"; };
+		D8B978002C3B261C0D4AAC3B /* AquariumWebSurfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumWebSurfaceTests.swift; sourceTree = "<group>"; };
 		D8DCC64F37D000FDA2C8C144 /* AquariumNavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumNavigationTests.swift; sourceTree = "<group>"; };
 		D92B04F5180393351C3EEF47 /* AquariumSavedSceneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumSavedSceneTests.swift; sourceTree = "<group>"; };
 		D9455DAE15A0BF6E260E28A2 /* AquariumPresentationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumPresentationPlanTests.swift; sourceTree = "<group>"; };
@@ -1757,6 +1775,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				F6604A4D294B98C9F03631EB /* IdleScreenRenderer.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0689ABF7C4B3D36028EB6C8A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6657F06AD632B0C09A635E04 /* WebKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2133,6 +2159,7 @@
 				229F7EDF5A9548AF91DD4D9D /* QuartzCore.framework */,
 				1DEE34107949A4CA21F629B8 /* ScreenSaver.framework */,
 				5B439A4726BCD0FC4969E4A3 /* Security.framework */,
+				C962CD5C2B8B7F8286CC95C1 /* WebKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -2140,8 +2167,10 @@
 		20C24072D5B4148ADA5362D7 = {
 			isa = PBXGroup;
 			children = (
+				ABC561565115831F9F5A77EA /* AquariumRuntime */,
 				06016EBBC34EA3D6635C7A1D /* Fonts */,
 				5A219DDB172F17530AF87554 /* THIRD_PARTY_NOTICES.md */,
+				5469AB16F03ADC33443E1604 /* WebSurfaceProof */,
 				6E4590B1C0338052DF93A214 /* Core */,
 				D2A4AB690431ECFB4F868FDF /* Executable */,
 				FC5D8569B51E0D8E2A996BB6 /* Fonts */,
@@ -2273,6 +2302,7 @@
 				44A7FB2F974B64C2DC5DD11C /* IdleScreenDockPresentationTests.swift */,
 				4AC2B7D9226B58BF35BC0035 /* IdleScreenMenuBarStateTests.swift */,
 				0DAEDCAA1A5E3CAE327D4D75 /* SaverTileArtTests.swift */,
+				77B5FFCFD30080BB90EF8505 /* SceneLibraryTests.swift */,
 				07ED3F6B0BA30EA432BCBD1E /* SetupFlowRenderTests.swift */,
 				FF84098835DAF3552483765F /* SetupProgressTests.swift */,
 				64578D08F1E14AC50E0C4C8E /* SetupSessionTests.swift */,
@@ -2319,6 +2349,7 @@
 				C483CFCBD23EB7739193D4E5 /* PixelMaterialsConfiguration.swift */,
 				477CB66EB2F18645D4A4A974 /* SavedLook.swift */,
 				F7CF424A5D324F4141F5734D /* SaverActivationPolicy.swift */,
+				25AB18F6B418410C99A19DDD /* SceneLibrary.swift */,
 				38351B22A7EA99D0962EF932 /* SharedContainer.swift */,
 				1077AA405035F56973DC7F24 /* Generated */,
 			);
@@ -2479,6 +2510,8 @@
 				E9FE3CEA77A7A43129398C81 /* AquariumSceneArt.swift */,
 				19DFA775D6C706DEE4620365 /* AquariumSprites.swift */,
 				430119100F046AFB4303592C /* IdleScreenAquarium.swift */,
+				9616675F71A77952F695B8F1 /* IdleScreenAquariumRuntime.swift */,
+				D5A04DDBBA981BADE49CD93A /* IdleScreenAquariumWebSurface.swift */,
 				09E69246E52338E004260266 /* IdleScreenGlyphFace.swift */,
 				CA530F987B30C9947A4E6792 /* IdleScreenProceduralPatterns.swift */,
 				D7E828AD142BA58A34D1A54C /* IdleScreenRenderer.swift */,
@@ -2554,9 +2587,11 @@
 				D8DCC64F37D000FDA2C8C144 /* AquariumNavigationTests.swift */,
 				7F7A6D76FCDB3C5B68D62979 /* AquariumObjectTransformTests.swift */,
 				3BF3D436EC4AEA5FC533976C /* AquariumPresentationTests.swift */,
+				C0382190ED7BDCFD263FC2BF /* AquariumRuntimeBundleTests.swift */,
 				D92B04F5180393351C3EEF47 /* AquariumSavedSceneTests.swift */,
 				F10F51DAD4E968608E46D702 /* AquariumSpriteTests.swift */,
 				81165C0F8ADE820C9AD3C48A /* AquariumTests.swift */,
+				D8B978002C3B261C0D4AAC3B /* AquariumWebSurfaceTests.swift */,
 				802DC4553E0162FDC96FF4AF /* GlyphToneTests.swift */,
 				23A5197C15CE905764FA3719 /* IdleScreenProceduralViewportTests.swift */,
 				E80E75140F72A44D42713755 /* PerformanceTelemetryTests.swift */,
@@ -3080,6 +3115,7 @@
 			buildConfigurationList = 2EBD8B79166D7FDFBEEFF7E1 /* Build configuration list for PBXNativeTarget "IdleScreenRendererTests" */;
 			buildPhases = (
 				A61FE625E5C741AFAED9AFD0 /* Sources */,
+				EBDBE9BBD2AC3C4628845173 /* Resources */,
 				8BEA34F0B465960FAED13FE0 /* Frameworks */,
 				4C3AF022DF03421BFB675A1D /* Embed Frameworks */,
 			);
@@ -3329,6 +3365,7 @@
 			buildPhases = (
 				BF7FA82B0A5CD8E3CA7F4B99 /* Sources */,
 				1A2303404D86D39838050C4C /* Resources */,
+				0689ABF7C4B3D36028EB6C8A /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -3586,6 +3623,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7704DA1D6622418A4A01325D /* AquariumRuntime in Resources */,
 				5F54D59AC8EE3F0009443AE3 /* DepartureMono-Regular.otf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3630,6 +3668,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				E39017886CA1DFCD86A897B9 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBDBE9BBD2AC3C4628845173 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CDF3471F71BD823437EF0BEF /* WebSurfaceProof in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3828,6 +3874,7 @@
 				93BDDEEAB2288E00AC0ABA2E /* PixelMaterialsConfiguration.swift in Sources */,
 				5EAD9877D8643B480E84304B /* SavedLook.swift in Sources */,
 				D177A7F22F755CAD338F8F23 /* SaverActivationPolicy.swift in Sources */,
+				11504D6F70AEACEFFEA09C50 /* SceneLibrary.swift in Sources */,
 				D6304758BE8619570C26571B /* SharedContainer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3990,9 +4037,11 @@
 				4FCF61BA0E1ED40CD21301BD /* AquariumNavigationTests.swift in Sources */,
 				C158A0FF3EB3BA4B6DA09224 /* AquariumObjectTransformTests.swift in Sources */,
 				9CE812CF44DFAA57E211AC78 /* AquariumPresentationTests.swift in Sources */,
+				CF031AA1E0ABC1117C3A93D6 /* AquariumRuntimeBundleTests.swift in Sources */,
 				B74ACABED8D3E68E98D3C835 /* AquariumSavedSceneTests.swift in Sources */,
 				33530EA32E3E1D806A16C281 /* AquariumSpriteTests.swift in Sources */,
 				D5558119A0DDB44847614200 /* AquariumTests.swift in Sources */,
+				8427FEFB6EA5BECF5B0DC352 /* AquariumWebSurfaceTests.swift in Sources */,
 				DF31A266A84BA08DAE9B5F4B /* GlyphToneTests.swift in Sources */,
 				7005427BE3ED52CE88C52528 /* IdleScreenProceduralViewportTests.swift in Sources */,
 				D77B113A9A298389C9BC9BF0 /* PerformanceTelemetryTests.swift in Sources */,
@@ -4084,6 +4133,8 @@
 				DD81CB5FFFF777EB0F2AB8A0 /* AquariumSceneArt.swift in Sources */,
 				24A7E919382D7668019ED8D1 /* AquariumSprites.swift in Sources */,
 				81A1FD5C862B656B1AA8CEE8 /* IdleScreenAquarium.swift in Sources */,
+				4279237F54D9E5BA35D192E6 /* IdleScreenAquariumRuntime.swift in Sources */,
+				1C54CA9B8F57C0A51C5510E7 /* IdleScreenAquariumWebSurface.swift in Sources */,
 				9B9A80F7FD91E457D2FE717A /* IdleScreenGlyphFace.swift in Sources */,
 				B5E4B0C9BC0900AB72276620 /* IdleScreenProceduralPatterns.swift in Sources */,
 				21B6466BE769D241D973F624 /* IdleScreenRenderer.swift in Sources */,
@@ -4149,6 +4200,7 @@
 				53F32620D4B33989EA6EB605 /* PixelMaterialsInspectorContract.swift in Sources */,
 				781218D82F6B0884C7D964F9 /* RendererConfigurationBridge.swift in Sources */,
 				950E51B8D082A1DE97108C0C /* SaverTileArtTests.swift in Sources */,
+				43D38CFA6381DE485B39AC65 /* SceneLibraryTests.swift in Sources */,
 				AFAC03067D0DC044777FB5C9 /* SetupFlowRenderTests.swift in Sources */,
 				AFD39D3E4250480CC3C8009B /* SetupFlowView.swift in Sources */,
 				966C1869BD320DB690E5AF03 /* SetupProgress.swift in Sources */,

@@ -286,6 +286,7 @@ struct StudioView: View {
   @Environment(IdleScreenCompanionNavigation.self) private var navigation
   @Environment(DisplaySceneCoordinator.self) private var displayCoordinator
   @State private var isSaverChooserExpanded = true
+  @State private var isMoreGlyphScenesExpanded = false
   @State private var isPixelAdvancedExpanded = false
   @State private var isLoupeEnabled = false
   @State private var loupePointerLocation: CGPoint?
@@ -799,29 +800,40 @@ struct StudioView: View {
               }
             }
           } else {
-            ForEach(IdleScreenCreativePattern.allCases) { pattern in
-              Button {
-                select(pattern)
-              } label: {
-                SaverLibraryRow(
-                  title: pattern.displayName, art: .pattern(pattern),
-                  isSelected: !cameraSourceSelected
-                    && model.configuration.creative.pattern == pattern)
+            ForEach(IdleScreenSceneLibrary.families) { entry in
+              sceneLibraryRow(entry)
+            }
+            Text("Glyph scenes")
+              .designEyebrow()
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .padding(.horizontal, 6)
+              .padding(.top, 12)
+              .padding(.bottom, 4)
+              .accessibilityAddTraits(.isHeader)
+            ForEach(IdleScreenSceneLibrary.featuredGlyphs) { entry in
+              sceneLibraryRow(entry)
+            }
+            DisclosureGroup(isExpanded: $isMoreGlyphScenesExpanded) {
+              VStack(spacing: 4) {
+                ForEach(IdleScreenSceneLibrary.moreGlyphs) { entry in
+                  sceneLibraryRow(entry)
+                }
               }
-              .buttonStyle(.plain)
-              .accessibilityLabel(pattern.displayName)
-              .accessibilityAddTraits(
-                !cameraSourceSelected && model.configuration.creative.pattern == pattern
-                  ? .isSelected : [])
-            }
-            Button {
-              selectCameraSaver()
             } label: {
-              SaverLibraryRow(title: "Camera", art: .camera, isSelected: cameraSourceSelected)
+              VStack(alignment: .leading, spacing: 3) {
+                Text("More glyph scenes")
+                  .font(DesignFont.sans(DesignFont.caption))
+                if !isMoreGlyphScenesExpanded,
+                  IdleScreenSceneLibrary.moreGlyphs.contains(librarySelection)
+                {
+                  Text("Selected: \(librarySelection.title)")
+                    .font(DesignFont.sans(DesignFont.eyebrow))
+                    .foregroundStyle(DesignPalette.ink2)
+                }
+              }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Camera")
-            .accessibilityAddTraits(cameraSourceSelected ? .isSelected : [])
+            .padding(.horizontal, 6)
+            .padding(.top, 8)
           }
         }
         .padding(8)
@@ -837,6 +849,37 @@ struct StudioView: View {
       .padding(12)
     }
     .background(DesignPalette.surface)
+    .onChange(of: librarySelection, initial: true) { _, selection in
+      if IdleScreenSceneLibrary.moreGlyphs.contains(selection) {
+        isMoreGlyphScenesExpanded = true
+      }
+    }
+  }
+
+  private var librarySelection: IdleScreenSceneLibraryEntry {
+    IdleScreenSceneLibrary.selection(
+      source: model.configuration.source, pattern: model.configuration.creative.pattern)
+  }
+
+  private func sceneLibraryRow(_ entry: IdleScreenSceneLibraryEntry) -> some View {
+    let isSelected = librarySelection == entry
+    let art: SaverTileArt =
+      switch entry {
+      case .camera: .camera
+      case .pattern(let pattern): .pattern(pattern)
+      }
+    return Button {
+      switch entry {
+      case .camera: selectCameraSaver()
+      case .pattern(let pattern): select(pattern)
+      }
+    } label: {
+      SaverLibraryRow(title: entry.title, art: art, isSelected: isSelected)
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(entry.title)
+    .accessibilityIdentifier("scene-library-\(entry.id)")
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 
   private var compactSettingsDock: some View {

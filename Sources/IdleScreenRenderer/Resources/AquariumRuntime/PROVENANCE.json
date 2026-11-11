@@ -1,0 +1,337 @@
+{
+  "schemaVersion": 1,
+  "name": "IdleScreen Aquarium Runtime",
+  "author": "CodesWhat",
+  "license": "MIT",
+  "importDate": "2026-11-07",
+  "origin": "Original CodesWhat procedural aquarium, promoted from the development prototype",
+  "sourceEntrySha256": "64b226281901791b433520e997a81fa0ff05639382539f4cdf9b058d252351a3",
+  "scriptOrder": [
+    "vendor/three.min.js",
+    "metric-scale.js",
+    "animal-scale.js",
+    "animal-art.js",
+    "snail-art.js",
+    "collisions.js",
+    "daylight.js",
+    "fish-motion.js",
+    "molt-visual.js",
+    "water-ecosystem-v1.js",
+    "ecology.js",
+    "surface-motion.js",
+    "waste-motion.js",
+    "equipment-connections.js",
+    "metric-basic-art.js",
+    "metric-equipment-art.js",
+    "metric-connections.js",
+    "room-art.js",
+    "light-footprint.js",
+    "premium-equipment-art.js",
+    "lush-plants.js",
+    "anubias-art.js",
+    "water-surface.js",
+    "metal-finish.js",
+    "flow-field.js",
+    "carpet-art.js",
+    "canopy-routes.js",
+    "surface-contacts.js",
+    "hang-on-filter-art.js",
+    "moss-rock-art.js",
+    "manzanita-art.js",
+    "plant-varieties.js",
+    "gravel-varieties.js",
+    "shrimp-varieties.js",
+    "fish-varieties.js",
+    "fancy-fish-v2.js",
+    "pattern-shrimp-v2.js",
+    "cleaner-poses-v2.js",
+    "cleaner-scale-adapter.js",
+    "cleaner-pane-art.js",
+    "breeding.js",
+    "floating-plants-v2.js",
+    "epiphyte-plants-v2.js",
+    "rooted-plants-v2.js",
+    "botanical-layout.js",
+    "designer-model.js",
+    "dragon-driftwood-v1.js",
+    "designer-placement.js",
+    "preset-assemblies.js",
+    "scene.js",
+    "native-host.js"
+  ],
+  "importedFiles": [
+    {
+      "path": "vendor/three.min.js",
+      "sourceSha256": "170c6789f43217c96b3170f4b42fafe135de7f7cd48497a4218f9757ee1d49fa",
+      "origin": "Three.js"
+    },
+    {
+      "path": "metric-scale.js",
+      "sourceSha256": "357b7073ca8802e23d2b336d6c6d5663e9b26c5e0e81e667043e165806f65f85",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "animal-scale.js",
+      "sourceSha256": "40b47a6d025319657a0f8956c7d276e9b042393b955bebc6e7b9063918211d1e",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "animal-art.js",
+      "sourceSha256": "71976dbc8a5426ed81f405347eafddac74eb3f8b3faa6a5f322c58cfca894e19",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "snail-art.js",
+      "sourceSha256": "0b59eb6a9e8a8b5838eca2fbede2c489283d266ef9e6fc85475cc8a14bc6ad43",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "collisions.js",
+      "sourceSha256": "d3f731fb4816bfbedf6f20eba34d59e4392e0fcb4551ec3f4768c4358ad660ab",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "daylight.js",
+      "sourceSha256": "3244b3969c65cd1a8a09ec3e9170b4d86068aac336d884c4ee8e02cefc84e657",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "fish-motion.js",
+      "sourceSha256": "63f7d761b083e1f06ca57a1d4fc6c796258bdfbfc52d3d1896cea0a39688ca67",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "molt-visual.js",
+      "sourceSha256": "fcabcc2cd7128863a4a8d9fc62b1f94119633b9d899059de7d7d3fad472ace59",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "water-ecosystem-v1.js",
+      "sourceSha256": "e85807ba91fd3ec1f66398b218514ec901dc2cf13372ef4f2128a48d485ff847",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "ecology.js",
+      "sourceSha256": "0f280816a15f45230bc1c05d61383fb918fd18d1b0ce80e91dba1b2b5d6a9190",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "surface-motion.js",
+      "sourceSha256": "5e0aff1f6294e5b30928326345c4e07864680cf39019430928bc8e926b86e6eb",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "waste-motion.js",
+      "sourceSha256": "897069417ed2231853b2ddcfd425a899e70257913a3dfca0bfcd17bc9c7cbf97",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "equipment-connections.js",
+      "sourceSha256": "ca84645b9e5fdac6b76b56631ccb16e4ca8f078a9275f4f481567537bedf354b",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "metric-basic-art.js",
+      "sourceSha256": "c01dd0456c812e8a255b00575b535499c1277eb727213fa86361e3f449e627fa",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "metric-equipment-art.js",
+      "sourceSha256": "2949d6e5ea5d287fa7be4e5e2421fcc614cd50fba68487bec29345f34b45cf7b",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "metric-connections.js",
+      "sourceSha256": "67333583c18cc7f297eb7cef981c7deeede4bea20e0eab05ba9f178c390c3d22",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "room-art.js",
+      "sourceSha256": "07de3d3be168cd7c6774aad9d7dc9db50e77d02563f794ba3bcd3eaff85c5850",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "light-footprint.js",
+      "sourceSha256": "480b55be94d08b9cfb21dbaea076bbf802ee63faca78f1f9275c8b4d340ac3a3",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "premium-equipment-art.js",
+      "sourceSha256": "0b50f14ad8e02cd55e2811c57ddb2551e04e2d8e15677915105732c684effb6c",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "lush-plants.js",
+      "sourceSha256": "912ac07348cb28ed6c39cad660db63fc548aed1107cd4f175f812740021c12f9",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "anubias-art.js",
+      "sourceSha256": "1271a6738afad705d557312d867b00d8f376fc79e35387385c3d4cbc5e8b067f",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "water-surface.js",
+      "sourceSha256": "be56717077107212c3ca6cb29f416f982c5101bd6097d7eb5be6be39cb584a3c",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "metal-finish.js",
+      "sourceSha256": "c1be69a349c62f0555963fe29ab11707f2bcabe3a89b697c8cfd0906b0f57c47",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "flow-field.js",
+      "sourceSha256": "df11695d963009bfec2aab0669079d36db2cbcda3b15f5c4bc833f0c137ed881",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "carpet-art.js",
+      "sourceSha256": "78172cd41beb8a6d9cd1f0145b152a24af7c2ca3bcdf82d41df9929eb4db3b1a",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "canopy-routes.js",
+      "sourceSha256": "6d72ce250c13d34e38c445bcb8b81b1e02fd2b0c37e0dfa4eab71e082ab33dcc",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "surface-contacts.js",
+      "sourceSha256": "b3642a6e86b31513ef4935cf3a0b90aa6a054638f6922d41f5665e71c02daa74",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "hang-on-filter-art.js",
+      "sourceSha256": "1815cf07b8b1210327130d276c6eaf84fc63d4f3a133c5a4c1de4fa4431ea8d9",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "moss-rock-art.js",
+      "sourceSha256": "ccc0f8f314215256d0d48e6d1ce09d99afcb6e0aeec321c1237b827b0ec48e69",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "manzanita-art.js",
+      "sourceSha256": "632ba04872442ec69ee34d55404f5aed2dac4264ca3a96e0300be70a4ebc7db9",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "plant-varieties.js",
+      "sourceSha256": "376eca6f7233a48db8182be484c85d8ac30c3c05f87c3147d5a8389c6c807da8",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "gravel-varieties.js",
+      "sourceSha256": "99fc65443638880c401b9dfbe6c8335d3479e8fa5fc7ce7592c4e709d807f8e1",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "shrimp-varieties.js",
+      "sourceSha256": "0447cd7fb5fe5d2e069f724cbe8b6210c9e9e2dea288155d72b8da1ca7ba8de1",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "fish-varieties.js",
+      "sourceSha256": "bf1e8538dc7e865821e30202b531ff0b44c1ebdb295d5d2a6f252cd4d14daede",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "fancy-fish-v2.js",
+      "sourceSha256": "607d744d3c57644867d6f06894fbd2d221a1a481929722f9fb53d138aad45ec4",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "pattern-shrimp-v2.js",
+      "sourceSha256": "f97170acb6225a1b62cfd3c0186ca28a49818c6e61f0532e01205318c8672a00",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "cleaner-poses-v2.js",
+      "sourceSha256": "e294215eb70c977a035a07c4ae6d3477599f24de45fae1651fbab2e5970508b4",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "cleaner-scale-adapter.js",
+      "sourceSha256": "91df2ebd09e8a5675d5bf97e51c8c8343964eed09cde1f802f6dc3a12bfeac19",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "cleaner-pane-art.js",
+      "sourceSha256": "acf74b09ab23689fed0931d39b1833e9a8b30260402f12184c0c7a04864b41b2",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "breeding.js",
+      "sourceSha256": "57b0f09acad623b11a7cc753d05c1c12771be75f3cdc211a1178af0eb232ed61",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "floating-plants-v2.js",
+      "sourceSha256": "522fd596baf1c21877b1ed16abe01a8e1e52c7e235b0b9a088a2a3388c403e84",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "epiphyte-plants-v2.js",
+      "sourceSha256": "641bf56227dedb21de50dc331426287db3965406fe6d46d5d1a0b153dfb04de0",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "rooted-plants-v2.js",
+      "sourceSha256": "ddb31d480e7df20953e8619dba993e1e020ad5e83c567091256ace9bb1d31199",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "botanical-layout.js",
+      "sourceSha256": "fb7fa69e82adc7e79babc8a103743eda8d065af308f5576d0c27007e891c42e8",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "designer-model.js",
+      "sourceSha256": "dec08da97a2ab2972612181ac7f2f9c400e56b6363598332bc3b2ebdd4bbdbc6",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "dragon-driftwood-v1.js",
+      "sourceSha256": "7312d5143b95250d6c4353d96c84083472ab216aeef77e589cb71b39460750cf",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "designer-placement.js",
+      "sourceSha256": "638842d6694294af960cbd3cf561cec86a03c76ab20dcefa8f703f10748372e6",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "preset-assemblies.js",
+      "sourceSha256": "ab5c5057507cc4cb201159a26b558907f75b37890f9b0bd8dfefcfadac573a3a",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "scene.js",
+      "sourceSha256": "f351034fcc341345ad4e296533bc608b5a4ac93eb8c45b08e25313b753ed717c",
+      "origin": "CodesWhat"
+    },
+    {
+      "path": "vendor/LICENSE",
+      "sourceSha256": "852e0e8699169bf9f6fdc6bda3e682d078dcbc738b5d33e74df594721bff271d",
+      "origin": "Three.js"
+    }
+  ],
+  "adaptations": [
+    "Replaced the prototype entry page with a local native-host entry without visible study controls.",
+    "Start paused; native host owns motion policy instead of a media-query listener.",
+    "Native lifecycle bridge delegates to aquariumStudy.setMotion and selects saver interaction and coupled ecosystem condition modes."
+  ],
+  "vendor": {
+    "name": "Three.js",
+    "revision": "160",
+    "tag": "r160",
+    "commit": "d04539a76736ff500cae883d6a38b3dd8643c548",
+    "repository": "https://github.com/mrdoob/three.js",
+    "license": "MIT",
+    "licensePath": "vendor/LICENSE",
+    "sha256": "170c6789f43217c96b3170f4b42fafe135de7f7cd48497a4218f9757ee1d49fa",
+    "licenseSha256": "852e0e8699169bf9f6fdc6bda3e682d078dcbc738b5d33e74df594721bff271d"
+  },
+  "networkPolicy": "No runtime network requests or remote resources. Citation strings are inert provenance metadata.",
+  "sourcePolicy": "This tracked resource directory is authoritative. Imported source hashes describe the immutable import baseline, not current edited product files. Changes are reviewed through git; do not resync from development prototypes."
+}
