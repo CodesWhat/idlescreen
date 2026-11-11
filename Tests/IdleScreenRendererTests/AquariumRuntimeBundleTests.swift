@@ -141,6 +141,45 @@ struct AquariumRuntimeBundleTests {
     try await surface.shutdown()
   }
 
+  @Test func existingObjectValidationKeepsGeometryAndRefreshesObstacles() async throws {
+    let result = try await runPresetFixture(
+      "preset-edit-check",
+      invocation:
+        "runAquariumPresetEditCheck(THREE, AquariumDesignerPlacement, AquariumRootedPlantsV2)")
+    #expect(result["checks"] == 9)
+  }
+
+  @Test func editingPresetObjectsPreservesLifeAndRestoresActualCollisionSurfaces() async throws {
+    let result = try await runPresetFixture(
+      "preset-scene-check", invocation: "runAquariumPresetSceneCheck(aquariumStudy)")
+    #expect(result["checks"] == 10)
+  }
+
+  private func runPresetFixture(_ name: String, invocation: String) async throws -> [String: Int] {
+    let fixture = try #require(
+      Bundle(for: AquariumCollisionFixtureBundle.self).url(
+        forResource: name, withExtension: "js", subdirectory: "WebSurfaceProof"))
+    let source = try String(contentsOf: fixture, encoding: .utf8)
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let script = source + "\nJSON.stringify(" + invocation + ");"
+    let json: String = try await withCheckedThrowingContinuation { continuation in
+      surface.view.evaluateJavaScript(script) { value, error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else if let text = value as? String {
+          continuation.resume(returning: text)
+        } else {
+          continuation.resume(throwing: CocoaError(.coderValueNotFound))
+        }
+      }
+    }
+    let result = try JSONDecoder().decode([String: Int].self, from: Data(json.utf8))
+    try await surface.shutdown()
+    return result
+  }
+
   private func snapshot(_ surface: IdleScreenAquariumWebSurface, frames: Int = 0) async throws
     -> Snapshot
   {

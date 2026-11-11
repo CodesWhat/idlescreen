@@ -37,3 +37,19 @@ test-host evidence. Signed screensaver-host compositing, WebKit subprocess
 sandbox behavior and real idle lifecycle remain separate verification gates.
 
 The runtime is not yet selected by the shipping app or screensaver presentation.
+
+## Editing existing preset objects
+
+The runtime exposes `aquariumStudy.applyPresetObjects({expectedRevision, objects})`
+for the existing preset plants and hardscape. Read `presetRevision` and
+`presetObjects` from the scene state. The editor must be open in desktop mode;
+playback rejects these operations. The complete object list also expresses
+removal, and restoring a removed record restores its original scene resources.
+
+Edits use the same bounds and triangle checks as added specimens. Invalid edits
+restore the exact previous transforms, and stale revisions leave the scene
+unchanged. Successful edits recapture actual wet collision sources, revalidate
+added specimens and refresh navigation and breeding supports. They do not
+rebuild animals, advance biology or replace the active feeding state. The
+operation keeps each object's authored support height; support-aware vertical
+remounting, equipment connections and the full editor UI remain integration work.

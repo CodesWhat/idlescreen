@@ -291,7 +291,7 @@
         if (b[0] < panes[0] - EPS || b[3] > panes[1] + EPS || b[2] < panes[2] - EPS || b[5] > panes[3] + EPS) return 'Geometry crosses an inner glass pane';
         if (b[1] < glass - EPS) return 'Roots or geometry cross the tank bottom';
         const crownBlend = record.placement === 'rooted' && !data.mesh.userData.plantFoliage ? .1 / cmPerUnit : 0;
-        if (record.placement !== 'floating' && !data.mesh.userData.plantRoots && b[1] < bedLevel - crownBlend - EPS) return 'Above-bed geometry penetrates the substrate';
+        if (!['floating', 'buried-hardscape'].includes(record.placement) && !data.mesh.userData.plantRoots && b[1] < bedLevel - crownBlend - EPS) return 'Above-bed geometry penetrates the substrate';
         if (record.placement === 'floating' && b[1] < bedLevel - EPS) return 'Floating roots reach below the substrate surface';
         if (record.placement === 'rooted' && data.mesh.userData.plantRoots && b[4] > bedLevel + crownBlend + EPS) return 'Root geometry extends above its bed anchor';
         if (b[4] > waterLevel + (record.placement === 'floating' ? .75 / cmPerUnit : 0) + EPS) return 'Geometry exceeds the water level or floating leaf headroom';
@@ -368,6 +368,29 @@
       return records.map(record => ({ id: record.id, assetId: record.assetId, valid: record.valid, reason: record.reason,
         positionCm: { x: record.object.position.x * cmPerUnit, y: record.object.position.y * cmPerUnit, z: (record.object.position.z - centerZ) * cmPerUnit }, rotationY: record.rotationY }));
     }
+    function setEnvironment({ solids: nextSolids, mountSolids: nextMounts = nextSolids }) {
+      if (disposed) throw new Error('Designer placement is disposed');
+      const nextMeshes = [...new Set([...collectMeshes(nextSolids), ...collectMeshes(nextMounts)])];
+      const prepared = nextMeshes.map(meshData), eligible = new Set(collectMeshes(nextMounts).filter(mountEligible));
+      external.splice(0, external.length, ...prepared);
+      externalMounts.splice(0, externalMounts.length, ...prepared.filter(data => eligible.has(data.mesh)));
+      group.updateMatrixWorld(true); validate(records); syncResources(); syncSolids(); syncContacts(true);
+      return status();
+    }
+    function inspectObject(object, { solids: obstacles = [], placement = 'transform' } = {}) {
+      if (disposed) throw new Error('Designer placement is disposed');
+      if (!object?.isObject3D) throw new TypeError('Existing object must contain scene geometry');
+      object.updateWorldMatrix(true, true);
+      const meshes = [];
+      object.traverseVisible(mesh => {
+        if (mesh.isMesh && !mesh.userData.contactShadow) meshes.push(meshData(mesh));
+      });
+      if (!meshes.length) return { valid: false, reason: 'Object has no visible geometry' };
+      if (meshes.reduce((sum, data) => sum + data.indices.length / 3, 0) > 100000) throw new RangeError('Existing object exceeds 100000 triangle budget');
+      const record = { object, meshes, placement };
+      const reason = boundsReason(record) || collisionReason(record, collectMeshes(obstacles).map(meshData));
+      return { valid: !reason, reason };
+    }
     function update(time, flow) {
       if (disposed) return;
       if (!Number.isFinite(time)) throw new TypeError('Designer animation time must be finite');
@@ -378,7 +401,7 @@
     function dispose() {
       if (disposed) return; disposed = true; records.forEach(release); records = []; syncResources(); validSolids.length = 0;
     }
-    return { group, geometries, materials, maps, validSolids, get plants() { return records.filter(record => record.valid && record.placement !== 'hardscape'); }, setLayout, get status() { return status(); }, update, dispose };
+    return { group, geometries, materials, maps, validSolids, get plants() { return records.filter(record => record.valid && record.placement !== 'hardscape'); }, setEnvironment, inspectObject, setLayout, get status() { return status(); }, update, dispose };
   }
   return { create, catalog, maxInstances: MAX_INSTANCES };
 });

@@ -31,7 +31,7 @@ const lightDepthMaps=Object.fromEntries(['focused','natural','broad'].map(name=>
 let roomArt=null,roomFinish='neutral',lightSpread='natural',lightOutput=1;
 let roomLevel=1,tankLightCount=3,lampSpan=0,roomMode='auto',lastRoomCheck=-Infinity;
 let view='front',framing='whole',mode='desktop',preset='daylight',enabled=false,clock=0,last=0,handle=0,visibleWidth=tankHalf*2,worldWidth=tankHalf*2,lastDraw=0;
-let presetAssemblies=null;
+let presetAssemblies=null,presetRevision=0;
 let botanicalArt=null,physicalParts=[],manzanitaArt=null,variedPlants=[];
 let sceneStyle='basic',lushPlants=null,premiumEquipment=null,hangOnFilter=null,carpetArt=null,mossFormation=null,surfaceNavigation=null,navigationSites=[],leafContacts=new Map(),flowField=null,pumpOutput=1,chromeFinish=null,co2Mist=[],nextReturnRipple=0;
 let surfaceStudy=null,surfaceMode='current';
@@ -61,7 +61,7 @@ function pixelMap(palette,kind,seed){
  }
  const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;map.minFilter=map.magFilter=THREE.NearestFilter;map.wrapS=map.wrapT=THREE.RepeatWrapping;maps.push(map);return map;
 }
-function contact(x,z,rx,rz,opacity=.19){const o=mesh(new THREE.CircleGeometry(1,16),basic(0x061a22,{transparent:true,opacity,depthWrite:false}),x,.17,z);o.rotation.x=-Math.PI/2;o.scale.set(rx,rz,1);return o;}
+function contact(x,z,rx,rz,opacity=.19){const o=mesh(new THREE.CircleGeometry(1,16),basic(0x061a22,{transparent:true,opacity,depthWrite:false}),x,.17,z);o.rotation.x=-Math.PI/2;o.scale.set(rx,rz,1);o.userData.contactShadow=true;return o;}
 function polygonShape(profile=0){
  const outlines=[
   [[-1,-.46],[-.65,-.88],[.18,-.94],[.76,-.58],[1,-.12],[.86,.51],[.45,.83],[-.05,.74],[-.44,.9],[-.93,.41]],
@@ -754,7 +754,7 @@ function rebuildSurfaceNavigation(rehome=false){
  const previous=new Map(shrimps.filter(s=>s.life.alive&&s.surfaceMotion?.surface!=='glass'&&(leafContacts.has(s.surfaceMotion?.contactId)||s.surfaceMotion?.contactKind==='foliage')).map(s=>[s,s.surfaceMotion.contactId]));
  surfaceNavigation=null;navigationSites=[];leafContacts=new Map();designerNavigationError='';
  for(const shrimp of shrimps){shrimp.perchGoal=null;shrimp.perchUntil=0;if(shrimp.surfaceMotion)shrimp.surfaceMotion.contactId=null;}
- if(!carpetArt&&!designerRuntime?.validSolids.length&&!designerRuntime?.plants.length){recoverRemovedPlantSupport(previous);return;}
+ if(!carpetArt&&!visibleInWorld(manzanitaArt?.group)&&!visibleInWorld(mossFormation?.group)&&!designerRuntime?.validSolids.length&&!designerRuntime?.plants.length){recoverRemovedPlantSupport(previous);return;}
   const anchors=[],botany=carpetArt?.group.userData.botany.plants||[],step=Math.max(1,Math.ceil(botany.length/16));
   const navigationRadius=.045,navigationOffset=.12,navigationInset=navigationRadius+.005,canopyPoint=new THREE.Vector3();
   const canopyBlockers=collisionWorld.meshes.map(o=>{if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();return o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld).expandByScalar(navigationRadius+.01);});
@@ -764,7 +764,7 @@ function rebuildSurfaceNavigation(rehome=false){
    for(let j=0;j<points.length;j++){const p=points[j],id='plant-'+i+'-'+j;anchors.push({id,position:{x:p[0],y:p[1],z:p[2]},links:previous?[previous]:[]});previous=id;}
    for(const [j,leaf]of shoot.leaves.slice(-2).entries()){const index=shoot.path.findIndex(p=>p.every((v,k)=>Math.abs(v-leaf.base[k])<.00001));if(index<0||!eligibleContact(leaf.site))continue;const id='plant-'+i+'-leaf-'+j,p=leaf.site;anchors.push({id,position:{x:p[0],y:p[1],z:p[2]},links:['plant-'+i+'-'+(index+1)]});const site=carpetArt.group.userData.grazeSites.find(s=>s.plantIndex===i&&s.rest.every((v,k)=>Math.abs(v-p[k])<.00001));if(site)leafContacts.set(id,site);}
   }
-  for(const art of [manzanitaArt,mossFormation])if(art){art.group.updateWorldMatrix(true,true);for(const a of art.grazeSites){const p=art.group.localToWorld(new THREE.Vector3(...a.position)),n=new THREE.Vector3(...a.normal).transformDirection(art.group.matrixWorld);anchors.push({...a,position:{x:p.x,y:p.y,z:p.z},normal:{x:n.x,y:n.y,z:n.z}});}}
+  for(const art of [manzanitaArt,mossFormation])if(art&&visibleInWorld(art.group)){art.group.updateWorldMatrix(true,true);for(const a of art.grazeSites){const p=art.group.localToWorld(new THREE.Vector3(...a.position)),n=new THREE.Vector3(...a.normal).transformDirection(art.group.matrixWorld);anchors.push({...a,position:{x:p.x,y:p.y,z:p.z},normal:{x:n.x,y:n.y,z:n.z}});}}
   const contactAssets=[...(botanicalArt?.assets||[]),...(designerRuntime?.plants||[])];
   if(contactAssets.length){
    const solids=collisionWorld.meshes.map(mesh=>({mesh,box:mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld),triangles:null})),centers=new Map(),closest=new THREE.Vector3();
@@ -845,6 +845,7 @@ function rebuildSurfaceNavigation(rehome=false){
   const leaves=navigationSites.filter(s=>leafContacts.has(s.id));for(let i=0;rehome&&i<Math.min(3,leaves.length);i++){const shrimp=shrimps[4+i];shrimp.o.position.copy(leaves[Math.floor(i*leaves.length/3)].position);shrimp.surfaceMotion.position.copy(shrimp.o.position);shrimp.life.position={x:shrimp.o.position.x,y:shrimp.o.position.y,z:shrimp.o.position.z};}
 }
 function build(){
+ presetRevision++;
  clearWorld();
  const woodMap=pixelMap(['#69503a','#795c3e','#916e47','#4c3d30','#a38354'],'wood',101);
  const rockMap=pixelMap(assets.rock==='river'?['#606463','#747a73','#8c9184','#505d5c','#a7ab96']:['#3e4547','#484f50','#353c3f','#505858','#5b6160'],'slate',84);
@@ -1135,15 +1136,8 @@ function build(){
  const rockNodes=mossFormation?[mossFormation.group]:baseRockNodes;
  if(rockNodes.length)presetAssemblies.add({id:'base-rock',assetId:assets.rock+'-rock',objects:rockNodes,anchor:{x:rx,y:bedLevel,z:-.3}});
  collisionWorld=AquariumCollisions.createWorld(THREE,{floorY:bedLevel+.045,halfWidth:innerHalf,backZ:backBound,frontZ:frontBound,glassInset:.004});
- const hardMaterials=new Set([M.wood,M.slateTop,M.slateSide]);
- collisionWorld.capture(world,object=>{
-  const materials=Array.isArray(object.material)?object.material:[object.material];
-  for(let parent=object;parent&&parent!==world;parent=parent.parent){if(!parent.visible)return false;if(parent.userData.solid){if(!object.userData.equipmentSolid)object.userData.hardscape=true;return true;}if(['sponge-filter','aquarium-heater','aquarium-thermometer'].includes(parent.name))return true;}
-  if(materials.some(m=>hardMaterials.has(m))){object.userData.hardscape=true;return true;}
-  return false;
- });
- baselineCollisionMeshes=collisionWorld.meshes;
  metricBasic.dryGroup.removeFromParent();
+ captureBaselineCollisions();
  if(assets.plants==='botanical'||AquariumBotanicalLayout.species.includes(assets.plants)){
   botanicalArt=AquariumBotanicalLayout.create(THREE,{choice:assets.plants,factories:{floating:AquariumFloatingPlantsV2,epiphyte:AquariumEpiphytePlantsV2,rooted:AquariumRootedPlantsV2},halfWidth:innerHalf,backZ:backBound,frontZ:frontBound,bedLevel,waterLevel,cmPerUnit,solids:collisionWorld.meshes,mountSolids:collisionWorld.meshes.filter(o=>o.userData.hardscape&&!o.userData.equipmentSolid)});
   world.add(botanicalArt.group);for(const m of botanicalArt.materials)rememberMaterial(m);geometries.push(...botanicalArt.geometries);maps.push(...botanicalArt.maps);botanicalArt.group.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
@@ -1220,6 +1214,51 @@ function refreshDesignerSelection(){
  if(!designerActive||!designerRuntime)return;
  if(!designerSelection){designerSelection=new THREE.Box3Helper(new THREE.Box3(),0xf1cf72);designerSelection.name='designer-selection';designerSelection.material.depthTest=false;designerSelection.material.transparent=true;designerSelection.material.opacity=.8;designerSelection.renderOrder=10;scene.add(designerSelection);}
  const selected=designerSelectedId&&designerRuntime.group.getObjectByName('designer-'+designerSelectedId);designerSelection.visible=!!selected;if(selected)designerSelection.box.setFromObject(selected,true);
+}
+function visibleInWorld(object){
+ if(!object)return false;for(let parent=object;parent;parent=parent.parent)if(!parent.visible)return false;return true;
+}
+function captureBaselineCollisions(){
+ const hardMaterials=new Set([M.wood,M.slateTop,M.slateSide]);
+ collisionWorld.capture(world,object=>{
+  if(!visibleInWorld(object))return false;
+  for(let parent=object;parent&&parent!==world;parent=parent.parent)if(parent.userData.designerId)return false;
+  object.userData.presetOwner=presetAssemblies?.ownerOf(object)||null;
+  for(let parent=object;parent&&parent!==world;parent=parent.parent){
+   if(parent.userData.solid){if(!object.userData.equipmentSolid)object.userData.hardscape=true;return true;}
+   if(['sponge-filter','aquarium-heater','aquarium-thermometer'].includes(parent.name))return true;
+  }
+  const materials=Array.isArray(object.material)?object.material:[object.material];
+  if(materials.some(material=>hardMaterials.has(material))){object.userData.hardscape=true;return true;}
+  return false;
+ });
+ baselineCollisionMeshes=collisionWorld.meshes;
+}
+function applyPresetObjects(message){
+ let previous=null,transforms=null,applied=false;
+ try{
+  if(mode!=='desktop'||!designerActive||!designerRuntime)throw new Error('Open the tank editor before editing preset objects');
+  if(!Number.isSafeInteger(message?.expectedRevision)||message.expectedRevision!==presetRevision)throw new Error('Preset revision is stale');
+  previous=presetAssemblies.snapshot();if(JSON.stringify(message.objects)===JSON.stringify(previous))return{revision:presetRevision,objects:previous};
+  transforms=world.children.filter(group=>group.userData.presetId).map(group=>({group,position:group.position.clone(),quaternion:group.quaternion.clone(),visible:group.visible}));
+  presetAssemblies.apply(message.objects);applied=true;
+  const current=presetAssemblies.snapshot();if(JSON.stringify(current)===JSON.stringify(previous))return{revision:presetRevision,objects:current};
+  captureBaselineCollisions();
+  const old=new Map(previous.map(record=>[record.id,record]));
+  for(const record of current){
+   if(JSON.stringify(record)===JSON.stringify(old.get(record.id)))continue;
+   const group=world.getObjectByName('preset-'+record.id);
+   if(Math.abs(record.positionCm.y-group.userData.presetAnchorY*cmPerUnit)>1e-7)throw new Error('Preset objects must retain their supported height');
+   const obstacles=[...baselineCollisionMeshes.filter(mesh=>mesh.userData.presetOwner!==record.id),...designerRuntime.validSolids];
+   const status=designerRuntime.inspectObject(group,{solids:obstacles,placement:['base-wood','base-rock'].includes(record.id)?'buried-hardscape':'transform'});if(!status.valid)throw new Error(status.reason);
+  }
+  designerRuntime.setEnvironment({solids:baselineCollisionMeshes,mountSolids:baselineCollisionMeshes.filter(mesh=>mesh.userData.hardscape&&!mesh.userData.equipmentSolid)});
+  recaptureDesignerCollisions();rebuildSurfaceNavigation(false);buildBreedingSupports();presetRevision++;render();
+  return{revision:presetRevision,objects:current,status:designerRuntime.status};
+ }catch(error){
+  if(applied){for(const saved of transforms){saved.group.position.copy(saved.position);saved.group.quaternion.copy(saved.quaternion);saved.group.visible=saved.visible;}captureBaselineCollisions();designerRuntime.setEnvironment({solids:baselineCollisionMeshes,mountSolids:baselineCollisionMeshes.filter(mesh=>mesh.userData.hardscape&&!mesh.userData.equipmentSolid)});recaptureDesignerCollisions();rebuildSurfaceNavigation(false);buildBreedingSupports();}
+  return{revision:presetRevision,error:error.message};
+ }
 }
 function recaptureDesignerCollisions(){
  const temporary=new THREE.Group();world.updateMatrixWorld(true);
@@ -1429,7 +1468,8 @@ function spawnYoung(child){
  const a=animal(child.kind,position.x,child.kind==='shrimp'?Math.max(bedLevel+.12,position.y):position.y,position.z,1,1000+index,index%2?1:-1,'assassin',{id:child.id,sex:child.sex,maturity:child.maturity,stage:child.stage,growthAgeDays:child.ageDays||0,color:child.kind==='shrimp'?child.variant:undefined,fish:child.kind==='fish'?child.variant:undefined});a.life.ageDays=child.ageDays||0;
 }
 function buildBreedingSupports(){
- world.updateMatrixWorld(true);for(const [i,p]of plants.entries()){
+ breedingSupports=[];world.updateMatrixWorld(true);for(const [i,p]of plants.entries()){
+  if(!visibleInWorld(p.g))continue;
   let best=null,distance=Infinity;const bounds=new THREE.Box3().setFromObject(p.g),target=bounds.min.y+(bounds.max.y-bounds.min.y)*.65;
   p.g.traverse(o=>{const positions=o.isMesh&&o.geometry?.attributes.position;if(!positions)return;for(let j=0;j<positions.count;j+=3){const v=new THREE.Vector3().fromBufferAttribute(positions,j).applyMatrix4(o.matrixWorld),d=Math.abs(v.y-target);if(d<distance){best={id:'plant-support-'+i,mesh:o,index:j};distance=d;}}});if(best)breedingSupports.push(best);
  }
@@ -1534,11 +1574,11 @@ function updateEcology(elapsed){
 }
 
 function setMotion(value){enabled=!!value;document.getElementById('motion').setAttribute('aria-pressed',String(enabled));if(handle)cancelAnimationFrame(handle);handle=0;last=0;if(enabled&&!document.hidden)handle=requestAnimationFrame(animate);else render();}
-addEventListener('message',e=>{if(e.source!==parent)return;const d=e.data;if(d?.type==='aquarium-designer'){applyDesigner(d);return;}if(d?.type==='aquarium-maintenance'){maintainTank(d.action,d.fraction);return;}if(d?.type==='aquarium-asset')setAsset(d.kind,d.value);if(d?.type==='aquarium-resolution')setResolution(d.height);if(d?.type==='aquarium-room')setRoomMode(d.mode);if(d?.type==='aquarium-pump')setPumpOutput(d.output);if(d?.type==='aquarium-scene')setSceneStyle(d.style);if(d?.type==='aquarium-surface')setSurfaceMode(d.mode);if(d?.type==='aquarium-room-finish')setRoomFinish(d.finish);if(d?.type==='aquarium-light-spread')setLightSpread(d.spread);if(d?.type==='aquarium-light-output')setLightOutput(d.output);if(d?.type==='aquarium-banks')setTankLightCount(d.count);if(d?.type==='aquarium-ecology-rate')setEcologyRate(d.rate);if(d?.type==='aquarium-life-event')previewLifeEvent(d.event);if(d?.type==='aquarium-condition'){if(['auto','ecosystem'].includes(d.mode))setConditionMode(d.mode);else setCondition(d.level);}if(d?.type==='aquarium-view')setView(d.view);if(d?.type==='aquarium-mode')setMode(d.mode);if(d?.type==='aquarium-feed')feed();if(d?.type==='aquarium-motion')setMotion(d.enabled);if(d?.type==='aquarium-framing')setFraming(d.framing);if(d?.type==='aquarium-light')setLight(d.preset);});
+addEventListener('message',e=>{if(e.source!==parent)return;const d=e.data;if(d?.type==='aquarium-designer'){applyDesigner(d);return;}if(d?.type==='aquarium-preset-objects'){parent.postMessage({type:'aquarium-preset-state',requestId:d.requestId,...applyPresetObjects(d)},'*');return;}if(d?.type==='aquarium-maintenance'){maintainTank(d.action,d.fraction);return;}if(d?.type==='aquarium-asset')setAsset(d.kind,d.value);if(d?.type==='aquarium-resolution')setResolution(d.height);if(d?.type==='aquarium-room')setRoomMode(d.mode);if(d?.type==='aquarium-pump')setPumpOutput(d.output);if(d?.type==='aquarium-scene')setSceneStyle(d.style);if(d?.type==='aquarium-surface')setSurfaceMode(d.mode);if(d?.type==='aquarium-room-finish')setRoomFinish(d.finish);if(d?.type==='aquarium-light-spread')setLightSpread(d.spread);if(d?.type==='aquarium-light-output')setLightOutput(d.output);if(d?.type==='aquarium-banks')setTankLightCount(d.count);if(d?.type==='aquarium-ecology-rate')setEcologyRate(d.rate);if(d?.type==='aquarium-life-event')previewLifeEvent(d.event);if(d?.type==='aquarium-condition'){if(['auto','ecosystem'].includes(d.mode))setConditionMode(d.mode);else setCondition(d.level);}if(d?.type==='aquarium-view')setView(d.view);if(d?.type==='aquarium-mode')setMode(d.mode);if(d?.type==='aquarium-feed')feed();if(d?.type==='aquarium-motion')setMotion(d.enabled);if(d?.type==='aquarium-framing')setFraming(d.framing);if(d?.type==='aquarium-light')setLight(d.preset);});
 document.getElementById('jar-target').addEventListener('click',event=>{event.stopPropagation();feed();});
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));document.getElementById('motion').addEventListener('click',()=>setMotion(!enabled));
 document.addEventListener('visibilitychange',()=>{if(handle)cancelAnimationFrame(handle);handle=0;last=0;if(enabled&&!document.hidden)handle=requestAnimationFrame(animate);});addEventListener('resize',resize);
 function landmarks(){camera.updateMatrixWorld();const points={floorBack:[0,bedLevel,backBound],floorFront:[0,bedLevel,frontBound],bottomLeft:[-tankHalf,0,4.04],bottomRight:[tankHalf,0,4.04],frontTopLeft:[-tankHalf,8.4,4.04],frontTopRight:[tankHalf,8.4,4.04],rearTopLeft:[-tankHalf,8.4,outerBack],rearTopRight:[tankHalf,8.4,outerBack],lamp:[0,9.36,-.4],foodJarTop:[-visibleWidth*.29,10.35,-.4],surfaceBack:[0,waterLevel,backBound],surfaceFront:[0,waterLevel,frontBound],filterOutlet:[filterOutlet.x,filterOutlet.y,filterOutlet.z],woodTop:[-visibleWidth*.29-.35,6.4+bedLevel-.12,-.7]};return Object.fromEntries(Object.entries(points).map(([name,p])=>{const v=new THREE.Vector3(...p).project(camera);return[name,{x:Math.round((v.x*.5+.5)*1000)/10,y:Math.round((.5-v.y*.5)*1000)/10}];}));}
-window.aquariumStudy={maintainTank,applyDesigner,get designer(){return designerState();},setGlassPane,setPumpOutput,setSceneStyle,setSurfaceMode,setRoomFinish,setLightSpread,setLightOutput,setEcologyRate,previewLifeEvent,setAsset,setCondition,setConditionMode,setResolution,setView,setFraming,setLight,setRoomLight,setTankLightCount,setRoomMode,setMotion,setMode,feed,info:()=>window.aquariumStudy.state,get state(){return{water:{...water.readings(),elapsedSeconds:water.snapshot().elapsedSeconds,volumeL:50,volumeBasis:'authored effective water volume estimate; excludes tank glass, substrate and hardscape',massBasis:'mg nitrogen; 4 mg-N per dissolved game waste unit'},presetObjects:presetAssemblies?.snapshot()||[],designer:designerState(),glass:{panes:['front','left','right','back'],attachments:[...fish,...shrimps,...snails].filter(a=>a.surfaceMotion?.surface==='glass').map(a=>({id:a.life.id,pane:a.surfaceMotion.pane,pose:a.frames[0].pose||'legacy'}))},projection:{kind:'perspective',worldSizeChangesWithDepth:false},botanical:{species:botanicalArt?.assets.map(a=>a.species)||[],omitted:botanicalArt?.omitted||[],contacts:botanicalArt?.grazeSites.length||0},physical:{cmPerUnit,tankCm:{width:60,depth:36,height:36,glass:.6,bed:5,water:34.5},scaleStatus:'metric-reference',parts:physicalParts},sceneStyle,current:{output:pumpOutput},breeding:{broods:breeding.broods.length,eggs:breeding.eggs.reduce((n,b)=>n+b.count,0),young:breeding.offspring.length,stats:breeding.stats},navigation:{...(surfaceNavigation?.stats||{nodes:0}),canopySites:navigationSites.filter(s=>s.id?.startsWith('canopy-')).length},rasterHeight,surface:{mode:surfaceMode,impacts:surfaceStudy?.group.children.filter(o=>o.visible).length||0},premium:{implemented:!!premiumEquipment,carpet:!!lushPlants,floaters:lushPlants?.floaters.length||0},room:{finish:roomFinish,implemented:!!roomArt},ecology:{seconds:ecology.seconds,rate:ecologyRate,stats:{...ecology.stats},animals:ecology.animals.map(a=>({id:a.id,species:a.species,state:a.state,alive:a.alive,hunger:a.hunger,health:a.health})),deposits:ecology.deposits.length},condition:{...waterCondition?.state,mode:conditionMode},assets:{...assets},inventory:{tank:1,gravel:1,rock:assets.decor==='none'?1:0,ornament:assets.decor!=='none'?1:0,driftwood:1,fixture:1,thermometer:1,plantSpecies:sceneStyle==='lush'?4:2,filter:1,shrimpSpecies:1,fishSpecies:2,snailSpecies:2},lighting:{depthSpread:lightSpread,output:lightOutput,shadows:renderer.shadowMap.enabled,shadowResolution:512,source:'Downward LED banks',roomLevel,roomMode,banks:tankLightCount,ambient:ambient.intensity,fill:fill.intensity,key:tankLights.reduce((sum,light)=>sum+light.intensity,0),shadowSources:tankLights.filter(light=>light.castShadow).length},direction:'B',view,framing,mode,preset,motion:enabled,clock,collisions:{solids:collisionWorld?.count||0,settled:pellets.filter(p=>p.settled).length,solidLandings:pellets.filter(p=>p.o.userData.landedOn==='solid').length},feeding:{automaticCount:automaticFeedCount,manualCount:manualFeedCount,lastReason:lastFeedReason,nextDue:nextFeedDue,sequence:feedSequence},renderer:'Actual pixel-textured 3D with shared A/B sprite billboards',renderedFrames,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,camera:{kind:'PerspectiveCamera',fov:camera.fov,position:[0,eyeHeight,eyeDepth],target:[0,eyeHeight,0],pitchDegrees:0,horizonPercent:horizon*100,aspect:camera.aspect},world:{width:worldWidth,floorY:bedLevel,floorBackZ:backBound,floorFrontZ:frontBound,waterY:waterLevel,waterBackZ:backBound,waterFrontZ:frontBound},landmarks:landmarks()};}};
+window.aquariumStudy={applyPresetObjects,maintainTank,applyDesigner,get designer(){return designerState();},setGlassPane,setPumpOutput,setSceneStyle,setSurfaceMode,setRoomFinish,setLightSpread,setLightOutput,setEcologyRate,previewLifeEvent,setAsset,setCondition,setConditionMode,setResolution,setView,setFraming,setLight,setRoomLight,setTankLightCount,setRoomMode,setMotion,setMode,feed,info:()=>window.aquariumStudy.state,get state(){return{presetRevision,water:{...water.readings(),elapsedSeconds:water.snapshot().elapsedSeconds,volumeL:50,volumeBasis:'authored effective water volume estimate; excludes tank glass, substrate and hardscape',massBasis:'mg nitrogen; 4 mg-N per dissolved game waste unit'},presetObjects:presetAssemblies?.snapshot()||[],designer:designerState(),glass:{panes:['front','left','right','back'],attachments:[...fish,...shrimps,...snails].filter(a=>a.surfaceMotion?.surface==='glass').map(a=>({id:a.life.id,pane:a.surfaceMotion.pane,pose:a.frames[0].pose||'legacy'}))},projection:{kind:'perspective',worldSizeChangesWithDepth:false},botanical:{species:botanicalArt?.assets.map(a=>a.species)||[],omitted:botanicalArt?.omitted||[],contacts:botanicalArt?.grazeSites.length||0},physical:{cmPerUnit,tankCm:{width:60,depth:36,height:36,glass:.6,bed:5,water:34.5},scaleStatus:'metric-reference',parts:physicalParts},sceneStyle,current:{output:pumpOutput},breeding:{broods:breeding.broods.length,eggs:breeding.eggs.reduce((n,b)=>n+b.count,0),young:breeding.offspring.length,stats:breeding.stats},navigation:{...(surfaceNavigation?.stats||{nodes:0}),canopySites:navigationSites.filter(s=>s.id?.startsWith('canopy-')).length},rasterHeight,surface:{mode:surfaceMode,impacts:surfaceStudy?.group.children.filter(o=>o.visible).length||0},premium:{implemented:!!premiumEquipment,carpet:!!lushPlants,floaters:lushPlants?.floaters.length||0},room:{finish:roomFinish,implemented:!!roomArt},ecology:{seconds:ecology.seconds,rate:ecologyRate,stats:{...ecology.stats},animals:ecology.animals.map(a=>({id:a.id,species:a.species,state:a.state,alive:a.alive,hunger:a.hunger,health:a.health})),deposits:ecology.deposits.length},condition:{...waterCondition?.state,mode:conditionMode},assets:{...assets},inventory:{tank:1,gravel:1,rock:assets.decor==='none'?1:0,ornament:assets.decor!=='none'?1:0,driftwood:1,fixture:1,thermometer:1,plantSpecies:sceneStyle==='lush'?4:2,filter:1,shrimpSpecies:1,fishSpecies:2,snailSpecies:2},lighting:{depthSpread:lightSpread,output:lightOutput,shadows:renderer.shadowMap.enabled,shadowResolution:512,source:'Downward LED banks',roomLevel,roomMode,banks:tankLightCount,ambient:ambient.intensity,fill:fill.intensity,key:tankLights.reduce((sum,light)=>sum+light.intensity,0),shadowSources:tankLights.filter(light=>light.castShadow).length},direction:'B',view,framing,mode,preset,motion:enabled,clock,collisions:{solids:collisionWorld?.count||0,settled:pellets.filter(p=>p.settled).length,solidLandings:pellets.filter(p=>p.o.userData.landedOn==='solid').length},feeding:{automaticCount:automaticFeedCount,manualCount:manualFeedCount,lastReason:lastFeedReason,nextDue:nextFeedDue,sequence:feedSequence},renderer:'Actual pixel-textured 3D with shared A/B sprite billboards',renderedFrames,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,camera:{kind:'PerspectiveCamera',fov:camera.fov,position:[0,eyeHeight,eyeDepth],target:[0,eyeHeight,0],pitchDegrees:0,horizonPercent:horizon*100,aspect:camera.aspect},world:{width:worldWidth,floorY:bedLevel,floorBackZ:backBound,floorFrontZ:frontBound,waterY:waterLevel,waterBackZ:backBound,waterFrontZ:frontBound},landmarks:landmarks()};}};
 resize();setRoomMode('auto');setView('front');setMode('desktop');setMotion(enabled);parent.postMessage({type:'aquarium-ready',scene:'b',renderer:'Three.js WebGL'},'*');
 })();

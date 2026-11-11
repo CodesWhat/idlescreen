@@ -18,7 +18,7 @@
     let owned=false;object.traverse(child=>{if(owners.has(child))owned=true;});if(owned)throw new Error('Authored object is already owned');
     if(object.parent!==world)throw new TypeError('Assembly needs direct children of its world');
    }
-   const group=new THREE.Group();group.name='preset-'+identity;group.userData.presetId=identity;group.position.set(anchor.x,anchor.y,anchor.z);world.add(group);world.updateMatrixWorld(true);
+   const group=new THREE.Group();group.name='preset-'+identity;group.userData.presetId=identity;group.userData.presetAnchorY=anchor.y;group.position.set(anchor.x,anchor.y,anchor.z);world.add(group);world.updateMatrixWorld(true);
    for(const object of objects){group.attach(object);object.traverse(child=>owners.set(child,identity));}
    entries.set(identity,{id:identity,assetId,group});return group;
   }
