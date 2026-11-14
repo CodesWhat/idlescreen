@@ -61,3 +61,12 @@ surface. Attached plants align with their support face; moving a support in a
 way that invalidates a mounted plant is rejected. Parent-following mounts remain
 open. See [equipment editing](AQUARIUM_EQUIPMENT.md) and
 [checkpoint persistence](AQUARIUM_CHECKPOINTS.md) for their current limits.
+
+## Isolated native QA
+
+A Debug QA bundle with an identifier under `com.idlescreen.aquarium-qa.` can
+provide an absolute private legacy-tank path in `IdleScreenAquariumQAStorePath`.
+The planted-tank checkpoint uses the same directory. Normal app bundles ignore
+this profile, and Release builds do not read it. This lets native automation
+launch the actual app executable without a command-line wrapper. The existing
+Debug `--aquarium-store-path` argument takes precedence.

@@ -24,6 +24,12 @@ enum IdleScreenAquariumProduct {
       {
         return URL(fileURLWithPath: arguments[index + 1])
       }
+      if bundle.bundleIdentifier?.hasPrefix("com.idlescreen.aquarium-qa.") == true,
+        let path = bundle.object(forInfoDictionaryKey: "IdleScreenAquariumQAStorePath") as? String,
+        path.hasPrefix("/")
+      {
+        return URL(fileURLWithPath: path)
+      }
     #endif
     let enabled = String(
       describing: bundle.object(forInfoDictionaryKey: "IdleScreenSharedContainerEnabled") ?? "NO"
