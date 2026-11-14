@@ -7,6 +7,27 @@ import Testing
 @Suite("Aquarium editing controller")
 @MainActor
 struct AquariumControllerTests {
+  @Test func rejectedTankCreationKeepsUndoAndRedoHistory() throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let controller = IdleScreenAquariumController(
+      fileURL: directory.appending(path: "aquariums.json"))
+    #expect(
+      controller.perform { library in
+        while library.tanks.count < IdleScreenAquariumLibrary.maximumTankCount {
+          library.tanks.append(.init(name: "Other tank"))
+        }
+      })
+    controller.editTank(recordLayout: true) { $0.substrate = .creamSand }
+    controller.editTank(recordLayout: true) { $0.substrate = .riverGravel }
+    controller.undoLayout()
+    #expect(controller.canUndo && controller.canRedo)
+    let before = controller.library
+    controller.newTank()
+    #expect(controller.library == before)
+    #expect(controller.canUndo && controller.canRedo)
+  }
+
   @Test func attachedMossUsesResolvedRenderingAndUndoSurvivesDirectEdits() throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
