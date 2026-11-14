@@ -243,6 +243,7 @@
 		6301936A808F558F0F70A79C /* IdleScreenCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36B2E35EB7EC8E7688BC3B4B /* IdleScreenCore.framework */; };
 		63305F8D25AF32A8696A38BD /* ConfigurationMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AA8103B5F64B49CD159F9C6 /* ConfigurationMonitor.swift */; };
 		63838ED69FBC8A6FFE03FAA1 /* IdleScreenAgent.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = EDB73BF104D765DA90F9ED68 /* IdleScreenAgent.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		6405FBC0E8C008579B74A7E5 /* IdleScreenWorkbenchHostingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6249E84EBE6D7A64D1467D8 /* IdleScreenWorkbenchHostingController.swift */; };
 		6413245A322E31B2C47356DC /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 727DE97EF89086D80C42226A /* AVFoundation.framework */; };
 		654670DE7B90A010D70B9F04 /* IdleScreenScreenSaverConfigurationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FBD4BE6322930E63D3FA4FF /* IdleScreenScreenSaverConfigurationViewController.swift */; };
 		65B84FB6DCE7FE549352AE67 /* AgentIntegrationConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B393987841BA424B9BBBA2C /* AgentIntegrationConfigurationTests.swift */; };
@@ -465,6 +466,7 @@
 		C8218979D806A0974CA747FC /* IdleScreenAppCompileGateSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC1418A86E1F8B7C5B8830FF /* IdleScreenAppCompileGateSmokeTests.swift */; };
 		C82D685D3633DF6C7C06E676 /* HookAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2799AA4AE474794C103BCB /* HookAdapterTests.swift */; };
 		C85F898A3861C98BF25477A6 /* IdleScreenMenuBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC9AEB64E61C99DCDD266C61 /* IdleScreenMenuBar.swift */; };
+		C8973E3719336F70B3328396 /* IdleScreenWorkbenchHostingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6249E84EBE6D7A64D1467D8 /* IdleScreenWorkbenchHostingController.swift */; };
 		CA1B963357B99975EA251FE3 /* IdleScreenSaverViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C91BC794A861F83CD7A318C /* IdleScreenSaverViewTests.swift */; };
 		CACC8529A21927FB3D73FEFD /* IdleScreenCameraAgent.app in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 311266CB86AA52796FCD79AA /* IdleScreenCameraAgent.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CB479C27D10078029FB85C7D /* IdleScreenCamera.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9068229D1CD3299655B7C94 /* IdleScreenCamera.framework */; };
@@ -537,6 +539,7 @@
 		F1880C87EC33FE5DF7827B88 /* IdleScreenCamera.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9068229D1CD3299655B7C94 /* IdleScreenCamera.framework */; };
 		F1E2021E2BA042F9F06DC3A6 /* IdleScreenDockPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44A7FB2F974B64C2DC5DD11C /* IdleScreenDockPresentationTests.swift */; };
 		F1FA0CC046C90AC19A7CE458 /* CameraFrameMappingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B050048521B5763507370E4D /* CameraFrameMappingTests.swift */; };
+		F237718DD1E0037B67700D42 /* IdleScreenWorkbenchHostingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6249E84EBE6D7A64D1467D8 /* IdleScreenWorkbenchHostingController.swift */; };
 		F39DE918F5C87C5B7FF006E7 /* SystemViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7220C759882261E1A041FF5 /* SystemViews.swift */; };
 		F58F538504D044D03125DC44 /* IdleScreenCamera.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E9068229D1CD3299655B7C94 /* IdleScreenCamera.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		F5E15C3EE84F3607D497B2C0 /* SetupFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9CEA35C6C71CDEA294028D6 /* SetupFlowView.swift */; };
@@ -1734,6 +1737,7 @@
 		E369CEE2F0B8F3A5735A4CF1 /* CameraAgentControlClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentControlClient.swift; sourceTree = "<group>"; };
 		E5CF0CDCADCE48EDE99E32F2 /* Workbench.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workbench.swift; sourceTree = "<group>"; };
 		E61AF980C5495410D0D967B1 /* CameraXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraXPCProtocol.swift; sourceTree = "<group>"; };
+		E6249E84EBE6D7A64D1467D8 /* IdleScreenWorkbenchHostingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenWorkbenchHostingController.swift; sourceTree = "<group>"; };
 		E6415B33D3FD518EDEC428AB /* AgentSpriteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSpriteTests.swift; sourceTree = "<group>"; };
 		E66DB7AB0D0CA5D79300E76D /* CameraAgentDiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentDiagnosticsTests.swift; sourceTree = "<group>"; };
 		E7C4F4D98C9238A5A50F041A /* IdleScreenAppCameraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IdleScreenAppCameraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2722,6 +2726,7 @@
 				92840D7688F0B9B2813A6354 /* IdleScreenMenuBarState.swift */,
 				3B6BD214FB3A162EC5BA6280 /* IdleScreenPreviewWindowGeometry.swift */,
 				79DA8946DDF932E2CB2F86A2 /* IdleScreenStudio.swift */,
+				E6249E84EBE6D7A64D1467D8 /* IdleScreenWorkbenchHostingController.swift */,
 				EB544F8A77528685956DA812 /* Info.plist */,
 				D32F378F3FC4FB3768DF8CDE /* IntegrationsView.swift */,
 				8AC28FEB285957CC3C80874D /* PixelMaterialsInspectorContract.swift */,
@@ -3983,6 +3988,7 @@
 				FC6D9568D97D4A632240E290 /* IdleScreenMenuBarState.swift in Sources */,
 				B5668AE087BF9F895B2525D4 /* IdleScreenPreviewWindowGeometry.swift in Sources */,
 				25CAFCDE845E6E8E1331D255 /* IdleScreenStudio.swift in Sources */,
+				6405FBC0E8C008579B74A7E5 /* IdleScreenWorkbenchHostingController.swift in Sources */,
 				384B36817CE1D68BDF8FED99 /* IntegrationsView.swift in Sources */,
 				83CB843BF08E6FB97B073E4A /* PixelMaterialsInspectorContract.swift in Sources */,
 				4F74E34EF2E52EED783F7201 /* PlantedTankEditor.swift in Sources */,
@@ -4111,6 +4117,7 @@
 				D8390ADCE2827807ACD21560 /* IdleScreenMenuBarState.swift in Sources */,
 				480DAAF4F70B70FA36B324CF /* IdleScreenPreviewWindowGeometry.swift in Sources */,
 				507F996B1072B6D142AA0455 /* IdleScreenStudio.swift in Sources */,
+				F237718DD1E0037B67700D42 /* IdleScreenWorkbenchHostingController.swift in Sources */,
 				886D54443F46B6FDA46F0A92 /* IntegrationsView.swift in Sources */,
 				B299B7A6A310AE381D2344A8 /* PixelMaterialsInspectorContract.swift in Sources */,
 				AA06121AF3DA4C22EB3EC4E8 /* PlantedTankEditor.swift in Sources */,
@@ -4213,6 +4220,7 @@
 				06DC65DDD2A21B97D432EE2C /* IdleScreenMenuBarStateTests.swift in Sources */,
 				BAB299C4BD1AE0F7FB1E2A17 /* IdleScreenPreviewWindowGeometry.swift in Sources */,
 				6F168B5CCC04462FACB4FBEA /* IdleScreenStudio.swift in Sources */,
+				C8973E3719336F70B3328396 /* IdleScreenWorkbenchHostingController.swift in Sources */,
 				B7CF04848AC201994CE7E1FA /* IntegrationsView.swift in Sources */,
 				53F32620D4B33989EA6EB605 /* PixelMaterialsInspectorContract.swift in Sources */,
 				1E52738A34659CCD9D23106E /* PlantedTankEditor.swift in Sources */,

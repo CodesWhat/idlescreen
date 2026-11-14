@@ -171,8 +171,54 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
       .environment(cameraClient)
       .environment(navigation)
       .environment(displayCoordinator)
-      .frame(minWidth: 900, minHeight: 600)
-    let hostingController = NSHostingController(rootView: rootView)
+    let window = Self.makeMainWindow(rootView: rootView)
+    window.delegate = self
+    window.isReleasedWhenClosed = false
+    window.center()
+    window.setFrameAutosaveName("IdleScreenMainWindow")
+    applyScreenAspectRatio(to: window)
+    mainWindow = window
+    window.makeKeyAndOrderFront(nil)
+    #if DEBUG
+      DispatchQueue.main.async { Self.recordResizeProbe(window, phase: "shown") }
+    #endif
+    cameraClient.mainWindowDidOpen()
+    updateMainWindowPresentationState()
+    logger.info(
+      "Main window ordered visible=\(window.isVisible, privacy: .public) windows=\(NSApp.windows.count, privacy: .public)"
+    )
+  }
+
+  #if DEBUG
+    private static func recordResizeProbe(
+      _ window: NSWindow, phase: String, extra: [String: String] = [:]
+    ) {
+      let args = ProcessInfo.processInfo.arguments
+      guard Bundle.main.bundleIdentifier == "com.idlescreen.aquarium-qa.dev",
+        let index = args.firstIndex(of: "--aquarium-store-path"), index + 1 < args.count
+      else { return }
+      var value = extra
+      value["phase"] = phase
+      value["frame"] = NSStringFromRect(window.frame)
+      value["contentMin"] = NSStringFromSize(window.contentMinSize)
+      value["contentMax"] = NSStringFromSize(window.contentMaxSize)
+      value["frameMin"] = NSStringFromSize(window.minSize)
+      value["frameMax"] = NSStringFromSize(window.maxSize)
+      value["view"] = String(describing: type(of: window.contentView))
+      let url = URL(fileURLWithPath: args[index + 1]).appendingPathExtension("window-probe.jsonl")
+      if let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]) {
+        var all = (try? Data(contentsOf: url)) ?? Data()
+        all.append(data)
+        all.append(10)
+        try? all.write(to: url, options: .atomic)
+      }
+    }
+  #endif
+
+  static func makeMainWindow<Content: View>(rootView: Content) -> NSWindow {
+    let hostingController = IdleScreenWorkbenchHostingController(
+      rootView: rootView.frame(
+        minWidth: 900, maxWidth: .infinity, minHeight: 600, maxHeight: .infinity))
     let window = NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
       styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -185,18 +231,15 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
     window.titlebarAppearsTransparent = true
     window.toolbarStyle = .unifiedCompact
     window.contentViewController = hostingController
-    window.delegate = self
-    window.isReleasedWhenClosed = false
-    window.center()
-    window.setFrameAutosaveName("IdleScreenMainWindow")
-    applyScreenAspectRatio(to: window)
-    mainWindow = window
-    window.makeKeyAndOrderFront(nil)
-    cameraClient.mainWindowDidOpen()
-    updateMainWindowPresentationState()
-    logger.info(
-      "Main window ordered visible=\(window.isVisible, privacy: .public) windows=\(NSApp.windows.count, privacy: .public)"
-    )
+    Self.configureMainWindowResizing(window)
+    return window
+  }
+
+  static func configureMainWindowResizing(_ window: NSWindow) {
+    window.contentResizeIncrements = NSSize(width: 1, height: 1)
+    window.contentMinSize = IdleScreenPreviewWindowGeometry.absoluteMinimumContentSize
+    window.contentMaxSize = NSSize(
+      width: CGFloat(Float.greatestFiniteMagnitude), height: CGFloat(Float.greatestFiniteMagnitude))
   }
 
   func showStudio() {
@@ -300,9 +343,15 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
       current: currentContentSize,
       previewAspectRatio: aspectRatio
     )
-    return sender.frameRect(
+    let result = sender.frameRect(
       forContentRect: NSRect(origin: .zero, size: constrainedContentSize)
     ).size
+    #if DEBUG
+      Self.recordResizeProbe(
+        sender, phase: "resize",
+        extra: ["proposed": NSStringFromSize(frameSize), "returned": NSStringFromSize(result)])
+    #endif
+    return result
   }
 
   func windowDidChangeScreen(_ notification: Notification) {
@@ -401,7 +450,7 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
 
     let aspectRatio = screen.frame.width / screen.frame.height
     navigation.displayAspectRatio = aspectRatio
-    window.contentAspectRatio = .zero
+    Self.configureMainWindowResizing(window)
 
     let minimumContentSize = Self.minimumContentSize(for: aspectRatio)
     window.contentMinSize = minimumContentSize
