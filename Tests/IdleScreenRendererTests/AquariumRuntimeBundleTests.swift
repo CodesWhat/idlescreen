@@ -97,7 +97,7 @@ struct AquariumRuntimeBundleTests {
     var files: Set<String> = []
     for case let url as URL in enumerator {
       if try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true {
-        files.insert(String(url.path.dropFirst(directory.path.count + 1)))
+        files.insert(String(url.resolvingSymlinksInPath().path.dropFirst(directory.path.count + 1)))
       }
     }
     #expect(files == Set(scripts + ["index.html", "PROVENANCE.json", "vendor/LICENSE"]))
