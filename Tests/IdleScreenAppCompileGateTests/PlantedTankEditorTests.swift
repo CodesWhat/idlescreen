@@ -7,6 +7,93 @@ import WebKit
 @Suite("Planted tank editor", .timeLimit(.minutes(1)))
 @MainActor
 struct PlantedTankEditorTests {
+  @Test func aReplacedTankCannotOverwriteTheCurrentAnimalInspector() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    await editor.activate()
+    let previous = editor.surface
+    let callback = try #require(previous.onStockChange)
+    let json = try #require(
+      try await previous.view.evaluateJavaScript(
+        "JSON.stringify({revision:999,animals:idleScreenScene.editorSnapshot().animals.map(a=>({...a,alive:false}))})"
+      ) as? String)
+    let late = try JSONDecoder().decode(
+      IdleScreenAquariumWebSurface.StockUpdate.self, from: Data(json.utf8))
+    await editor.addAnimal(assetID: "fish/chili")
+    let current = try #require(editor.snapshot)
+    callback(late)
+    #expect(editor.surface !== previous && previous.state == .stopped)
+    #expect(editor.snapshot == current)
+    try await editor.surface.shutdown()
+  }
+
+  @Test func animalDeathsUpdateTheInspectorWithoutAnEditingCommand() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    await editor.activate()
+    await editor.deactivate()
+    let original = try #require(editor.snapshot)
+    let living = original.animals.filter(\.alive).count
+    _ = try await editor.surface.view.evaluateJavaScript(
+      "aquariumStudy.previewLifeEvent('death'); true")
+    for _ in 0..<200 {
+      if editor.snapshot?.animals.filter(\.alive).count == living - 1 { break }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(editor.snapshot?.animals.filter(\.alive).count == living - 1)
+    #expect(editor.snapshot?.objects == original.objects)
+    #expect(editor.surface.state == .paused)
+    try await editor.surface.shutdown()
+  }
+
+  @Test func aNaturalHatchUpdatesTheInspectorWithoutAnEditingCommand() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenPlantedTankStore(fileURL: directory.appendingPathComponent("tank.json"))
+    let generator = IdleScreenAquariumWebSurface()
+    try await generator.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let savedJSON = try #require(
+      try await generator.view.evaluateJavaScript(
+        """
+        (()=>{
+          const saved=aquariumStudy.exportTank({id:'planted-tank',name:'Planted tank'});
+          const domain=saved.tank.document.checkpoint.data,breeding=AquariumBreeding.create({maxAnimals:80});
+          breeding.step(1,domain.ecology.animals,{shelter:1,light:1,stress:0});
+          domain.breeding=breeding.snapshot();
+          const boundary=28*86400;
+          domain.ecology.seconds=boundary-.001;domain.breeding.seconds=boundary-.001;
+          domain.breeding.nextCheck=boundary;domain.water.elapsedSeconds=boundary-.001;
+          saved.runtime.clock=boundary-.001;saved.tank.document.checkpoint.elapsedSeconds=boundary-.001;
+          return JSON.stringify(saved);
+        })()
+        """) as? String)
+    try await generator.shutdown()
+    _ = try await store.write(Data(savedJSON.utf8), expectedRevision: nil)
+    let editor = IdleScreenPlantedTankEditor(store: store)
+    editor.surface.view.configuration.userContentController.addUserScript(
+      WKUserScript(
+        source: """
+          (()=>{
+            Object.defineProperty(document,'hidden',{get:()=>false});
+            let time=0,next=0;const callbacks=new Map();
+            window.requestAnimationFrame=callback=>{const id=++next;callbacks.set(id,callback);return id;};
+            window.cancelAnimationFrame=id=>callbacks.delete(id);
+            window.advanceStockFrame=()=>{time+=50;const current=[...callbacks.values()];callbacks.clear();current.forEach(callback=>callback(time));};
+          })();
+          """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    await editor.activate()
+    await editor.deactivate()
+    let count = try #require(editor.snapshot).animals.count
+    try await editor.surface.resume()
+    _ = try await editor.surface.view.evaluateJavaScript(
+      "advanceStockFrame(); advanceStockFrame(); true")
+    for _ in 0..<200 {
+      if (editor.snapshot?.animals.count ?? 0) > count { break }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(editor.snapshot?.animals.count == 80)
+    #expect(editor.snapshot?.animals.contains { $0.id.hasPrefix("offspring-") } == true)
+    try await editor.surface.shutdown()
+  }
+
   @Test func animalUndoAndRedoKeepIdentityAndIndependentLayoutHistory() async throws {
     let editor = IdleScreenPlantedTankEditor()
     await editor.activate()

@@ -5,15 +5,24 @@
   scene.setMode("saver");
   scene.setConditionMode("ecosystem");
   scene.setMotion(false);
-  const editorSnapshot = () => ({
-    revision: scene.state.presetRevision,
-    objects: scene.state.presetObjects,
-    placedObjects: scene.designer.layout?.instances || [],
-    catalog: AquariumDesignerModel.catalog,
-    stockCatalog: AquariumTankConfiguration.stockCatalog,
-    equipmentObjects: scene.equipment.objects,
-    animals: scene.state.ecology.animals.map(({id,kind,species,variant,alive})=>({id,kind,species,variant,alive}))
+  let stockRevision=0;
+  const stockAnimals=state=>state.ecology.animals.map(({id,kind,species,variant,alive})=>({id,kind,species,variant,alive}));
+  addEventListener('aquarium-stock-change',event=>{
+    if(scene.state.mode!=='desktop'||!scene.designer.active)return;
+    window.webkit?.messageHandlers?.idleScreenStock?.postMessage(JSON.stringify({revision:++stockRevision,animals:event.detail}));
   });
+  const editorSnapshot = () => {
+    const state=scene.state;
+    return {
+      revision:state.presetRevision,stockRevision,
+      objects:state.presetObjects,
+      placedObjects:scene.designer.layout?.instances||[],
+      catalog:AquariumDesignerModel.catalog,
+      stockCatalog:AquariumTankConfiguration.stockCatalog,
+      equipmentObjects:scene.equipment.objects,
+      animals:stockAnimals(state)
+    };
+  };
   addEventListener("message", event => {
     if (event.source !== window || event.data?.type !== "aquarium-designer-pick"
       || scene.state.mode !== "desktop" || !scene.designer.active) return;

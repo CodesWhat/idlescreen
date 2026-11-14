@@ -42,6 +42,12 @@ final class IdleScreenPlantedTankEditor {
   }
 
   private func bind(_ source: IdleScreenAquariumWebSurface) {
+    source.onStockChange = { [weak self, weak source] update in
+      guard let self, let source, self.surface === source, let snapshot = self.snapshot else {
+        return
+      }
+      self.snapshot = snapshot.updatingStock(update)
+    }
     source.onEditorPick = { [weak self, weak source] pick in
       Task { [weak self, weak source] in
         guard let self, let source, self.surface === source else { return }

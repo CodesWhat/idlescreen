@@ -70,14 +70,28 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     public let alive: Bool
   }
 
+  public struct StockUpdate: Decodable, Sendable {
+    public let revision: Int
+    public let animals: [StockAnimal]
+  }
+
   public struct EditorSnapshot: Decodable, Equatable, Sendable {
     public let revision: Int
+    public let stockRevision: Int
     public let objects: [PresetObject]
     public let placedObjects: [PresetObject]
     public let catalog: [CatalogAsset]
     public let equipmentObjects: [PresetObject]
     public let animals: [StockAnimal]
     public let stockCatalog: [StockAsset]
+
+    public func updatingStock(_ update: StockUpdate) -> Self {
+      guard update.revision > stockRevision else { return self }
+      return Self(
+        revision: revision, stockRevision: update.revision, objects: objects,
+        placedObjects: placedObjects, catalog: catalog, equipmentObjects: equipmentObjects,
+        animals: update.animals, stockCatalog: stockCatalog)
+    }
   }
 
   public enum EditorTool: String, Codable, Sendable {
@@ -111,6 +125,8 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
 
   public private(set) var toolGeneration = 0
   public var onEditorPick: (@MainActor (EditorPick) -> Void)?
+  public var onStockChange: (@MainActor (StockUpdate) -> Void)?
+  private var latestStockUpdate: StockUpdate?
 
   private final class EditorMessageHandler: NSObject, WKScriptMessageHandler {
     weak var owner: IdleScreenAquariumWebSurface?
@@ -119,7 +135,11 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
       _ userContentController: WKUserContentController,
       didReceive message: WKScriptMessage
     ) {
-      owner?.receiveEditorPick(message)
+      if message.name == "idleScreenStock" {
+        owner?.receiveStockChange(message)
+      } else {
+        owner?.receiveEditorPick(message)
+      }
     }
   }
 
@@ -148,6 +168,7 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
 
   private struct EditorResponse: Decodable {
     let revision: Int
+    let stockRevision: Int?
     let objects: [PresetObject]?
     let placedObjects: [PresetObject]?
     let catalog: [CatalogAsset]?
@@ -171,6 +192,7 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     let handler = EditorMessageHandler()
     handler.owner = self
     configuration.userContentController.add(handler, name: "idleScreenEditor")
+    configuration.userContentController.add(handler, name: "idleScreenStock")
   }
 
   public func load(sceneURL: URL) async throws {
@@ -340,17 +362,44 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     onEditorPick?(pick)
   }
 
+  private func receiveStockChange(_ message: WKScriptMessage) {
+    guard state == .paused || state == .running,
+      message.webView === view, message.frameInfo.isMainFrame,
+      let url = message.frameInfo.request.url, url.isFileURL, let resourceDirectory,
+      url.resolvingSymlinksInPath().standardizedFileURL.path.hasPrefix(
+        resourceDirectory.path + "/"),
+      let body = message.body as? String, body.utf8.count <= 65_536,
+      let update = try? JSONDecoder().decode(StockUpdate.self, from: Data(body.utf8)),
+      update.revision > (latestStockUpdate?.revision ?? 0),
+      update.revision <= 9_007_199_254_740_991, update.animals.count <= 80,
+      Set(update.animals.map(\.id)).count == update.animals.count,
+      update.animals.allSatisfy({
+        !$0.id.isEmpty && !$0.species.isEmpty && ["fish", "shrimp", "snail"].contains($0.kind)
+      })
+    else { return }
+    latestStockUpdate = update
+    onStockChange?(update)
+  }
+
   private func editorQuery(_ expression: String) async throws -> EditorSnapshot {
     let json = try await jsonQuery(expression)
     let response = try JSONDecoder().decode(EditorResponse.self, from: Data(json.utf8))
     if let error = response.error { throw EditorError.rejected(error) }
     guard let objects = response.objects, let placedObjects = response.placedObjects,
       let catalog = response.catalog, let equipmentObjects = response.equipmentObjects,
-      let animals = response.animals, let stockCatalog = response.stockCatalog
+      let animals = response.animals, let stockCatalog = response.stockCatalog,
+      let stockRevision = response.stockRevision, stockRevision >= 0,
+      stockRevision <= 9_007_199_254_740_991
     else { throw EditorError.invalidResponse }
-    return EditorSnapshot(
-      revision: response.revision, objects: objects, placedObjects: placedObjects, catalog: catalog,
+    let snapshot = EditorSnapshot(
+      revision: response.revision, stockRevision: stockRevision, objects: objects,
+      placedObjects: placedObjects, catalog: catalog,
       equipmentObjects: equipmentObjects, animals: animals, stockCatalog: stockCatalog)
+    if let latestStockUpdate, latestStockUpdate.revision > stockRevision {
+      return snapshot.updatingStock(latestStockUpdate)
+    }
+    latestStockUpdate = StockUpdate(revision: stockRevision, animals: animals)
+    return snapshot
   }
 
   private func jsonQuery(_ expression: String) async throws -> String {
@@ -395,6 +444,10 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
       view.configuration.userContentController.removeScriptMessageHandler(
         forName: "idleScreenEditor")
       onEditorPick = nil
+      view.configuration.userContentController.removeScriptMessageHandler(
+        forName: "idleScreenStock")
+      onStockChange = nil
+      latestStockUpdate = nil
       view.loadHTMLString("", baseURL: nil)
       resourceDirectory = nil
     }

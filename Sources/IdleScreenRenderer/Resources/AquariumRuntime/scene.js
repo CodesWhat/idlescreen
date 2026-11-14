@@ -1662,6 +1662,12 @@ function updateEcology(elapsed){
  }
  drawEcologyDetails(elapsed,all,true);
 }
+var stockCount,stockDeaths,stockBirths;
+function notifyStockChange(){
+ if(stockCount===ecology.animals.length&&stockDeaths===ecology.stats.deaths&&stockBirths===breeding.stats.births)return;
+ stockCount=ecology.animals.length;stockDeaths=ecology.stats.deaths;stockBirths=breeding.stats.births;
+ dispatchEvent(new CustomEvent('aquarium-stock-change',{detail:ecology.animals.map(({id,kind,species,variant,alive})=>({id,kind,species,variant:variant??null,alive}))}));
+}
 function drawEcologyDetails(elapsed,all,advance){
  const v=ecologyVisuals;if(!v)return;let eggCount=0;for(const batch of breeding.eggs)for(let i=0;i<batch.count&&eggCount<80;i++){const o=v.dummy;o.position.set(batch.position.x+Math.sin(i*2.4)*.045,batch.position.y+(i%3)*.025,batch.position.z+Math.cos(i*2.4)*.035);o.rotation.set(0,0,0);o.scale.setScalar(1);o.updateMatrix();v.eggs.setMatrixAt(eggCount++,o.matrix);}v.eggs.count=eggCount;v.eggs.instanceMatrix.needsUpdate=true;let dirt=0,shell=0;
  for(const d of ecology.deposits){
@@ -1679,7 +1685,7 @@ function drawEcologyDetails(elapsed,all,advance){
  for(let i=0;i<ecology.patches.length;i++){
   const patch=ecology.patches[i],o=v.dummy;o.position.set(patch.position.x,patch.position.y,patch.position.z);o.rotation.set(i<10?-Math.PI/2:0,0,0);o.scale.setScalar(Math.sqrt(patch.amount));o.updateMatrix();v.algae.setMatrixAt(i,o.matrix);
  }
- v.algae.count=ecology.patches.length;v.algae.instanceMatrix.needsUpdate=true;if(advance)retireSpentYoung();
+ v.algae.count=ecology.patches.length;v.algae.instanceMatrix.needsUpdate=true;if(advance)retireSpentYoung();notifyStockChange();
 }
 
 const tankCheckpoints=AquariumEcosystemCheckpointV1.create({ecology:AquariumEcology,breeding:AquariumBreeding,water:AquariumWaterEcosystem});
@@ -1761,7 +1767,7 @@ function addStock(request){
  placeStockAnimal(a);
  const mouth=animalPoint(a,'mouth');a.life.position={x:mouth.x,y:mouth.y,z:mouth.z};
  const supports=breedingSupports.map(s=>{s.mesh.updateWorldMatrix(true,false);const p=new THREE.Vector3().fromBufferAttribute(s.mesh.geometry.attributes.position,s.index).applyMatrix4(s.mesh.matrixWorld);return{id:s.id,kind:'plant',position:{x:p.x,y:p.y,z:p.z}};});
- breeding.synchronizeRoster(ecology.animals,{plantSupports:supports});render();return{id};
+ breeding.synchronizeRoster(ecology.animals,{plantSupports:supports});notifyStockChange();render();return{id};
 }
 function prepareStockRemovalHistory(id,identity){const change=AquariumRuntimeCheckpoint.removeStock(exportTank(identity),id,tankEnvelope);return{checkpointJSON:JSON.stringify(change.checkpoint),archive:change.archive};}
 function prepareStockRestoration(archive,identity){return{checkpointJSON:JSON.stringify(AquariumRuntimeCheckpoint.restoreStock(exportTank(identity),archive,tankEnvelope))};}
