@@ -10,6 +10,28 @@ import Testing
 @Suite("Aquarium display presentation planning")
 @MainActor
 struct AquariumPresentationPlanTests {
+  @Test(arguments: [
+    "com.idlescreen.aquarium-qa.dev", "com.idlescreen.aquarium-qa.review-one",
+    "com.idlescreen.aquarium-qa", "com.idlescreen.app.dev", "com.idlescreen.app",
+  ])
+  func isolatedQAStoreProfileAppliesOnlyToTheDebugQABundle(bundleID: String) throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let contents = directory.appending(path: "Review.bundle/Contents")
+    try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+    let expected = directory.appending(path: "private-tanks/aquariums-v1.json")
+    let info: [String: Any] = [
+      "CFBundleIdentifier": bundleID, "CFBundlePackageType": "BNDL",
+      "IdleScreenSharedContainerEnabled": "NO", "IdleScreenAquariumQAStorePath": expected.path,
+    ]
+    try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+      .write(to: contents.appending(path: "Info.plist"))
+    let bundle = try #require(Bundle(url: contents.deletingLastPathComponent()))
+    let result = IdleScreenAquariumProduct.storeURL(bundle: bundle)
+    #expect((result == expected) == bundleID.hasPrefix("com.idlescreen.aquarium-qa."))
+    #expect(!FileManager.default.fileExists(atPath: expected.path))
+  }
+
   @Test func nonAquariumMappingAndClocksIgnoreSavedTankEpoch() {
     let library = IdleScreenAquariumLibrary.starter
     let mapped = IdleScreenRendererConfigurationBridge.configuration(
