@@ -84,7 +84,7 @@ release_fixtures() {
 
 release_build() {
   xcodebuild build -quiet -project IdleScreen.xcodeproj -scheme IdleScreenApp \
-    -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+    -configuration Release -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
 }
 
 run_step clean-tree clean_tree
