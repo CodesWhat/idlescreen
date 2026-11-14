@@ -108,6 +108,26 @@ before swapping views. A restore or stale-save failure keeps the current surface
 and file intact. The replacement remains paused if the workspace hides during
 the operation. Layout history remains separate from animal removal. Pricing and an animal-specific undo history remain unfinished.
 
+## Selective animal history model
+
+`AquariumRuntimeCheckpoint.removeStock` returns a replacement checkpoint and a
+per-animal JSON archive. `restoreStock` applies that archive to a current
+checkpoint. Archives contain only the individual's life and visual binding,
+related parent/offspring records, carried brood and owned removal events. They
+are limited to 64 KiB of UTF-8. The existing `removingAnimal` API retains its
+checkpoint-only return value.
+
+Restoration retains current water, food, other lives, deposits and global random
+state and serials. The archived individual is paused outside the simulation;
+its absolute life, brood and visual timers shift to the current clocks. Only
+its own cancellation/removal effects are compensated. Deposited eggs remain in
+the current tank. Duplicate identities, changed capacity, malformed archives
+and a mismatched tank fail without mutating the input checkpoint.
+
+This is the tested domain model. Native history controls and physical placement
+checks for a returned individual are not yet connected. Callers must stage and
+validate the complete replacement before committing it, as with stock edits.
+
 ## Isolated native QA
 
 A Debug QA bundle with an identifier under `com.idlescreen.aquarium-qa.` can

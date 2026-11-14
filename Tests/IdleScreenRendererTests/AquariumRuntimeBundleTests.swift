@@ -687,6 +687,18 @@ struct AquariumRuntimeBundleTests {
     #expect(result["checks"] == 9)
   }
 
+  @Test func animalHistoryKeepsYoungAndTheirParents() async throws {
+    let result = try await runPresetFixture(
+      "stock-history", invocation: "runAquariumYoungStockHistory(aquariumStudy)")
+    #expect(result["checks"] == 6)
+  }
+
+  @Test func animalHistoryPreservesTheCurrentEcosystem() async throws {
+    let result = try await runPresetFixture(
+      "stock-history", invocation: "runAquariumStockHistory(aquariumStudy)")
+    #expect(result["checks"] == 20)
+  }
+
   @Test func reservedBroodsKeepTheirStockCapacity() async throws {
     let result = try await runPresetFixture(
       "stock-addition", invocation: "runAquariumReservedStock(aquariumStudy)")
