@@ -62,6 +62,16 @@ way that invalidates a mounted plant is rejected. Parent-following mounts remain
 open. See [equipment editing](AQUARIUM_EQUIPMENT.md) and
 [checkpoint persistence](AQUARIUM_CHECKPOINTS.md) for their current limits.
 
+## Finished animal inventory
+
+`AquariumTankConfiguration.stockCatalog` is the shared immutable inventory for
+supported individual animals. Stable `kind/variant` identities cover the 11 fish
+variants, 21 shrimp variants, Otocinclus, assassin and nerite snails already
+supported by the runtime. The native editor snapshot exposes the same entries.
+The mixed-color `skittles` tank preset is not an individual animal, and
+review-only forms are excluded. This registry does not implement purchases,
+pricing or an economy.
+
 ## Living animal removal
 
 The planted-tank inspector lists the retained animals. Removing a living animal

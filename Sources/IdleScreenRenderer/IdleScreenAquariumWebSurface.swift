@@ -60,6 +60,13 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     public let placement: String
   }
 
+  public struct StockAsset: Decodable, Equatable, Identifiable, Sendable {
+    public let id: String
+    public let label: String
+    public let kind: String
+    public let variant: String
+  }
+
   public struct StockAnimal: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
     public let kind: String
@@ -75,6 +82,7 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     public let catalog: [CatalogAsset]
     public let equipmentObjects: [PresetObject]
     public let animals: [StockAnimal]
+    public let stockCatalog: [StockAsset]
   }
 
   public enum EditorTool: String, Codable, Sendable {
@@ -144,6 +152,7 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     let catalog: [CatalogAsset]?
     let equipmentObjects: [PresetObject]?
     let animals: [StockAnimal]?
+    let stockCatalog: [StockAsset]?
     let error: String?
   }
 
@@ -289,11 +298,11 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     if let error = response.error { throw EditorError.rejected(error) }
     guard let objects = response.objects, let placedObjects = response.placedObjects,
       let catalog = response.catalog, let equipmentObjects = response.equipmentObjects,
-      let animals = response.animals
+      let animals = response.animals, let stockCatalog = response.stockCatalog
     else { throw EditorError.invalidResponse }
     return EditorSnapshot(
       revision: response.revision, objects: objects, placedObjects: placedObjects, catalog: catalog,
-      equipmentObjects: equipmentObjects, animals: animals)
+      equipmentObjects: equipmentObjects, animals: animals, stockCatalog: stockCatalog)
   }
 
   private func jsonQuery(_ expression: String) async throws -> String {
