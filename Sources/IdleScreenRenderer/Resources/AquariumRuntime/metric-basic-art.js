@@ -5,13 +5,51 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
+  function placementsFor({ tankHalf, cmPerUnit, backZ, frontZ, bedLevel, waterLevel }, input) {
+    function record(value, keys, label) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(label + ' must be an object');
+      for (const key of Reflect.ownKeys(value)) {
+        const property = Object.getOwnPropertyDescriptor(value, key);
+        if (typeof key !== 'string' || !keys.includes(key) || !property.enumerable || !Object.prototype.hasOwnProperty.call(property, 'value')) {
+          throw new TypeError(label + ' contains an unsupported field');
+        }
+      }
+    }
+    const centerZ = (backZ + frontZ) / 2, innerHalf = tankHalf * cmPerUnit - .6;
+    const innerBack = (backZ - centerZ) * cmPerUnit + .6, innerFront = (frontZ - centerZ) * cmPerUnit - .6;
+    const defaults = {
+      filter: { x: tankHalf * cmPerUnit - 11, y: bedLevel * cmPerUnit, z: innerBack + 6, rotationY: 0 },
+      heater: { x: tankHalf * cmPerUnit - 3.2, y: waterLevel * cmPerUnit - 28.5, z: innerBack + 2.5, rotationY: 0 },
+      thermometer: { x: -tankHalf * cmPerUnit + 4, y: waterLevel * cmPerUnit - 17, z: innerFront - 1.7, rotationY: 0 }
+    };
+    record(input, Object.keys(defaults), 'placementsCm');
+    const result = {};
+    for (const [name, fallback] of Object.entries(defaults)) {
+      const supplied = Object.prototype.hasOwnProperty.call(input, name) ? input[name] : {};
+      record(supplied, Object.keys(fallback), name);
+      const value = { ...fallback, ...supplied };
+      if (!Object.values(value).every(Number.isFinite)) throw new RangeError(name + ' placement must contain finite centimeters and radians');
+      if (Math.abs(value.y - fallback.y) > 1e-7 || value.rotationY !== 0 || name !== 'filter' && Math.abs(value.z - fallback.z) > 1e-7) {
+        throw new RangeError(name + ' must retain its supported height, mounting pane and orientation');
+      }
+      const radius = name === 'filter' ? 5.08 : name === 'heater' ? 1.25 : 1.02;
+      if (Math.abs(value.x) + radius > innerHalf + 1e-7 || name === 'filter' && (value.z - radius < innerBack - 1e-7 || value.z + radius > innerFront + 1e-7)) {
+        throw new RangeError(name + ' geometry crosses an inner glass pane');
+      }
+      result[name] = { x: value.x, y: fallback.y, z: name === 'filter' ? value.z : fallback.z, rotationY: 0 };
+    }
+    return result;
+  }
+
   function create(THREE, { tankHalf = 7, cmPerUnit = 36 / 8.4, backZ = -4.36, frontZ = 4.04,
-    waterLevel = 8.05, bedLevel = .7, rimY = 8.4 } = {}) {
+    waterLevel = 8.05, bedLevel = .7, rimY = 8.4, placementsCm: requestedPlacements = {} } = {}) {
     if (!Number.isFinite(cmPerUnit) || cmPerUnit <= 0) throw new RangeError('cmPerUnit must be positive and finite');
     const u = cm => cm / cmPerUnit;
     if (![tankHalf, backZ, frontZ, waterLevel, bedLevel, rimY].every(Number.isFinite)) throw new RangeError('Tank dimensions must be finite');
     if (tankHalf < u(20) || frontZ - backZ < u(20)) throw new RangeError('Basic assembly requires at least 40 by 20 cm floor area');
     if (bedLevel < 0 || waterLevel - bedLevel < u(28.9) || rimY - waterLevel < u(.8)) throw new RangeError('28 cm heater requires 28.9 cm water above substrate and .8 cm headspace');
+    const placementsCm = placementsFor({ tankHalf, cmPerUnit, backZ, frontZ, bedLevel, waterLevel }, requestedPlacements);
+    const centerZ = (backZ + frontZ) / 2;
     const wetGroup = new THREE.Group(), dryGroup = new THREE.Group();
     wetGroup.name = 'metric-basic-wet'; dryGroup.name = 'metric-basic-dry';
     const geometries = [], materials = [], maps = [], batches = new Map(), parts = {}, stack = [], routes = {}, mounts = [];
@@ -87,7 +125,7 @@
     }
 
     const innerBack = backZ + u(.6), innerFront = frontZ - u(.6);
-    const fx = tankHalf - u(11), fz = innerBack + u(6), hx = tankHalf - u(3.2), hz = innerBack + u(2.5);
+    const fx = u(placementsCm.filter.x), fz = centerZ + u(placementsCm.filter.z), hx = u(placementsCm.heater.x), hz = innerBack + u(2.5);
     const F = (x, y, z) => [fx + u(x), bedLevel + u(y), fz + u(z)];
     part('filter-weight', () => {
       cylinder(filter, black, F(0, 0, 0), F(0, .28, 0), 4.9, 5.08, 28);
@@ -166,7 +204,7 @@
       cylinder(heater, black, H(0, y - .38, 0), H(0, y + .38, 0), .98);
     });
 
-    const tx = -tankHalf + u(4), ty = waterLevel - u(17), tz = innerFront - u(1.7), T = (x, y, z) => [tx + u(x), ty + u(y), tz + u(z)];
+    const tx = u(placementsCm.thermometer.x), ty = waterLevel - u(17), tz = innerFront - u(1.7), T = (x, y, z) => [tx + u(x), ty + u(y), tz + u(z)];
     part('thermometer-body', () => {
       const profile = [[0, 0], [.24, .08], [.40, .31], [.48, .72], [.48, 13.38], [.42, 13.75], [.24, 13.96], [0, 14]];
       add(thermometer, glass, new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(u(r), u(y))), 12), T(0, 0, 0));
@@ -224,11 +262,11 @@
         heaterCableDiameterCm: .5, heaterSubmergenceCm: .5, glassThicknessCm: .6, rimClipWallCm: .18 }
     };
     const resources = { geometries, materials, maps };
-    wetGroup.userData = { cmPerUnit, dimensions }; dryGroup.userData = { cmPerUnit, routes, mounts, dimensions };
+    wetGroup.userData = { cmPerUnit, dimensions, placementsCm }; dryGroup.userData = { cmPerUnit, routes, mounts, dimensions, placementsCm };
     let disposed = false;
     function dispose() { if (disposed) return; disposed = true; for (const resource of [...geometries, ...materials, ...maps]) resource.dispose(); }
     return { wetGroup, dryGroup, resources, geometries, materials, maps, parts, routes, mounts, dimensions,
-      filterOutlet, filterOutletDirection, heaterEnd, airlineEnd, dispose };
+      filterOutlet, filterOutletDirection, heaterEnd, airlineEnd, placementsCm, dispose };
   }
   return { create };
 });

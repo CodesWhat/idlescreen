@@ -348,6 +348,15 @@ struct AquariumRuntimeBundleTests {
     try await surface.shutdown()
   }
 
+  @Test func equipmentPlacementsRegenerateBodiesRimLeadsAndCounterConnections() async throws {
+    let result = try await runPresetFixture(
+      "equipment-placement-check",
+      invocation:
+        "runAquariumEquipmentPlacementCheck(THREE,AquariumMetricBasicArt,AquariumMetricConnections)"
+    )
+    #expect(result["checks"] == 8)
+  }
+
   @Test func nativeEditorBridgeMovesObjectsAndRecoversFromRejectedEdits() async throws {
     let surface = IdleScreenAquariumWebSurface()
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
