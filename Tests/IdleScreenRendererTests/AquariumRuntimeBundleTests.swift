@@ -357,6 +357,111 @@ struct AquariumRuntimeBundleTests {
     #expect(result["checks"] == 8)
   }
 
+  @Test func liveEquipmentMovesPersistAndOldConfigurationsKeepDefaultHardware() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let initial = try await surface.beginEditing()
+    #expect(initial.equipmentObjects.count == 3)
+    let cleared = try await surface.applyPresetObjects(
+      expectedRevision: initial.revision, objects: [])
+    var moved = cleared.equipmentObjects
+    let index = try #require(moved.firstIndex { $0.id == "equipment/filter" })
+    moved[index].positionCm.x = -15
+    moved[index].positionCm.z = 8
+    let edited = try await surface.applyEquipmentObjects(
+      expectedRevision: cleared.revision, objects: moved)
+    #expect(edited.equipmentObjects == moved)
+    #expect(edited.objects.isEmpty)
+    #expect(edited.revision > cleared.revision)
+    let stable = try await surface.exportTank(id: "equipment-test", name: "Equipment")
+    var invalid = moved
+    invalid[index].positionCm.x = 29
+    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+      try await surface.applyEquipmentObjects(expectedRevision: edited.revision, objects: invalid)
+    }
+    #expect(try await surface.exportTank(id: "equipment-test", name: "Equipment") == stable)
+    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+      try await surface.applyEquipmentObjects(expectedRevision: cleared.revision, objects: moved)
+    }
+    let restored = IdleScreenAquariumWebSurface()
+    try await restored.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let reopened = try await restored.restoreTank(from: stable)
+    #expect(reopened.equipmentObjects == moved)
+    var legacy = try #require(JSONSerialization.jsonObject(with: stable) as? [String: Any])
+    var tank = try #require(legacy["tank"] as? [String: Any])
+    var config = try #require(tank["configuration"] as? [String: Any])
+    #expect(config["schemaVersion"] as? Int == 2)
+    config["schemaVersion"] = 1
+    config.removeValue(forKey: "equipment")
+    tank["configuration"] = config
+    legacy["tank"] = tank
+    let old = IdleScreenAquariumWebSurface()
+    try await old.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let oldState = try await old.restoreTank(from: JSONSerialization.data(withJSONObject: legacy))
+    #expect(oldState.equipmentObjects == initial.equipmentObjects)
+    try await surface.shutdown()
+    try await restored.shutdown()
+    try await old.shutdown()
+  }
+
+  @Test func liveEquipmentPreservesBiologyAndReleasesRejectedAndReplacedResources() async throws {
+    let result = try await runPresetFixture(
+      "equipment-live-check",
+      invocation:
+        "runAquariumEquipmentLiveCheck(aquariumStudy,AquariumMetricBasicArt,AquariumTankConfiguration,THREE,AquariumMossRockArt)"
+    )
+    #expect(result["checks"] == 9)
+  }
+
+  @Test func equipmentCanBePickedAndMovedThroughTheNativeCanvasBridge() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let initial = try await surface.beginEditing()
+    let cleared = try await surface.applyPresetObjects(
+      expectedRevision: initial.revision, objects: [])
+    let filter = try #require(cleared.equipmentObjects.first { $0.id == "equipment/filter" })
+    _ = try await surface.setEditorTool(.select)
+    var received: IdleScreenAquariumWebSurface.EditorPick?
+    surface.onEditorPick = { received = $0 }
+    try await clickTankPoint(
+      surface, point: .init(x: filter.positionCm.x, y: 14, z: filter.positionCm.z))
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while received == nil && ContinuousClock.now < deadline {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(try #require(received).id == filter.id)
+    _ = try await surface.setEditorTool(.move, selectedID: filter.id)
+    received = nil
+    try await clickTankPoint(surface, point: .init(x: -15, y: 5, z: 8))
+    let moveDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while received == nil && ContinuousClock.now < moveDeadline {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let point = try #require(received?.positionCm)
+    #expect(abs(point.x + 15) < 0.001 && abs(point.z - 8) < 0.001)
+    #expect(try await surface.editorSnapshot() == cleared)
+    try await surface.shutdown()
+  }
+
+  @Test func equipmentIdentitiesDoNotShadowExistingSavedObjectNames() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let initial = try await surface.beginEditing()
+    let empty = try await surface.applyPresetObjects(
+      expectedRevision: initial.revision, objects: [])
+    let plant = IdleScreenAquariumWebSurface.PresetObject(
+      id: "equipment-filter", assetId: "rotala",
+      positionCm: .init(x: -22, y: 5, z: 12), rotationY: 0)
+    let edited = try await surface.applyPlacedObjects(
+      expectedRevision: empty.revision, objects: [plant])
+    let ids =
+      edited.objects.map(\.id) + edited.placedObjects.map(\.id) + edited.equipmentObjects.map(\.id)
+    #expect(Set(ids).count == ids.count)
+    try await surface.shutdown()
+  }
+
   @Test func nativeEditorBridgeMovesObjectsAndRecoversFromRejectedEdits() async throws {
     let surface = IdleScreenAquariumWebSurface()
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)

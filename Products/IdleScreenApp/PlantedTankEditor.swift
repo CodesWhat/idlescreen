@@ -25,7 +25,7 @@ final class IdleScreenPlantedTankEditor {
   private(set) var pointerTool = IdleScreenAquariumWebSurface.EditorTool.select
   private(set) var placingAssetID: String?
   private var movingID: String?
-  private enum ObjectKind { case preset, placed }
+  private enum ObjectKind { case preset, placed, equipment }
   private struct LayoutEdit {
     let kind: ObjectKind
     let objects: [Object]
@@ -48,6 +48,15 @@ final class IdleScreenPlantedTankEditor {
         await self.handlePick(pick)
       }
     }
+  }
+
+  private var isEquipmentSelected: Bool {
+    snapshot?.equipmentObjects.contains(where: { $0.id == selectedID }) == true
+  }
+  var canRemoveSelected: Bool { selectedObject != nil && !isEquipmentSelected }
+  var canRotateSelected: Bool { !isEquipmentSelected }
+  var canChangeDepthSelected: Bool {
+    !["equipment/heater", "equipment/thermometer"].contains(selectedID ?? "")
   }
 
   var canMoveSelected: Bool {
@@ -123,12 +132,15 @@ final class IdleScreenPlantedTankEditor {
   var selectedObject: Object? {
     allObjects.first { $0.id == selectedID }
   }
-  var allObjects: [Object] { (snapshot?.objects ?? []) + (snapshot?.placedObjects ?? []) }
+  var allObjects: [Object] {
+    (snapshot?.objects ?? []) + (snapshot?.placedObjects ?? []) + (snapshot?.equipmentObjects ?? [])
+  }
 
   private func objects(_ kind: ObjectKind) -> [Object] {
     switch kind {
     case .preset: snapshot?.objects ?? []
     case .placed: snapshot?.placedObjects ?? []
+    case .equipment: snapshot?.equipmentObjects ?? []
     }
   }
 
@@ -186,12 +198,15 @@ final class IdleScreenPlantedTankEditor {
   func update(_ object: Object) async {
     guard allObjects.contains(where: { $0.id == object.id }) else { return }
     let kind: ObjectKind =
-      snapshot?.placedObjects.contains(where: { $0.id == object.id }) == true ? .placed : .preset
+      snapshot?.equipmentObjects.contains(where: { $0.id == object.id }) == true
+      ? .equipment
+      : snapshot?.placedObjects.contains(where: { $0.id == object.id }) == true ? .placed : .preset
     _ = await edit(objects(kind).map { $0.id == object.id ? object : $0 }, kind: kind)
   }
 
   func removeSelected() async {
-    guard let selectedID, allObjects.contains(where: { $0.id == selectedID }) else { return }
+    guard canRemoveSelected, let selectedID, allObjects.contains(where: { $0.id == selectedID })
+    else { return }
     let kind: ObjectKind =
       snapshot?.placedObjects.contains(where: { $0.id == selectedID }) == true ? .placed : .preset
     _ = await edit(objects(kind).filter { $0.id != selectedID }, kind: kind)
@@ -299,6 +314,9 @@ final class IdleScreenPlantedTankEditor {
           expectedRevision: snapshot.revision, objects: edit.objects)
       case .placed:
         self.snapshot = try await surface.applyPlacedObjects(
+          expectedRevision: snapshot.revision, objects: edit.objects)
+      case .equipment:
+        self.snapshot = try await surface.applyEquipmentObjects(
           expectedRevision: snapshot.revision, objects: edit.objects)
       }
       if !allObjects.contains(where: { $0.id == selectedID }) { selectedID = nil }

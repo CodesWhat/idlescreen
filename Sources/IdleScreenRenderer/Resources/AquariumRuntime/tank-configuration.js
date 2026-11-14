@@ -38,7 +38,7 @@
     'sceneStyle', 'current', 'breeding', 'navigation', 'rasterHeight', 'surface', 'premium', 'room',
     'ecology', 'condition', 'assets', 'inventory', 'lighting', 'direction', 'view', 'framing', 'mode',
     'preset', 'motion', 'clock', 'collisions', 'feeding', 'renderer', 'renderedFrames', 'drawCalls',
-    'triangles', 'camera', 'world', 'landmarks'];
+    'triangles', 'camera', 'world', 'landmarks', 'equipment'];
   const lightingKeys = ['depthSpread', 'output', 'shadows', 'shadowResolution', 'source', 'roomLevel',
     'roomMode', 'banks', 'ambient', 'fill', 'key', 'shadowSources'];
   const conditionKeys = ['level', 'label', 'particleCount', 'debrisCount', 'hardscapePatches', 'hazeOpacity', 'clock', 'mode'];
@@ -81,17 +81,31 @@
     if (!manual && value !== null) fail('INVALID_LEVEL_MODE', path + ' requires null for a derived level');
     return manual ? finite(value, 0, 1, path) : null;
   }
+  function equipment(value, setup) {
+    if (setup !== 'basic') {
+      if (value !== null) fail('INVALID_EQUIPMENT', 'Only the basic setup supports equipment placements');
+      return null;
+    }
+    record(value, ['filter', 'heater', 'thermometer'], undefined, 'equipment');
+    return Object.fromEntries(Object.entries(value).map(([name, pose]) => {
+      record(pose, ['x', 'y', 'z', 'rotationY'], undefined, 'equipment.' + name);
+      return [name, { x: finite(pose.x, -100, 100, name + '.x'), y: finite(pose.y, 0, 100, name + '.y'),
+        z: finite(pose.z, -100, 100, name + '.z'), rotationY: finite(pose.rotationY, 0, 0, name + '.rotationY') }];
+    }));
+  }
   function normalize(value) {
-    record(value, configurationKeys);
-    if (value.schemaVersion !== 1) fail('INVALID_SCHEMA', 'Only scene configuration schema 1 is supported');
+    record(value, [...configurationKeys, 'equipment'], configurationKeys);
+    const version = value.schemaVersion;
+    if (![1, 2].includes(version)) fail('INVALID_SCHEMA', 'Only scene configuration schemas 1 and 2 are supported');
+    record(value, version === 2 ? [...configurationKeys, 'equipment'] : configurationKeys);
     record(value.assets, assetKeys, assetKeys, 'assets');
     record(value.light, ['preset', 'count', 'output', 'spread'], undefined, 'light');
     record(value.room, ['mode', 'finish', 'manualLevel'], undefined, 'room');
     record(value.condition, ['mode', 'manualLevel'], undefined, 'condition');
     const roomMode = choice(value.room.mode, choices.roomMode, 'room.mode');
     const conditionMode = choice(value.condition.mode, choices.conditionMode, 'condition.mode');
-    return {
-      schemaVersion: 1,
+    const result = {
+      schemaVersion: version,
       setup: choice(value.setup, choices.setup, 'setup'),
       assets: Object.fromEntries(assetKeys.map(key => [key, choice(value.assets[key], choices.assets[key], 'assets.' + key)])),
       light: {
@@ -110,9 +124,12 @@
       condition: { mode: conditionMode,
         manualLevel: manualLevel(value.condition.manualLevel, conditionMode === 'manual', 'condition.manualLevel') }
     };
+    if (version === 2) result.equipment = equipment(value.equipment, result.setup);
+    return result;
   }
   function capture(state) {
     record(state, stateKeys, ['sceneStyle', 'current', 'rasterHeight', 'surface', 'room', 'condition', 'assets', 'lighting', 'preset'], 'scene state');
+    if (has(state, 'equipment')) record(state.equipment, ['supported', 'placementsCm', 'objects', 'outlet'], ['placementsCm'], 'equipment state');
     record(state.current, ['output'], undefined, 'current');
     record(state.surface, ['mode', 'impacts'], ['mode'], 'surface');
     record(state.room, ['finish', 'implemented'], ['finish'], 'room');
@@ -121,7 +138,8 @@
     const roomLevel = finite(state.lighting.roomLevel, 0, 1, 'lighting.roomLevel');
     const conditionLevel = finite(state.condition.level, 0, 1, 'condition.level');
     return normalize({
-      schemaVersion: 1, setup: state.sceneStyle, assets: state.assets,
+      schemaVersion: has(state, 'equipment') ? 2 : 1, setup: state.sceneStyle, assets: state.assets,
+      ...(has(state, 'equipment') ? { equipment: state.equipment.placementsCm } : {}),
       light: { preset: state.preset, count: state.lighting.banks, output: state.lighting.output, spread: state.lighting.depthSpread },
       room: { mode: state.lighting.roomMode, finish: state.room.finish,
         manualLevel: state.lighting.roomMode === 'auto' ? null : roomLevel },
@@ -132,9 +150,9 @@
   function planChanges(beforeValue, afterValue) {
     const before = normalize(beforeValue), after = normalize(afterValue), changes = [];
     function compare(a, b, prefix) {
-      for (const key of Object.keys(a)) {
+      for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
         const path = prefix ? prefix + '.' + key : key;
-        if (a[key] !== null && typeof a[key] === 'object') compare(a[key], b[key], path);
+        if (a[key] !== null && typeof a[key] === 'object' && b[key] !== null && typeof b[key] === 'object') compare(a[key], b[key], path);
         else if (a[key] !== b[key]) changes.push({ path, from: a[key], to: b[key] });
       }
     }
@@ -146,6 +164,7 @@
     return {
       schemaVersion: 1, before, after, changes, rebuild,
       refresh: {
+        ...(before.schemaVersion === 2 || after.schemaVersion === 2 ? { equipment: !rebuild && changes.some(c => c.path === 'equipment' || c.path.startsWith('equipment.')) } : {}),
         roomFromClock: changed('room.mode') && after.room.mode === 'auto',
         condition: changed('condition.mode', 'condition.manualLevel'),
         roomFinish: !rebuild && changed('room.finish'),

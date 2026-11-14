@@ -31,7 +31,7 @@ const lightDepthMaps=Object.fromEntries(['focused','natural','broad'].map(name=>
 let roomArt=null,roomFinish='neutral',lightSpread='natural',lightOutput=1;
 let roomLevel=1,tankLightCount=3,lampSpan=0,roomMode='auto',lastRoomCheck=-Infinity;
 let view='front',framing='whole',mode='desktop',preset='daylight',enabled=false,clock=0,last=0,handle=0,visibleWidth=tankHalf*2,worldWidth=tankHalf*2,lastDraw=0;
-let presetAssemblies=null,presetRevision=0,restoringTank=false;
+let presetAssemblies=null,presetRevision=0,restoringTank=false,basicEquipment=null,equipmentConnections=null,equipmentConnectionOptions=null;
 let botanicalArt=null,physicalParts=[],manzanitaArt=null,variedPlants=[];
 let sceneStyle='basic',lushPlants=null,premiumEquipment=null,hangOnFilter=null,carpetArt=null,mossFormation=null,surfaceNavigation=null,navigationSites=[],leafContacts=new Map(),flowField=null,pumpOutput=1,chromeFinish=null,co2Mist=[],nextReturnRipple=0;
 let surfaceStudy=null,surfaceMode='current';
@@ -390,7 +390,7 @@ function animal(kind,x,y,z,_legacyScale=1,phase=0,facing=1,species='assassin',op
  if(kind==='shrimp'){entry.contact=contact(x,z,1,1,.19);shrimps.push(entry);}else if(kind==='snail'){if(species!=='nerite')entry.contact=contact(x,z,1,1,.15);snails.push(entry);}else fish.push(entry);
  placeAnimal(entry);const mouth=animalPoint(entry,'mouth');life.position={x:mouth.x,y:mouth.y,z:mouth.z};return entry;
 }
-function clearWorld(){clearDesignerPlacement();presetAssemblies=null;botanicalArt=null;physicalParts=[];breedingSupports=[];stageFrameCache=new Map();manzanitaArt=null;variedPlants=[];surfaceStudy=null;lushPlants=null;premiumEquipment=null;hangOnFilter=null;carpetArt=null;mossFormation=null;surfaceNavigation=null;navigationSites=[];leafContacts=new Map();flowField=null;chromeFinish=null;co2Mist=[];nextReturnRipple=clock;if(roomArt){roomArt.group.removeFromParent();for(const resource of [...roomArt.geometries,...roomArt.materials,...roomArt.maps])resource.dispose();roomArt=null;}for(const p of pellets)ecology.retireFood(p.food.id);ecologyVisuals=null;world.traverse(object=>{if(object.isInstancedMesh)object.dispose();});world.clear();for(const g of new Set(geometries))g.dispose();for(const m of new Set(mats))m.dispose();for(const m of new Set(maps))m.dispose();geometries=[];mats=[];maps=[];fish=[];shrimps=[];snails=[];bubbles=[];plants=[];lightPools=[];lampEmitters=[];pellets=[];foodJar=null;sideWater=[];waterCondition=null;collisionWorld=null;lastSimulation=clock;pelletMaterial=null;pelletGeometry=null;random=makeRandom(8401);}
+function clearWorld(){releaseEquipment();clearDesignerPlacement();presetAssemblies=null;botanicalArt=null;physicalParts=[];breedingSupports=[];stageFrameCache=new Map();manzanitaArt=null;variedPlants=[];surfaceStudy=null;lushPlants=null;premiumEquipment=null;hangOnFilter=null;carpetArt=null;mossFormation=null;surfaceNavigation=null;navigationSites=[];leafContacts=new Map();flowField=null;chromeFinish=null;co2Mist=[];nextReturnRipple=clock;if(roomArt){roomArt.group.removeFromParent();for(const resource of [...roomArt.geometries,...roomArt.materials,...roomArt.maps])resource.dispose();roomArt=null;}for(const p of pellets)ecology.retireFood(p.food.id);ecologyVisuals=null;world.traverse(object=>{if(object.isInstancedMesh)object.dispose();});world.clear();for(const g of new Set(geometries))g.dispose();for(const m of new Set(mats))m.dispose();for(const m of new Set(maps))m.dispose();geometries=[];mats=[];maps=[];fish=[];shrimps=[];snails=[];bubbles=[];plants=[];lightPools=[];lampEmitters=[];pellets=[];foodJar=null;sideWater=[];waterCondition=null;collisionWorld=null;lastSimulation=clock;pelletMaterial=null;pelletGeometry=null;random=makeRandom(8401);}
 function makeBackdrop(){
  const geometry=new THREE.PlaneGeometry(tankHalf*2,waterLevel,24,16);
  const count=geometry.attributes.position.count;
@@ -957,7 +957,8 @@ function build(){
  plant(rx+.5,-1.8,2.7,true,18);plant(rx+1.8,1.4,1.3,false,22);plant(wx-1.65,1.5,1.45,false,8);plant(wx+1.2,.6,1.05,false,12);
  for(let i=bedContentsStart;i<world.children.length;i++)if(!world.children[i].userData.substratePlant)world.children[i].position.y+=bedLevel-.12;
  if(assets.decor==='skull-castle')makeSkullCastle(rx,bedLevel,-.3);if(assets.decor==='tetrapods')makeWaveBreakCluster(rx,bedLevel,-.3);
- const metricBasic=AquariumMetricBasicArt.create(THREE,{tankHalf,cmPerUnit,backZ:outerBack,frontZ,waterLevel,bedLevel,rimY:8.4});
+ const metricBasic=basicEquipment=AquariumMetricBasicArt.create(THREE,{tankHalf,cmPerUnit,backZ:outerBack,frontZ,waterLevel,bedLevel,rimY:8.4});
+ prepareEquipment(metricBasic);
  const filter=metricBasic.wetGroup.getObjectByName('sponge-filter'),heater=metricBasic.wetGroup.getObjectByName('aquarium-heater');
  filter.visible=heater.visible=metricBasic.dryGroup.visible=sceneStyle==='basic';
  world.add(metricBasic.wetGroup);if(sceneStyle==='basic')world.add(metricBasic.dryGroup);
@@ -1114,7 +1115,8 @@ function build(){
    const a=AquariumAnubiasArt.create(THREE,{seed:1101+i,growth:i?.65:.85});a.group.position.copy(hit.point);a.group.position.y+=.01;a.group.name='rock-mounted-anubias-'+i;world.add(a.group);for(const m of a.materials)rememberMaterial(m);geometries.push(...a.geometries);maps.push(...a.maps);plants.push({g:a.group,phase:i,sway:false});
   }
  }
- const hookups=AquariumMetricConnections.create(THREE,{tankHalf,cmPerUnit,backZ:outerBack,wallGap:3,premium:sceneStyle!=='basic',hob:sceneStyle==='waterfall',heaterEnd:metricBasic.heaterEnd,ledEnd:lamp.localToWorld(new THREE.Vector3(...lamp.userData.powerEnd)).toArray(),airlineEnd:metricBasic.airlineEnd});
+ equipmentConnectionOptions={tankHalf,cmPerUnit,backZ:outerBack,wallGap:3,premium:sceneStyle!=='basic',hob:sceneStyle==='waterfall',ledEnd:lamp.localToWorld(new THREE.Vector3(...lamp.userData.powerEnd)).toArray()};
+ const hookups=equipmentConnections=AquariumMetricConnections.create(THREE,{...equipmentConnectionOptions,heaterEnd:metricBasic.heaterEnd,airlineEnd:metricBasic.airlineEnd});
  if(sceneStyle==='lush'){
   filter.visible=heater.visible=false;for(const bubble of bubbles)bubble.o.visible=false;
   premiumEquipment=AquariumMetricEquipmentArt.create(THREE,{tankHalf,cmPerUnit,backZ:outerBack,frontZ,waterLevel,bedLevel,rimY:8.4,stripPlug:{filter:hookups.group.getObjectByName('heater-plug').position.toArray(),co2:hookups.group.getObjectByName('pump-plug').position.toArray()}});
@@ -1215,14 +1217,18 @@ function replyDesigner(error){
 function refreshDesignerSelection(){
  if(!designerActive||!designerRuntime)return;
  if(!designerSelection){designerSelection=new THREE.Box3Helper(new THREE.Box3(),0xf1cf72);designerSelection.name='designer-selection';designerSelection.material.depthTest=false;designerSelection.material.transparent=true;designerSelection.material.opacity=.8;designerSelection.renderOrder=10;scene.add(designerSelection);}
- const selected=designerSelectedId&&(designerRuntime.group.getObjectByName('designer-'+designerSelectedId)||(designerSelectionScope==='all'?world.getObjectByName('preset-'+designerSelectedId):null));designerSelection.visible=!!selected&&visibleInWorld(selected);if(designerSelection.visible)designerSelection.box.setFromObject(selected,true);
+ const selected=designerSelectedId&&(designerRuntime.group.getObjectByName('designer-'+designerSelectedId)||(designerSelectionScope==='all'?world.getObjectByName('preset-'+designerSelectedId):null));
+ const groups=selected?[selected]:designerSelectionScope==='all'&&equipmentObjects().some(o=>o.id===designerSelectedId)?equipmentGroups(designerSelectedId):[];
+ designerSelection.box.makeEmpty();for(const group of groups)if(visibleInWorld(group))designerSelection.box.expandByObject(group,true);designerSelection.visible=!designerSelection.box.isEmpty();
 }
 function visibleInWorld(object){
  if(!object)return false;for(let parent=object;parent;parent=parent.parent)if(!parent.visible)return false;return true;
 }
 function captureBaselineCollisions(){
  const hardMaterials=new Set([M.wood,M.slateTop,M.slateSide]);
- collisionWorld.capture(world,object=>{
+ const lines=sceneStyle==='basic'?basicEquipment?.dryGroup.getObjectByName('basic-over-rim-lines'):null,parent=lines?.parent;
+ if(parent)world.attach(lines);
+ try{collisionWorld.capture(world,object=>{
   if(!visibleInWorld(object))return false;
   for(let parent=object;parent&&parent!==world;parent=parent.parent)if(parent.userData.designerId)return false;
   object.userData.presetOwner=presetAssemblies?.ownerOf(object)||null;
@@ -1233,7 +1239,7 @@ function captureBaselineCollisions(){
   const materials=Array.isArray(object.material)?object.material:[object.material];
   if(materials.some(material=>hardMaterials.has(material))){object.userData.hardscape=true;return true;}
   return false;
- });
+ });}finally{if(parent)parent.attach(lines);}
  baselineCollisionMeshes=collisionWorld.meshes;
 }
 function applyPresetObjects(message){
@@ -1268,8 +1274,69 @@ function recaptureDesignerCollisions(){
  for(const source of [...baselineCollisionMeshes,...designerRuntime.validSolids]){const copy=new THREE.Mesh(source.geometry,source.material);copy.name=source.name;copy.userData={...source.userData};copy.matrixAutoUpdate=false;copy.matrix.copy(source.matrixWorld);temporary.add(copy);}
  collisionWorld.capture(temporary,()=>true);temporary.clear();designerSolidSignature=designerRuntime.validSolids.map(m=>m.uuid).join('|');
 }
-function createDesignerPlacement(){
- return AquariumDesignerPlacement.create(THREE,{factories:{floating:AquariumFloatingPlantsV2,epiphyte:AquariumEpiphytePlantsV2,rooted:AquariumRootedPlantsV2,manzanita:AquariumManzanitaArt,mossRock:AquariumMossRockArt,dragon:AquariumDragonDriftwoodV1},cmPerUnit,tankHalf,backZ:outerBack,frontZ,bedLevel,waterLevel,solids:baselineCollisionMeshes,mountSolids:baselineCollisionMeshes.filter(o=>o.userData.hardscape&&!o.userData.equipmentSolid)});
+const equipmentDefinitions={
+ 'equipment/filter':{slot:'filter',assetId:'aquarium-co-op-coarse-sponge-filter',groups:['sponge-filter','filter-riser-above-water'],mount:'substrate'},
+ 'equipment/heater':{slot:'heater',assetId:'glass-heater',groups:['aquarium-heater'],mount:'back-glass'},
+ 'equipment/thermometer':{slot:'thermometer',assetId:'glass-thermometer',groups:['aquarium-thermometer'],mount:'front-glass'}
+};
+function equipmentGroups(id,asset=basicEquipment){return asset?(equipmentDefinitions[id]?.groups||[]).map(name=>asset.wetGroup.getObjectByName(name)||asset.dryGroup.getObjectByName(name)).filter(Boolean):[];}
+function equipmentObjects(){
+ if(sceneStyle!=='basic'||!basicEquipment)return [];
+ return Object.entries(equipmentDefinitions).map(([id,definition])=>{const p=basicEquipment.placementsCm[definition.slot];return{id,assetId:definition.assetId,positionCm:{x:p.x,y:p.y,z:p.z},rotationY:p.rotationY};});
+}
+function equipmentState(){return{supported:sceneStyle==='basic',placementsCm:sceneStyle==='basic'&&basicEquipment?JSON.parse(JSON.stringify(basicEquipment.placementsCm)):null,objects:equipmentObjects(),outlet:{...filterOutlet}};}
+function prepareEquipment(asset){
+ const riser=asset.dryGroup.getObjectByName('filter-riser-above-water');if(riser){asset.wetGroup.attach(riser);riser.visible=sceneStyle==='basic';}
+ for(const id of Object.keys(equipmentDefinitions))for(const group of equipmentGroups(id,asset))group.traverse(object=>{if(object.isMesh)Object.assign(object.userData,{editorEquipmentId:id,equipmentSolid:true,hardEquipment:true,hardscape:false});});
+ const lines=asset.dryGroup.getObjectByName('basic-over-rim-lines');lines?.traverse(object=>{if(object.isMesh)Object.assign(object.userData,{editorEquipmentId:'equipment/lines',equipmentSolid:true,hardEquipment:true,hardscape:false});});
+ asset.wetGroup.updateMatrixWorld(true);asset.dryGroup.updateMatrixWorld(true);
+}
+function disposeEquipmentAsset(asset){
+ if(!asset)return;asset.wetGroup?.removeFromParent();asset.dryGroup?.removeFromParent();asset.group?.removeFromParent();
+ const gs=new Set(asset.geometries),ms=new Set(asset.materials),ts=new Set(asset.maps);
+ geometries=geometries.filter(g=>!gs.has(g));mats=mats.filter(m=>!ms.has(m));maps=maps.filter(t=>!ts.has(t));
+ if(roomArt){roomArt.geometries=roomArt.geometries.filter(g=>!gs.has(g));roomArt.materials=roomArt.materials.filter(m=>!ms.has(m));roomArt.maps=roomArt.maps.filter(t=>!ts.has(t));}
+ if(asset.dispose)asset.dispose();else for(const resource of new Set([...gs,...ms,...ts]))resource.dispose();
+}
+function releaseEquipment(){disposeEquipmentAsset(basicEquipment);disposeEquipmentAsset(equipmentConnections);basicEquipment=null;equipmentConnections=null;equipmentConnectionOptions=null;}
+function registerEquipment(asset,connections){
+ const wetMaterials=new Set();asset.wetGroup.traverse(o=>{if(o.isMesh)wetMaterials.add(o.material);});
+ for(const m of asset.materials){if(wetMaterials.has(m))m.clippingPlanes=tankClip;mats.push(m);}geometries.push(...asset.geometries);maps.push(...asset.maps);
+ world.add(asset.wetGroup);roomArt.group.add(asset.dryGroup,connections.group);roomArt.geometries.push(...connections.geometries);roomArt.materials.push(...connections.materials);roomArt.maps.push(...connections.maps);
+}
+function equipmentEffects(outlet){Object.assign(filterOutlet,outlet);for(const bubble of bubbles){bubble.x=filterOutlet.x;bubble.z=filterOutlet.z;}}
+function applyEquipmentObjects(message){
+ let candidate=null,connections=null,staged=null,previous=null,committed=false;const revision=presetRevision;
+ try{
+  if(mode!=='desktop'||!designerActive||sceneStyle!=='basic'||!basicEquipment)throw new Error('Open the basic tank editor before editing equipment');
+  if(!Number.isSafeInteger(message?.expectedRevision)||message.expectedRevision!==presetRevision)throw new Error('Preset revision is stale');
+  if(!Array.isArray(message.objects)||message.objects.length!==3)throw new Error('All three equipment components are required');
+  const poses={},seen=new Set();for(const item of message.objects){const definition=equipmentDefinitions[item?.id];if(!definition||item.assetId!==definition.assetId||seen.has(item.id))throw new Error('Unknown or duplicate equipment identity');if(!item.positionCm||Array.isArray(item.positionCm)||!['x','y','z'].every(key=>typeof item.positionCm[key]==='number'&&Number.isFinite(item.positionCm[key]))||!Number.isFinite(item.rotationY))throw new Error('Equipment edits require complete finite poses');seen.add(item.id);poses[definition.slot]={x:item.positionCm.x,y:item.positionCm.y,z:item.positionCm.z,rotationY:item.rotationY};}
+  candidate=AquariumMetricBasicArt.create(THREE,{tankHalf,cmPerUnit,backZ:outerBack,frontZ,waterLevel,bedLevel,rimY:8.4,placementsCm:poses});prepareEquipment(candidate);
+  if(JSON.stringify(candidate.placementsCm)===JSON.stringify(basicEquipment.placementsCm))return{revision:presetRevision};
+  const external=baselineCollisionMeshes.filter(mesh=>!mesh.userData.editorEquipmentId),parts=Object.fromEntries(Object.keys(equipmentDefinitions).map(id=>[id,equipmentGroups(id,candidate).flatMap(group=>{const out=[];group.traverse(o=>{if(o.isMesh)out.push(o);});return out;})]));
+  const rimValidator=AquariumDesignerPlacement.create(THREE,{factories:{},cmPerUnit,tankHalf,backZ:outerBack,frontZ,bedLevel,waterLevel:8.4});
+  try{for(const id of Object.keys(equipmentDefinitions))for(const group of equipmentGroups(id,candidate)){
+   const obstacles=[...external,...Object.entries(parts).filter(([other])=>other!==id).flatMap(([,meshes])=>meshes),...designerRuntime.validSolids];
+   const validator=group.name==='filter-riser-above-water'?rimValidator:designerRuntime,result=validator.inspectObject(group,{solids:obstacles,placement:'transform'});if(!result.valid)throw new Error(result.reason);
+  }}finally{rimValidator.dispose();}
+  const lines=candidate.dryGroup.getObjectByName('basic-over-rim-lines'),lineMeshes=[];lines.traverse(o=>{if(o.isMesh)lineMeshes.push(o);});
+  const leadValidator=AquariumDesignerPlacement.create(THREE,{factories:{},cmPerUnit,tankHalf,backZ:outerBack-2/cmPerUnit,frontZ,bedLevel,waterLevel:8.4+1/cmPerUnit});
+  try{const result=leadValidator.inspectObject(lines,{solids:[...external,...designerRuntime.validSolids],placement:'transform'});if(!result.valid)throw new Error('Cable or airline placement is blocked: '+result.reason);}finally{leadValidator.dispose();}
+  const environment=[...external,...Object.values(parts).flat(),...lineMeshes];staged=createDesignerPlacement(environment);staged.setLayout(designerLayout);const invalid=staged.status.find(item=>!item.valid);if(invalid)throw new Error('Equipment invalidates '+invalid.id+': '+invalid.reason);
+  connections=AquariumMetricConnections.create(THREE,{...equipmentConnectionOptions,heaterEnd:candidate.heaterEnd,airlineEnd:candidate.airlineEnd});
+  previous={asset:basicEquipment,connections:equipmentConnections,outlet:{...filterOutlet}};
+  previous.asset.wetGroup.removeFromParent();previous.asset.dryGroup.removeFromParent();previous.connections.group.removeFromParent();
+  basicEquipment=candidate;equipmentConnections=connections;committed=true;registerEquipment(candidate,connections);equipmentEffects(candidate.filterOutlet);
+  captureBaselineCollisions();designerRuntime.setEnvironment({solids:baselineCollisionMeshes,mountSolids:baselineCollisionMeshes.filter(mesh=>mesh.userData.hardscape&&!mesh.userData.equipmentSolid)});recaptureDesignerCollisions();rebuildSurfaceNavigation(false);buildBreedingSupports();presetRevision++;render();
+  disposeEquipmentAsset(previous.asset);disposeEquipmentAsset(previous.connections);return{revision:presetRevision};
+ }catch(error){
+  if(committed){disposeEquipmentAsset(candidate);disposeEquipmentAsset(connections);candidate=null;connections=null;basicEquipment=previous.asset;equipmentConnections=previous.connections;world.add(basicEquipment.wetGroup);roomArt.group.add(basicEquipment.dryGroup,equipmentConnections.group);equipmentEffects(previous.outlet);presetRevision=revision;captureBaselineCollisions();designerRuntime.setEnvironment({solids:baselineCollisionMeshes,mountSolids:baselineCollisionMeshes.filter(mesh=>mesh.userData.hardscape&&!mesh.userData.equipmentSolid)});recaptureDesignerCollisions();rebuildSurfaceNavigation(false);buildBreedingSupports();}
+  return{revision:presetRevision,error:error.message};
+ }finally{staged?.dispose();if(!committed){disposeEquipmentAsset(candidate);disposeEquipmentAsset(connections);}}
+}
+function createDesignerPlacement(environment=baselineCollisionMeshes){
+ return AquariumDesignerPlacement.create(THREE,{factories:{floating:AquariumFloatingPlantsV2,epiphyte:AquariumEpiphytePlantsV2,rooted:AquariumRootedPlantsV2,manzanita:AquariumManzanitaArt,mossRock:AquariumMossRockArt,dragon:AquariumDragonDriftwoodV1},cmPerUnit,tankHalf,backZ:outerBack,frontZ,bedLevel,waterLevel,solids:environment,mountSolids:environment.filter(o=>o.userData.hardscape&&!o.userData.equipmentSolid)});
 }
 function applyPlacedObjects(message){
  let staged=null;
@@ -1303,7 +1370,7 @@ function applyDesigner(message){
   if(!['select','place','move'].includes(tool))throw new Error('Unknown designer pointer tool');
   const selectionScope=message.selectionScope??designerSelectionScope;
   if(!['added','all'].includes(selectionScope))throw new Error('Unknown editor selection scope');
-  if(selectedId!==null&&!normalized.instances.some(i=>i.id===selectedId)&&!(selectionScope==='all'&&presetAssemblies?.snapshot().some(i=>i.id===selectedId)))throw new Error('Selected designer instance does not exist');
+  if(selectedId!==null&&!normalized.instances.some(i=>i.id===selectedId)&&!(selectionScope==='all'&&(presetAssemblies?.snapshot().some(i=>i.id===selectedId)||equipmentObjects().some(i=>i.id===selectedId))))throw new Error('Selected designer instance does not exist');
   if(tool==='place'&&!AquariumDesignerModel.catalog.some(a=>a.id===assetId))throw new Error('Place mode needs a known specimen');
   const first=!designerRuntime,baseChanged=normalized.base.setup!==sceneStyle,signature=JSON.stringify(normalized.instances),layoutChanged=signature!==designerLayoutSignature;
   if(!first&&!baseChanged&&signature!==designerLayoutSignature)designerRuntime.setLayout(normalized);
@@ -1322,16 +1389,19 @@ function pickDesigner(event){
   const hits=raycaster.intersectObject(designerRuntime.group,true);
   if(designerSelectionScope==='all')hits.push(...raycaster.intersectObjects([...presetAssemblies.meshes(),...collisionWorld.meshes],false));
   hits.sort((a,b)=>a.distance-b.distance);
-  const hit=hits[0],id=hit?(hit.object.userData.designerId||(designerSelectionScope==='all'?(presetAssemblies.ownerOf(hit.object)||hit.object.userData.presetOwner):null)):null;
+  const hit=hits[0],id=hit?(hit.object.userData.designerId||(designerSelectionScope==='all'?(presetAssemblies.ownerOf(hit.object)||hit.object.userData.presetOwner||(equipmentObjects().some(o=>o.id===hit.object.userData.editorEquipmentId)?hit.object.userData.editorEquipmentId:null)):null)):null;
   parent.postMessage({type:'aquarium-designer-pick',revision:presetRevision,tool:designerTool,toolGeneration:designerRequestId,id:id??null},'*');return;
  }
  const presetObject=designerSelectionScope==='all'&&designerTool==='move'?presetAssemblies.snapshot().find(i=>i.id===designerSelectedId):null;
- const item=designerLayout.instances.find(i=>i.id===designerSelectedId),assetId=designerTool==='place'?designerAssetId:item?.assetId,definition=presetObject?{placement:'preset'}:AquariumDesignerModel.catalog.find(a=>a.id===assetId);if(!definition)return;
+ const equipmentObject=designerSelectionScope==='all'&&designerTool==='move'?equipmentObjects().find(i=>i.id===designerSelectedId):null;
+ const supportedObject=equipmentObject||presetObject,equipmentMount=equipmentObject&&equipmentDefinitions[equipmentObject.id].mount;
+ const item=designerLayout.instances.find(i=>i.id===designerSelectedId),assetId=designerTool==='place'?designerAssetId:item?.assetId,definition=supportedObject?{placement:'preset'}:AquariumDesignerModel.catalog.find(a=>a.id===assetId);if(!definition)return;
  let hit;
  if(definition.placement==='attached')hit=raycaster.intersectObjects(collisionWorld.meshes.filter(m=>m.userData.hardscape&&!m.userData.equipmentSolid),false).find(h=>h.face.normal.clone().transformDirection(h.object.matrixWorld).y>=.5)?.point;
- else hit=raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-(presetObject?presetObject.positionCm.y/cmPerUnit:definition.placement==='floating'?waterLevel:bedLevel)),new THREE.Vector3());
+ else if(equipmentObject&&equipmentMount!=='substrate')hit=raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,0,1),-(centerZ+equipmentObject.positionCm.z/cmPerUnit)),new THREE.Vector3());
+ else hit=raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-(supportedObject?supportedObject.positionCm.y/cmPerUnit:definition.placement==='floating'?waterLevel:bedLevel)),new THREE.Vector3());
  if(!hit||Math.abs(hit.x)>innerHalf+1e-7||hit.z<backBound-1e-7||hit.z>frontBound+1e-7||hit.y<bedLevel-1e-7||hit.y>waterLevel+1e-7)return;
- const positionCm={x:THREE.MathUtils.clamp(hit.x*cmPerUnit,-29.4,29.4),y:presetObject?presetObject.positionCm.y:definition.placement==='attached'?THREE.MathUtils.clamp(hit.y*cmPerUnit,5,34.5):definition.placement==='floating'?34.5:5,z:THREE.MathUtils.clamp((hit.z-centerZ)*cmPerUnit,-17.4,17.4)};
+ const positionCm={x:THREE.MathUtils.clamp(hit.x*cmPerUnit,-29.4,29.4),y:supportedObject?supportedObject.positionCm.y:definition.placement==='attached'?THREE.MathUtils.clamp(hit.y*cmPerUnit,5,34.5):definition.placement==='floating'?34.5:5,z:equipmentObject&&equipmentMount!=='substrate'?equipmentObject.positionCm.z:THREE.MathUtils.clamp((hit.z-centerZ)*cmPerUnit,-17.4,17.4)};
  parent.postMessage({type:'aquarium-designer-pick',revision:presetRevision,tool:designerTool,toolGeneration:designerRequestId,...(designerTool==='move'?{id:designerSelectedId}:{}),positionCm},'*');
 }
 function updateDesigner(){
@@ -1627,6 +1697,7 @@ function restoreTankJSON(text){
  const current=window.aquariumStudy.state.physical.tankCm,g=document.layout.geometry;
  if(g.outerCm.width!==current.width||g.outerCm.depth!==current.depth||g.outerCm.height!==current.height||g.glassCm!==current.glass||g.bedCm!==current.bed||g.waterCm!==current.water)throw new Error('Unsupported physical tank geometry');
  const restored=tankCheckpoints.restore(document.checkpoint.data),r=saved.runtime;
+ if(configuration.schemaVersion===2&&configuration.equipment){const checked=AquariumMetricBasicArt.create(THREE,{tankHalf,cmPerUnit,backZ:outerBack,frontZ,waterLevel,bedLevel,rimY:8.4,placementsCm:configuration.equipment});checked.dispose();}
  Object.assign(assets,configuration.assets);sceneStyle=configuration.setup;rasterHeight=configuration.rasterHeight;
  preset=configuration.light.preset;tankLightCount=configuration.light.count;lightOutput=configuration.light.output;lightSpread=configuration.light.spread;
  roomMode=configuration.room.mode;roomFinish=configuration.room.finish;if(configuration.room.manualLevel!==null)roomLevel=configuration.room.manualLevel;
@@ -1636,6 +1707,7 @@ function restoreTankJSON(text){
  restoringTank=true;try{build();resize();}finally{restoringTank=false;}
  const base=document.layout.objects.filter(o=>o.id.startsWith('base-')),added=document.layout.objects.filter(o=>!o.id.startsWith('base-'));
  const baseResult=applyPresetObjects({expectedRevision:presetRevision,objects:base});if(baseResult.error)throw new Error(baseResult.error);
+ if(configuration.schemaVersion===2&&configuration.equipment){const eq=equipmentObjects().map(item=>({...item,positionCm:configuration.equipment[equipmentDefinitions[item.id].slot],rotationY:0}));const result=applyEquipmentObjects({expectedRevision:presetRevision,objects:eq});if(result.error)throw new Error(result.error);}
  const placement=applyDesigner({layout:{...designerLayout,instances:added}});if(placement.error||placement.status.some(s=>!s.valid))throw new Error(placement.error||'Saved specimen placement is invalid');
  ecology=restored.ecology;breeding=restored.breeding;water=restored.water;accountedDissolved=restored.accountedDissolved;
  clock=r.clock;lastSimulation=clock;ecologyRate=r.ecologyRate;feedStarted=r.feedStarted;feedSequence=r.feedSequence;automaticFeedCount=r.automaticFeedCount;manualFeedCount=r.manualFeedCount;lastFeedReason=r.lastFeedReason;nextFeedDue=r.nextFeedDue;
@@ -1660,6 +1732,6 @@ document.getElementById('jar-target').addEventListener('click',event=>{event.sto
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));document.getElementById('motion').addEventListener('click',()=>setMotion(!enabled));
 document.addEventListener('visibilitychange',()=>{if(handle)cancelAnimationFrame(handle);handle=0;last=0;if(enabled&&!document.hidden)handle=requestAnimationFrame(animate);});addEventListener('resize',resize);
 function landmarks(){camera.updateMatrixWorld();const points={floorBack:[0,bedLevel,backBound],floorFront:[0,bedLevel,frontBound],bottomLeft:[-tankHalf,0,4.04],bottomRight:[tankHalf,0,4.04],frontTopLeft:[-tankHalf,8.4,4.04],frontTopRight:[tankHalf,8.4,4.04],rearTopLeft:[-tankHalf,8.4,outerBack],rearTopRight:[tankHalf,8.4,outerBack],lamp:[0,9.36,-.4],foodJarTop:[-visibleWidth*.29,10.35,-.4],surfaceBack:[0,waterLevel,backBound],surfaceFront:[0,waterLevel,frontBound],filterOutlet:[filterOutlet.x,filterOutlet.y,filterOutlet.z],woodTop:[-visibleWidth*.29-.35,6.4+bedLevel-.12,-.7]};return Object.fromEntries(Object.entries(points).map(([name,p])=>{const v=new THREE.Vector3(...p).project(camera);return[name,{x:Math.round((v.x*.5+.5)*1000)/10,y:Math.round((.5-v.y*.5)*1000)/10}];}));}
-window.aquariumStudy={exportTank,restoreTankJSON,applyPresetObjects,applyPlacedObjects,maintainTank,applyDesigner,get designer(){return designerState();},setGlassPane,setPumpOutput,setSceneStyle,setSurfaceMode,setRoomFinish,setLightSpread,setLightOutput,setEcologyRate,previewLifeEvent,setAsset,setCondition,setConditionMode,setResolution,setView,setFraming,setLight,setRoomLight,setTankLightCount,setRoomMode,setMotion,setMode,feed,info:()=>window.aquariumStudy.state,get state(){return{presetRevision,water:{...water.readings(),elapsedSeconds:water.snapshot().elapsedSeconds,volumeL:50,volumeBasis:'authored effective water volume estimate; excludes tank glass, substrate and hardscape',massBasis:'mg nitrogen; 4 mg-N per dissolved game waste unit'},presetObjects:presetAssemblies?.snapshot()||[],designer:designerState(),glass:{panes:['front','left','right','back'],attachments:[...fish,...shrimps,...snails].filter(a=>a.surfaceMotion?.surface==='glass').map(a=>({id:a.life.id,pane:a.surfaceMotion.pane,pose:a.frames[0].pose||'legacy'}))},projection:{kind:'perspective',worldSizeChangesWithDepth:false},botanical:{species:botanicalArt?.assets.map(a=>a.species)||[],omitted:botanicalArt?.omitted||[],contacts:botanicalArt?.grazeSites.length||0},physical:{cmPerUnit,tankCm:{width:60,depth:36,height:36,glass:.6,bed:5,water:34.5},scaleStatus:'metric-reference',parts:physicalParts},sceneStyle,current:{output:pumpOutput},breeding:{broods:breeding.broods.length,eggs:breeding.eggs.reduce((n,b)=>n+b.count,0),young:breeding.offspring.length,stats:breeding.stats},navigation:{...(surfaceNavigation?.stats||{nodes:0}),canopySites:navigationSites.filter(s=>s.id?.startsWith('canopy-')).length},rasterHeight,surface:{mode:surfaceMode,impacts:surfaceStudy?.group.children.filter(o=>o.visible).length||0},premium:{implemented:!!premiumEquipment,carpet:!!lushPlants,floaters:lushPlants?.floaters.length||0},room:{finish:roomFinish,implemented:!!roomArt},ecology:{seconds:ecology.seconds,rate:ecologyRate,stats:{...ecology.stats},animals:ecology.animals.map(a=>({id:a.id,species:a.species,state:a.state,alive:a.alive,hunger:a.hunger,health:a.health})),deposits:ecology.deposits.length},condition:{...waterCondition?.state,mode:conditionMode},assets:{...assets},inventory:{tank:1,gravel:1,rock:assets.decor==='none'?1:0,ornament:assets.decor!=='none'?1:0,driftwood:1,fixture:1,thermometer:1,plantSpecies:sceneStyle==='lush'?4:2,filter:1,shrimpSpecies:1,fishSpecies:2,snailSpecies:2},lighting:{depthSpread:lightSpread,output:lightOutput,shadows:renderer.shadowMap.enabled,shadowResolution:512,source:'Downward LED banks',roomLevel,roomMode,banks:tankLightCount,ambient:ambient.intensity,fill:fill.intensity,key:tankLights.reduce((sum,light)=>sum+light.intensity,0),shadowSources:tankLights.filter(light=>light.castShadow).length},direction:'B',view,framing,mode,preset,motion:enabled,clock,collisions:{solids:collisionWorld?.count||0,settled:pellets.filter(p=>p.settled).length,solidLandings:pellets.filter(p=>p.o.userData.landedOn==='solid').length},feeding:{automaticCount:automaticFeedCount,manualCount:manualFeedCount,lastReason:lastFeedReason,nextDue:nextFeedDue,sequence:feedSequence},renderer:'Actual pixel-textured 3D with shared A/B sprite billboards',renderedFrames,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,camera:{kind:'PerspectiveCamera',fov:camera.fov,position:[0,eyeHeight,eyeDepth],target:[0,eyeHeight,0],pitchDegrees:0,horizonPercent:horizon*100,aspect:camera.aspect},world:{width:worldWidth,floorY:bedLevel,floorBackZ:backBound,floorFrontZ:frontBound,waterY:waterLevel,waterBackZ:backBound,waterFrontZ:frontBound},landmarks:landmarks()};}};
+window.aquariumStudy={exportTank,restoreTankJSON,applyPresetObjects,applyEquipmentObjects,get equipment(){return equipmentState();},applyPlacedObjects,maintainTank,applyDesigner,get designer(){return designerState();},setGlassPane,setPumpOutput,setSceneStyle,setSurfaceMode,setRoomFinish,setLightSpread,setLightOutput,setEcologyRate,previewLifeEvent,setAsset,setCondition,setConditionMode,setResolution,setView,setFraming,setLight,setRoomLight,setTankLightCount,setRoomMode,setMotion,setMode,feed,info:()=>window.aquariumStudy.state,get state(){return{presetRevision,equipment:equipmentState(),water:{...water.readings(),elapsedSeconds:water.snapshot().elapsedSeconds,volumeL:50,volumeBasis:'authored effective water volume estimate; excludes tank glass, substrate and hardscape',massBasis:'mg nitrogen; 4 mg-N per dissolved game waste unit'},presetObjects:presetAssemblies?.snapshot()||[],designer:designerState(),glass:{panes:['front','left','right','back'],attachments:[...fish,...shrimps,...snails].filter(a=>a.surfaceMotion?.surface==='glass').map(a=>({id:a.life.id,pane:a.surfaceMotion.pane,pose:a.frames[0].pose||'legacy'}))},projection:{kind:'perspective',worldSizeChangesWithDepth:false},botanical:{species:botanicalArt?.assets.map(a=>a.species)||[],omitted:botanicalArt?.omitted||[],contacts:botanicalArt?.grazeSites.length||0},physical:{cmPerUnit,tankCm:{width:60,depth:36,height:36,glass:.6,bed:5,water:34.5},scaleStatus:'metric-reference',parts:physicalParts},sceneStyle,current:{output:pumpOutput},breeding:{broods:breeding.broods.length,eggs:breeding.eggs.reduce((n,b)=>n+b.count,0),young:breeding.offspring.length,stats:breeding.stats},navigation:{...(surfaceNavigation?.stats||{nodes:0}),canopySites:navigationSites.filter(s=>s.id?.startsWith('canopy-')).length},rasterHeight,surface:{mode:surfaceMode,impacts:surfaceStudy?.group.children.filter(o=>o.visible).length||0},premium:{implemented:!!premiumEquipment,carpet:!!lushPlants,floaters:lushPlants?.floaters.length||0},room:{finish:roomFinish,implemented:!!roomArt},ecology:{seconds:ecology.seconds,rate:ecologyRate,stats:{...ecology.stats},animals:ecology.animals.map(a=>({id:a.id,species:a.species,state:a.state,alive:a.alive,hunger:a.hunger,health:a.health})),deposits:ecology.deposits.length},condition:{...waterCondition?.state,mode:conditionMode},assets:{...assets},inventory:{tank:1,gravel:1,rock:assets.decor==='none'?1:0,ornament:assets.decor!=='none'?1:0,driftwood:1,fixture:1,thermometer:1,plantSpecies:sceneStyle==='lush'?4:2,filter:1,shrimpSpecies:1,fishSpecies:2,snailSpecies:2},lighting:{depthSpread:lightSpread,output:lightOutput,shadows:renderer.shadowMap.enabled,shadowResolution:512,source:'Downward LED banks',roomLevel,roomMode,banks:tankLightCount,ambient:ambient.intensity,fill:fill.intensity,key:tankLights.reduce((sum,light)=>sum+light.intensity,0),shadowSources:tankLights.filter(light=>light.castShadow).length},direction:'B',view,framing,mode,preset,motion:enabled,clock,collisions:{solids:collisionWorld?.count||0,settled:pellets.filter(p=>p.settled).length,solidLandings:pellets.filter(p=>p.o.userData.landedOn==='solid').length},feeding:{automaticCount:automaticFeedCount,manualCount:manualFeedCount,lastReason:lastFeedReason,nextDue:nextFeedDue,sequence:feedSequence},renderer:'Actual pixel-textured 3D with shared A/B sprite billboards',renderedFrames,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,camera:{kind:'PerspectiveCamera',fov:camera.fov,position:[0,eyeHeight,eyeDepth],target:[0,eyeHeight,0],pitchDegrees:0,horizonPercent:horizon*100,aspect:camera.aspect},world:{width:worldWidth,floorY:bedLevel,floorBackZ:backBound,floorFrontZ:frontBound,waterY:waterLevel,waterBackZ:backBound,waterFrontZ:frontBound},landmarks:landmarks()};}};
 resize();setRoomMode('auto');setView('front');setMode('desktop');setMotion(enabled);parent.postMessage({type:'aquarium-ready',scene:'b',renderer:'Three.js WebGL'},'*');
 })();

@@ -55,6 +55,7 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     public let objects: [PresetObject]
     public let placedObjects: [PresetObject]
     public let catalog: [CatalogAsset]
+    public let equipmentObjects: [PresetObject]
   }
 
   public enum EditorTool: String, Codable, Sendable {
@@ -122,6 +123,7 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     let objects: [PresetObject]?
     let placedObjects: [PresetObject]?
     let catalog: [CatalogAsset]?
+    let equipmentObjects: [PresetObject]?
     let error: String?
   }
 
@@ -215,6 +217,14 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     return try await editorQuery("window.idleScreenScene.applyPlacedObjects(\(json))")
   }
 
+  public func applyEquipmentObjects(expectedRevision: Int, objects: [PresetObject]) async throws
+    -> EditorSnapshot
+  {
+    let request = EditRequest(expectedRevision: expectedRevision, objects: objects)
+    let json = String(decoding: try JSONEncoder().encode(request), as: UTF8.self)
+    return try await editorQuery("window.idleScreenScene.applyEquipmentObjects(\(json))")
+  }
+
   public func setEditorTool(_ tool: EditorTool, selectedID: String? = nil, assetID: String? = nil)
     async throws -> EditorSnapshot
   {
@@ -243,10 +253,11 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     let response = try JSONDecoder().decode(EditorResponse.self, from: Data(json.utf8))
     if let error = response.error { throw EditorError.rejected(error) }
     guard let objects = response.objects, let placedObjects = response.placedObjects,
-      let catalog = response.catalog
+      let catalog = response.catalog, let equipmentObjects = response.equipmentObjects
     else { throw EditorError.invalidResponse }
     return EditorSnapshot(
-      revision: response.revision, objects: objects, placedObjects: placedObjects, catalog: catalog)
+      revision: response.revision, objects: objects, placedObjects: placedObjects, catalog: catalog,
+      equipmentObjects: equipmentObjects)
   }
 
   private func jsonQuery(_ expression: String) async throws -> String {

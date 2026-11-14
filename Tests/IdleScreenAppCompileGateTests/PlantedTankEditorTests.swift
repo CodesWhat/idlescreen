@@ -199,6 +199,40 @@ struct PlantedTankEditorTests {
     try await editor.surface.shutdown()
   }
 
+  @Test func equipmentEditsHaveHistoryAndCannotUseUnsupportedStockOperations() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenPlantedTankStore(fileURL: directory.appendingPathComponent("tank.json"))
+    let editor = IdleScreenPlantedTankEditor(store: store)
+    await editor.activate()
+    let original = try #require(
+      editor.snapshot?.equipmentObjects.first { $0.id == "equipment/filter" })
+    var moved = original
+    moved.positionCm.x = 18
+    await editor.update(moved)
+    #expect(editor.errorMessage == nil)
+    #expect(editor.canUndo)
+    #expect(editor.snapshot?.equipmentObjects.first { $0.id == original.id }?.positionCm.x == 18)
+    editor.selectedID = original.id
+    #expect(!editor.canRemoveSelected)
+    #expect(!editor.canRotateSelected)
+    await editor.removeSelected()
+    #expect(editor.snapshot?.equipmentObjects.count == 3)
+    await editor.undo()
+    #expect(editor.snapshot?.equipmentObjects.first { $0.id == original.id } == original)
+    await editor.redo()
+    #expect(editor.snapshot?.equipmentObjects.first { $0.id == original.id }?.positionCm.x == 18)
+    await editor.deactivate()
+    let reopened = IdleScreenPlantedTankEditor(store: store)
+    await reopened.activate()
+    #expect(reopened.errorMessage == nil)
+    #expect(reopened.snapshot?.equipmentObjects.first { $0.id == original.id }?.positionCm.x == 18)
+    #expect(!reopened.canUndo)
+    await reopened.deactivate()
+    try await editor.surface.shutdown()
+    try await reopened.surface.shutdown()
+  }
+
   @Test func undoAndRedoUseCurrentRevisionsAndRejectedEditsLeaveHistoryIntact() async throws {
     let editor = IdleScreenPlantedTankEditor()
     await editor.activate()

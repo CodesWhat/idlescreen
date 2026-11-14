@@ -14,8 +14,9 @@ workbench still wants to be visible.
 
 The outer runtime format is version 1. Its `tank` member contains the
 `idlescreen.aquarium` version 1 envelope, including the centimeter-based version
-2 tank document and version 1 scene configuration. The ecosystem checkpoint
-contains the ecology, breeding and water models, plus their cumulative waste
+2 tank document. New captures use version 2 scene configuration with complete
+basic-equipment poses; version 1 configurations remain readable with authored
+equipment defaults. The ecosystem checkpoint contains the ecology, breeding and water models, plus their cumulative waste
 accounting marker.
 
 The runtime member retains scene time, feeding counters and the next feeding
@@ -63,8 +64,10 @@ restoring an older ecosystem checkpoint. Successful edits save both sets of
 objects through the existing checkpoint store.
 
 The three original chest, wreck and diver-helmet assets remain review-only and
-are excluded from this chooser. Connected equipment, parent-following mounts,
-shop stock and pricing remain unfinished work.
+are excluded from this chooser. Basic equipment has a separate list and edit
+history, with staged collision checks and pose persistence. Equipment removal,
+premium hardware controls, parent-following mounts, shop stock and pricing
+remain unfinished work.
 
 ## Native storage
 

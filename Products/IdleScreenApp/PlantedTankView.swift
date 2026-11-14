@@ -49,6 +49,11 @@ private struct IdleScreenPlantedTankView: View {
               objectRow(object)
             }
           }
+          Section("Equipment") {
+            ForEach(editor.snapshot?.equipmentObjects ?? []) { object in
+              objectRow(object)
+            }
+          }
           Section("Added plants and hardscape") {
             ForEach(editor.snapshot?.placedObjects ?? []) { object in
               objectRow(object)
@@ -172,7 +177,9 @@ private struct PlantedTankInspector: View {
       Text(object.assetId.replacingOccurrences(of: "-", with: " ").capitalized).font(.headline)
       TextField("Across (cm)", value: $x, format: .number)
       TextField("Depth (cm)", value: $depth, format: .number)
+        .disabled(!editor.canChangeDepthSelected)
       TextField("Turn (°)", value: $degrees, format: .number)
+        .disabled(!editor.canRotateSelected)
       if editor.snapshot?.placedObjects.contains(where: { $0.id == object.id }) == true,
         editor.snapshot?.catalog.first(where: { $0.id == object.assetId })?.placement == "attached"
       {
@@ -195,6 +202,13 @@ private struct PlantedTankInspector: View {
         Button("Move in tank") { Task { await editor.beginMoving() } }
       }
       Button("Remove object", role: .destructive) { Task { await editor.removeSelected() } }
+        .disabled(!editor.canRemoveSelected)
+      if !editor.canRemoveSelected {
+        Text(
+          "Move equipment along its support. Equipment removal is not available in this preview."
+        )
+        .font(.caption).foregroundStyle(.secondary)
+      }
     }
     .disabled(editor.isBusy || editor.pointerTool != .select)
   }

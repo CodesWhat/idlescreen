@@ -9,7 +9,8 @@
     revision: scene.state.presetRevision,
     objects: scene.state.presetObjects,
     placedObjects: scene.designer.layout?.instances || [],
-    catalog: AquariumDesignerModel.catalog
+    catalog: AquariumDesignerModel.catalog,
+    equipmentObjects: scene.equipment.objects
   });
   addEventListener("message", event => {
     if (event.source !== window || event.data?.type !== "aquarium-designer-pick"
@@ -47,6 +48,10 @@
     },
     applyPlacedObjects(request) {
       const result = scene.applyPlacedObjects(request);
+      return result.error ? result : editorSnapshot();
+    },
+    applyEquipmentObjects(request) {
+      const result = scene.applyEquipmentObjects(request);
       return result.error ? result : editorSnapshot();
     },
     setEditorTool(request) {
