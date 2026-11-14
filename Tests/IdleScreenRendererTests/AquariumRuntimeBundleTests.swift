@@ -209,6 +209,164 @@ struct AquariumRuntimeBundleTests {
     }
   }
 
+  @Test(arguments: ["basic", "lush", "waterfall"])
+  func fullTankCheckpointRestoresLifeFoodAndLayoutInAFreshRuntime(setup: String) async throws {
+    let source = IdleScreenAquariumWebSurface()
+    source.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    source.view.configuration.userContentController.addUserScript(
+      WKUserScript(
+        source: Self.frameClock(emulatingVisibleDocument: true),
+        injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    try await source.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let setupJSON = String(decoding: try JSONEncoder().encode(setup), as: UTF8.self)
+    _ = try await tankScript(
+      source, "aquariumStudy.setSceneStyle(\(setupJSON)); JSON.stringify(true)")
+    _ = try await source.beginEditing()
+    if setup == "basic" {
+      let initial = try await source.editorSnapshot()
+      let moved = initial.objects.map { item in
+        var result = item
+        if item.id == "base-rock" { result.positionCm.z += 3 }
+        return result
+      }
+      _ = try await source.applyPresetObjects(expectedRevision: initial.revision, objects: moved)
+      _ = try await tankScript(
+        source,
+        "aquariumStudy.applyDesigner({layout:{schemaVersion:1,units:'cm',name:'Living tank',base:{setup:'basic'},instances:[{id:'saved-rotala',assetId:'rotala',positionCm:{x:-22,y:5,z:12},rotationY:0}]}}); JSON.stringify(true)"
+      )
+    }
+    _ = try await tankScript(
+      source,
+      "aquariumStudy.setGlassPane('snail-0','back'); aquariumStudy.setPumpOutput(.6); aquariumStudy.setTankLightCount(1); aquariumStudy.setLight('warm'); aquariumStudy.feed({automatic:true}); aquariumStudy.previewLifeEvent('molt'); aquariumStudy.previewLifeEvent('death'); aquariumStudy.setEcologyRate(120); JSON.stringify(true)"
+    )
+    try await source.resume()
+    _ = try await snapshot(source, frames: 5)
+    try await source.pause()
+    let savedData = try await source.exportTank(id: "tank-one", name: "Living tank")
+    let saved = String(decoding: savedData, as: UTF8.self)
+    let savedValue = try #require(
+      JSONSerialization.jsonObject(with: Data(saved.utf8)) as? [String: Any])
+    let target = IdleScreenAquariumWebSurface()
+    target.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    target.view.configuration.userContentController.addUserScript(
+      WKUserScript(
+        source: Self.frameClock(emulatingVisibleDocument: true),
+        injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    _ = try await target.restoreTank(from: savedData)
+    let exported = try await tankScript(
+      target, "JSON.stringify(aquariumStudy.exportTank({id:'tank-one',name:'Living tank'}))")
+    let restored = try #require(
+      JSONSerialization.jsonObject(with: Data(exported.utf8)) as? [String: Any])
+    let beforeEnvelope = try #require(savedValue["tank"] as? [String: Any])
+    let afterEnvelope = try #require(restored["tank"] as? [String: Any])
+    let beforeDocument = try #require(beforeEnvelope["document"] as? [String: Any])
+    let afterDocument = try #require(afterEnvelope["document"] as? [String: Any])
+    #expect(
+      NSDictionary(dictionary: try #require(beforeDocument["checkpoint"] as? [String: Any]))
+        == NSDictionary(dictionary: try #require(afterDocument["checkpoint"] as? [String: Any])))
+    #expect(
+      NSDictionary(dictionary: try #require(savedValue["runtime"] as? [String: Any]))
+        == NSDictionary(dictionary: try #require(restored["runtime"] as? [String: Any])))
+    #expect(
+      NSDictionary(dictionary: try #require(beforeEnvelope["configuration"] as? [String: Any]))
+        == NSDictionary(dictionary: try #require(afterEnvelope["configuration"] as? [String: Any])))
+    let checkpoint = try #require(beforeDocument["checkpoint"] as? [String: Any])
+    let domain = try #require(checkpoint["data"] as? [String: Any])
+    let ecology = try #require(domain["ecology"] as? [String: Any])
+    let statistics = try #require(ecology["stats"] as? [String: Any])
+    #expect(try #require(statistics["deaths"] as? Int) > 0)
+    #expect(try #require(statistics["molts"] as? Int) > 0)
+    #expect(!(try #require(ecology["food"] as? [Any])).isEmpty)
+    let oldLayout = try #require(beforeDocument["layout"] as? [String: Any])
+    let newLayout = try #require(afterDocument["layout"] as? [String: Any])
+    func objects(_ layout: [String: Any]) throws -> [IdleScreenAquariumWebSurface.PresetObject] {
+      try JSONDecoder().decode(
+        [IdleScreenAquariumWebSurface.PresetObject].self,
+        from: JSONSerialization.data(withJSONObject: #require(layout["objects"])))
+    }
+    let expectedObjects = try objects(oldLayout)
+    let actualObjects = try objects(newLayout)
+    #expect(actualObjects.map(\.id) == expectedObjects.map(\.id))
+    for (actual, expected) in zip(actualObjects, expectedObjects) {
+      #expect(actual.assetId == expected.assetId)
+      #expect(abs(actual.positionCm.x - expected.positionCm.x) < 1e-9)
+      #expect(abs(actual.positionCm.y - expected.positionCm.y) < 1e-9)
+      #expect(abs(actual.positionCm.z - expected.positionCm.z) < 1e-9)
+      #expect(abs(actual.rotationY - expected.rotationY) < 1e-9)
+    }
+    #expect(target.state == .paused)
+    await #expect(throws: (any Error).self) { try await target.restoreTank(from: savedData) }
+    let paused = try await snapshot(target)
+    try await target.resume()
+    let continued = try await snapshot(target, frames: 4)
+    #expect(continued.scene.ecology.animals.map(\.id) == paused.scene.ecology.animals.map(\.id))
+    #expect(continued.scene.water.elapsedSeconds > paused.scene.water.elapsedSeconds)
+    try await source.shutdown()
+    try await target.shutdown()
+  }
+
+  @Test func invalidCheckpointArtAndBindingsAreRejectedBeforeAnySceneMutation() async throws {
+    let result = try await runPresetFixture(
+      "checkpoint-validation", invocation: "runAquariumCheckpointValidation(aquariumStudy)")
+    #expect(result["checks"] == 9)
+  }
+
+  @Test func removedStockIsNotResurrectedWhenTheSceneRebuilds() async throws {
+    let result = try await runPresetFixture(
+      "checkpoint-stock", invocation: "runAquariumCheckpointStock(aquariumStudy)")
+    #expect(result["checks"] == 2)
+  }
+
+  @Test func domainCheckpointsContinueBirthsWasteAndMassWithoutDuplicatingHistory() async throws {
+    let result = try await runPresetFixture(
+      "domain-checkpoint-checks", invocation: "runAquariumDomainCheckpointChecks()")
+    #expect(result["checks"] == 8)
+  }
+
+  @Test func decomposedCorpsesDoNotLeaveUnsavableVisualBindings() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    surface.view.configuration.userContentController.addUserScript(
+      WKUserScript(
+        source: """
+          Object.defineProperty(window, 'AquariumEcology', {configurable:true,set(api){
+            Object.defineProperty(window, 'AquariumEcology', {value:{...api,create(options){
+              const model=api.create(options); window.checkpointEcologyProof=model; return model;
+            }}});
+          }});
+          """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    _ = try await surface.beginEditing()
+    _ = try await tankScript(
+      surface,
+      """
+      aquariumStudy.previewLifeEvent('death');
+      const domain=window.checkpointEcologyProof, index=domain.deposits.findIndex(d=>d.kind==='corpse');
+      domain.stats.dissolved+=domain.deposits[index].amount; domain.deposits.splice(index,1);
+      aquariumStudy.previewLifeEvent('molt'); JSON.stringify(true)
+      """)
+    let saved = try await surface.exportTank(id: "old-tank", name: "After decomposition")
+    #expect(!saved.isEmpty)
+    try await surface.shutdown()
+  }
+
+  private func tankScript(_ surface: IdleScreenAquariumWebSurface, _ script: String) async throws
+    -> String
+  {
+    try await withCheckedThrowingContinuation { continuation in
+      surface.view.evaluateJavaScript(script) { value, error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else if let text = value as? String {
+          continuation.resume(returning: text)
+        } else {
+          continuation.resume(throwing: CocoaError(.coderValueNotFound))
+        }
+      }
+    }
+  }
+
   private func runPresetFixture(_ name: String, invocation: String) async throws -> [String: Int] {
     let fixture = try #require(
       Bundle(for: AquariumCollisionFixtureBundle.self).url(

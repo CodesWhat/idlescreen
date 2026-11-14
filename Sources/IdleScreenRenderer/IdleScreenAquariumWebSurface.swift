@@ -100,6 +100,26 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     }
   }
 
+  public func exportTank(id: String, name: String) async throws -> Data {
+    let identity = try JSONEncoder().encode(["id": id, "name": name])
+    let json = try await jsonQuery(
+      "window.idleScreenScene.exportTank(\(String(decoding: identity, as: UTF8.self)))")
+    let data = Data(json.utf8)
+    guard data.count <= 4_194_304 else {
+      throw EditorError.rejected("Tank checkpoint is too large.")
+    }
+    return data
+  }
+
+  public func restoreTank(from data: Data) async throws -> EditorSnapshot {
+    guard state == .paused else { throw SurfaceError.invalidState }
+    guard data.count <= 4_194_304, let text = String(data: data, encoding: .utf8) else {
+      throw EditorError.rejected("Tank checkpoint must be UTF-8 JSON under 4 MiB.")
+    }
+    let argument = String(decoding: try JSONEncoder().encode(text), as: UTF8.self)
+    return try await editorQuery("window.idleScreenScene.restoreTankJSON(\(argument))")
+  }
+
   public func beginEditing() async throws -> EditorSnapshot {
     try await editorQuery("window.idleScreenScene.beginEditing()")
   }
@@ -118,6 +138,14 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
   }
 
   private func editorQuery(_ expression: String) async throws -> EditorSnapshot {
+    let json = try await jsonQuery(expression)
+    let response = try JSONDecoder().decode(EditorResponse.self, from: Data(json.utf8))
+    if let error = response.error { throw EditorError.rejected(error) }
+    guard let objects = response.objects else { throw EditorError.invalidResponse }
+    return EditorSnapshot(revision: response.revision, objects: objects)
+  }
+
+  private func jsonQuery(_ expression: String) async throws -> String {
     guard state == .paused || state == .running else { throw SurfaceError.invalidState }
     let json: String = try await withCheckedThrowingContinuation { continuation in
       view.evaluateJavaScript("JSON.stringify(\(expression))") { value, error in
@@ -131,10 +159,7 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
       }
     }
     guard state == .paused || state == .running else { throw SurfaceError.invalidState }
-    let response = try JSONDecoder().decode(EditorResponse.self, from: Data(json.utf8))
-    if let error = response.error { throw EditorError.rejected(error) }
-    guard let objects = response.objects else { throw EditorError.invalidResponse }
-    return EditorSnapshot(revision: response.revision, objects: objects)
+    return json
   }
 
   public func resume() async throws {

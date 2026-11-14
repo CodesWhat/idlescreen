@@ -125,6 +125,7 @@
 		270634EF59A5769AD68DE90F /* IdleScreenDisplay.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 9521BB58A24E9BEF82B1692A /* IdleScreenDisplay.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		2805E1A3225DFEC644D662E4 /* CameraAgentOnboardingStateMachineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E46237D638BBD6C12DD0716 /* CameraAgentOnboardingStateMachineTests.swift */; };
 		28CB024BEF91CCE5011874EF /* CameraCaptureRecoveryPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40EA8669F59491C904BE138C /* CameraCaptureRecoveryPolicyTests.swift */; };
+		291289BB7F86689CC1CAC298 /* PlantedTankStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000DA127F658D647E6A246B1 /* PlantedTankStoreTests.swift */; };
 		29CA4FC9C7FFD1F07A7143BB /* PixelMaterialsReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31721CFA8E5C4B7C0E7E3623 /* PixelMaterialsReference.swift */; };
 		2A10A032A0169D9EDB19B813 /* CreativeConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17139C7969E4EEB08BA8AC8 /* CreativeConfiguration.swift */; };
 		2A2447AE83498329625C1544 /* ScreenSaverSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1E125CAC2AEE19B2680FB1B /* ScreenSaverSelectionTests.swift */; };
@@ -138,6 +139,7 @@
 		2F63EE01FFB8E0C19844EBBE /* AquariumController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77884D0BEB599468423795F7 /* AquariumController.swift */; };
 		305724642F957403A6814106 /* ScreenSaverRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AE3F89AF5660467DF04E657 /* ScreenSaverRegistration.swift */; };
 		3069EEC9CBFC5BCB10DAA2CD /* AquariumFrameCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6211F04A9A9D6978B5C92DB2 /* AquariumFrameCache.swift */; };
+		327B21263665C8B33883EE57 /* PlantedTankStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129754538BF75A155D606A4E /* PlantedTankStore.swift */; };
 		328D54BF07A353B8DBBF1352 /* ColorSync.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C6E0CD146D5590C0DF616158 /* ColorSync.framework */; };
 		33530EA32E3E1D806A16C281 /* AquariumSpriteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10F51DAD4E968608E46D702 /* AquariumSpriteTests.swift */; };
 		3373B9A12F05ECD162EDEFDB /* CameraFrameContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EA5541B093A9797CE067DD2 /* CameraFrameContractTests.swift */; };
@@ -214,6 +216,7 @@
 		5609064331C2DF614EF11C6F /* AgentSignalPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF00299DA905E59EDBEA0058 /* AgentSignalPresentation.swift */; };
 		5705CF8032671A4F9E4AEB15 /* CameraCaptureSessionControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16B3B50017BBB9244229D485 /* CameraCaptureSessionControllerTests.swift */; };
 		5769F3C568FBC9959CBBDF7A /* AgentIntegrationConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0387D9EB922DB01E75EEDB3 /* AgentIntegrationConfiguration.swift */; };
+		57B1EEDF2A1CD4E33E45D97C /* PlantedTankStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129754538BF75A155D606A4E /* PlantedTankStore.swift */; };
 		583066BDDF2CD8EA1994EA2B /* AquariumController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77884D0BEB599468423795F7 /* AquariumController.swift */; };
 		583FBE2C3411062BAE3E0302 /* IdleScreenSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E766A69369423FDDF71179 /* IdleScreenSystem.swift */; };
 		596153A708A0D35E435BDBD5 /* IdleScreenCameraAgentCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03FA84C857C950C23D256438 /* IdleScreenCameraAgentCore.framework */; };
@@ -330,6 +333,7 @@
 		8F88B538360E6351F2285DA9 /* AgentSignalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3ECE21752D5B3FAB896DC2 /* AgentSignalStore.swift */; };
 		8F9BD005CB75D40939A8D187 /* IdleScreenScreenSaverExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17728A15940B5EB078BA524 /* IdleScreenScreenSaverExtension.swift */; };
 		8FAAAFAFA845A95D8D3763DF /* IdleScreenCtl in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 32FFF60F9D62D8DD7677EF56 /* IdleScreenCtl */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		8FE7857A9E10C5552611D7E0 /* PlantedTankStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129754538BF75A155D606A4E /* PlantedTankStore.swift */; };
 		90265CEE5E00EDA2E3EB151E /* ScreenSaverCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FF4ABAFA94EFBE8925B73B4 /* ScreenSaverCompatibility.swift */; };
 		9029AAB9E78F4FD6BC03DA50 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEA410F56388DB9323F62460 /* AppKit.framework */; };
 		910B5FFD70D0E333B38504C9 /* CameraAgentIdentityCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A3855E0FA92534B98C1D9D /* CameraAgentIdentityCollector.swift */; };
@@ -1461,6 +1465,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		000DA127F658D647E6A246B1 /* PlantedTankStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlantedTankStoreTests.swift; sourceTree = "<group>"; };
 		0035981EC70A85AEC7055C8F /* AgentSpriteRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSpriteRenderTests.swift; sourceTree = "<group>"; };
 		0037FEA67DEC7AEF3B98458E /* CameraConsumerStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraConsumerStateMachine.swift; sourceTree = "<group>"; };
 		006F23771BABB16AEEEC33D9 /* DesignFontRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignFontRegistry.swift; sourceTree = "<group>"; };
@@ -1486,6 +1491,7 @@
 		0FC91852518A33A8988F7FE5 /* IdleScreenRenderer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IdleScreenRenderer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		10663171F471C4743B25D465 /* IdleScreenRendererShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = IdleScreenRendererShaders.metal; sourceTree = "<group>"; };
 		1085707753B02EE26DB7FF8B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		129754538BF75A155D606A4E /* PlantedTankStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlantedTankStore.swift; sourceTree = "<group>"; };
 		12DE57F94DC0FA90C2FC652E /* CameraConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraConfiguration.swift; sourceTree = "<group>"; };
 		141F48824FB7410F6E5D8959 /* Animation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Animation.swift; sourceTree = "<group>"; };
 		15F5BE5D812A37C5D0EE4F45 /* DesignWindowAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignWindowAppearance.swift; sourceTree = "<group>"; };
@@ -2316,6 +2322,7 @@
 				44A7FB2F974B64C2DC5DD11C /* IdleScreenDockPresentationTests.swift */,
 				4AC2B7D9226B58BF35BC0035 /* IdleScreenMenuBarStateTests.swift */,
 				859F1411CDD66BC3F13DE199 /* PlantedTankEditorTests.swift */,
+				000DA127F658D647E6A246B1 /* PlantedTankStoreTests.swift */,
 				0DAEDCAA1A5E3CAE327D4D75 /* SaverTileArtTests.swift */,
 				77B5FFCFD30080BB90EF8505 /* SceneLibraryTests.swift */,
 				07ED3F6B0BA30EA432BCBD1E /* SetupFlowRenderTests.swift */,
@@ -2731,6 +2738,7 @@
 				D32F378F3FC4FB3768DF8CDE /* IntegrationsView.swift */,
 				8AC28FEB285957CC3C80874D /* PixelMaterialsInspectorContract.swift */,
 				C65F344D061970BF31CFCB7B /* PlantedTankEditor.swift */,
+				129754538BF75A155D606A4E /* PlantedTankStore.swift */,
 				6705B10690646A362CB36419 /* PlantedTankView.swift */,
 				058BBBFE753B432DEBB102FC /* StudioCameraPreviewReconciliation.swift */,
 				A7220C759882261E1A041FF5 /* SystemViews.swift */,
@@ -3992,6 +4000,7 @@
 				384B36817CE1D68BDF8FED99 /* IntegrationsView.swift in Sources */,
 				83CB843BF08E6FB97B073E4A /* PixelMaterialsInspectorContract.swift in Sources */,
 				4F74E34EF2E52EED783F7201 /* PlantedTankEditor.swift in Sources */,
+				327B21263665C8B33883EE57 /* PlantedTankStore.swift in Sources */,
 				1262DEB34D10CF8FFC1A68CD /* PlantedTankView.swift in Sources */,
 				8EE6B1C5D547161C1E78ACB3 /* RendererConfigurationBridge.swift in Sources */,
 				F5E15C3EE84F3607D497B2C0 /* SetupFlowView.swift in Sources */,
@@ -4121,6 +4130,7 @@
 				886D54443F46B6FDA46F0A92 /* IntegrationsView.swift in Sources */,
 				B299B7A6A310AE381D2344A8 /* PixelMaterialsInspectorContract.swift in Sources */,
 				AA06121AF3DA4C22EB3EC4E8 /* PlantedTankEditor.swift in Sources */,
+				8FE7857A9E10C5552611D7E0 /* PlantedTankStore.swift in Sources */,
 				479170FD0B9714B104F5B46A /* PlantedTankView.swift in Sources */,
 				C101ED9D185317F0DA66E279 /* RendererConfigurationBridge.swift in Sources */,
 				A4B104FA141A2501CB9910E1 /* SetupFlowView.swift in Sources */,
@@ -4225,6 +4235,8 @@
 				53F32620D4B33989EA6EB605 /* PixelMaterialsInspectorContract.swift in Sources */,
 				1E52738A34659CCD9D23106E /* PlantedTankEditor.swift in Sources */,
 				1EC6093A74640B681B443F34 /* PlantedTankEditorTests.swift in Sources */,
+				57B1EEDF2A1CD4E33E45D97C /* PlantedTankStore.swift in Sources */,
+				291289BB7F86689CC1CAC298 /* PlantedTankStoreTests.swift in Sources */,
 				D233B7FA021BA650ED4191AD /* PlantedTankView.swift in Sources */,
 				781218D82F6B0884C7D964F9 /* RendererConfigurationBridge.swift in Sources */,
 				950E51B8D082A1DE97108C0C /* SaverTileArtTests.swift in Sources */,

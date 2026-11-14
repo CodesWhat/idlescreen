@@ -1,3 +1,4 @@
+import Foundation
 import IdleScreenRenderer
 import Testing
 
@@ -71,6 +72,101 @@ struct PlantedTankEditorTests {
     #expect(editor.surface.state == .running)
     await editor.deactivate()
     try await editor.surface.shutdown()
+  }
+
+  @Test func aSavedTankReopensWithoutResettingItsEditedLayout() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenPlantedTankStore(fileURL: directory.appendingPathComponent("tank.json"))
+    let first = IdleScreenPlantedTankEditor(store: store)
+    await first.activate()
+    var rock = try #require(first.snapshot?.objects.first { $0.id == "base-rock" })
+    rock.positionCm.z += 3
+    await first.update(rock)
+    await first.save()
+    #expect(first.savedAt != nil)
+    #expect(first.errorMessage == nil)
+    await first.deactivate()
+    let second = IdleScreenPlantedTankEditor(store: store)
+    await second.activate()
+    #expect(second.errorMessage == nil)
+    let reopened = try #require(second.snapshot?.objects.first { $0.id == rock.id })
+    #expect(abs(reopened.positionCm.z - rock.positionCm.z) < 1e-9)
+    #expect(!second.canUndo)
+    await second.deactivate()
+    try await first.surface.shutdown()
+    try await second.surface.shutdown()
+  }
+
+  @Test func anUnreadableCheckpointIsPreservedAndSavingStaysDisabled() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appendingPathComponent("tank.json")
+    let corrupt = Data("{".utf8)
+    try corrupt.write(to: url)
+    let editor = IdleScreenPlantedTankEditor(store: IdleScreenPlantedTankStore(fileURL: url))
+    await editor.activate()
+    #expect(editor.errorMessage != nil)
+    #expect(editor.snapshot == nil)
+    #expect(!editor.canSave)
+    #expect(editor.surface.state == .paused)
+    await editor.save()
+    await editor.deactivate()
+    #expect(try Data(contentsOf: url) == corrupt)
+    try await editor.surface.shutdown()
+  }
+
+  @Test func theCompileGateWorkspaceCannotWriteTheUsersDevelopmentTank() async throws {
+    let editor = IdleScreenPlantedTankEditor.shared
+    await editor.activate()
+    #expect(editor.snapshot != nil)
+    #expect(!editor.canSave)
+    await editor.deactivate()
+  }
+
+  @Test func reloadingAChangedCheckpointUsesAFreshSurfaceAndKeepsTheOldTankOnFailure() async throws
+  {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appendingPathComponent("tank.json")
+    let store = IdleScreenPlantedTankStore(fileURL: url)
+    let first = IdleScreenPlantedTankEditor(store: store)
+    await first.activate()
+    await first.save()
+    let second = IdleScreenPlantedTankEditor(store: store)
+    await second.activate()
+    var rock = try #require(second.snapshot?.objects.first { $0.id == "base-rock" })
+    rock.positionCm.z += 3
+    await second.update(rock)
+    #expect(second.errorMessage == nil)
+    await first.save()
+    #expect(first.errorMessage != nil)
+    let oldSurface = first.surface
+    let reopening = Task { await first.reloadCheckpoint() }
+    while !first.isBusy { await Task.yield() }
+    await first.deactivate()
+    await first.activate()
+    #expect(oldSurface.state != .running)
+    await reopening.value
+    #expect(first.errorMessage == nil)
+    #expect(first.surface !== oldSurface)
+    #expect(oldSurface.state == .stopped)
+    #expect(
+      abs(
+        try #require(first.snapshot?.objects.first { $0.id == rock.id }).positionCm.z
+          - rock.positionCm.z) < 1e-9)
+    let retainedSurface = first.surface
+    let retained = try await first.surface.exportTank(id: "planted-tank", name: "Planted tank")
+    try Data("{".utf8).write(to: url)
+    await first.reloadCheckpoint()
+    #expect(first.errorMessage != nil)
+    #expect(first.surface === retainedSurface)
+    #expect(
+      try await first.surface.exportTank(id: "planted-tank", name: "Planted tank") == retained)
+    #expect(first.surface.state == .running)
+    try await first.surface.shutdown()
+    try await second.surface.shutdown()
   }
 
 }

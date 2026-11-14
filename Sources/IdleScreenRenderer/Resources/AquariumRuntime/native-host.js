@@ -11,6 +11,11 @@
   });
   window.idleScreenScene = Object.freeze({
     editorSnapshot,
+    exportTank(identity) { return scene.exportTank(identity); },
+    restoreTankJSON(text) {
+      try { scene.restoreTankJSON(text); return editorSnapshot(); }
+      catch (error) { return { revision: scene.state.presetRevision, error: error.message }; }
+    },
     beginEditing() {
       scene.setMode("desktop");
       if (!scene.designer.active) {

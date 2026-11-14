@@ -56,6 +56,11 @@
     "dragon-driftwood-v1.js",
     "designer-placement.js",
     "preset-assemblies.js",
+    "tank-document.js",
+    "tank-configuration.js",
+    "ecosystem-checkpoint.js",
+    "tank-envelope.js",
+    "runtime-checkpoint.js",
     "scene.js",
     "native-host.js"
   ],
@@ -314,12 +319,38 @@
       "path": "vendor/LICENSE",
       "sourceSha256": "852e0e8699169bf9f6fdc6bda3e682d078dcbc738b5d33e74df594721bff271d",
       "origin": "Three.js"
+    },
+    {
+      "path": "tank-document.js",
+      "sourceSha256": "f6e552d69b6b5c10729cd1034abd5b0040607e36ab2a10c29240b7d665c8590c",
+      "origin": "Original CodesWhat tank persistence"
+    },
+    {
+      "path": "tank-configuration.js",
+      "sourceSha256": "73a8ffa2123e14ef79664e483e50bb53e25ce309aeea81116e6fdda825666cf2",
+      "origin": "Original CodesWhat tank persistence"
+    },
+    {
+      "path": "ecosystem-checkpoint.js",
+      "sourceSha256": "760c01fd4962e8394c48a11e068f18a1881e7ce766f0be5e8f580f41bf801a43",
+      "origin": "Original CodesWhat tank persistence"
+    },
+    {
+      "path": "tank-envelope.js",
+      "sourceSha256": "edc69c2d6b0db16b7a6a7dc1971b35528b27742792c4015b35710357b4f7874a",
+      "origin": "Original CodesWhat tank persistence"
+    },
+    {
+      "path": "runtime-checkpoint.js",
+      "sourceSha256": "2295f7abbf0cad107861828bdfb4d8cf6b17844d4b94c88776b9f574e06e6f33",
+      "origin": "Original CodesWhat tank persistence"
     }
   ],
   "adaptations": [
     "Replaced the prototype entry page with a local native-host entry without visible study controls.",
     "Start paused; native host owns motion policy instead of a media-query listener.",
-    "Native lifecycle bridge delegates to aquariumStudy.setMotion and selects saver interaction and coupled ecosystem condition modes."
+    "Native lifecycle bridge delegates to aquariumStudy.setMotion and selects saver interaction and coupled ecosystem condition modes.",
+    "Added native checkpoint validation and fresh-runtime restoration; the new store is separate from the legacy aquarium library."
   ],
   "vendor": {
     "name": "Three.js",

@@ -31,10 +31,13 @@ private struct IdleScreenPlantedTankView: View {
       HStack {
         VStack(alignment: .leading) {
           Text("Planted tank").font(.title2.bold())
-          Text("60 × 36 × 36 cm · Session edits are not saved yet")
+          Text("60 × 36 × 36 cm · Saves include the ecosystem")
             .font(.caption).foregroundStyle(.secondary)
         }
         Spacer()
+        Button("Reopen saved tank") { Task { await editor.reloadCheckpoint() } }
+          .disabled(!editor.canReopen)
+        Button("Save tank") { Task { await editor.save() } }.disabled(!editor.canSave)
         Button("Undo") { Task { await editor.undo() } }.disabled(!editor.canUndo)
         Button("Redo") { Task { await editor.redo() } }.disabled(!editor.canRedo)
       }
@@ -51,6 +54,7 @@ private struct IdleScreenPlantedTankView: View {
         }
         .frame(minWidth: 150, idealWidth: 190, maxWidth: 240)
         PlantedTankSurface(surface: editor.surface)
+          .id(ObjectIdentifier(editor.surface))
           .frame(minWidth: 320, minHeight: 300)
         VStack(alignment: .leading) {
           if let object = editor.selectedObject {
