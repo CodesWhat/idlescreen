@@ -5,6 +5,20 @@ import Testing
 
 @Suite("Aquarium hardscape navigation")
 struct AquariumNavigationTests {
+  @Test func endpointTransitionsStayAboveNonShelterHardscape() {
+    var settings = IdleScreenAquariumRenderSettings()
+    settings.seed = 0
+    settings.objects = [.init(kind: "diver", x: 270.0 / 384, y: 162.0 / 216)]
+    let item = IdleScreenAquariumRenderInhabitant(identity: 0, species: "cherryShrimp")
+    let navigation = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
+    #expect(navigation.shelters.isEmpty)
+    for time in stride(from: 0.0, through: 80, by: 0.25) {
+      let pose = IdleScreenAquarium.savedAnimal(
+        item, at: time, seed: 0, settings: settings, worldWidth: 384, navigation: navigation)
+      #expect(pose.y <= navigation.surface(at: pose.x, radius: 8) + 2 * pose.scale + 0.001)
+    }
+  }
+
   private var settings: IdleScreenAquariumRenderSettings {
     var value = IdleScreenAquariumRenderSettings()
     value.objects = [
