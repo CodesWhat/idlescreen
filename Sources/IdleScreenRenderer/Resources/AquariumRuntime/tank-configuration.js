@@ -32,6 +32,23 @@
     roomFinish: ['neutral', 'charcoal', 'concrete'], surface: ['calm', 'current', 'lively'],
     rasterHeight: [648, 864, 1080], conditionMode: ['auto', 'manual', 'ecosystem']
   });
+  const stockNames = {
+    chili: 'Chili Rasbora', 'medaka-white': 'White Medaka', 'medaka-redcap': 'Red Cap Medaka',
+    'medaka-white-galaxy-longfin': 'White Galaxy Longfin Medaka', 'medaka-tricolor': 'Tricolor Medaka',
+    'guppy-blue': 'Blue Guppy', 'guppy-pink': 'Pink Guppy', 'guppy-double-sword': 'Double Sword Guppy',
+    'guppy-dumbo-redtail': 'Dumbo Redtail Guppy', 'guppy-metal-lace': 'Metal Lace Guppy', 'guppy-full-gold': 'Full Gold Guppy',
+    red: 'Red Cherry Shrimp', 'red-white': 'Crystal Red Shrimp', otocinclus: 'Otocinclus',
+    nerite: 'Nerite Snail', assassin: 'Assassin Snail'
+  };
+  const stockItem = (kind, variant) => ({
+    id: kind + '/' + variant, kind, variant,
+    label: stockNames[variant] || variant.split('-').map(word => word[0].toUpperCase() + word.slice(1)).join(' ') + ' Shrimp'
+  });
+  const stockCatalog = freeze([
+    ...choices.assets.fish.map(variant => stockItem('fish', variant)),
+    ...choices.assets.shrimp.filter(variant => variant !== 'skittles').map(variant => stockItem('shrimp', variant)),
+    stockItem('fish', 'otocinclus'), stockItem('snail', 'nerite'), stockItem('snail', 'assassin')
+  ]);
   const assetKeys = Object.keys(choices.assets);
   const configurationKeys = ['schemaVersion', 'setup', 'assets', 'light', 'room', 'surface', 'pump', 'rasterHeight', 'condition'];
   const stateKeys = ['presetRevision', 'water', 'presetObjects', 'designer', 'glass', 'projection', 'botanical', 'physical',
@@ -184,5 +201,5 @@
     catch (_) { fail('INVALID_JSON', 'Configuration JSON could not be parsed'); }
     return normalize(value);
   }
-  return Object.freeze({ choices, limits, normalize, capture, planChanges, exportJSON, importJSON });
+  return Object.freeze({ choices, stockCatalog, limits, normalize, capture, planChanges, exportJSON, importJSON });
 });

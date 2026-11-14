@@ -683,6 +683,19 @@ struct AquariumRuntimeBundleTests {
     #expect(result["checks"] == 9)
   }
 
+  @Test func finishedAnimalCatalogIsSharedWithTheNativeEditor() async throws {
+    let result = try await runPresetFixture(
+      "stock-catalog", invocation: "runAquariumStockCatalog()")
+    #expect(result["checks"] == 9)
+    let surface = IdleScreenAquariumWebSurface()
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let snapshot = try await surface.beginEditing()
+    #expect(snapshot.stockCatalog.count == 35)
+    #expect(Set(snapshot.stockCatalog.map(\.id)).count == 35)
+    #expect(snapshot.stockCatalog.first { $0.id == "fish/chili" }?.label == "Chili Rasbora")
+    try await surface.shutdown()
+  }
+
   @Test func removedStockIsNotResurrectedWhenTheSceneRebuilds() async throws {
     let result = try await runPresetFixture(
       "checkpoint-stock", invocation: "runAquariumCheckpointStock(aquariumStudy)")

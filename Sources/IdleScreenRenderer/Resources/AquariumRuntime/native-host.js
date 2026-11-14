@@ -10,6 +10,7 @@
     objects: scene.state.presetObjects,
     placedObjects: scene.designer.layout?.instances || [],
     catalog: AquariumDesignerModel.catalog,
+    stockCatalog: AquariumTankConfiguration.stockCatalog,
     equipmentObjects: scene.equipment.objects,
     animals: scene.state.ecology.animals.map(({id,kind,species,variant,alive})=>({id,kind,species,variant,alive}))
   });
