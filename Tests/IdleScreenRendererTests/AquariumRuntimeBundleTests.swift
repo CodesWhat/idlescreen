@@ -222,6 +222,76 @@ struct AquariumRuntimeBundleTests {
     try await surface.shutdown()
   }
 
+  @Test func nativePointerToolsReportRealBedHitsWithoutEditingTheLayout() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let initial = try await surface.beginEditing()
+    var received: IdleScreenAquariumWebSurface.EditorPick?
+    var receivedCount = 0
+    surface.onEditorPick = {
+      received = $0
+      receivedCount += 1
+    }
+    let placing = try await surface.setEditorTool(.place, assetID: "rotala")
+    #expect(placing == initial)
+    let script = """
+      (() => {
+        const s = aquariumStudy.state, c = s.camera;
+        const camera = new THREE.PerspectiveCamera(c.fov,c.aspect,.1,1000);
+        camera.position.fromArray(c.position);camera.lookAt(...c.target);
+        camera.projectionMatrix.elements[9]=2*c.horizonPercent/100-1;
+        camera.updateMatrixWorld();
+        const centerZ=(s.world.floorBackZ+s.world.floorFrontZ)/2;
+        const p=new THREE.Vector3(-22/s.physical.cmPerUnit,5/s.physical.cmPerUnit,centerZ+12/s.physical.cmPerUnit).project(camera);
+        const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();
+        canvas.dispatchEvent(new PointerEvent('pointerdown',{button:0,clientX:r.left+(p.x+1)*r.width/2,clientY:r.top+(1-p.y)*r.height/2}));
+        window.idleScreenScene.setEditorTool({tool:'select',generation:42});
+        return 'clicked';
+      })()
+      """
+    _ = try await surface.view.evaluateJavaScript(script)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while received == nil && ContinuousClock.now < deadline {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let pick = try #require(received)
+    #expect(pick.tool == .place)
+    #expect(pick.revision == initial.revision)
+    let point = try #require(pick.positionCm)
+    #expect(abs(point.x + 22) < 0.001)
+    #expect(abs(point.y - 5) < 0.001)
+    #expect(abs(point.z - 12) < 0.001)
+    #expect(try await surface.editorSnapshot() == initial)
+    _ = try await surface.setEditorTool(.select)
+    _ = try await surface.setEditorTool(.place, assetID: "rotala")
+    received = nil
+    receivedCount = 0
+    _ = try await surface.view.evaluateJavaScript(
+      """
+      window.postMessage({type:'aquarium-designer-pick',revision:\(pick.revision),tool:'place',
+        toolGeneration:\(pick.toolGeneration),positionCm:{x:0,y:5,z:0}},'*');
+      """)
+    _ = try await surface.view.evaluateJavaScript(script)
+    let freshDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while received == nil && ContinuousClock.now < freshDeadline {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let fresh = try #require(received)
+    #expect(fresh.toolGeneration > pick.toolGeneration)
+    #expect(receivedCount == 1)
+    #expect(abs(try #require(fresh.positionCm).x + 22) < 0.001)
+    _ = try await surface.setEditorTool(.select)
+    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+      try await surface.setEditorTool(.place, assetID: "pirate-chest")
+    }
+    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+      try await surface.setEditorTool(.move, selectedID: "missing")
+    }
+    #expect(try await surface.editorSnapshot() == initial)
+    try await surface.shutdown()
+  }
+
   @Test func nativeEditorBridgeMovesObjectsAndRecoversFromRejectedEdits() async throws {
     let surface = IdleScreenAquariumWebSurface()
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)

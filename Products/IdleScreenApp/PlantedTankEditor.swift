@@ -22,6 +22,9 @@ final class IdleScreenPlantedTankEditor {
   @ObservationIgnored private let store: IdleScreenPlantedTankStore?
   @ObservationIgnored private var storedRevision: String?
   var selectedID: String?
+  private(set) var pointerTool = IdleScreenAquariumWebSurface.EditorTool.select
+  private(set) var placingAssetID: String?
+  private var movingID: String?
   private enum ObjectKind { case preset, placed }
   private struct LayoutEdit {
     let kind: ObjectKind
@@ -33,7 +36,84 @@ final class IdleScreenPlantedTankEditor {
   @ObservationIgnored private var isActivating = false
   @ObservationIgnored private var isReloading = false
 
-  init(store: IdleScreenPlantedTankStore? = nil) { self.store = store }
+  init(store: IdleScreenPlantedTankStore? = nil) {
+    self.store = store
+    bind(surface)
+  }
+
+  private func bind(_ source: IdleScreenAquariumWebSurface) {
+    source.onEditorPick = { [weak self, weak source] pick in
+      Task { [weak self, weak source] in
+        guard let self, let source, self.surface === source else { return }
+        await self.handlePick(pick)
+      }
+    }
+  }
+
+  var canMoveSelected: Bool {
+    snapshot?.placedObjects.contains(where: { $0.id == selectedID }) == true
+  }
+
+  func beginPlacing(assetID: String) async {
+    guard snapshot?.catalog.contains(where: { $0.id == assetID }) == true else { return }
+    if await chooseTool(.place, assetID: assetID) { selectedID = nil }
+  }
+
+  func beginMoving() async {
+    guard canMoveSelected, let selectedID else { return }
+    _ = await chooseTool(.move, selectedID: selectedID)
+  }
+
+  func cancelPointerTool() async {
+    _ = await chooseTool(.select, selectedID: canMoveSelected ? selectedID : nil)
+  }
+
+  func syncSelection() async {
+    guard pointerTool == .select else { return }
+    _ = await chooseTool(
+      .select, selectedID: canMoveSelected ? selectedID : nil, clearsError: false)
+  }
+
+  private func chooseTool(
+    _ tool: IdleScreenAquariumWebSurface.EditorTool,
+    selectedID: String? = nil, assetID: String? = nil, clearsError: Bool = true
+  ) async -> Bool {
+    guard !isBusy, !isReloading, snapshot != nil else { return false }
+    isBusy = true
+    defer { isBusy = false }
+    do {
+      _ = try await surface.setEditorTool(tool, selectedID: selectedID, assetID: assetID)
+      pointerTool = tool
+      placingAssetID = assetID
+      movingID = tool == .move ? selectedID : nil
+      if clearsError { errorMessage = nil }
+      return true
+    } catch {
+      errorMessage = error.localizedDescription
+      return false
+    }
+  }
+
+  func handlePick(_ pick: IdleScreenAquariumWebSurface.EditorPick) async {
+    guard wantsVisible, !isBusy, !isReloading, pick.revision == snapshot?.revision,
+      pick.tool == pointerTool, pick.toolGeneration == surface.toolGeneration
+    else { return }
+    switch pick.tool {
+    case .select:
+      guard pick.positionCm == nil else { return }
+      selectedID = snapshot?.placedObjects.first { $0.id == pick.id }?.id
+      await syncSelection()
+    case .place:
+      guard let assetID = placingAssetID, let position = pick.positionCm else { return }
+      await add(assetID: assetID, positionCm: position)
+    case .move:
+      guard let movingID, pick.id == movingID, let position = pick.positionCm,
+        var object = snapshot?.placedObjects.first(where: { $0.id == movingID })
+      else { return }
+      object.positionCm = position
+      await update(object)
+    }
+  }
 
   var canSave: Bool { store != nil && snapshot != nil && !isBusy }
   var canReopen: Bool { store != nil && !isBusy && !isActivating }
@@ -81,6 +161,7 @@ final class IdleScreenPlantedTankEditor {
 
   func deactivate() async {
     wantsVisible = false
+    if pointerTool != .select { await cancelPointerTool() }
     do {
       if surface.state == .running { try await surface.pause() }
       await save()
@@ -96,7 +177,10 @@ final class IdleScreenPlantedTankEditor {
     let object = Object(
       id: "placed-" + UUID().uuidString, assetId: assetID,
       positionCm: positionCm, rotationY: 0)
-    if await edit(snapshot.placedObjects + [object], kind: .placed) { selectedID = object.id }
+    if await edit(snapshot.placedObjects + [object], kind: .placed) {
+      selectedID = object.id
+      await syncSelection()
+    }
   }
 
   func update(_ object: Object) async {
@@ -155,6 +239,7 @@ final class IdleScreenPlantedTankEditor {
     let previous = surface
     let wasRunning = previous.state == .running
     let candidate = IdleScreenAquariumWebSurface()
+    bind(candidate)
     do {
       if wasRunning { try await previous.pause() }
       let saved = try await store.read()
@@ -169,6 +254,9 @@ final class IdleScreenPlantedTankEditor {
       snapshot = restored
       storedRevision = saved.revision
       selectedID = nil
+      pointerTool = .select
+      placingAssetID = nil
+      movingID = nil
       undoStack.removeAll()
       redoStack.removeAll()
       savedAt = nil
@@ -214,8 +302,14 @@ final class IdleScreenPlantedTankEditor {
           expectedRevision: snapshot.revision, objects: edit.objects)
       }
       if !allObjects.contains(where: { $0.id == selectedID }) { selectedID = nil }
+      pointerTool = .select
+      placingAssetID = nil
+      movingID = nil
       errorMessage = nil
-      do { try await persist() } catch { errorMessage = error.localizedDescription }
+      do {
+        _ = try await surface.setEditorTool(.select, selectedID: canMoveSelected ? selectedID : nil)
+        try await persist()
+      } catch { errorMessage = error.localizedDescription }
       return true
     } catch {
       errorMessage = error.localizedDescription

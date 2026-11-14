@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import IdleScreenRenderer
 import Testing
@@ -45,6 +46,125 @@ struct PlantedTankEditorTests {
     await reopened.deactivate()
     try await editor.surface.shutdown()
     try await reopened.surface.shutdown()
+  }
+
+  @Test func pointerPlacementAndMovementUseCollisionChecksAndCurrentSurface() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    await editor.activate()
+    await editor.beginPlacing(assetID: "rotala")
+    #expect(editor.pointerTool == .place)
+    let initial = try #require(editor.snapshot)
+    await editor.handlePick(
+      .init(
+        revision: initial.revision - 1, tool: .place, id: nil,
+        positionCm: .init(x: -22, y: 5, z: 12), toolGeneration: editor.surface.toolGeneration))
+    #expect(editor.snapshot == initial)
+    await editor.handlePick(
+      .init(
+        revision: initial.revision, tool: .place, id: nil,
+        positionCm: .init(x: 29, y: 5, z: 12), toolGeneration: editor.surface.toolGeneration))
+    #expect(editor.errorMessage != nil)
+    #expect(editor.pointerTool == .place)
+    #expect(editor.snapshot == initial)
+    await editor.handlePick(
+      .init(
+        revision: initial.revision, tool: .place, id: nil,
+        positionCm: .init(x: -22, y: 5, z: 12), toolGeneration: editor.surface.toolGeneration))
+    #expect(editor.errorMessage == nil)
+    #expect(editor.pointerTool == .select)
+    let plant = try #require(editor.selectedObject)
+    await editor.beginMoving()
+    #expect(editor.pointerTool == .move)
+    await editor.handlePick(
+      .init(
+        revision: try #require(editor.snapshot).revision, tool: .move,
+        id: plant.id, positionCm: .init(x: -21, y: 5, z: 12),
+        toolGeneration: editor.surface.toolGeneration))
+    #expect(editor.errorMessage == nil)
+    #expect(editor.pointerTool == .select)
+    #expect(editor.selectedObject?.positionCm.x == -21)
+    await editor.undo()
+    #expect(editor.selectedObject?.positionCm.x == -22)
+    await editor.beginPlacing(assetID: "rotala")
+    await editor.cancelPointerTool()
+    #expect(editor.pointerTool == .select)
+    await editor.deactivate()
+    try await editor.surface.shutdown()
+  }
+
+  @Test func aCanvasClickReachesTheNativeEditorAndCreatesAPlant() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    editor.surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    await editor.activate()
+    await editor.beginPlacing(assetID: "rotala")
+    let script = """
+      (() => {
+        const s=aquariumStudy.state,c=s.camera;
+        const camera=new THREE.PerspectiveCamera(c.fov,c.aspect,.1,1000);
+        camera.position.fromArray(c.position);camera.lookAt(...c.target);
+        camera.projectionMatrix.elements[9]=2*c.horizonPercent/100-1;camera.updateMatrixWorld();
+        const centerZ=(s.world.floorBackZ+s.world.floorFrontZ)/2;
+        const p=new THREE.Vector3(-22/s.physical.cmPerUnit,5/s.physical.cmPerUnit,centerZ+12/s.physical.cmPerUnit).project(camera);
+        const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();
+        canvas.dispatchEvent(new PointerEvent('pointerdown',{button:0,clientX:r.left+(p.x+1)*r.width/2,clientY:r.top+(1-p.y)*r.height/2}));
+        return 'clicked';
+      })()
+      """
+    _ = try await editor.surface.view.evaluateJavaScript(script)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while (editor.snapshot?.placedObjects.isEmpty == true || editor.isBusy)
+      && ContinuousClock.now < deadline
+    {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(editor.errorMessage == nil)
+    let plant = try #require(editor.selectedObject)
+    #expect(plant.assetId == "rotala")
+    #expect(abs(plant.positionCm.x + 22) < 0.001)
+    #expect(abs(plant.positionCm.z - 12) < 0.001)
+    #expect(editor.pointerTool == .select)
+    #expect(editor.canUndo)
+    await editor.undo()
+    #expect(editor.snapshot?.placedObjects.isEmpty == true)
+    await editor.deactivate()
+    try await editor.surface.shutdown()
+  }
+
+  @Test func hiddenEditorsIgnoreQueuedPointerHits() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    await editor.activate()
+    await editor.beginPlacing(assetID: "rotala")
+    let initial = try #require(editor.snapshot)
+    let oldGeneration = editor.surface.toolGeneration
+    await editor.deactivate()
+    #expect(editor.pointerTool == .select)
+    await editor.activate()
+    await editor.handlePick(
+      .init(
+        revision: initial.revision, tool: .place, id: nil,
+        positionCm: .init(x: -22, y: 5, z: 12), toolGeneration: oldGeneration))
+    #expect(editor.snapshot == initial)
+    #expect(!editor.canUndo)
+    await editor.deactivate()
+    try await editor.surface.shutdown()
+  }
+
+  @Test func queuedPicksCannotCrossToolActivations() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    await editor.activate()
+    await editor.beginPlacing(assetID: "rotala")
+    let oldGeneration = editor.surface.toolGeneration
+    let initial = try #require(editor.snapshot)
+    await editor.cancelPointerTool()
+    await editor.beginPlacing(assetID: "rotala")
+    await editor.handlePick(
+      .init(
+        revision: initial.revision, tool: .place, id: nil,
+        positionCm: .init(x: -22, y: 5, z: 12), toolGeneration: oldGeneration))
+    #expect(editor.snapshot == initial)
+    #expect(!editor.canUndo)
+    await editor.deactivate()
+    try await editor.surface.shutdown()
   }
 
   @Test func undoAndRedoUseCurrentRevisionsAndRejectedEditsLeaveHistoryIntact() async throws {

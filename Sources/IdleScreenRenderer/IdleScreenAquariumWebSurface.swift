@@ -57,6 +57,49 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     public let catalog: [CatalogAsset]
   }
 
+  public enum EditorTool: String, Codable, Sendable {
+    case select, place, move
+  }
+
+  public struct EditorPick: Decodable, Equatable, Sendable {
+    public let revision: Int
+    public let tool: EditorTool
+    public let toolGeneration: Int
+    public let id: String?
+    public let positionCm: PositionCm?
+
+    public init(
+      revision: Int, tool: EditorTool, id: String?, positionCm: PositionCm?, toolGeneration: Int = 0
+    ) {
+      self.revision = revision
+      self.tool = tool
+      self.toolGeneration = toolGeneration
+      self.id = id
+      self.positionCm = positionCm
+    }
+  }
+
+  private struct ToolRequest: Encodable {
+    let tool: EditorTool
+    let generation: Int
+    let selectedId: String?
+    let assetId: String?
+  }
+
+  public private(set) var toolGeneration = 0
+  public var onEditorPick: (@MainActor (EditorPick) -> Void)?
+
+  private final class EditorMessageHandler: NSObject, WKScriptMessageHandler {
+    weak var owner: IdleScreenAquariumWebSurface?
+
+    func userContentController(
+      _ userContentController: WKUserContentController,
+      didReceive message: WKScriptMessage
+    ) {
+      owner?.receiveEditorPick(message)
+    }
+  }
+
   public enum EditorError: Error, LocalizedError {
     case rejected(String)
     case invalidResponse
@@ -93,6 +136,9 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     view = WKWebView(frame: .zero, configuration: configuration)
     super.init()
     view.navigationDelegate = self
+    let handler = EditorMessageHandler()
+    handler.owner = self
+    configuration.userContentController.add(handler, name: "idleScreenEditor")
   }
 
   public func load(sceneURL: URL) async throws {
@@ -169,6 +215,29 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     return try await editorQuery("window.idleScreenScene.applyPlacedObjects(\(json))")
   }
 
+  public func setEditorTool(_ tool: EditorTool, selectedID: String? = nil, assetID: String? = nil)
+    async throws -> EditorSnapshot
+  {
+    toolGeneration += 1
+    let request = ToolRequest(
+      tool: tool, generation: toolGeneration, selectedId: selectedID, assetId: assetID)
+    let argument = String(decoding: try JSONEncoder().encode(request), as: UTF8.self)
+    return try await editorQuery("window.idleScreenScene.setEditorTool(\(argument))")
+  }
+
+  private func receiveEditorPick(_ message: WKScriptMessage) {
+    guard state == .paused || state == .running,
+      message.webView === view, message.frameInfo.isMainFrame,
+      let url = message.frameInfo.request.url, url.isFileURL, let resourceDirectory,
+      url.resolvingSymlinksInPath().standardizedFileURL.path.hasPrefix(
+        resourceDirectory.path + "/"),
+      let body = message.body as? String, body.utf8.count <= 4096,
+      let pick = try? JSONDecoder().decode(EditorPick.self, from: Data(body.utf8)),
+      pick.revision >= 0, pick.toolGeneration == toolGeneration
+    else { return }
+    onEditorPick?(pick)
+  }
+
   private func editorQuery(_ expression: String) async throws -> EditorSnapshot {
     let json = try await jsonQuery(expression)
     let response = try JSONDecoder().decode(EditorResponse.self, from: Data(json.utf8))
@@ -219,6 +288,9 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     defer {
       view.stopLoading()
       view.navigationDelegate = nil
+      view.configuration.userContentController.removeScriptMessageHandler(
+        forName: "idleScreenEditor")
+      onEditorPick = nil
       view.loadHTMLString("", baseURL: nil)
       resourceDirectory = nil
     }

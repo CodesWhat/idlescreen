@@ -1315,14 +1315,14 @@ function applyDesigner(message){
 function pickDesigner(event){
  if(!designerRuntime||event.button!==undefined&&event.button!==0)return;
  const rect=renderer.domElement.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
- if(designerTool==='select'){const hit=raycaster.intersectObject(designerRuntime.group,true).find(h=>h.object.userData.designerId);parent.postMessage({type:'aquarium-designer-pick',id:hit?.object.userData.designerId??null},'*');return;}
+ if(designerTool==='select'){const hit=raycaster.intersectObject(designerRuntime.group,true).find(h=>h.object.userData.designerId);parent.postMessage({type:'aquarium-designer-pick',revision:presetRevision,tool:designerTool,toolGeneration:designerRequestId,id:hit?.object.userData.designerId??null},'*');return;}
  const item=designerLayout.instances.find(i=>i.id===designerSelectedId),assetId=designerTool==='place'?designerAssetId:item?.assetId,definition=AquariumDesignerModel.catalog.find(a=>a.id===assetId);if(!definition)return;
  let hit;
  if(definition.placement==='attached')hit=raycaster.intersectObjects(collisionWorld.meshes.filter(m=>m.userData.hardscape&&!m.userData.equipmentSolid),false).find(h=>h.face.normal.clone().transformDirection(h.object.matrixWorld).y>=.5)?.point;
  else hit=raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-(definition.placement==='floating'?waterLevel:bedLevel)),new THREE.Vector3());
  if(!hit||Math.abs(hit.x)>innerHalf+1e-7||hit.z<backBound-1e-7||hit.z>frontBound+1e-7||hit.y<bedLevel-1e-7||hit.y>waterLevel+1e-7)return;
  const positionCm={x:THREE.MathUtils.clamp(hit.x*cmPerUnit,-29.4,29.4),y:definition.placement==='attached'?THREE.MathUtils.clamp(hit.y*cmPerUnit,5,34.5):definition.placement==='floating'?34.5:5,z:THREE.MathUtils.clamp((hit.z-centerZ)*cmPerUnit,-17.4,17.4)};
- parent.postMessage({type:'aquarium-designer-pick',...(designerTool==='move'?{id:designerSelectedId}:{}),positionCm},'*');
+ parent.postMessage({type:'aquarium-designer-pick',revision:presetRevision,tool:designerTool,toolGeneration:designerRequestId,...(designerTool==='move'?{id:designerSelectedId}:{}),positionCm},'*');
 }
 function updateDesigner(){
  if(!designerRuntime)return;const previousPlants=JSON.stringify(designerRuntime.plants.map(p=>p.id));designerRuntime.update(clock,flowField);

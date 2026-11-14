@@ -56,6 +56,7 @@ private struct IdleScreenPlantedTankView: View {
           }
         }
         .frame(minWidth: 150, idealWidth: 190, maxWidth: 240)
+        .disabled(editor.isBusy || editor.pointerTool != .select)
         PlantedTankSurface(surface: editor.surface)
           .id(ObjectIdentifier(editor.surface))
           .frame(minWidth: 320, minHeight: 300)
@@ -74,11 +75,27 @@ private struct IdleScreenPlantedTankView: View {
         .padding()
         .frame(minWidth: 190, idealWidth: 220, maxWidth: 280)
       }
+      if editor.pointerTool != .select {
+        HStack {
+          Text(
+            editor.pointerTool == .place
+              ? "Click in the tank to place the specimen. Attached plants need a rock or driftwood surface."
+              : "Click in the tank to move the selected specimen."
+          )
+          .font(.callout)
+          Spacer()
+          Button("Cancel placement") { Task { await editor.cancelPointerTool() } }
+            .disabled(editor.isBusy)
+        }.padding()
+      }
       if let error = editor.errorMessage {
         Text(error).font(.callout).foregroundStyle(.red).padding()
       }
     }
     .task { await editor.activate() }
+    .onChange(of: editor.selectedID) { _, _ in
+      Task { await editor.syncSelection() }
+    }
     .onDisappear { Task { await editor.deactivate() } }
   }
   private func objectRow(_ object: IdleScreenAquariumWebSurface.PresetObject) -> some View {
@@ -119,12 +136,13 @@ private struct PlantedTankAssetPicker: View {
         )
         .font(.caption).foregroundStyle(.secondary)
       }
-      Button("Add specimen") {
+      Button("Place in tank") { Task { await editor.beginPlacing(assetID: assetID) } }
+      Button("Add at coordinates") {
         let height = placement == "floating" ? 34.5 : 5
         Task { await editor.add(assetID: assetID, positionCm: .init(x: x, y: height, z: depth)) }
       }
     }
-    .disabled(editor.isBusy || editor.snapshot == nil)
+    .disabled(editor.isBusy || editor.snapshot == nil || editor.pointerTool != .select)
   }
 }
 
@@ -173,8 +191,11 @@ private struct PlantedTankInspector: View {
         moved.rotationY = degrees * .pi / 180
         Task { await editor.update(moved) }
       }
+      if editor.canMoveSelected {
+        Button("Move in tank") { Task { await editor.beginMoving() } }
+      }
       Button("Remove object", role: .destructive) { Task { await editor.removeSelected() } }
     }
-    .disabled(editor.isBusy)
+    .disabled(editor.isBusy || editor.pointerTool != .select)
   }
 }

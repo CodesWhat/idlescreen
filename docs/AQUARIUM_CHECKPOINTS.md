@@ -38,6 +38,16 @@ The chooser accepts positions in centimeters. Rooted plants and hardscape
 anchor to the substrate, floaters anchor to the water surface, and epiphytes
 mount on the highest eligible wood or rock below the chosen position. Height
 is determined by that support. Across, depth and rotation remain editable.
+Choose **Place in tank** to click a bed, water-surface or eligible hardscape
+anchor. Added specimens can be selected in the scene and moved with **Move in
+tank**. Preset objects still use the list and coordinate inspector. Cancel or
+leave the workspace to exit a pointer tool. A rejected placement keeps the tool
+active so another position can be tried.
+
+Pointer messages are accepted only from the bundled main frame. The scene
+stamps each hit with its layout revision and tool activation generation; the
+native surface and editor reject old activations and hidden or replaced
+surfaces. Pointer tool changes do not create layout history or rewind biology.
 
 Added-object commands validate a separate staged layout against the actual
 preset geometry before changing the live tank. Commands carry the current
@@ -48,8 +58,8 @@ restoring an older ecosystem checkpoint. Successful edits save both sets of
 objects through the existing checkpoint store.
 
 The three original chest, wreck and diver-helmet assets remain review-only and
-are excluded from this chooser. Pointer placement, shop stock and pricing are
-separate unfinished work.
+are excluded from this chooser. Preset pointer movement, shop stock and pricing
+remain unfinished work.
 
 ## Native storage
 
