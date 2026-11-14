@@ -613,6 +613,70 @@ struct AquariumRuntimeBundleTests {
     try await target.shutdown()
   }
 
+  @Test(arguments: [false, true])
+  func rebuildingScenePreservesStoredStockAndFeeding(empty: Bool) async throws {
+    let source = IdleScreenAquariumWebSurface()
+    try await source.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    _ = try await source.beginEditing()
+    _ = try await tankScript(source, "aquariumStudy.feed({automatic:true}); JSON.stringify(true)")
+    let saved = try await tankScript(
+      source,
+      """
+      (() => {
+        if (!\(empty)) {
+          aquariumStudy.previewLifeEvent('molt');
+          aquariumStudy.previewLifeEvent('death');
+        }
+        const saved = aquariumStudy.exportTank({id:'stock-rebuild',name:'Stock'});
+        if (\(empty)) {
+          saved.tank.document.checkpoint.data.ecology.animals = [];
+          saved.runtime.actors = [];
+          saved.tank.document.checkpoint.data.breeding = AquariumBreeding.create({maxAnimals:80}).snapshot();
+        }
+        return JSON.stringify(saved);
+      })()
+      """)
+    let target = IdleScreenAquariumWebSurface()
+    target.view.configuration.userContentController.addUserScript(
+      WKUserScript(
+        source: Self.frameClock(emulatingVisibleDocument: true),
+        injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    _ = try await target.restoreTank(from: Data(saved.utf8))
+    let result = try await tankScript(
+      target,
+      """
+      (() => {
+        const capture = () => aquariumStudy.exportTank({id:'stock-rebuild',name:'Stock'});
+        const before = capture();
+        aquariumStudy.setAsset('gravel','river');
+        const after = capture();
+        return JSON.stringify({
+          differences: ['actors','food'].flatMap(group => before.runtime[group].flatMap(a => {
+            const b = after.runtime[group].find(b => b.id === a.id);
+            return Object.keys(a).filter(key => JSON.stringify(a[key]) !== JSON.stringify(b?.[key]))
+              .map(key => ({id:a.id,key,before:a[key],after:b?.[key]}));
+          })),
+          hasFood: before.runtime.food.length > 0,
+          sameLife: JSON.stringify(before.tank.document.checkpoint) === JSON.stringify(after.tank.document.checkpoint),
+          sameRuntime: JSON.stringify(before.runtime) === JSON.stringify(after.runtime)
+        });
+      })()
+      """)
+    let checks = try #require(
+      JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any])
+    #expect(checks["hasFood"] as? Bool == true)
+    #expect(checks["sameLife"] as? Bool == true)
+    #expect(checks["sameRuntime"] as? Bool == true, "\(String(describing: checks["differences"]))")
+    let paused = try await snapshot(target)
+    try await target.resume()
+    let continued = try await snapshot(target, frames: 3)
+    #expect(continued.scene.clock > paused.scene.clock)
+    #expect(continued.scene.ecology.animals.map(\.id) == paused.scene.ecology.animals.map(\.id))
+    try await source.shutdown()
+    try await target.shutdown()
+  }
+
   @Test func invalidCheckpointArtAndBindingsAreRejectedBeforeAnySceneMutation() async throws {
     let result = try await runPresetFixture(
       "checkpoint-validation", invocation: "runAquariumCheckpointValidation(aquariumStudy)")
