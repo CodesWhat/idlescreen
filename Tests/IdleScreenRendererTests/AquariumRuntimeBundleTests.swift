@@ -351,6 +351,12 @@ struct AquariumRuntimeBundleTests {
     try await surface.shutdown()
   }
 
+  @Test func originalOrnamentsHaveClosedSurfacesAndRealSwimthroughs() async throws {
+    let result = try await runPresetFixture(
+      "ornament-checks", invocation: "runAquariumOrnamentChecks()")
+    #expect(result["checks"] == 7)
+  }
+
   private func tankScript(_ surface: IdleScreenAquariumWebSurface, _ script: String) async throws
     -> String
   {

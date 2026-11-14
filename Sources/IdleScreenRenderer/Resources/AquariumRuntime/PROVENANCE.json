@@ -61,6 +61,7 @@
     "ecosystem-checkpoint.js",
     "tank-envelope.js",
     "runtime-checkpoint.js",
+    "kitsch-ornaments-v1.js",
     "scene.js",
     "native-host.js"
   ],
@@ -344,6 +345,11 @@
       "path": "runtime-checkpoint.js",
       "sourceSha256": "2295f7abbf0cad107861828bdfb4d8cf6b17844d4b94c88776b9f574e06e6f33",
       "origin": "Original CodesWhat tank persistence"
+    },
+    {
+      "path": "kitsch-ornaments-v1.js",
+      "sourceSha256": "3a76c20dc4bd02807245ab2a6fde1f17f218835c392e410d1bc9887815a09151",
+      "origin": "Original CodesWhat review ornament factory"
     }
   ],
   "adaptations": [
