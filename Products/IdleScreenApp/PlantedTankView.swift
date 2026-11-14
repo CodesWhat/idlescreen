@@ -54,6 +54,17 @@ private struct IdleScreenPlantedTankView: View {
               objectRow(object)
             }
           }
+          Section("Animals") {
+            ForEach(editor.snapshot?.animals ?? []) { animal in
+              VStack(alignment: .leading) {
+                Text(
+                  (animal.variant ?? animal.species).replacingOccurrences(of: "-", with: " ")
+                    .capitalized)
+                Text(animal.alive ? animal.kind.capitalized : "Dead")
+                  .font(.caption).foregroundStyle(.secondary)
+              }.tag(animal.id)
+            }
+          }
           Section("Added plants and hardscape") {
             ForEach(editor.snapshot?.placedObjects ?? []) { object in
               objectRow(object)
@@ -68,6 +79,22 @@ private struct IdleScreenPlantedTankView: View {
         VStack(alignment: .leading) {
           PlantedTankAssetPicker(editor: editor)
           Divider().padding(.vertical, 8)
+          if let animal = editor.selectedAnimal {
+            Text(
+              (animal.variant ?? animal.species).replacingOccurrences(of: "-", with: " ")
+                .capitalized
+            ).font(.headline)
+            if animal.alive {
+              Button("Remove from tank", role: .destructive) {
+                Task { await editor.removeAnimal(id: animal.id) }
+              }
+              .disabled(editor.isBusy)
+              .help("Takes this animal and any carried brood out of the tank.")
+            } else {
+              Text("This animal is no longer alive. Its remains belong to the tank ecosystem.")
+                .font(.caption).foregroundStyle(.secondary)
+            }
+          }
           if let object = editor.selectedObject {
             PlantedTankInspector(object: object, editor: editor)
               .id("\(object.id)-\(editor.snapshot?.revision ?? 0)")

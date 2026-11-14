@@ -243,6 +243,57 @@ final class IdleScreenPlantedTankEditor {
     }
   }
 
+  var selectedAnimal: IdleScreenAquariumWebSurface.StockAnimal? {
+    snapshot?.animals.first { $0.id == selectedID }
+  }
+
+  func removeAnimal(id: String) async {
+    guard !isBusy, !isReloading,
+      snapshot?.animals.contains(where: { $0.id == id && $0.alive }) == true
+    else { return }
+    isBusy = true
+    isReloading = true
+    defer {
+      isBusy = false
+      isReloading = false
+    }
+    let previous = surface
+    let candidate = IdleScreenAquariumWebSurface()
+    bind(candidate)
+    var committed = false
+    do {
+      if previous.state == .running { try await previous.pause() }
+      let data = try await previous.prepareStockRemoval(
+        animalID: id, id: "planted-tank", name: "Planted tank")
+      guard let url = IdleScreenAquariumRuntime.sceneURL else {
+        throw IdleScreenAquariumWebSurface.SurfaceError.invalidLocalResource
+      }
+      try await candidate.load(sceneURL: url)
+      _ = try await candidate.restoreTank(from: data)
+      let restored = try await candidate.beginEditing()
+      if let store {
+        storedRevision = try await store.write(data, expectedRevision: storedRevision)
+        savedAt = Date()
+      }
+      surface = candidate
+      snapshot = restored
+      selectedID = nil
+      pointerTool = .select
+      placingAssetID = nil
+      movingID = nil
+      errorMessage = nil
+      committed = true
+      try? await previous.shutdown()
+      if wantsVisible { try await candidate.resume() }
+    } catch {
+      if !committed {
+        try? await candidate.shutdown()
+        if wantsVisible && previous.state == .paused { try? await previous.resume() }
+      }
+      errorMessage = error.localizedDescription
+    }
+  }
+
   func reloadCheckpoint() async {
     guard canReopen, let store else { return }
     isBusy = true

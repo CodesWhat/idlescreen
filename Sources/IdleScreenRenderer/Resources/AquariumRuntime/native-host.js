@@ -10,7 +10,8 @@
     objects: scene.state.presetObjects,
     placedObjects: scene.designer.layout?.instances || [],
     catalog: AquariumDesignerModel.catalog,
-    equipmentObjects: scene.equipment.objects
+    equipmentObjects: scene.equipment.objects,
+    animals: scene.state.ecology.animals.map(({id,kind,species,variant,alive})=>({id,kind,species,variant,alive}))
   });
   addEventListener("message", event => {
     if (event.source !== window || event.data?.type !== "aquarium-designer-pick"
@@ -24,6 +25,7 @@
   window.idleScreenScene = Object.freeze({
     editorSnapshot,
     exportTank(identity) { return scene.exportTank(identity); },
+    prepareStockRemoval(request) { return scene.prepareStockRemoval(request.animalID,{id:request.id,name:request.name}); },
     restoreTankJSON(text) {
       try { scene.restoreTankJSON(text); return editorSnapshot(); }
       catch (error) { return { revision: scene.state.presetRevision, error: error.message }; }

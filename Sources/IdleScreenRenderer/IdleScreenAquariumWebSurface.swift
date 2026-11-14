@@ -50,12 +50,21 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     public let placement: String
   }
 
+  public struct StockAnimal: Decodable, Equatable, Identifiable, Sendable {
+    public let id: String
+    public let kind: String
+    public let species: String
+    public let variant: String?
+    public let alive: Bool
+  }
+
   public struct EditorSnapshot: Decodable, Equatable, Sendable {
     public let revision: Int
     public let objects: [PresetObject]
     public let placedObjects: [PresetObject]
     public let catalog: [CatalogAsset]
     public let equipmentObjects: [PresetObject]
+    public let animals: [StockAnimal]
   }
 
   public enum EditorTool: String, Codable, Sendable {
@@ -124,6 +133,7 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     let placedObjects: [PresetObject]?
     let catalog: [CatalogAsset]?
     let equipmentObjects: [PresetObject]?
+    let animals: [StockAnimal]?
     let error: String?
   }
 
@@ -175,6 +185,18 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     let identity = try JSONEncoder().encode(["id": id, "name": name])
     let json = try await jsonQuery(
       "window.idleScreenScene.exportTank(\(String(decoding: identity, as: UTF8.self)))")
+    let data = Data(json.utf8)
+    guard data.count <= 4_194_304 else {
+      throw EditorError.rejected("Tank checkpoint is too large.")
+    }
+    return data
+  }
+
+  public func prepareStockRemoval(animalID: String, id: String, name: String) async throws -> Data {
+    guard state == .paused else { throw SurfaceError.invalidState }
+    let request = try JSONEncoder().encode(["animalID": animalID, "id": id, "name": name])
+    let json = try await jsonQuery(
+      "window.idleScreenScene.prepareStockRemoval(\(String(decoding: request, as: UTF8.self)))")
     let data = Data(json.utf8)
     guard data.count <= 4_194_304 else {
       throw EditorError.rejected("Tank checkpoint is too large.")
@@ -253,11 +275,12 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     let response = try JSONDecoder().decode(EditorResponse.self, from: Data(json.utf8))
     if let error = response.error { throw EditorError.rejected(error) }
     guard let objects = response.objects, let placedObjects = response.placedObjects,
-      let catalog = response.catalog, let equipmentObjects = response.equipmentObjects
+      let catalog = response.catalog, let equipmentObjects = response.equipmentObjects,
+      let animals = response.animals
     else { throw EditorError.invalidResponse }
     return EditorSnapshot(
       revision: response.revision, objects: objects, placedObjects: placedObjects, catalog: catalog,
-      equipmentObjects: equipmentObjects)
+      equipmentObjects: equipmentObjects, animals: animals)
   }
 
   private func jsonQuery(_ expression: String) async throws -> String {
