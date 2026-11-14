@@ -30,6 +30,27 @@ Behavioral movement targets and temporary navigation paths are rebuilt. This
 format preserves the biological models and visible state; it does not promise
 identical future movement trajectories after reopening.
 
+## Editing plants and hardscape
+
+The native workbench exposes the 15 specimens in the runtime's designer
+catalog. Added specimens and preset objects appear in separate list sections.
+The chooser accepts positions in centimeters. Rooted plants and hardscape
+anchor to the substrate, floaters anchor to the water surface, and epiphytes
+mount on the highest eligible wood or rock below the chosen position. Height
+is determined by that support. Across, depth and rotation remain editable.
+
+Added-object commands validate a separate staged layout against the actual
+preset geometry before changing the live tank. Commands carry the current
+layout revision; stale commands, glass crossings, unsupported mounts and hard
+collisions are rejected. Failed commands leave the layout and undo history
+intact. Undo and redo retain independent preset/added-object edits without
+restoring an older ecosystem checkpoint. Successful edits save both sets of
+objects through the existing checkpoint store.
+
+The three original chest, wreck and diver-helmet assets remain review-only and
+are excluded from this chooser. Pointer placement, shop stock and pricing are
+separate unfinished work.
+
 ## Native storage
 
 The native store keeps the UTF-8 checkpoint beside the existing aquarium

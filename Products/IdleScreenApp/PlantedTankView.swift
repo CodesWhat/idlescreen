@@ -44,12 +44,15 @@ private struct IdleScreenPlantedTankView: View {
       .padding()
       HSplitView {
         List(selection: $editor.selectedID) {
-          ForEach(editor.snapshot?.objects ?? []) { object in
-            VStack(alignment: .leading) {
-              Text(object.assetId.replacingOccurrences(of: "-", with: " ").capitalized)
-              Text(object.id).font(.caption).foregroundStyle(.secondary)
+          Section("Tank objects") {
+            ForEach(editor.snapshot?.objects ?? []) { object in
+              objectRow(object)
             }
-            .tag(object.id)
+          }
+          Section("Added plants and hardscape") {
+            ForEach(editor.snapshot?.placedObjects ?? []) { object in
+              objectRow(object)
+            }
           }
         }
         .frame(minWidth: 150, idealWidth: 190, maxWidth: 240)
@@ -57,6 +60,8 @@ private struct IdleScreenPlantedTankView: View {
           .id(ObjectIdentifier(editor.surface))
           .frame(minWidth: 320, minHeight: 300)
         VStack(alignment: .leading) {
+          PlantedTankAssetPicker(editor: editor)
+          Divider().padding(.vertical, 8)
           if let object = editor.selectedObject {
             PlantedTankInspector(object: object, editor: editor)
               .id("\(object.id)-\(editor.snapshot?.revision ?? 0)")
@@ -75,6 +80,51 @@ private struct IdleScreenPlantedTankView: View {
     }
     .task { await editor.activate() }
     .onDisappear { Task { await editor.deactivate() } }
+  }
+  private func objectRow(_ object: IdleScreenAquariumWebSurface.PresetObject) -> some View {
+    VStack(alignment: .leading) {
+      Text(
+        editor.snapshot?.catalog.first { $0.id == object.assetId }?.label
+          ?? object.assetId.replacingOccurrences(of: "-", with: " ").capitalized)
+      Text(object.id).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+    }
+    .tag(object.id)
+  }
+
+}
+
+private struct PlantedTankAssetPicker: View {
+  let editor: IdleScreenPlantedTankEditor
+  @State private var assetID = "rotala"
+  @State private var x: Double = -22
+  @State private var depth: Double = 12
+
+  private var placement: String? {
+    editor.snapshot?.catalog.first { $0.id == assetID }?.placement
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Add plants and hardscape").font(.headline)
+      Picker("Specimen", selection: $assetID) {
+        ForEach(editor.snapshot?.catalog ?? []) { asset in
+          Text(asset.label).tag(asset.id)
+        }
+      }
+      TextField("Across (cm)", value: $x, format: .number)
+      TextField("Depth (cm)", value: $depth, format: .number)
+      if placement == "attached" {
+        Text(
+          "Mounts on the highest eligible rock or driftwood at this position. Unsupported positions are rejected."
+        )
+        .font(.caption).foregroundStyle(.secondary)
+      }
+      Button("Add specimen") {
+        let height = placement == "floating" ? 34.5 : 5
+        Task { await editor.add(assetID: assetID, positionCm: .init(x: x, y: height, z: depth)) }
+      }
+    }
+    .disabled(editor.isBusy || editor.snapshot == nil)
   }
 }
 
@@ -105,8 +155,15 @@ private struct PlantedTankInspector: View {
       TextField("Across (cm)", value: $x, format: .number)
       TextField("Depth (cm)", value: $depth, format: .number)
       TextField("Turn (°)", value: $degrees, format: .number)
-      LabeledContent(
-        "Height (cm)", value: object.positionCm.y.formatted(.number.precision(.fractionLength(1))))
+      if editor.snapshot?.placedObjects.contains(where: { $0.id == object.id }) == true,
+        editor.snapshot?.catalog.first(where: { $0.id == object.assetId })?.placement == "attached"
+      {
+        LabeledContent("Height", value: "Follows its mount")
+      } else {
+        LabeledContent(
+          "Height (cm)", value: object.positionCm.y.formatted(.number.precision(.fractionLength(1)))
+        )
+      }
       Text("Height follows its current support. Invalid placements are rejected.")
         .font(.caption).foregroundStyle(.secondary)
       Button("Apply position") {

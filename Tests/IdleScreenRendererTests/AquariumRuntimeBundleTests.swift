@@ -155,6 +155,73 @@ struct AquariumRuntimeBundleTests {
     #expect(result["checks"] == 10)
   }
 
+  @Test func placedAssetsAreRevisionFencedAndRejectedWithoutChangingLife() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let initial = try await surface.beginEditing()
+    #expect(initial.catalog.count == 15)
+    #expect(initial.placedObjects.isEmpty)
+    #expect(!initial.catalog.contains { $0.id == "pirate-chest" })
+    let before = try await surface.exportTank(id: "test", name: "Test")
+    let plant = IdleScreenAquariumWebSurface.PresetObject(
+      id: "placed-test", assetId: "rotala", positionCm: .init(x: -22, y: 5, z: 12), rotationY: 0)
+    let edited = try await surface.applyPlacedObjects(
+      expectedRevision: initial.revision, objects: [plant])
+    #expect(edited.revision > initial.revision)
+    #expect(edited.placedObjects == [plant])
+    #expect(edited.objects == initial.objects)
+    #expect(
+      try await surface.applyPlacedObjects(expectedRevision: edited.revision, objects: [plant])
+        == edited)
+    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+      try await surface.applyPlacedObjects(expectedRevision: initial.revision, objects: [])
+    }
+    for invalid in [
+      IdleScreenAquariumWebSurface.PresetObject(
+        id: "placed-test", assetId: "rotala", positionCm: .init(x: 29, y: 5, z: 12), rotationY: 0),
+      IdleScreenAquariumWebSurface.PresetObject(
+        id: "base-conflict", assetId: "rotala", positionCm: plant.positionCm, rotationY: 0),
+    ] {
+      await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+        try await surface.applyPlacedObjects(expectedRevision: edited.revision, objects: [invalid])
+      }
+      #expect(try await surface.editorSnapshot() == edited)
+    }
+    let after = try await surface.exportTank(id: "test", name: "Test")
+    let first = try #require(JSONSerialization.jsonObject(with: before) as? NSDictionary)
+    let last = try #require(JSONSerialization.jsonObject(with: after) as? NSDictionary)
+    #expect(first["runtime"] as? NSDictionary == last["runtime"] as? NSDictionary)
+    let removed = try await surface.applyPlacedObjects(
+      expectedRevision: edited.revision, objects: [])
+    #expect(removed.placedObjects.isEmpty)
+    try await surface.shutdown()
+  }
+
+  @Test func movingAPresetCannotBuryAnAddedPlant() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let initial = try await surface.beginEditing()
+    let rock = try #require(initial.objects.first { $0.id == "base-rock" })
+    let plant = IdleScreenAquariumWebSurface.PresetObject(
+      id: "placed-rooted", assetId: "rotala", positionCm: .init(x: -22, y: 5, z: 12), rotationY: 0)
+    let planted = try await surface.applyPlacedObjects(
+      expectedRevision: initial.revision, objects: [plant])
+    let before = try await surface.exportTank(id: "test", name: "Test")
+    var moved = rock
+    moved.positionCm.x = -20
+    moved.positionCm.z = 10
+    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+      try await surface.applyPresetObjects(
+        expectedRevision: planted.revision,
+        objects: planted.objects.map { $0.id == rock.id ? moved : $0 })
+    }
+    #expect(try await surface.editorSnapshot() == planted)
+    #expect(try await surface.exportTank(id: "test", name: "Test") == before)
+    try await surface.shutdown()
+  }
+
   @Test func nativeEditorBridgeMovesObjectsAndRecoversFromRejectedEdits() async throws {
     let surface = IdleScreenAquariumWebSurface()
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)

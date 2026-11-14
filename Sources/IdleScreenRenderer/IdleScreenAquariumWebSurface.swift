@@ -22,6 +22,12 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     public var x: Double
     public var y: Double
     public var z: Double
+
+    public init(x: Double, y: Double, z: Double) {
+      self.x = x
+      self.y = y
+      self.z = z
+    }
   }
 
   public struct PresetObject: Codable, Equatable, Identifiable, Sendable {
@@ -29,11 +35,26 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     public let assetId: String
     public var positionCm: PositionCm
     public var rotationY: Double
+
+    public init(id: String, assetId: String, positionCm: PositionCm, rotationY: Double) {
+      self.id = id
+      self.assetId = assetId
+      self.positionCm = positionCm
+      self.rotationY = rotationY
+    }
+  }
+
+  public struct CatalogAsset: Decodable, Equatable, Identifiable, Sendable {
+    public let id: String
+    public let label: String
+    public let placement: String
   }
 
   public struct EditorSnapshot: Decodable, Equatable, Sendable {
     public let revision: Int
     public let objects: [PresetObject]
+    public let placedObjects: [PresetObject]
+    public let catalog: [CatalogAsset]
   }
 
   public enum EditorError: Error, LocalizedError {
@@ -56,6 +77,8 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
   private struct EditorResponse: Decodable {
     let revision: Int
     let objects: [PresetObject]?
+    let placedObjects: [PresetObject]?
+    let catalog: [CatalogAsset]?
     let error: String?
   }
 
@@ -137,12 +160,24 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     return try await editorQuery("window.idleScreenScene.applyPresetObjects(\(json))")
   }
 
+  public func applyPlacedObjects(expectedRevision: Int, objects: [PresetObject]) async throws
+    -> EditorSnapshot
+  {
+    let request = EditRequest(expectedRevision: expectedRevision, objects: objects)
+    let data = try JSONEncoder().encode(request)
+    let json = String(decoding: data, as: UTF8.self)
+    return try await editorQuery("window.idleScreenScene.applyPlacedObjects(\(json))")
+  }
+
   private func editorQuery(_ expression: String) async throws -> EditorSnapshot {
     let json = try await jsonQuery(expression)
     let response = try JSONDecoder().decode(EditorResponse.self, from: Data(json.utf8))
     if let error = response.error { throw EditorError.rejected(error) }
-    guard let objects = response.objects else { throw EditorError.invalidResponse }
-    return EditorSnapshot(revision: response.revision, objects: objects)
+    guard let objects = response.objects, let placedObjects = response.placedObjects,
+      let catalog = response.catalog
+    else { throw EditorError.invalidResponse }
+    return EditorSnapshot(
+      revision: response.revision, objects: objects, placedObjects: placedObjects, catalog: catalog)
   }
 
   private func jsonQuery(_ expression: String) async throws -> String {

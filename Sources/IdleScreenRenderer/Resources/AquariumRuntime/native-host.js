@@ -7,7 +7,9 @@
   scene.setMotion(false);
   const editorSnapshot = () => ({
     revision: scene.state.presetRevision,
-    objects: scene.state.presetObjects
+    objects: scene.state.presetObjects,
+    placedObjects: scene.designer.layout?.instances || [],
+    catalog: AquariumDesignerModel.catalog
   });
   window.idleScreenScene = Object.freeze({
     editorSnapshot,
@@ -31,7 +33,12 @@
       return editorSnapshot();
     },
     applyPresetObjects(request) {
-      return scene.applyPresetObjects(request);
+      const result = scene.applyPresetObjects(request);
+      return result.error ? result : editorSnapshot();
+    },
+    applyPlacedObjects(request) {
+      const result = scene.applyPlacedObjects(request);
+      return result.error ? result : editorSnapshot();
     },
     setAnimating(active) {
       if (typeof active !== "boolean") throw new TypeError("Animation state must be a boolean");

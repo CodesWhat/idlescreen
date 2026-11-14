@@ -22,8 +22,13 @@ final class IdleScreenPlantedTankEditor {
   @ObservationIgnored private let store: IdleScreenPlantedTankStore?
   @ObservationIgnored private var storedRevision: String?
   var selectedID: String?
-  private var undoStack: [[Object]] = []
-  private var redoStack: [[Object]] = []
+  private enum ObjectKind { case preset, placed }
+  private struct LayoutEdit {
+    let kind: ObjectKind
+    let objects: [Object]
+  }
+  private var undoStack: [LayoutEdit] = []
+  private var redoStack: [LayoutEdit] = []
   @ObservationIgnored private var wantsVisible = false
   @ObservationIgnored private var isActivating = false
   @ObservationIgnored private var isReloading = false
@@ -35,7 +40,17 @@ final class IdleScreenPlantedTankEditor {
 
   var canUndo: Bool { !isBusy && !undoStack.isEmpty }
   var canRedo: Bool { !isBusy && !redoStack.isEmpty }
-  var selectedObject: Object? { snapshot?.objects.first { $0.id == selectedID } }
+  var selectedObject: Object? {
+    allObjects.first { $0.id == selectedID }
+  }
+  var allObjects: [Object] { (snapshot?.objects ?? []) + (snapshot?.placedObjects ?? []) }
+
+  private func objects(_ kind: ObjectKind) -> [Object] {
+    switch kind {
+    case .preset: snapshot?.objects ?? []
+    case .placed: snapshot?.placedObjects ?? []
+    }
+  }
 
   func activate() async {
     guard !Task.isCancelled else { return }
@@ -74,38 +89,58 @@ final class IdleScreenPlantedTankEditor {
     }
   }
 
+  func add(assetID: String, positionCm: IdleScreenAquariumWebSurface.PositionCm) async {
+    guard !isBusy, let snapshot, snapshot.catalog.contains(where: { $0.id == assetID }) else {
+      return
+    }
+    let object = Object(
+      id: "placed-" + UUID().uuidString, assetId: assetID,
+      positionCm: positionCm, rotationY: 0)
+    if await edit(snapshot.placedObjects + [object], kind: .placed) { selectedID = object.id }
+  }
+
   func update(_ object: Object) async {
-    guard let snapshot, snapshot.objects.contains(where: { $0.id == object.id }) else { return }
-    await edit(snapshot.objects.map { $0.id == object.id ? object : $0 })
+    guard allObjects.contains(where: { $0.id == object.id }) else { return }
+    let kind: ObjectKind =
+      snapshot?.placedObjects.contains(where: { $0.id == object.id }) == true ? .placed : .preset
+    _ = await edit(objects(kind).map { $0.id == object.id ? object : $0 }, kind: kind)
   }
 
   func removeSelected() async {
-    guard let snapshot, let selectedID else { return }
-    await edit(snapshot.objects.filter { $0.id != selectedID })
+    guard let selectedID, allObjects.contains(where: { $0.id == selectedID }) else { return }
+    let kind: ObjectKind =
+      snapshot?.placedObjects.contains(where: { $0.id == selectedID }) == true ? .placed : .preset
+    _ = await edit(objects(kind).filter { $0.id != selectedID }, kind: kind)
   }
 
-  private func edit(_ objects: [Object]) async {
-    guard !isBusy, let snapshot, objects != snapshot.objects else { return }
-    if await apply(objects) {
-      undoStack.append(snapshot.objects)
+  private func edit(_ proposed: [Object], kind: ObjectKind) async -> Bool {
+    guard !isBusy, snapshot != nil else { return false }
+    let previous = objects(kind)
+    guard proposed != previous else { return false }
+    if await apply(LayoutEdit(kind: kind, objects: proposed)) {
+      undoStack.append(LayoutEdit(kind: kind, objects: previous))
       if undoStack.count > 100 { undoStack.removeFirst() }
       redoStack.removeAll()
+      return true
     }
+    return false
   }
 
   func undo() async {
-    guard canUndo, let objects = undoStack.last, let snapshot else { return }
-    if await apply(objects) {
+    guard canUndo, let edit = undoStack.last else { return }
+    let current = LayoutEdit(kind: edit.kind, objects: objects(edit.kind))
+    if await apply(edit) {
       undoStack.removeLast()
-      redoStack.append(snapshot.objects)
+      redoStack.append(current)
     }
   }
 
   func redo() async {
-    guard canRedo, let objects = redoStack.last, let snapshot else { return }
-    if await apply(objects) {
+    guard canRedo, let edit = redoStack.last else { return }
+    let current = LayoutEdit(kind: edit.kind, objects: objects(edit.kind))
+    if await apply(edit) {
       redoStack.removeLast()
-      undoStack.append(snapshot.objects)
+      undoStack.append(current)
     }
   }
 
@@ -165,14 +200,20 @@ final class IdleScreenPlantedTankEditor {
     savedAt = Date()
   }
 
-  private func apply(_ objects: [Object]) async -> Bool {
+  private func apply(_ edit: LayoutEdit) async -> Bool {
     guard !isBusy, let snapshot else { return false }
     isBusy = true
     defer { isBusy = false }
     do {
-      self.snapshot = try await surface.applyPresetObjects(
-        expectedRevision: snapshot.revision, objects: objects)
-      if !(self.snapshot?.objects.contains { $0.id == selectedID } ?? false) { selectedID = nil }
+      switch edit.kind {
+      case .preset:
+        self.snapshot = try await surface.applyPresetObjects(
+          expectedRevision: snapshot.revision, objects: edit.objects)
+      case .placed:
+        self.snapshot = try await surface.applyPlacedObjects(
+          expectedRevision: snapshot.revision, objects: edit.objects)
+      }
+      if !allObjects.contains(where: { $0.id == selectedID }) { selectedID = nil }
       errorMessage = nil
       do { try await persist() } catch { errorMessage = error.localizedDescription }
       return true

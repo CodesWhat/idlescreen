@@ -5,6 +5,48 @@ import Testing
 @Suite("Planted tank editor", .timeLimit(.minutes(1)))
 @MainActor
 struct PlantedTankEditorTests {
+  @Test func addedPlantsHaveIndependentHistoryAndSurviveReopening() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenPlantedTankStore(fileURL: directory.appendingPathComponent("tank.json"))
+    let editor = IdleScreenPlantedTankEditor(store: store)
+    await editor.activate()
+    await editor.add(assetID: "rotala", positionCm: .init(x: -22, y: 5, z: 12))
+    #expect(editor.errorMessage == nil)
+    let plant = try #require(editor.snapshot?.placedObjects.first)
+    #expect(editor.selectedID == plant.id)
+    var rock = try #require(editor.snapshot?.objects.first { $0.id == "base-rock" })
+    rock.positionCm.z += 3
+    await editor.update(rock)
+    await editor.undo()
+    #expect(editor.snapshot?.placedObjects == [plant])
+    await editor.undo()
+    #expect(editor.snapshot?.placedObjects.isEmpty == true)
+    await editor.redo()
+    #expect(editor.snapshot?.placedObjects == [plant])
+    await editor.redo()
+    #expect(editor.snapshot?.objects.first { $0.id == rock.id }?.positionCm.z == rock.positionCm.z)
+    let retained = editor.snapshot
+    await editor.add(assetID: "rotala", positionCm: .init(x: 29, y: 5, z: 12))
+    #expect(editor.errorMessage != nil)
+    #expect(editor.snapshot == retained)
+    #expect(!editor.canRedo)
+    editor.selectedID = plant.id
+    await editor.removeSelected()
+    #expect(editor.snapshot?.placedObjects.isEmpty == true)
+    await editor.undo()
+    #expect(editor.snapshot?.placedObjects == [plant])
+    await editor.deactivate()
+    let reopened = IdleScreenPlantedTankEditor(store: store)
+    await reopened.activate()
+    #expect(reopened.errorMessage == nil)
+    #expect(reopened.snapshot?.placedObjects == [plant])
+    #expect(!reopened.canUndo)
+    await reopened.deactivate()
+    try await editor.surface.shutdown()
+    try await reopened.surface.shutdown()
+  }
+
   @Test func undoAndRedoUseCurrentRevisionsAndRejectedEditsLeaveHistoryIntact() async throws {
     let editor = IdleScreenPlantedTankEditor()
     await editor.activate()
