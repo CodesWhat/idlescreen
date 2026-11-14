@@ -55,6 +55,12 @@
   if(JSON.stringify(result).length>maxChars)fail('document exceeds size limit');
   return JSON.parse(JSON.stringify(result));
  }
+ function changingSettings(input,settings,codec){
+  fields(settings,['light','room','surface','pump','rasterHeight']);
+  const result=normalize(input,codec);
+  result.tank.configuration=configuration.normalize({...result.tank.configuration,...settings});
+  return normalize(result,codec);
+ }
  function removeStock(input,id,codec){
   const result=normalize(input,codec),domain=result.tank.document.checkpoint.data,breeding=domain.breeding;
   if(typeof id!=='string'||!domain.ecology.animals.some(a=>a.id===id&&a.alive))fail('choose a living animal to remove');
@@ -132,5 +138,5 @@
   if(typeof text!=='string'||text.length>maxChars)fail('bounded JSON text required');
   return normalize(JSON.parse(text),codec);
  }
- return Object.freeze({normalize,importJSON,removingAnimal,removeStock,restoreStock,maxChars,maxStockArchiveBytes});
+ return Object.freeze({normalize,importJSON,changingSettings,removingAnimal,removeStock,restoreStock,maxChars,maxStockArchiveBytes});
 });

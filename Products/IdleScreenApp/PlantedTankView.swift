@@ -25,6 +25,7 @@ struct IdleScreenAquariumWorkspaceView: View {
 
 private struct IdleScreenPlantedTankView: View {
   @State private var editor = IdleScreenPlantedTankEditor.shared
+  @State private var showsSettings = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -75,6 +76,9 @@ private struct IdleScreenPlantedTankView: View {
           .id(ObjectIdentifier(editor.surface))
           .frame(minWidth: 320, minHeight: 300)
         VStack(alignment: .leading) {
+          Button("Tank settings…") { showsSettings = true }
+            .disabled(editor.isBusy || editor.snapshot == nil || editor.pointerTool != .select)
+          Divider().padding(.vertical, 8)
           PlantedTankStockPicker(editor: editor)
           Divider().padding(.vertical, 8)
           PlantedTankAssetPicker(editor: editor)
@@ -122,6 +126,11 @@ private struct IdleScreenPlantedTankView: View {
       }
     }
     .task { await editor.activate() }
+    .sheet(isPresented: $showsSettings) {
+      if let settings = editor.snapshot?.settings {
+        PlantedTankSettingsView(editor: editor, settings: settings)
+      }
+    }
     .onChange(of: editor.selectedID) { _, _ in
       Task { await editor.syncSelection() }
     }
@@ -137,6 +146,93 @@ private struct IdleScreenPlantedTankView: View {
     .tag(object.id)
   }
 
+}
+
+private struct PlantedTankSettingsView: View {
+  let editor: IdleScreenPlantedTankEditor
+  @State var settings: IdleScreenAquariumWebSurface.TankSettings
+  @Environment(\.dismiss) private var dismiss
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Tank settings").font(.title2.bold())
+      Form {
+        Section("Tank light") {
+          Picker("Color", selection: $settings.light.preset) {
+            Text("Daylight").tag("daylight")
+            Text("Warm").tag("warm")
+            Text("Moonlight").tag("moonlight")
+            Text("Off").tag("off")
+          }
+          Picker("Light banks", selection: $settings.light.count) {
+            ForEach([1, 3, 5], id: \.self) { Text(String($0)).tag($0) }
+          }
+          Picker("Spread", selection: $settings.light.spread) {
+            Text("Focused").tag("focused")
+            Text("Natural").tag("natural")
+            Text("Broad").tag("broad")
+          }
+          Slider(value: $settings.light.output, in: 0.25...1.5) {
+            Text(
+              "Brightness \(settings.light.output, format: .percent.precision(.fractionLength(0)))")
+          }
+        }
+        Section("Room") {
+          Picker("Room light", selection: $settings.room.mode) {
+            Text("Follow daytime").tag("auto")
+            Text("On").tag("on")
+            Text("Off").tag("off")
+          }
+          Picker("Wall", selection: $settings.room.finish) {
+            Text("Neutral").tag("neutral")
+            Text("Charcoal").tag("charcoal")
+            Text("Concrete").tag("concrete")
+          }
+        }
+        Section("Water") {
+          Picker("Surface", selection: $settings.surface) {
+            Text("Calm").tag("calm")
+            Text("Current").tag("current")
+            Text("Lively").tag("lively")
+          }
+          Slider(value: $settings.pump, in: 0...1.5) {
+            Text("Pump output \(settings.pump, format: .percent.precision(.fractionLength(0)))")
+          }
+        }
+        Section("Detail") {
+          Picker("Quality", selection: $settings.rasterHeight) {
+            Text("Low · 648").tag(648)
+            Text("Medium · 864").tag(864)
+            Text("High · 1080").tag(1080)
+          }
+        }
+      }
+      .formStyle(.grouped)
+      .disabled(editor.isBusy)
+      if let error = editor.errorMessage {
+        Text(error).foregroundStyle(.red).font(.callout)
+      }
+      HStack {
+        Spacer()
+        Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+          .disabled(editor.isBusy)
+        Button("Apply") {
+          Task {
+            await editor.applySettings(settings)
+            if editor.errorMessage == nil { dismiss() }
+          }
+        }
+        .keyboardShortcut(.defaultAction)
+        .disabled(editor.isBusy)
+      }
+    }
+    .padding()
+    .frame(width: 420, height: 520)
+    .interactiveDismissDisabled(editor.isBusy)
+    .onChange(of: settings.room.mode) { _, mode in
+      settings.room.manualLevel = mode == "auto" ? nil : mode == "on" ? 1 : 0
+    }
+  }
 }
 
 private struct PlantedTankStockPicker: View {

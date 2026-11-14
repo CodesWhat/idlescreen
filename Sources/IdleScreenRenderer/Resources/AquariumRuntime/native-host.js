@@ -15,6 +15,7 @@
     const state=scene.state;
     return {
       revision:state.presetRevision,stockRevision,
+      settings:((c)=>({light:c.light,room:c.room,surface:c.surface,pump:c.pump,rasterHeight:c.rasterHeight}))(AquariumTankConfiguration.capture(state)),
       objects:state.presetObjects,
       placedObjects:scene.designer.layout?.instances||[],
       catalog:AquariumDesignerModel.catalog,
@@ -34,6 +35,7 @@
   });
   window.idleScreenScene = Object.freeze({
     editorSnapshot,
+    prepareSettings(request) { try { return scene.prepareSettings(request.settings,{id:request.id,name:request.name}); } catch(error) { return {error:error.message}; } },
     exportTank(identity) { return scene.exportTank(identity); },
     addStock(request) { try { scene.addStock(request); return editorSnapshot(); } catch(error) { return {revision:scene.state.presetRevision,error:error.message}; } },
     reconcileStockPose(id) { try { scene.reconcileStockPose(id); return editorSnapshot(); } catch(error) { return {revision:scene.state.presetRevision,error:error.message}; } },

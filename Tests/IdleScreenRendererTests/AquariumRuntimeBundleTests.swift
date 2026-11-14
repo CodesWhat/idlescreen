@@ -9,6 +9,39 @@ import WebKit
 @Suite("Bundled Three.js aquarium", .timeLimit(.minutes(1)))
 @MainActor
 struct AquariumRuntimeBundleTests {
+  @Test func presentationSettingsPreserveTheCurrentEcosystemCheckpoint() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    _ = try await surface.beginEditing()
+    let supported =
+      try await surface.view.evaluateJavaScript(
+        "typeof idleScreenScene.prepareSettings === 'function'") as? Bool
+    try #require(supported == true)
+    let result =
+      try await surface.view.evaluateJavaScript(
+        """
+        (()=>{
+          aquariumStudy.feed();aquariumStudy.previewLifeEvent('molt');aquariumStudy.previewLifeEvent('death');
+          const before=aquariumStudy.exportTank({id:'settings-test',name:'Settings test'});
+          const c=before.tank.configuration;
+          const settings={light:{preset:'warm',count:1,output:.6,spread:'focused'},room:{mode:'off',finish:'concrete',manualLevel:0},surface:'lively',pump:1.2,rasterHeight:1080};
+          const response=idleScreenScene.prepareSettings({settings,id:'settings-test',name:'Settings test'});
+          if(response.error)throw new Error(response.error);
+          const after=JSON.parse(response.checkpointJSON);
+          if(JSON.stringify(before.runtime)!==JSON.stringify(after.runtime))throw new Error('Settings reset runtime state');
+          if(JSON.stringify(before.tank.document)!==JSON.stringify(after.tank.document))throw new Error('Settings reset ecosystem or layout');
+          if(after.tank.configuration.light.preset!=='warm'||after.tank.configuration.rasterHeight!==1080)throw new Error('Settings were not applied');
+          for(const invalid of [{...settings,pump:NaN},{...settings,rasterHeight:42},{...settings,light:{...settings.light,output:9}},{...settings,setup:'lush'}]){
+            if(!idleScreenScene.prepareSettings({settings:invalid,id:'settings-test',name:'Settings test'}).error)throw new Error('Invalid setting was accepted');
+          }
+          if(JSON.stringify(before)!==JSON.stringify(aquariumStudy.exportTank({id:'settings-test',name:'Settings test'})))throw new Error('Preparing settings mutated source tank');
+          return true;
+        })()
+        """) as? Bool
+    #expect(result == true)
+    try await surface.shutdown()
+  }
+
   @Test func stockMessagesRejectMalformedAndStaleUpdatesAndFenceOldQueries() async throws {
     let surface = IdleScreenAquariumWebSurface()
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))

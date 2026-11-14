@@ -75,9 +75,29 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     public let animals: [StockAnimal]
   }
 
+  public struct TankSettings: Codable, Equatable, Sendable {
+    public struct Light: Codable, Equatable, Sendable {
+      public var preset: String
+      public var count: Int
+      public var output: Double
+      public var spread: String
+    }
+    public struct Room: Codable, Equatable, Sendable {
+      public var mode: String
+      public var finish: String
+      public var manualLevel: Double?
+    }
+    public var light: Light
+    public var room: Room
+    public var surface: String
+    public var pump: Double
+    public var rasterHeight: Int
+  }
+
   public struct EditorSnapshot: Decodable, Equatable, Sendable {
     public let revision: Int
     public let stockRevision: Int
+    public let settings: TankSettings
     public let objects: [PresetObject]
     public let placedObjects: [PresetObject]
     public let catalog: [CatalogAsset]
@@ -88,7 +108,7 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     public func updatingStock(_ update: StockUpdate) -> Self {
       guard update.revision > stockRevision else { return self }
       return Self(
-        revision: revision, stockRevision: update.revision, objects: objects,
+        revision: revision, stockRevision: update.revision, settings: settings, objects: objects,
         placedObjects: placedObjects, catalog: catalog, equipmentObjects: equipmentObjects,
         animals: update.animals, stockCatalog: stockCatalog)
     }
@@ -169,6 +189,7 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
   private struct EditorResponse: Decodable {
     let revision: Int
     let stockRevision: Int?
+    let settings: TankSettings?
     let objects: [PresetObject]?
     let placedObjects: [PresetObject]?
     let catalog: [CatalogAsset]?
@@ -269,6 +290,21 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     guard state == .paused else { throw SurfaceError.invalidState }
     let argument = String(decoding: try JSONEncoder().encode(id), as: UTF8.self)
     return try await editorQuery("window.idleScreenScene.reconcileStockPose(\(argument))")
+  }
+
+  public func prepareSettings(_ settings: TankSettings, id: String, name: String) async throws
+    -> Data
+  {
+    guard state == .paused else { throw SurfaceError.invalidState }
+    struct Request: Encodable {
+      let settings: TankSettings
+      let id: String
+      let name: String
+    }
+    let request = try JSONEncoder().encode(Request(settings: settings, id: id, name: name))
+    return try await stockQuery(
+      "window.idleScreenScene.prepareSettings(\(String(decoding: request, as: UTF8.self)))"
+    ).checkpoint
   }
 
   private func stockQuery(_ expression: String) async throws -> (checkpoint: Data, archive: Data?) {
@@ -388,11 +424,13 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     guard let objects = response.objects, let placedObjects = response.placedObjects,
       let catalog = response.catalog, let equipmentObjects = response.equipmentObjects,
       let animals = response.animals, let stockCatalog = response.stockCatalog,
-      let stockRevision = response.stockRevision, stockRevision >= 0,
+      let settings = response.settings, let stockRevision = response.stockRevision,
+      stockRevision >= 0,
       stockRevision <= 9_007_199_254_740_991
     else { throw EditorError.invalidResponse }
     let snapshot = EditorSnapshot(
-      revision: response.revision, stockRevision: stockRevision, objects: objects,
+      revision: response.revision, stockRevision: stockRevision, settings: settings,
+      objects: objects,
       placedObjects: placedObjects, catalog: catalog,
       equipmentObjects: equipmentObjects, animals: animals, stockCatalog: stockCatalog)
     if let latestStockUpdate, latestStockUpdate.revision > stockRevision {
