@@ -225,6 +225,7 @@ final class IdleScreenSaverView: ScreenSaverView {
   private var displayResolutionWorkItem: DispatchWorkItem?
   private var sharedPaths: IdleScreenSharedPaths?
   private var aquariumSnapshot: IdleScreenAquariumLibrary?
+  private var aquariumPresentationCache = IdleScreenAquariumPresentationCache()
   private var aquariumLastReadAt: TimeInterval?
   private var configurationMonitor: IdleScreenConfigurationMonitor?
   private var agentSignalMonitor: IdleScreenAgentSignalMonitor?
@@ -740,13 +741,15 @@ final class IdleScreenSaverView: ScreenSaverView {
     )
     if let renderer {
       renderer.update(configuration: frameConfiguration)
-      renderer.update(mode: rendererMode(hasCameraFrame: cameraSample != nil))
+      let frameMode = rendererMode(hasCameraFrame: cameraSample != nil)
+      renderer.update(mode: frameMode)
       if let rendererFrame = cameraSample?.rendererFrame {
         renderer.submit(cameraFrame: rendererFrame)
       } else {
         renderer.clearCameraFrame()
       }
-      let sceneElapsed = frameConfiguration.aquariumSettings?.elapsed(at: Date()) ?? elapsed
+      let sceneElapsed = IdleScreenAquariumProduct.sceneElapsed(
+        configuration: frameConfiguration, mode: frameMode, sessionElapsed: elapsed, at: Date())
       if renderer.draw(at: sceneElapsed) {
         hasSubmittedRendererFrame = true
       }
@@ -827,12 +830,16 @@ final class IdleScreenSaverView: ScreenSaverView {
         applyingTemporaryLookFrom: IdleScreenAgentPresentationPolicy.signal(
           behind: agentSpritePresentations.first, in: activeAgentSignals)
       )
+    let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    let aquariumSettings = aquariumPresentationCache.settings(
+      for: presentedConfiguration, assignment: displayAssignment,
+      library: aquariumSnapshot, reduceMotion: reduceMotion)
     return IdleScreenRendererConfigurationBridge.configuration(
       for: presentedConfiguration,
       assignment: displayAssignment,
-      aquarium: aquariumSnapshot,
+      preparedAquariumSettings: aquariumSettings,
       agentPresentations: agentSpritePresentations,
-      reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+      reduceMotion: reduceMotion
     )
   }
 

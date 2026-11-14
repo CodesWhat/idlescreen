@@ -120,7 +120,7 @@ final class IdleScreenAquariumController {
 
   func newTank() {
     let id = UUID()
-    perform { library in
+    if perform({ library in
       guard library.tanks.count < IdleScreenAquariumLibrary.maximumTankCount else {
         throw IdleScreenAquariumError.capacityReached
       }
@@ -129,9 +129,10 @@ final class IdleScreenAquariumController {
           id: id, name: "Aquarium \(library.tanks.count + 1)",
           seed: UInt64.random(in: 1...UInt64.max)))
       library.selectedTankID = id
+    }) {
+      undoStack = []
+      redoStack = []
     }
-    undoStack = []
-    redoStack = []
   }
 
   func duplicateTank() {

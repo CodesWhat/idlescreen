@@ -1,5 +1,6 @@
 import Foundation
 import IdleScreenCore
+import IdleScreenDisplay
 import IdleScreenRenderer
 
 /// Both product hosts resolve the same immutable saved snapshot. Only the
@@ -100,9 +101,71 @@ enum IdleScreenAquariumProduct {
     return overflow ? .max : sum
   }
 
-  static func configuration(for tank: IdleScreenAquariumTank) -> IdleScreenRendererConfiguration {
+  static func sceneElapsed(
+    configuration: IdleScreenRendererConfiguration, mode: IdleScreenRendererMode,
+    sessionElapsed: TimeInterval, at date: Date
+  ) -> TimeInterval {
+    guard mode == .generative, configuration.patternRawValue == "aquarium" else {
+      return sessionElapsed
+    }
+    return configuration.aquariumSettings?.elapsed(at: date) ?? sessionElapsed
+  }
+
+  static func configuration(
+    for tank: IdleScreenAquariumTank, worldAspect: Double? = nil
+  ) -> IdleScreenRendererConfiguration {
     .init(
       glyphScale: 0.5, contrast: 0.5, palette: "Ember", patternRawValue: "aquarium",
-      sceneSeed: tank.seed, aquariumSettings: settings(for: tank))
+      sceneSeed: tank.seed, aquariumSettings: settings(for: tank, worldAspect: worldAspect))
+  }
+}
+
+struct IdleScreenAquariumPresentationCache {
+  private struct Key: Equatable {
+    let revision: UInt64
+    let tankID: UUID
+    let worldAspect: Double?
+    let reduceMotion: Bool
+    let hourOffset: Int
+  }
+  private var key: Key?
+  private var value: IdleScreenAquariumRenderSettings?
+  private let map: (IdleScreenAquariumTank, Double?) -> IdleScreenAquariumRenderSettings
+
+  init(
+    map: @escaping (IdleScreenAquariumTank, Double?) -> IdleScreenAquariumRenderSettings = {
+      IdleScreenAquariumProduct.settings(for: $0, worldAspect: $1)
+    }
+  ) {
+    self.map = map
+  }
+
+  mutating func settings(
+    for configuration: IdleScreenConfiguration, assignment: DisplaySceneAssignment?,
+    library: IdleScreenAquariumLibrary?, reduceMotion: Bool,
+    hourOffset: Int = TimeZone.current.secondsFromGMT()
+  ) -> IdleScreenAquariumRenderSettings? {
+    guard configuration.creative.pattern == .aquarium, let library else {
+      key = nil
+      value = nil
+      return nil
+    }
+    let tank = library.tank(for: assignment?.representativeIdentifier.rawValue)
+    let bounds = library.presentation == .panorama ? assignment?.scene?.bounds : nil
+    let aspect = bounds.flatMap { bounds -> Double? in
+      let aspect = bounds.width / bounds.height
+      return aspect.isFinite && aspect > 0 ? aspect : nil
+    }
+    let next = Key(
+      revision: library.revision, tankID: tank.id, worldAspect: aspect,
+      reduceMotion: reduceMotion, hourOffset: hourOffset)
+    if next != key {
+      var resolved = map(tank, aspect)
+      resolved.reduceMotion = reduceMotion
+      resolved.hourOffset = hourOffset
+      value = resolved
+      key = next
+    }
+    return value
   }
 }

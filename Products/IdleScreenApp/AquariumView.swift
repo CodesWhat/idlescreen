@@ -734,25 +734,112 @@ struct IdleScreenAquariumMetalPreview: NSViewRepresentable {
     value.aquariumSettings?.reduceMotion = isReducedMotion
     return value
   }
-  final class Coordinator { var renderer: IdleScreenRenderer? }
+  @MainActor
+  final class Coordinator: NSObject {
+    var renderer: IdleScreenRenderer?
+    private weak var view: (any IdleScreenAquariumPreviewSurface)?
+    private weak var observedWindow: NSWindow?
+    private var reduceMotion = false
+    private var rendererAvailable = false
+
+    func configure(
+      view: any IdleScreenAquariumPreviewSurface, reduceMotion: Bool,
+      rendererAvailable: Bool
+    ) {
+      self.view = view
+      self.reduceMotion = reduceMotion
+      self.rendererAvailable = rendererAvailable
+      view.onWindowChange = { [weak self] in self?.observeWindow() }
+      observeWindow()
+    }
+
+    private func observeWindow() {
+      if observedWindow !== view?.window {
+        NotificationCenter.default.removeObserver(self)
+        observedWindow = view?.window
+        if let window = observedWindow {
+          for name in [
+            NSWindow.didChangeOcclusionStateNotification,
+            NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification,
+            NSWindow.willCloseNotification,
+          ] {
+            NotificationCenter.default.addObserver(
+              self, selector: #selector(windowChanged(_:)),
+              name: name, object: window)
+          }
+        }
+      }
+      refresh()
+    }
+
+    @objc private func windowChanged(_ notification: Notification) {
+      refresh(closing: notification.name == NSWindow.willCloseNotification)
+    }
+
+    private func refresh(closing: Bool = false) {
+      guard let view else { return }
+      let active =
+        !closing
+        && (view.window.map {
+          $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible)
+        } ?? false)
+      view.enableSetNeedsDisplay = reduceMotion
+      view.isPaused = !rendererAvailable || reduceMotion || !active
+      if active && rendererAvailable && reduceMotion { view.needsDisplay = true }
+    }
+
+    func shutdown() {
+      NotificationCenter.default.removeObserver(self)
+      view?.onWindowChange = nil
+      view?.enableSetNeedsDisplay = false
+      view?.isPaused = true
+      view = nil
+      observedWindow = nil
+      renderer?.shutdown()
+      renderer = nil
+    }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
+  }
   func makeCoordinator() -> Coordinator { Coordinator() }
-  func makeNSView(context: Context) -> MTKView {
-    let view = MTKView(frame: .zero)
+  func makeNSView(context: Context) -> IdleScreenAquariumPreviewMetalView {
+    let view = IdleScreenAquariumPreviewMetalView(frame: .zero)
     do {
       context.coordinator.renderer = try IdleScreenRenderer(
-        metalView: view, configuration: configuration, automaticallyDraws: !isReducedMotion)
+        metalView: view, configuration: configuration, automaticallyDraws: false)
       view.enableSetNeedsDisplay = isReducedMotion
     } catch { view.isPaused = true }
+    context.coordinator.configure(
+      view: view, reduceMotion: isReducedMotion,
+      rendererAvailable: context.coordinator.renderer != nil)
     return view
   }
-  func updateNSView(_ view: MTKView, context: Context) {
+  func updateNSView(_ view: IdleScreenAquariumPreviewMetalView, context: Context) {
     context.coordinator.renderer?.update(configuration: configuration)
-    view.isPaused = isReducedMotion
-    view.enableSetNeedsDisplay = isReducedMotion
-    if isReducedMotion { view.needsDisplay = true }
+    context.coordinator.configure(
+      view: view, reduceMotion: isReducedMotion,
+      rendererAvailable: context.coordinator.renderer != nil)
   }
-  static func dismantleNSView(_ view: MTKView, coordinator: Coordinator) {
-    coordinator.renderer?.shutdown()
-    coordinator.renderer = nil
+  static func dismantleNSView(_ view: IdleScreenAquariumPreviewMetalView, coordinator: Coordinator)
+  {
+    coordinator.shutdown()
+  }
+}
+
+@MainActor
+protocol IdleScreenAquariumPreviewSurface: AnyObject {
+  var window: NSWindow? { get }
+  var isPaused: Bool { get set }
+  var enableSetNeedsDisplay: Bool { get set }
+  var needsDisplay: Bool { get set }
+  var onWindowChange: (() -> Void)? { get set }
+}
+
+@MainActor
+final class IdleScreenAquariumPreviewMetalView: MTKView, IdleScreenAquariumPreviewSurface {
+  var onWindowChange: (() -> Void)?
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    onWindowChange?()
   }
 }
