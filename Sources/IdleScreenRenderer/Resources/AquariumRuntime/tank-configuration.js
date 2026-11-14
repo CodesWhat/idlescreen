@@ -37,7 +37,7 @@
     'medaka-white-galaxy-longfin': 'White Galaxy Longfin Medaka', 'medaka-tricolor': 'Tricolor Medaka',
     'guppy-blue': 'Blue Guppy', 'guppy-pink': 'Pink Guppy', 'guppy-double-sword': 'Double Sword Guppy',
     'guppy-dumbo-redtail': 'Dumbo Redtail Guppy', 'guppy-metal-lace': 'Metal Lace Guppy', 'guppy-full-gold': 'Full Gold Guppy',
-    red: 'Red Cherry Shrimp', 'red-white': 'Crystal Red Shrimp', otocinclus: 'Otocinclus',
+    red: 'Red Cherry Shrimp', 'red-white': 'Red / White Display Shrimp', otocinclus: 'Otocinclus',
     nerite: 'Nerite Snail', assassin: 'Assassin Snail'
   };
   const stockItem = (kind, variant) => ({

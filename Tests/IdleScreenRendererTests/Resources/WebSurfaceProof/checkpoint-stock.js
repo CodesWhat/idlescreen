@@ -21,6 +21,7 @@
   const after=study.exportTank({id:'stock-tank',name:'Stock tank'});
   check(JSON.stringify(after.tank.document.checkpoint.data.ecology.animals.map(a=>a.id))===JSON.stringify(expected),'Removed stock must not be recreated by the default roster');
   check(after.runtime.actors.length===expected.length&&!after.runtime.actors.some(a=>a.id===removed),'Every actual retained life record must have exactly one visual');
+  check(study.state.inventory.fish===after.tank.document.checkpoint.data.ecology.animals.filter(a=>a.kind==='fish'&&a.alive).length,'Restored removal must update the living inventory');
   const checkpointCodec=AquariumEcosystemCheckpointV1.create({ecology:AquariumEcology,breeding:AquariumBreeding,water:AquariumWaterEcosystem});
   const codec=AquariumTankEnvelope.createCodec({checkpointCodec,catalog:[...AquariumDesignerModel.catalog.map(({id,placement})=>({id,placement})),...['classic-stem','anubias','vallisneria','alternanthera','pixel-driftwood','slate-rock','river-rock'].map(id=>({id,placement:'transform'}))]});
   const pregnant=JSON.parse(JSON.stringify(after)),pregnantDomain=pregnant.tank.document.checkpoint.data;
@@ -51,6 +52,7 @@
   const dead=study.exportTank({id:'stock-tank',name:'Stock tank'}).tank.document.checkpoint.data.ecology.animals.find(a=>!a.alive);
   rejected=false;try{study.prepareStockRemoval(dead.id,{id:'stock-tank',name:'Stock tank'});}catch(_){rejected=true;}
   check(rejected,'A dead animal must use corpse cleanup rather than living-stock removal');
-  return{checks:14};
+  check(study.state.inventory.fish===after.tank.document.checkpoint.data.ecology.animals.filter(a=>a.kind==='fish'&&a.alive).length-1,'Dead animals must leave the living inventory without deleting their remains');
+  return{checks:16};
  };
 })(globalThis);

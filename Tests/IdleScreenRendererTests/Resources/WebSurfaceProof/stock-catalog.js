@@ -11,7 +11,8 @@
   check(catalog.filter(a=>a.kind==='shrimp').every(a=>configuration.choices.assets.shrimp.includes(a.variant)),'Shrimp stock must resolve to finished supported shrimp art');
   check(catalog.some(a=>a.id==='fish/otocinclus')&&catalog.some(a=>a.id==='snail/nerite')&&catalog.some(a=>a.id==='snail/assassin'),'Supported cleaner forms belong in the same stock inventory');
   check(!catalog.some(a=>/betta|bristlenose|rabbit|ramshorn/.test(a.id)),'Review-only animal forms must stay out of supported stock');
+  check(catalog.find(a=>a.id==='shrimp/red-white')?.label==='Red / White Display Shrimp','The legacy display pattern must not be mislabeled as a real Crystal Red variety');
   check(Object.isFrozen(catalog)&&catalog.every(Object.isFrozen),'Consumers must not mutate the shared stock registry');
-  return{checks:9};
+  return{checks:10};
  };
 })(globalThis);

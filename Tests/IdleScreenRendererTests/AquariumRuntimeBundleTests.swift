@@ -658,6 +658,9 @@ struct AquariumRuntimeBundleTests {
               .map(key => ({id:a.id,key,before:a[key],after:b?.[key]}));
           })),
           hasFood: before.runtime.food.length > 0,
+          inventoryMatches: aquariumStudy.state.inventory.fish === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'fish' && a.alive).length
+            && aquariumStudy.state.inventory.shrimp === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'shrimp' && a.alive).length
+            && aquariumStudy.state.inventory.snails === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'snail' && a.alive).length,
           sameLife: JSON.stringify(before.tank.document.checkpoint) === JSON.stringify(after.tank.document.checkpoint),
           sameRuntime: JSON.stringify(before.runtime) === JSON.stringify(after.runtime)
         });
@@ -666,6 +669,7 @@ struct AquariumRuntimeBundleTests {
     let checks = try #require(
       JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any])
     #expect(checks["hasFood"] as? Bool == true)
+    #expect(checks["inventoryMatches"] as? Bool == true)
     #expect(checks["sameLife"] as? Bool == true)
     #expect(checks["sameRuntime"] as? Bool == true, "\(String(describing: checks["differences"]))")
     let paused = try await snapshot(target)
@@ -692,13 +696,13 @@ struct AquariumRuntimeBundleTests {
   @Test func supportedStockCanBeAddedWithoutRewindingTheExistingTank() async throws {
     let result = try await runPresetFixture(
       "stock-addition", invocation: "runAquariumStockAddition(aquariumStudy)")
-    #expect(result["checks"] == 44)
+    #expect(result["checks"] == 46)
   }
 
   @Test func finishedAnimalCatalogIsSharedWithTheNativeEditor() async throws {
     let result = try await runPresetFixture(
       "stock-catalog", invocation: "runAquariumStockCatalog()")
-    #expect(result["checks"] == 9)
+    #expect(result["checks"] == 10)
     let surface = IdleScreenAquariumWebSurface()
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let snapshot = try await surface.beginEditing()
@@ -711,7 +715,7 @@ struct AquariumRuntimeBundleTests {
   @Test func removedStockIsNotResurrectedWhenTheSceneRebuilds() async throws {
     let result = try await runPresetFixture(
       "checkpoint-stock", invocation: "runAquariumCheckpointStock(aquariumStudy)")
-    #expect(result["checks"] == 14)
+    #expect(result["checks"] == 16)
   }
 
   @Test func domainCheckpointsContinueBirthsWasteAndMassWithoutDuplicatingHistory() async throws {

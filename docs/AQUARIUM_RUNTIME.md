@@ -71,6 +71,12 @@ supported by the runtime. The native editor snapshot exposes the same entries.
 The mixed-color `skittles` tank preset is not an individual animal, and
 review-only forms are excluded. This registry does not define pricing or an economy.
 
+The scene inventory derives living fish, shrimp and snail counts from retained
+ecology records. Its legacy `*Species` fields count modeled species groups,
+not color variants. Death removes an animal from these living counts while its
+remains stay in the ecosystem. The `red-white` catalog item retains its original
+`display-pattern` identity and is labeled Red / White Display Shrimp.
+
 ## Adding supported animals
 
 The planted-tank animal picker adds one supported adult with a new stable stock
