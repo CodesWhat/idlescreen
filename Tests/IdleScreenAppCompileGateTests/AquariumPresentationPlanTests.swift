@@ -9,6 +9,25 @@ import Testing
 @Suite("Aquarium display presentation planning")
 @MainActor
 struct AquariumPresentationPlanTests {
+  @Test func panoramaResolvesAttachedMossAtItsRenderedWorldWidth() throws {
+    var library = IdleScreenAquariumLibrary.starter
+    let wood = IdleScreenAquariumDecoration(kind: .driftwood, x: 0.5, y: 0.9)
+    let moss = IdleScreenAquariumDecoration(kind: .moss, x: 0.3, y: 0.9)
+    library.tanks[0].decorations = [wood, moss]
+    try library.tanks[0].attachMoss(id: moss.id, to: wood.id)
+    library.presentation = .panorama
+    let topology = try DisplayTopology(displays: [
+      display("left", x: 0, primary: true), display("right", x: 1_000),
+    ])
+    let plans = try IdleScreenAquariumPresentationPlanner.surfaces(
+      library: library, topology: topology)
+    let expected = IdleScreenAquariumProduct.settings(
+      for: library.tanks[0], worldAspect: 2_000.0 / 600)
+    for plan in plans {
+      #expect(plan.configuration.aquariumSettings == expected)
+    }
+  }
+
   @Test func feedingEventUsesTheSameEpochInEveryPresentation() throws {
     var library = IdleScreenAquariumLibrary.starter
     let fedAt = library.tanks[0].presentationEpoch.addingTimeInterval(90_000)

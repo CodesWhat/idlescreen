@@ -46,13 +46,11 @@ enum IdleScreenAquariumPresentationPlanner {
         })
       else { return nil }
       let tank = library.tank(for: assignment.representativeIdentifier.rawValue)
-      var configuration = IdleScreenAquariumProduct.configuration(for: tank)
+      let bounds = library.presentation == .panorama ? assignment.scene?.bounds : nil
+      var configuration = IdleScreenAquariumProduct.configuration(
+        for: tank, worldAspect: bounds.map { $0.width / $0.height })
       if let crop = assignment.viewport?.normalizedFrame {
         configuration.viewport = .init(x: crop.x, y: crop.y, width: crop.width, height: crop.height)
-      }
-      if library.presentation == .panorama, let bounds = assignment.scene?.bounds {
-        configuration.aquariumSettings?.worldWidth = min(
-          1152, max(tank.worldWidth, Int((216 * bounds.width / bounds.height).rounded())))
       }
       return .init(
         displayID: assignment.displayIdentifier.rawValue, frame: display.logicalFrame,

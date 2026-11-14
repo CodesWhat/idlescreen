@@ -100,9 +100,11 @@ enum IdleScreenAquariumProduct {
     return overflow ? .max : sum
   }
 
-  static func configuration(for tank: IdleScreenAquariumTank) -> IdleScreenRendererConfiguration {
+  static func configuration(
+    for tank: IdleScreenAquariumTank, worldAspect: Double? = nil
+  ) -> IdleScreenRendererConfiguration {
     .init(
       glyphScale: 0.5, contrast: 0.5, palette: "Ember", patternRawValue: "aquarium",
-      sceneSeed: tank.seed, aquariumSettings: settings(for: tank))
+      sceneSeed: tank.seed, aquariumSettings: settings(for: tank, worldAspect: worldAspect))
   }
 }
