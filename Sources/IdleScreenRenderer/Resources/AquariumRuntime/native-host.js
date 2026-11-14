@@ -26,6 +26,7 @@
   window.idleScreenScene = Object.freeze({
     editorSnapshot,
     exportTank(identity) { return scene.exportTank(identity); },
+    addStock(request) { scene.addStock(request); return editorSnapshot(); },
     prepareStockRemoval(request) { return scene.prepareStockRemoval(request.animalID,{id:request.id,name:request.name}); },
     restoreTankJSON(text) {
       try { scene.restoreTankJSON(text); return editorSnapshot(); }

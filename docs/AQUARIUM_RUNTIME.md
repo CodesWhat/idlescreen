@@ -69,8 +69,24 @@ supported individual animals. Stable `kind/variant` identities cover the 11 fish
 variants, 21 shrimp variants, Otocinclus, assassin and nerite snails already
 supported by the runtime. The native editor snapshot exposes the same entries.
 The mixed-color `skittles` tank preset is not an individual animal, and
-review-only forms are excluded. This registry does not implement purchases,
-pricing or an economy.
+review-only forms are excluded. This registry does not define pricing or an economy.
+
+## Adding supported animals
+
+The planted-tank animal picker adds one supported adult with a new stable stock
+identity. The editor exports its paused current tank and restores that checkpoint
+into an isolated candidate. Only that candidate receives `stageStockAddition`;
+callers must discard it on failure, as with a failed checkpoint restoration.
+The candidate is validated and revision-checked on disk before it replaces the
+current surface. Existing animals, feeding state, water and simulation clocks
+are preserved. Purchased adults are not marked as offspring.
+
+The renderer chooses a bounded placement clear of conservative hardscape bounds
+and existing bodies, using the selected form's metric anatomy. Floor animals
+start grounded; glass cleaners use the front pane's attachment transform.
+Population checks retain reserved brood slots as well as the 80-actor rendering
+limit. `breeding.synchronizeRoster` updates the retained parents without
+advancing time or starting a conception. Animal-specific undo remains open.
 
 ## Living animal removal
 
@@ -84,8 +100,7 @@ The native editor pauses its current surface, restores the replacement into a
 separate paused surface, and writes it through the existing store revision check
 before swapping views. A restore or stale-save failure keeps the current surface
 and file intact. The replacement remains paused if the workspace hides during
-the operation. Layout history remains separate from animal removal. Purchasing
-new stock and an animal-specific undo history remain unfinished.
+the operation. Layout history remains separate from animal removal. Pricing and an animal-specific undo history remain unfinished.
 
 ## Isolated native QA
 

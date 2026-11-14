@@ -143,6 +143,10 @@
       if(b)stage=b.phase==='carried-eggs'?'egg-carrying':b.phase;
       return {...clone(a),...child,stage,broodId:b?.id??null,progress:b?clamp((seconds-b.startedAt)/((profiles[b.family].carry||profiles[b.family].incubation))):0,transitionAt:b?.nextAt??null,target:clone(b?.target??null)};
     }
+    function synchronizeRoster(roster,env={}){
+      const output={birthIds:[],events:[]};synchronize(roster,supportsFor(env),output);
+      return{events:clone(output.events)};
+    }
     function step(dt,roster=[],env={}){
       if(!Number.isFinite(dt)||dt<=0)return{births:[],events:[]};
       if(dt>366*DAY)throw new RangeError('Advance at most 366 simulated days per call');
@@ -161,7 +165,7 @@
       return{births:output.birthIds.map(id=>offspringView(young.get(id))),events:clone(output.events)};
     }
     function snapshot(){return clone({version:VERSION,maxAnimals,seed,seconds,nextCheck,serial,eventSerial,parents:[...parents.values()],offspring:[...young.values()],broods,events,stats});}
-    return{step,snapshot,stateFor,get seconds(){return seconds;},get offspring(){return[...young.values()].map(offspringView);},get broods(){return clone(broods);},get eggs(){return clone(broods.filter(b=>b.phase==='deposited-eggs'));},get events(){return clone(events);},get stats(){return{...stats};}};
+    return{step,synchronizeRoster,snapshot,stateFor,get seconds(){return seconds;},get offspring(){return[...young.values()].map(offspringView);},get broods(){return clone(broods);},get eggs(){return clone(broods.filter(b=>b.phase==='deposited-eggs'));},get events(){return clone(events);},get stats(){return{...stats};}};
   }
   const api={create,profiles,familyOf};if(typeof module==='object'&&module.exports)module.exports=api;else root.AquariumBreeding=api;
 })(typeof window==='object'?window:globalThis);

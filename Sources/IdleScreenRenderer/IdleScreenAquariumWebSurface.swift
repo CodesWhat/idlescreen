@@ -201,6 +201,13 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     return data
   }
 
+  public func stageStockAddition(assetID: String, id: String) async throws -> EditorSnapshot {
+    guard state == .paused else { throw SurfaceError.invalidState }
+    let request = try JSONEncoder().encode(["assetID": assetID, "id": id])
+    return try await editorQuery(
+      "window.idleScreenScene.addStock(\(String(decoding: request, as: UTF8.self)))")
+  }
+
   public func prepareStockRemoval(animalID: String, id: String, name: String) async throws -> Data {
     guard state == .paused else { throw SurfaceError.invalidState }
     let request = try JSONEncoder().encode(["animalID": animalID, "id": id, "name": name])

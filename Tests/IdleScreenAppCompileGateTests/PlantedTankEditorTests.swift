@@ -30,7 +30,8 @@ struct PlantedTankEditorTests {
     try await reopened.surface.shutdown()
   }
 
-  @Test func aStaleStockSaveRetainsTheCurrentSurfaceAndExternalFile() async throws {
+  @Test(arguments: [false, true])
+  func aStaleStockSaveRetainsTheCurrentSurfaceAndExternalFile(adding: Bool) async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
     let store = IdleScreenPlantedTankStore(fileURL: directory.appendingPathComponent("tank.json"))
@@ -43,7 +44,11 @@ struct PlantedTankEditorTests {
     let external = try await original.exportTank(id: "planted-tank", name: "External edit")
     let revision = try await store.read().revision
     _ = try await store.write(external, expectedRevision: revision)
-    await editor.removeAnimal(id: animal.id)
+    if adding {
+      await editor.addAnimal(assetID: "fish/chili")
+    } else {
+      await editor.removeAnimal(id: animal.id)
+    }
     #expect(editor.errorMessage != nil)
     #expect(editor.surface === original)
     #expect(editor.surface.state == .running)
@@ -52,12 +57,20 @@ struct PlantedTankEditorTests {
     try await editor.surface.shutdown()
   }
 
-  @Test func stockReplacementRemainsPausedWhenTheWorkspaceHides() async throws {
+  @Test(arguments: [false, true])
+  func stockReplacementRemainsPausedWhenTheWorkspaceHides(adding: Bool) async throws {
     let editor = IdleScreenPlantedTankEditor()
     await editor.activate()
     let original = editor.surface
     let animal = try #require(editor.snapshot?.animals.first { $0.alive })
-    let removal = Task { await editor.removeAnimal(id: animal.id) }
+    let count = try #require(editor.snapshot).animals.count
+    let removal = Task {
+      if adding {
+        await editor.addAnimal(assetID: "fish/chili")
+      } else {
+        await editor.removeAnimal(id: animal.id)
+      }
+    }
     for _ in 0..<1000 {
       if editor.isBusy { break }
       await Task.yield()
@@ -69,8 +82,39 @@ struct PlantedTankEditorTests {
     #expect(editor.surface !== original)
     #expect(original.state == .stopped)
     #expect(editor.surface.state == .paused)
-    #expect(editor.snapshot?.animals.contains { $0.id == animal.id } == false)
+    #expect(editor.snapshot?.animals.contains { $0.id == animal.id } == adding)
+    #expect(editor.snapshot?.animals.count == count + (adding ? 1 : -1))
     try await editor.surface.shutdown()
+  }
+
+  @Test func newStockSurvivesReopeningWithItsOwnIdentity() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenPlantedTankStore(fileURL: directory.appendingPathComponent("tank.json"))
+    let editor = IdleScreenPlantedTankEditor(store: store)
+    await editor.activate()
+    let original = editor.surface
+    let retainedIDs = try #require(editor.snapshot).animals.map(\.id)
+    await editor.addAnimal(assetID: "shrimp/blue-dream")
+    #expect(editor.errorMessage == nil)
+    #expect(editor.surface !== original)
+    #expect(original.state == .stopped)
+    let added = try #require(editor.snapshot?.animals.first { !retainedIDs.contains($0.id) })
+    #expect(added.kind == "shrimp" && added.variant == "blue-dream" && added.alive)
+    #expect(editor.selectedID == added.id)
+    #expect(editor.animalLabel(added) == "Blue Dream Shrimp")
+    let cleaner = try #require(editor.snapshot?.animals.first { $0.species == "otocinclus" })
+    #expect(editor.animalLabel(cleaner) == "Otocinclus")
+    await editor.deactivate()
+    let reopened = IdleScreenPlantedTankEditor(store: store)
+    await reopened.activate()
+    #expect(reopened.errorMessage == nil)
+    #expect(reopened.snapshot?.animals.map(\.id).contains(added.id) == true)
+    #expect(
+      retainedIDs.allSatisfy { id in reopened.snapshot?.animals.contains { $0.id == id } == true })
+    await reopened.deactivate()
+    try await editor.surface.shutdown()
+    try await reopened.surface.shutdown()
   }
 
   @Test func addedPlantsHaveIndependentHistoryAndSurviveReopening() async throws {
