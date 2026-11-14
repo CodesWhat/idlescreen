@@ -316,39 +316,39 @@ struct DesignLanguageRenderTests {
     return count == 0 ? 0 : total / count
   }
 
-  @Test("all four workbench pages fit the default and minimum windows in both appearances")
-  func workbenchShellRenders() throws {
+  @Test(
+    "all workbench pages fit the default and minimum windows in both appearances",
+    arguments: Destination.allCases)
+  func workbenchShellRenders(destination: Destination) throws {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
     harness.navigation.isSetupDeferred = true
     for size in [NSSize(width: 1_180, height: 780), NSSize(width: 900, height: 600)] {
       for dark in [false, true] {
-        for destination in Destination.allCases {
-          harness.navigation.destination = destination
-          let host = NSHostingView(
-            rootView:
-              ContentView()
-              .environment(harness.model).environment(harness.cameraClient)
-              .environment(harness.navigation).environment(harness.coordinator)
-              .environment(\.colorScheme, dark ? .dark : .light)
-              .frame(width: size.width, height: size.height)
-          )
-          let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: size), styleMask: [], backing: .buffered,
-            defer: false)
-          window.contentView = host
-          host.setFrameSize(size)
-          host.layoutSubtreeIfNeeded()
-          let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-          host.cacheDisplay(in: host.bounds, to: bitmap)
-          #expect(Self.hasVisibleContent(bitmap))
-          #expect(!window.isVisible)
-          try Self.save(
-            bitmap,
-            name:
-              "workbench-\(destination.rawValue.lowercased())-\(Int(size.width))-\(dark ? "dark" : "light")"
-          )
-        }
+        harness.navigation.destination = destination
+        let host = NSHostingView(
+          rootView:
+            ContentView()
+            .environment(harness.model).environment(harness.cameraClient)
+            .environment(harness.navigation).environment(harness.coordinator)
+            .environment(\.colorScheme, dark ? .dark : .light)
+            .frame(width: size.width, height: size.height)
+        )
+        let window = NSWindow(
+          contentRect: NSRect(origin: .zero, size: size), styleMask: [], backing: .buffered,
+          defer: false)
+        window.contentView = host
+        host.setFrameSize(size)
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        #expect(Self.hasVisibleContent(bitmap))
+        #expect(!window.isVisible)
+        try Self.save(
+          bitmap,
+          name:
+            "workbench-\(destination.rawValue.lowercased())-\(Int(size.width))-\(dark ? "dark" : "light")"
+        )
       }
     }
   }

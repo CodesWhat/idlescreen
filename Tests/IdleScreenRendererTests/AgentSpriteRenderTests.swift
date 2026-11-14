@@ -53,6 +53,8 @@ struct AgentSpriteRenderTests {
     var glyphScale = 0.38
     var brightness = 1.0
     var framing = IdleScreenRendererFraming.none
+    var speed = 1.0
+    var aquariumSettings: IdleScreenAquariumRenderSettings?
   }
 
   private static func configuration(
@@ -67,6 +69,8 @@ struct AgentSpriteRenderTests {
     value.sceneBrightness = shot.brightness
     value.framing = shot.framing
     value.proceduralSettings.intensity = 1
+    value.proceduralSettings.speed = shot.speed
+    value.aquariumSettings = shot.aquariumSettings
     if shot.pattern == "pixelMaterials" {
       value.pixelMaterialsSettings = .init(
         material: .mixed, terrainStyle: .terraces, emitterCount: 3, emitterWidth: 8,
@@ -155,6 +159,26 @@ struct AgentSpriteRenderTests {
     return bytes
   }
 
+  @MainActor
+  @Test(arguments: [false, true])
+  func aquariumLightingKeepsWallClockTimeAcrossSceneSpeed(onCPU: Bool) throws {
+    var settings = IdleScreenAquariumRenderSettings()
+    settings.epoch = 0
+    settings.hourOffset = 0
+    settings.light = "automatic"
+    settings.reduceMotion = true
+    var shot = Shot(name: "aquarium-clock", pattern: "aquarium", palette: "Ember", sprites: [])
+    shot.time = 12 * 3600
+    shot.aquariumSettings = settings
+    let day = try render(shot, withSprites: false, onCPU: onCPU)
+    shot.speed = 2
+    #expect(try render(shot, withSprites: false, onCPU: onCPU) == day)
+    shot.speed = 0.5
+    #expect(try render(shot, withSprites: false, onCPU: onCPU) == day)
+    shot.time = 3 * 3600
+    #expect(try render(shot, withSprites: false, onCPU: onCPU) != day)
+  }
+
   /// Count of differing pixels and the topmost differing pixel row.
   private func diff(_ a: [UInt8], _ b: [UInt8]) -> (changed: Int, topRow: Int) {
     var changed = 0
@@ -189,6 +213,43 @@ struct AgentSpriteRenderTests {
       let result = diff(plain, drawn)
       #expect(result.changed > 2_000, "\(shot.name) sprites drew nothing")
       #expect(result.topRow > Self.height * 2 / 5, "\(shot.name) changed above the bottom 60%")
+    }
+  }
+
+  @MainActor
+  @Test("aquarium solid pixels retain the agent halo on GPU and CPU fill paths")
+  func aquariumAgentHalo() throws {
+    let shot = Shot(
+      name: "aquarium", pattern: "aquarium", palette: "Cobalt", sprites: Self.attention)
+    for cpu in [false, true] {
+      let plain = try render(shot, withSprites: false, onCPU: cpu)
+      var spriteFrame: (columns: Int, rows: Int, layer: AgentSpriteLayer)?
+      let drawn = try render(shot, withSprites: true, onCPU: cpu) {
+        spriteFrame = $0.lastSpriteFrame
+      }
+      let frame = try #require(spriteFrame)
+      var sampled = 0
+      for halo in frame.layer.halo {
+        let x =
+          (Double(Int(halo.cell) % frame.columns) + 0.5) / Double(frame.columns)
+          * Double(Self.width)
+        let y =
+          (Double(Int(halo.cell) / frame.columns) + 0.5) / Double(frame.rows) * Double(Self.height)
+        guard
+          !frame.layer.quads.contains(where: {
+            Float(x / 2) >= $0.edges.x && Float(x / 2) <= $0.edges.z
+              && Float(y / 2) >= $0.edges.y && Float(y / 2) <= $0.edges.w
+          })
+        else { continue }
+        let offset = (Int(y) * Self.width + Int(x)) * 4
+        let before = Int(plain[offset]) + Int(plain[offset + 1]) + Int(plain[offset + 2])
+        let after = Int(drawn[offset]) + Int(drawn[offset + 1]) + Int(drawn[offset + 2])
+        if before > 15 {
+          #expect(after < before / 3, "aquarium halo did not dim a solid pixel")
+          sampled += 1
+        }
+      }
+      #expect(sampled > 5)
     }
   }
 
@@ -367,6 +428,12 @@ struct AgentSpriteRenderTests {
     let outputURL = URL(fileURLWithPath: directory, isDirectory: true)
     try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
     let shots = [
+      Shot(
+        name: "claude-walk-0", pattern: "topograph", palette: "Cobalt",
+        sprites: [(.claude, .working, 4.1, false)], framing: .horizon),
+      Shot(
+        name: "claude-walk-1", pattern: "topograph", palette: "Cobalt",
+        sprites: [(.claude, .working, 4.3, false)], framing: .horizon),
       Shot(
         name: "attention-warp-phosphor", pattern: "warp", palette: "Phosphor",
         sprites: Self.attention),
