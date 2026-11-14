@@ -77,6 +77,60 @@ struct AquariumPresentationPlanTests {
         reduceMotion: true, hourOffset: 3_600) == panorama && calls == 6)
   }
 
+  @Test func previewRenderingFollowsWindowNotificationsAndStopsAfterDismantling() {
+    let view = AquariumPreviewTestSurface(frame: .zero)
+    let window = AquariumVisibilityWindow(
+      contentRect: .zero, styleMask: .borderless,
+      backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    defer { window.close() }
+    window.contentView = view
+    let coordinator = IdleScreenAquariumMetalPreview.Coordinator()
+    coordinator.configure(view: view, reduceMotion: false, rendererAvailable: true)
+    #expect(!view.isPaused)
+    window.testMiniaturized = true
+    NotificationCenter.default.post(name: NSWindow.didMiniaturizeNotification, object: window)
+    #expect(view.isPaused)
+    window.testMiniaturized = false
+    NotificationCenter.default.post(name: NSWindow.didDeminiaturizeNotification, object: window)
+    #expect(!view.isPaused)
+    window.testVisible = false
+    NotificationCenter.default.post(
+      name: NSWindow.didChangeOcclusionStateNotification, object: window)
+    #expect(view.isPaused)
+    window.testVisible = true
+    window.testOcclusion = []
+    NotificationCenter.default.post(
+      name: NSWindow.didChangeOcclusionStateNotification, object: window)
+    #expect(view.isPaused)
+    window.testOcclusion = .visible
+    NotificationCenter.default.post(
+      name: NSWindow.didChangeOcclusionStateNotification, object: window)
+    #expect(!view.isPaused)
+    coordinator.configure(view: view, reduceMotion: true, rendererAvailable: true)
+    #expect(view.isPaused && view.enableSetNeedsDisplay)
+    coordinator.configure(view: view, reduceMotion: false, rendererAvailable: false)
+    #expect(view.isPaused)
+    coordinator.configure(view: view, reduceMotion: false, rendererAvailable: true)
+    let replacement = AquariumVisibilityWindow(
+      contentRect: .zero, styleMask: .borderless,
+      backing: .buffered, defer: false)
+    replacement.isReleasedWhenClosed = false
+    defer { replacement.close() }
+    window.contentView = nil
+    #expect(view.isPaused)
+    replacement.contentView = view
+    #expect(!view.isPaused)
+    NotificationCenter.default.post(name: NSWindow.willCloseNotification, object: window)
+    #expect(!view.isPaused)
+    NotificationCenter.default.post(name: NSWindow.willCloseNotification, object: replacement)
+    #expect(view.isPaused)
+    coordinator.shutdown()
+    NotificationCenter.default.post(
+      name: NSWindow.didChangeOcclusionStateNotification, object: replacement)
+    #expect(view.isPaused)
+  }
+
   @Test func panoramaResolvesAttachedMossAtItsRenderedWorldWidth() throws {
     var library = IdleScreenAquariumLibrary.starter
     let wood = IdleScreenAquariumDecoration(kind: .driftwood, x: 0.5, y: 0.9)
@@ -329,5 +383,26 @@ struct AquariumPresentationPlanTests {
       nativePixelSize: .init(width: 1_000, height: 600), backingScale: 1, rotationDegrees: 0,
       refreshRateRange: nil, safeAreaInsets: .zero, isPrimary: primary,
       mirrorTargetIdentifier: mirror.map { .init(rawValue: $0) })
+  }
+}
+
+@MainActor
+private final class AquariumVisibilityWindow: NSWindow {
+  var testVisible = true
+  var testMiniaturized = false
+  var testOcclusion: NSWindow.OcclusionState = .visible
+  override var isVisible: Bool { testVisible }
+  override var isMiniaturized: Bool { testMiniaturized }
+  override var occlusionState: NSWindow.OcclusionState { testOcclusion }
+}
+
+@MainActor
+private final class AquariumPreviewTestSurface: NSView, IdleScreenAquariumPreviewSurface {
+  var isPaused = true
+  var enableSetNeedsDisplay = false
+  var onWindowChange: (() -> Void)?
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    onWindowChange?()
   }
 }
