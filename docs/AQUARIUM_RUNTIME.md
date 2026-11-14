@@ -92,7 +92,7 @@ and existing bodies, using the selected form's metric anatomy. Floor animals
 start grounded; glass cleaners use the front pane's attachment transform.
 Population checks retain reserved brood slots as well as the 80-actor rendering
 limit. `breeding.synchronizeRoster` updates the retained parents without
-advancing time or starting a conception. Animal-specific undo remains open.
+advancing time or starting a conception. Animal history is independent from layout undo.
 
 ## Living animal removal
 
@@ -106,7 +106,7 @@ The native editor pauses its current surface, restores the replacement into a
 separate paused surface, and writes it through the existing store revision check
 before swapping views. A restore or stale-save failure keeps the current surface
 and file intact. The replacement remains paused if the workspace hides during
-the operation. Layout history remains separate from animal removal. Pricing and an animal-specific undo history remain unfinished.
+the operation. Layout history remains separate from animal removal. Pricing remains unfinished.
 
 ## Selective animal history model
 
@@ -124,9 +124,19 @@ its own cancellation/removal effects are compensated. Deposited eggs remain in
 the current tank. Duplicate identities, changed capacity, malformed archives
 and a mismatched tank fail without mutating the input checkpoint.
 
-This is the tested domain model. Native history controls and physical placement
-checks for a returned individual are not yet connected. Callers must stage and
-validate the complete replacement before committing it, as with stock edits.
+The native animal picker exposes independent undo/redo, with at most 100
+per-session inverse records. New stock edits clear redo; reopening a saved tank
+clears animal history. Layout history remains separate. Every inverse uses a
+paused candidate, the current store revision and the same commit-before-swap
+ordering as stock edits. A failed restore or save keeps the current surface and
+history. Later death or consumed capacity can reject an inverse; history never
+silently resurrects a dead addition or deletes newer animals to make space.
+
+Returned individuals keep a clear existing pose when possible. Otherwise the
+candidate finds a safe pose using metric capsule bounds against conservative
+hardscape bounds and existing bodies. Glass returns retain their front, left,
+right or back pane. Only that individual's pose and related breeding positions
+change. Native visual acceptance and signed-host checks remain separate gates.
 
 ## Isolated native QA
 

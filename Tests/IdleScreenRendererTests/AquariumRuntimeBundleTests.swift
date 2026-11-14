@@ -687,6 +687,19 @@ struct AquariumRuntimeBundleTests {
     #expect(result["checks"] == 9)
   }
 
+  @Test func returnedStockAvoidsTheCurrentHardscape() async throws {
+    let result = try await runPresetFixture(
+      "stock-return-placement", invocation: "runAquariumStockReturnPlacement(aquariumStudy)")
+    #expect(result["checks"] == 7)
+  }
+
+  @Test(arguments: ["front", "left", "right", "back"])
+  func returnedStockKeepsItsGlassPane(pane: String) async throws {
+    let result = try await runPresetFixture(
+      "stock-return-placement", invocation: "runAquariumStockPaneReturn(aquariumStudy, '\(pane)')")
+    #expect(result["checks"] == 3)
+  }
+
   @Test func animalHistoryKeepsYoungAndTheirParents() async throws {
     let result = try await runPresetFixture(
       "stock-history", invocation: "runAquariumYoungStockHistory(aquariumStudy)")

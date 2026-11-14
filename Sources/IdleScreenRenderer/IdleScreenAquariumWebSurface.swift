@@ -50,6 +50,11 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     public let placement: String
   }
 
+  public struct StockRemoval: Sendable {
+    public let checkpoint: Data
+    public let archive: Data
+  }
+
   public struct StockAsset: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
     public let label: String
@@ -135,6 +140,12 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     let objects: [PresetObject]
   }
 
+  private struct StockResponse: Decodable {
+    let checkpointJSON: String?
+    let archive: String?
+    let error: String?
+  }
+
   private struct EditorResponse: Decodable {
     let revision: Int
     let objects: [PresetObject]?
@@ -206,6 +217,49 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     let request = try JSONEncoder().encode(["assetID": assetID, "id": id])
     return try await editorQuery(
       "window.idleScreenScene.addStock(\(String(decoding: request, as: UTF8.self)))")
+  }
+
+  public func prepareStockRemovalHistory(animalID: String, id: String, name: String) async throws
+    -> StockRemoval
+  {
+    guard state == .paused else { throw SurfaceError.invalidState }
+    let request = try JSONEncoder().encode(["animalID": animalID, "id": id, "name": name])
+    let result = try await stockQuery(
+      "window.idleScreenScene.prepareStockRemovalHistory(\(String(decoding: request, as: UTF8.self)))"
+    )
+    guard let archive = result.archive else { throw EditorError.invalidResponse }
+    return StockRemoval(checkpoint: result.checkpoint, archive: archive)
+  }
+
+  public func prepareStockRestoration(archive: Data, id: String, name: String) async throws -> Data
+  {
+    guard state == .paused else { throw SurfaceError.invalidState }
+    guard archive.count <= 65_536, let text = String(data: archive, encoding: .utf8) else {
+      throw EditorError.rejected("Animal history must be UTF-8 JSON under 64 KiB.")
+    }
+    let request = try JSONEncoder().encode(["archive": text, "id": id, "name": name])
+    return try await stockQuery(
+      "window.idleScreenScene.prepareStockRestoration(\(String(decoding: request, as: UTF8.self)))"
+    ).checkpoint
+  }
+
+  public func reconcileStockPose(id: String) async throws -> EditorSnapshot {
+    guard state == .paused else { throw SurfaceError.invalidState }
+    let argument = String(decoding: try JSONEncoder().encode(id), as: UTF8.self)
+    return try await editorQuery("window.idleScreenScene.reconcileStockPose(\(argument))")
+  }
+
+  private func stockQuery(_ expression: String) async throws -> (checkpoint: Data, archive: Data?) {
+    let json = try await jsonQuery(expression)
+    let response = try JSONDecoder().decode(StockResponse.self, from: Data(json.utf8))
+    if let error = response.error { throw EditorError.rejected(error) }
+    guard let text = response.checkpointJSON else { throw EditorError.invalidResponse }
+    let checkpoint = Data(text.utf8)
+    let archive = response.archive.map { Data($0.utf8) }
+    guard checkpoint.count <= 4_194_304, (archive?.count ?? 0) <= 65_536 else {
+      throw EditorError.rejected("Stock change data is too large.")
+    }
+    return (checkpoint, archive)
   }
 
   public func prepareStockRemoval(animalID: String, id: String, name: String) async throws -> Data {

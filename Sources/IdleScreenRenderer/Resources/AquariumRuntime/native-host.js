@@ -26,7 +26,10 @@
   window.idleScreenScene = Object.freeze({
     editorSnapshot,
     exportTank(identity) { return scene.exportTank(identity); },
-    addStock(request) { scene.addStock(request); return editorSnapshot(); },
+    addStock(request) { try { scene.addStock(request); return editorSnapshot(); } catch(error) { return {revision:scene.state.presetRevision,error:error.message}; } },
+    reconcileStockPose(id) { try { scene.reconcileStockPose(id); return editorSnapshot(); } catch(error) { return {revision:scene.state.presetRevision,error:error.message}; } },
+    prepareStockRemovalHistory(request) { try { return scene.prepareStockRemovalHistory(request.animalID,{id:request.id,name:request.name}); } catch(error) { return {error:error.message}; } },
+    prepareStockRestoration(request) { try { return scene.prepareStockRestoration(request.archive,{id:request.id,name:request.name}); } catch(error) { return {error:error.message}; } },
     prepareStockRemoval(request) { return scene.prepareStockRemoval(request.animalID,{id:request.id,name:request.name}); },
     restoreTankJSON(text) {
       try { scene.restoreTankJSON(text); return editorSnapshot(); }
