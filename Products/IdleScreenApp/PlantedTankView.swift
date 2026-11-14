@@ -38,8 +38,8 @@ private struct IdleScreenPlantedTankView: View {
         Button("Reopen saved tank") { Task { await editor.reloadCheckpoint() } }
           .disabled(!editor.canReopen)
         Button("Save tank") { Task { await editor.save() } }.disabled(!editor.canSave)
-        Button("Undo") { Task { await editor.undo() } }.disabled(!editor.canUndo)
-        Button("Redo") { Task { await editor.redo() } }.disabled(!editor.canRedo)
+        Button("Undo layout") { Task { await editor.undo() } }.disabled(!editor.canUndo)
+        Button("Redo layout") { Task { await editor.redo() } }.disabled(!editor.canRedo)
       }
       .padding()
       HSplitView {
@@ -57,9 +57,7 @@ private struct IdleScreenPlantedTankView: View {
           Section("Animals") {
             ForEach(editor.snapshot?.animals ?? []) { animal in
               VStack(alignment: .leading) {
-                Text(
-                  (animal.variant ?? animal.species).replacingOccurrences(of: "-", with: " ")
-                    .capitalized)
+                Text(editor.animalLabel(animal))
                 Text(animal.alive ? animal.kind.capitalized : "Dead")
                   .font(.caption).foregroundStyle(.secondary)
               }.tag(animal.id)
@@ -77,13 +75,12 @@ private struct IdleScreenPlantedTankView: View {
           .id(ObjectIdentifier(editor.surface))
           .frame(minWidth: 320, minHeight: 300)
         VStack(alignment: .leading) {
+          PlantedTankStockPicker(editor: editor)
+          Divider().padding(.vertical, 8)
           PlantedTankAssetPicker(editor: editor)
           Divider().padding(.vertical, 8)
           if let animal = editor.selectedAnimal {
-            Text(
-              (animal.variant ?? animal.species).replacingOccurrences(of: "-", with: " ")
-                .capitalized
-            ).font(.headline)
+            Text(editor.animalLabel(animal)).font(.headline)
             if animal.alive {
               Button("Remove from tank", role: .destructive) {
                 Task { await editor.removeAnimal(id: animal.id) }
@@ -98,7 +95,7 @@ private struct IdleScreenPlantedTankView: View {
           if let object = editor.selectedObject {
             PlantedTankInspector(object: object, editor: editor)
               .id("\(object.id)-\(editor.snapshot?.revision ?? 0)")
-          } else {
+          } else if editor.selectedAnimal == nil {
             Text("Select a tank object to move, turn or remove it.")
               .foregroundStyle(.secondary)
           }
@@ -140,6 +137,24 @@ private struct IdleScreenPlantedTankView: View {
     .tag(object.id)
   }
 
+}
+
+private struct PlantedTankStockPicker: View {
+  let editor: IdleScreenPlantedTankEditor
+  @State private var assetID = "fish/chili"
+
+  var body: some View {
+    VStack(alignment: .leading) {
+      Text("Animals").font(.headline)
+      Picker("Animal", selection: $assetID) {
+        ForEach(editor.snapshot?.stockCatalog ?? []) { asset in
+          Text(asset.label).tag(asset.id)
+        }
+      }
+      Button("Add animal") { Task { await editor.addAnimal(assetID: assetID) } }
+    }
+    .disabled(editor.isBusy || editor.snapshot == nil || editor.pointerTool != .select)
+  }
 }
 
 private struct PlantedTankAssetPicker: View {

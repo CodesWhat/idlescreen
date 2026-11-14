@@ -91,7 +91,7 @@ final class IdleScreenPlantedTankEditor {
     isBusy = true
     defer { isBusy = false }
     do {
-      _ = try await surface.setEditorTool(tool, selectedID: selectedID, assetID: assetID)
+      snapshot = try await surface.setEditorTool(tool, selectedID: selectedID, assetID: assetID)
       pointerTool = tool
       placingAssetID = assetID
       movingID = tool == .move ? selectedID : nil
@@ -247,10 +247,29 @@ final class IdleScreenPlantedTankEditor {
     snapshot?.animals.first { $0.id == selectedID }
   }
 
+  func animalLabel(_ animal: IdleScreenAquariumWebSurface.StockAnimal) -> String {
+    let variant = animal.species == "otocinclus" ? animal.species : animal.variant ?? animal.species
+    return snapshot?.stockCatalog.first { $0.id == animal.kind + "/" + variant }?.label
+      ?? variant.replacingOccurrences(of: "-", with: " ").capitalized
+  }
+
+  private enum StockEdit {
+    case remove(String)
+    case add(assetID: String, id: String)
+  }
+
+  func addAnimal(assetID: String) async {
+    guard snapshot?.stockCatalog.contains(where: { $0.id == assetID }) == true else { return }
+    await editStock(.add(assetID: assetID, id: "stock-" + UUID().uuidString.lowercased()))
+  }
+
   func removeAnimal(id: String) async {
-    guard !isBusy, !isReloading,
-      snapshot?.animals.contains(where: { $0.id == id && $0.alive }) == true
-    else { return }
+    guard snapshot?.animals.contains(where: { $0.id == id && $0.alive }) == true else { return }
+    await editStock(.remove(id))
+  }
+
+  private func editStock(_ edit: StockEdit) async {
+    guard !isBusy, !isReloading, snapshot != nil else { return }
     isBusy = true
     isReloading = true
     defer {
@@ -263,21 +282,33 @@ final class IdleScreenPlantedTankEditor {
     var committed = false
     do {
       if previous.state == .running { try await previous.pause() }
-      let data = try await previous.prepareStockRemoval(
-        animalID: id, id: "planted-tank", name: "Planted tank")
+      var data: Data
+      switch edit {
+      case .remove(let id):
+        data = try await previous.prepareStockRemoval(
+          animalID: id, id: "planted-tank", name: "Planted tank")
+      case .add:
+        data = try await previous.exportTank(id: "planted-tank", name: "Planted tank")
+      }
       guard let url = IdleScreenAquariumRuntime.sceneURL else {
         throw IdleScreenAquariumWebSurface.SurfaceError.invalidLocalResource
       }
       try await candidate.load(sceneURL: url)
       _ = try await candidate.restoreTank(from: data)
-      let restored = try await candidate.beginEditing()
+      var restored = try await candidate.beginEditing()
+      var addedID: String?
+      if case .add(let assetID, let id) = edit {
+        restored = try await candidate.stageStockAddition(assetID: assetID, id: id)
+        data = try await candidate.exportTank(id: "planted-tank", name: "Planted tank")
+        addedID = id
+      }
       if let store {
         storedRevision = try await store.write(data, expectedRevision: storedRevision)
         savedAt = Date()
       }
       surface = candidate
       snapshot = restored
-      selectedID = nil
+      selectedID = addedID
       pointerTool = .select
       placingAssetID = nil
       movingID = nil
