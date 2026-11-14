@@ -9,6 +9,53 @@ import WebKit
 @Suite("Bundled Three.js aquarium", .timeLimit(.minutes(1)))
 @MainActor
 struct AquariumRuntimeBundleTests {
+  @Test func stockMessagesRejectMalformedAndStaleUpdatesAndFenceOldQueries() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let original = try await surface.beginEditing()
+    var updates: [IdleScreenAquariumWebSurface.StockUpdate] = []
+    surface.onStockChange = { updates.append($0) }
+    _ = try await surface.view.evaluateJavaScript(
+      "window.savedStockSnapshot=idleScreenScene.editorSnapshot(); aquariumStudy.previewLifeEvent('death'); true"
+    )
+    for _ in 0..<200 {
+      if !updates.isEmpty { break }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let death = try #require(updates.last)
+    #expect(death.animals.filter(\.alive).count == original.animals.filter(\.alive).count - 1)
+    _ = try await surface.view.evaluateJavaScript(
+      """
+      (()=>{
+        const send=value=>webkit.messageHandlers.idleScreenStock.postMessage(JSON.stringify(value));
+        const animals=idleScreenScene.editorSnapshot().animals;
+        send({revision:-1,animals});
+        send({revision:9007199254740992,animals});
+        send({revision:999,animals:[animals[0],animals[0]]});
+        send({revision:999,animals:[{...animals[0],kind:'dragon'}]});
+        send({revision:999,animals:[{...animals[0],id:''}]});
+        send({revision:999,animals:Array(81).fill(animals[0])});
+        send({revision:999,animals:[{...animals[0],species:'x'.repeat(65536)}]});
+        send({revision:\(death.revision),animals:[]});
+        window.idleScreenScene={...idleScreenScene,editorSnapshot:()=>savedStockSnapshot};
+        return true;
+      })()
+      """)
+    let fenced = try await surface.editorSnapshot()
+    #expect(updates.count == 1)
+    #expect(fenced.animals == death.animals)
+    #expect(fenced.objects == original.objects)
+    _ = try await surface.view.evaluateJavaScript("aquariumStudy.previewLifeEvent('death'); true")
+    for _ in 0..<200 {
+      if updates.count == 2 { break }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(updates.count == 2)
+    #expect(updates.last?.revision == death.revision + 1)
+    try await surface.shutdown()
+    #expect(surface.onStockChange == nil)
+  }
+
   @Test func actualAquariumLoadsAndPreservesItsCoupledLifeAcrossPauses() async throws {
     let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
     #expect(resource.path.contains("IdleScreenRenderer.framework/"))
