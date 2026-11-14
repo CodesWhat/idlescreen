@@ -35,7 +35,7 @@ let presetAssemblies=null,presetRevision=0,restoringTank=false;
 let botanicalArt=null,physicalParts=[],manzanitaArt=null,variedPlants=[];
 let sceneStyle='basic',lushPlants=null,premiumEquipment=null,hangOnFilter=null,carpetArt=null,mossFormation=null,surfaceNavigation=null,navigationSites=[],leafContacts=new Map(),flowField=null,pumpOutput=1,chromeFinish=null,co2Mist=[],nextReturnRipple=0;
 let surfaceStudy=null,surfaceMode='current';
-let designerActive=typeof location==='object'&&new URLSearchParams(location.search).get('designer')==='1',designerRuntime=null,designerLayout=null,designerSelectedId=null,designerTool='select',designerAssetId=null,designerRequestId=0,designerLayoutSignature='',designerSolidSignature='',designerStatusSignature='',designerNavigationError='',designerSelection=null,baselineCollisionMeshes=[];
+let designerActive=typeof location==='object'&&new URLSearchParams(location.search).get('designer')==='1',designerRuntime=null,designerLayout=null,designerSelectedId=null,designerTool='select',designerSelectionScope='added',designerAssetId=null,designerRequestId=0,designerLayoutSignature='',designerSolidSignature='',designerStatusSignature='',designerNavigationError='',designerSelection=null,baselineCollisionMeshes=[];
 let fish=[],shrimps=[],snails=[],bubbles=[],plants=[],mats=[],geometries=[],maps=[],lightPools=[],lampEmitters=[],backdrop,waterSurface,sideWater=[];
 const makeRandom=seed=>()=>{seed=Math.imul(seed^seed>>>15,1|seed);seed^=seed+Math.imul(seed^seed>>>7,61|seed);return((seed^seed>>>14)>>>0)/4294967296;};
 let random=makeRandom(8401);
@@ -1207,7 +1207,7 @@ function clearDesignerPlacement(){
  designerRuntime?.dispose();designerRuntime=null;baselineCollisionMeshes=[];designerSolidSignature='';designerLayoutSignature='';designerStatusSignature='';
  if(designerSelection){designerSelection.removeFromParent();designerSelection.geometry.dispose();designerSelection.material.dispose();designerSelection=null;}
 }
-function designerState(){return{active:designerActive,layout:designerLayout?JSON.parse(JSON.stringify(designerLayout)):null,status:designerRuntime?.status||[],selectedId:designerSelectedId,tool:designerTool,assetId:designerAssetId,navigationError:designerNavigationError};}
+function designerState(){return{active:designerActive,layout:designerLayout?JSON.parse(JSON.stringify(designerLayout)):null,status:designerRuntime?.status||[],selectedId:designerSelectedId,tool:designerTool,selectionScope:designerSelectionScope,assetId:designerAssetId,navigationError:designerNavigationError};}
 function replyDesigner(error){
  const reply={type:'aquarium-designer-state',requestId:designerRequestId,status:designerRuntime?.status||[],selectedId:designerSelectedId};if(error)reply.error=error;
  designerStatusSignature=JSON.stringify(reply.status);parent.postMessage(reply,'*');return reply;
@@ -1215,7 +1215,7 @@ function replyDesigner(error){
 function refreshDesignerSelection(){
  if(!designerActive||!designerRuntime)return;
  if(!designerSelection){designerSelection=new THREE.Box3Helper(new THREE.Box3(),0xf1cf72);designerSelection.name='designer-selection';designerSelection.material.depthTest=false;designerSelection.material.transparent=true;designerSelection.material.opacity=.8;designerSelection.renderOrder=10;scene.add(designerSelection);}
- const selected=designerSelectedId&&designerRuntime.group.getObjectByName('designer-'+designerSelectedId);designerSelection.visible=!!selected;if(selected)designerSelection.box.setFromObject(selected,true);
+ const selected=designerSelectedId&&(designerRuntime.group.getObjectByName('designer-'+designerSelectedId)||(designerSelectionScope==='all'?world.getObjectByName('preset-'+designerSelectedId):null));designerSelection.visible=!!selected&&visibleInWorld(selected);if(designerSelection.visible)designerSelection.box.setFromObject(selected,true);
 }
 function visibleInWorld(object){
  if(!object)return false;for(let parent=object;parent;parent=parent.parent)if(!parent.visible)return false;return true;
@@ -1301,11 +1301,13 @@ function applyDesigner(message){
   if(!Number.isSafeInteger(requestId)||requestId<0)throw new Error('Designer requestId must be a nonnegative integer');
   const normalized=AquariumDesignerModel.normalize(message.layout),tool=message.tool??'select',selectedId=message.selectedId??null,assetId=message.assetId??null;
   if(!['select','place','move'].includes(tool))throw new Error('Unknown designer pointer tool');
-  if(selectedId!==null&&!normalized.instances.some(i=>i.id===selectedId))throw new Error('Selected designer instance does not exist');
+  const selectionScope=message.selectionScope??designerSelectionScope;
+  if(!['added','all'].includes(selectionScope))throw new Error('Unknown editor selection scope');
+  if(selectedId!==null&&!normalized.instances.some(i=>i.id===selectedId)&&!(selectionScope==='all'&&presetAssemblies?.snapshot().some(i=>i.id===selectedId)))throw new Error('Selected designer instance does not exist');
   if(tool==='place'&&!AquariumDesignerModel.catalog.some(a=>a.id===assetId))throw new Error('Place mode needs a known specimen');
   const first=!designerRuntime,baseChanged=normalized.base.setup!==sceneStyle,signature=JSON.stringify(normalized.instances),layoutChanged=signature!==designerLayoutSignature;
   if(!first&&!baseChanged&&signature!==designerLayoutSignature)designerRuntime.setLayout(normalized);
-  designerActive=true;designerRequestId=requestId;designerLayout=normalized;designerSelectedId=selectedId;designerTool=tool;designerAssetId=assetId;
+  designerActive=true;designerRequestId=requestId;designerLayout=normalized;designerSelectedId=selectedId;designerTool=tool;designerSelectionScope=selectionScope;designerAssetId=assetId;
   if(baseChanged){sceneStyle=normalized.base.setup;build();}
   else if(first){initializeDesignerPlacement();rebuildSurfaceNavigation(false);}
   else if(signature!==designerLayoutSignature){designerLayoutSignature=signature;if(designerSolidSignature!==designerRuntime.validSolids.map(m=>m.uuid).join('|'))recaptureDesignerCollisions();rebuildSurfaceNavigation(false);}
@@ -1316,13 +1318,20 @@ function applyDesigner(message){
 function pickDesigner(event){
  if(!designerRuntime||event.button!==undefined&&event.button!==0)return;
  const rect=renderer.domElement.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
- if(designerTool==='select'){const hit=raycaster.intersectObject(designerRuntime.group,true).find(h=>h.object.userData.designerId);parent.postMessage({type:'aquarium-designer-pick',revision:presetRevision,tool:designerTool,toolGeneration:designerRequestId,id:hit?.object.userData.designerId??null},'*');return;}
- const item=designerLayout.instances.find(i=>i.id===designerSelectedId),assetId=designerTool==='place'?designerAssetId:item?.assetId,definition=AquariumDesignerModel.catalog.find(a=>a.id===assetId);if(!definition)return;
+ if(designerTool==='select'){
+  const hits=raycaster.intersectObject(designerRuntime.group,true);
+  if(designerSelectionScope==='all')hits.push(...raycaster.intersectObjects([...presetAssemblies.meshes(),...collisionWorld.meshes],false));
+  hits.sort((a,b)=>a.distance-b.distance);
+  const hit=hits[0],id=hit?(hit.object.userData.designerId||(designerSelectionScope==='all'?(presetAssemblies.ownerOf(hit.object)||hit.object.userData.presetOwner):null)):null;
+  parent.postMessage({type:'aquarium-designer-pick',revision:presetRevision,tool:designerTool,toolGeneration:designerRequestId,id:id??null},'*');return;
+ }
+ const presetObject=designerSelectionScope==='all'&&designerTool==='move'?presetAssemblies.snapshot().find(i=>i.id===designerSelectedId):null;
+ const item=designerLayout.instances.find(i=>i.id===designerSelectedId),assetId=designerTool==='place'?designerAssetId:item?.assetId,definition=presetObject?{placement:'preset'}:AquariumDesignerModel.catalog.find(a=>a.id===assetId);if(!definition)return;
  let hit;
  if(definition.placement==='attached')hit=raycaster.intersectObjects(collisionWorld.meshes.filter(m=>m.userData.hardscape&&!m.userData.equipmentSolid),false).find(h=>h.face.normal.clone().transformDirection(h.object.matrixWorld).y>=.5)?.point;
- else hit=raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-(definition.placement==='floating'?waterLevel:bedLevel)),new THREE.Vector3());
+ else hit=raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-(presetObject?presetObject.positionCm.y/cmPerUnit:definition.placement==='floating'?waterLevel:bedLevel)),new THREE.Vector3());
  if(!hit||Math.abs(hit.x)>innerHalf+1e-7||hit.z<backBound-1e-7||hit.z>frontBound+1e-7||hit.y<bedLevel-1e-7||hit.y>waterLevel+1e-7)return;
- const positionCm={x:THREE.MathUtils.clamp(hit.x*cmPerUnit,-29.4,29.4),y:definition.placement==='attached'?THREE.MathUtils.clamp(hit.y*cmPerUnit,5,34.5):definition.placement==='floating'?34.5:5,z:THREE.MathUtils.clamp((hit.z-centerZ)*cmPerUnit,-17.4,17.4)};
+ const positionCm={x:THREE.MathUtils.clamp(hit.x*cmPerUnit,-29.4,29.4),y:presetObject?presetObject.positionCm.y:definition.placement==='attached'?THREE.MathUtils.clamp(hit.y*cmPerUnit,5,34.5):definition.placement==='floating'?34.5:5,z:THREE.MathUtils.clamp((hit.z-centerZ)*cmPerUnit,-17.4,17.4)};
  parent.postMessage({type:'aquarium-designer-pick',revision:presetRevision,tool:designerTool,toolGeneration:designerRequestId,...(designerTool==='move'?{id:designerSelectedId}:{}),positionCm},'*');
 }
 function updateDesigner(){

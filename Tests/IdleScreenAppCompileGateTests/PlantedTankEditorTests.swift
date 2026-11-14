@@ -167,6 +167,38 @@ struct PlantedTankEditorTests {
     try await editor.surface.shutdown()
   }
 
+  @Test func presetSelectionAndPointerMovesUseExistingUndoHistory() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    await editor.activate()
+    let initial = try #require(editor.snapshot)
+    let rock = try #require(initial.objects.first { $0.id == "base-rock" })
+    await editor.handlePick(
+      .init(
+        revision: initial.revision, tool: .select, id: rock.id,
+        positionCm: nil, toolGeneration: editor.surface.toolGeneration))
+    #expect(editor.selectedID == rock.id)
+    #expect(editor.canMoveSelected)
+    await editor.beginMoving()
+    #expect(editor.pointerTool == .move)
+    var position = rock.positionCm
+    position.z += 3
+    await editor.handlePick(
+      .init(
+        revision: initial.revision, tool: .move, id: rock.id,
+        positionCm: position, toolGeneration: editor.surface.toolGeneration))
+    #expect(editor.errorMessage == nil)
+    #expect(editor.pointerTool == .select)
+    #expect(editor.snapshot?.objects.first { $0.id == rock.id }?.positionCm.z == position.z)
+    #expect(editor.canUndo)
+    await editor.undo()
+    #expect(
+      abs(
+        try #require(editor.snapshot?.objects.first { $0.id == rock.id }).positionCm.z
+          - rock.positionCm.z) < 1e-9)
+    await editor.deactivate()
+    try await editor.surface.shutdown()
+  }
+
   @Test func undoAndRedoUseCurrentRevisionsAndRejectedEditsLeaveHistoryIntact() async throws {
     let editor = IdleScreenPlantedTankEditor()
     await editor.activate()

@@ -29,9 +29,9 @@
     },
     beginEditing() {
       scene.setMode("desktop");
-      if (!scene.designer.active) {
+      if (!scene.designer.active || scene.designer.selectionScope !== "all") {
         const result = scene.applyDesigner({
-          requestId: 0,
+          requestId: 0, selectionScope: "all",
           layout: scene.designer.layout || {
             schemaVersion: 1, units: "cm", name: "Planted tank",
             base: { setup: scene.state.sceneStyle }, instances: []
@@ -54,7 +54,7 @@
         return { revision: scene.state.presetRevision, error: "Open the tank editor before choosing a tool" };
       if (!Number.isSafeInteger(request.generation) || request.generation < 1)
         return {revision: scene.state.presetRevision, error: "Invalid pointer tool generation"};
-      const result = scene.applyDesigner({layout: scene.designer.layout, requestId: request.generation,
+      const result = scene.applyDesigner({layout: scene.designer.layout, requestId: request.generation, selectionScope: "all",
         tool: request.tool, selectedId: request.selectedId, assetId: request.assetId});
       return result.error ? {revision: scene.state.presetRevision, error: result.error} : editorSnapshot();
     },

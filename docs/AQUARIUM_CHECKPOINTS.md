@@ -42,8 +42,10 @@ upward rock or wood face, with the chosen turn applied around that axis. Across,
 depth and rotation remain editable. Preset changes that strand an attachment or
 invalidate an added specimen are rejected and roll back the live geometry.
 Choose **Place in tank** to click a bed, water-surface or eligible hardscape
-anchor. Added specimens can be selected in the scene and moved with **Move in
-tank**. Preset objects still use the list and coordinate inspector. Cancel or
+anchor. Added specimens and preset plants, rocks and driftwood can be selected
+in the scene and moved with **Move in tank**. Native picking considers the
+nearest editable or blocking solid, and preset movement retains its supported
+height. The legacy web designer keeps its added-only selection scope. Cancel or
 leave the workspace to exit a pointer tool. A rejected placement keeps the tool
 active so another position can be tried.
 
@@ -61,8 +63,8 @@ restoring an older ecosystem checkpoint. Successful edits save both sets of
 objects through the existing checkpoint store.
 
 The three original chest, wreck and diver-helmet assets remain review-only and
-are excluded from this chooser. Preset pointer movement, shop stock and pricing
-remain unfinished work.
+are excluded from this chooser. Connected equipment, parent-following mounts,
+shop stock and pricing remain unfinished work.
 
 ## Native storage
 

@@ -51,7 +51,7 @@ final class IdleScreenPlantedTankEditor {
   }
 
   var canMoveSelected: Bool {
-    snapshot?.placedObjects.contains(where: { $0.id == selectedID }) == true
+    allObjects.contains(where: { $0.id == selectedID })
   }
 
   func beginPlacing(assetID: String) async {
@@ -101,14 +101,14 @@ final class IdleScreenPlantedTankEditor {
     switch pick.tool {
     case .select:
       guard pick.positionCm == nil else { return }
-      selectedID = snapshot?.placedObjects.first { $0.id == pick.id }?.id
+      selectedID = allObjects.first { $0.id == pick.id }?.id
       await syncSelection()
     case .place:
       guard let assetID = placingAssetID, let position = pick.positionCm else { return }
       await add(assetID: assetID, positionCm: position)
     case .move:
       guard let movingID, pick.id == movingID, let position = pick.positionCm,
-        var object = snapshot?.placedObjects.first(where: { $0.id == movingID })
+        var object = allObjects.first(where: { $0.id == movingID })
       else { return }
       object.positionCm = position
       await update(object)

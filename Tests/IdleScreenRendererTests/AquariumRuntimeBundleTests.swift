@@ -306,6 +306,48 @@ struct AquariumRuntimeBundleTests {
     #expect(result["checks"] == 9)
   }
 
+  @Test func nativeCanvasCanPickAndMovePresetRockWhileLegacySelectionStaysAddedOnly() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let initial = try await surface.beginEditing()
+    var rock = try #require(initial.objects.first { $0.id == "base-rock" })
+    rock.positionCm.x = 0
+    rock.positionCm.z = 0
+    let centered = try await surface.applyPresetObjects(
+      expectedRevision: initial.revision, objects: [rock])
+    #expect(try await surface.setEditorTool(.select, selectedID: rock.id) == centered)
+    var picks: [IdleScreenAquariumWebSurface.EditorPick] = []
+    surface.onEditorPick = { picks.append($0) }
+    try await clickTankPoint(surface, point: .init(x: 0, y: 8, z: 0))
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while picks.isEmpty && ContinuousClock.now < deadline {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(try #require(picks.first).id == rock.id)
+    picks.removeAll()
+    #expect(try await surface.setEditorTool(.move, selectedID: rock.id) == centered)
+    #expect(try await surface.beginEditing() == centered)
+    try await clickTankPoint(surface, point: .init(x: 0, y: rock.positionCm.y, z: 3))
+    let movedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while picks.isEmpty && ContinuousClock.now < movedDeadline {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let pick = try #require(picks.first)
+    #expect(pick.id == rock.id)
+    #expect(pick.tool == .move)
+    let position = try #require(pick.positionCm)
+    #expect(abs(position.z - 3) < 0.001)
+    #expect(position.y == rock.positionCm.y)
+    #expect(try await surface.editorSnapshot() == centered)
+    let legacy = try await tankScript(
+      surface,
+      "JSON.stringify(aquariumStudy.applyDesigner({layout:aquariumStudy.designer.layout,selectionScope:'added',selectedId:'base-rock'}))"
+    )
+    #expect(legacy.contains("error"))
+    try await surface.shutdown()
+  }
+
   @Test func nativeEditorBridgeMovesObjectsAndRecoversFromRejectedEdits() async throws {
     let surface = IdleScreenAquariumWebSurface()
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
@@ -506,6 +548,28 @@ struct AquariumRuntimeBundleTests {
     let result = try await runPresetFixture(
       "ornament-checks", invocation: "runAquariumOrnamentChecks()")
     #expect(result["checks"] == 7)
+  }
+
+  private func clickTankPoint(
+    _ surface: IdleScreenAquariumWebSurface,
+    point: IdleScreenAquariumWebSurface.PositionCm
+  ) async throws {
+    let argument = String(decoding: try JSONEncoder().encode(point), as: UTF8.self)
+    _ = try await tankScript(
+      surface,
+      """
+      (() => {
+        const s=aquariumStudy.state,c=s.camera,point=\(argument);
+        const camera=new THREE.PerspectiveCamera(c.fov,c.aspect,.1,1000);
+        camera.position.fromArray(c.position);camera.lookAt(...c.target);
+        camera.projectionMatrix.elements[9]=2*c.horizonPercent/100-1;camera.updateMatrixWorld();
+        const centerZ=(s.world.floorBackZ+s.world.floorFrontZ)/2;
+        const p=new THREE.Vector3(point.x/s.physical.cmPerUnit,point.y/s.physical.cmPerUnit,centerZ+point.z/s.physical.cmPerUnit).project(camera);
+        const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();
+        canvas.dispatchEvent(new PointerEvent('pointerdown',{button:0,clientX:r.left+(p.x+1)*r.width/2,clientY:r.top+(1-p.y)*r.height/2}));
+        return 'clicked';
+      })()
+      """)
   }
 
   private func tankScript(_ surface: IdleScreenAquariumWebSurface, _ script: String) async throws
