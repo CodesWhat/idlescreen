@@ -256,20 +256,48 @@ final class IdleScreenPlantedTankEditor {
   private enum StockEdit {
     case remove(String)
     case add(assetID: String, id: String)
+    case restore(archive: Data, id: String)
   }
+  private var animalUndoStack: [StockEdit] = []
+  private var animalRedoStack: [StockEdit] = []
+  var canUndoAnimals: Bool { !isBusy && !animalUndoStack.isEmpty }
+  var canRedoAnimals: Bool { !isBusy && !animalRedoStack.isEmpty }
 
   func addAnimal(assetID: String) async {
     guard snapshot?.stockCatalog.contains(where: { $0.id == assetID }) == true else { return }
-    await editStock(.add(assetID: assetID, id: "stock-" + UUID().uuidString.lowercased()))
+    await recordAnimalEdit(.add(assetID: assetID, id: "stock-" + UUID().uuidString.lowercased()))
   }
 
   func removeAnimal(id: String) async {
     guard snapshot?.animals.contains(where: { $0.id == id && $0.alive }) == true else { return }
-    await editStock(.remove(id))
+    await recordAnimalEdit(.remove(id))
   }
 
-  private func editStock(_ edit: StockEdit) async {
-    guard !isBusy, !isReloading, snapshot != nil else { return }
+  private func recordAnimalEdit(_ edit: StockEdit) async {
+    guard let inverse = await editStock(edit) else { return }
+    animalUndoStack.append(inverse)
+    if animalUndoStack.count > 100 { animalUndoStack.removeFirst() }
+    animalRedoStack.removeAll()
+  }
+
+  func undoAnimals() async {
+    guard canUndoAnimals, let edit = animalUndoStack.last else { return }
+    if let inverse = await editStock(edit) {
+      animalUndoStack.removeLast()
+      animalRedoStack.append(inverse)
+    }
+  }
+
+  func redoAnimals() async {
+    guard canRedoAnimals, let edit = animalRedoStack.last else { return }
+    if let inverse = await editStock(edit) {
+      animalRedoStack.removeLast()
+      animalUndoStack.append(inverse)
+    }
+  }
+
+  private func editStock(_ edit: StockEdit) async -> StockEdit? {
+    guard !isBusy, !isReloading, snapshot != nil else { return nil }
     isBusy = true
     isReloading = true
     defer {
@@ -280,15 +308,21 @@ final class IdleScreenPlantedTankEditor {
     let candidate = IdleScreenAquariumWebSurface()
     bind(candidate)
     var committed = false
+    var inverse: StockEdit?
     do {
       if previous.state == .running { try await previous.pause() }
       var data: Data
       switch edit {
       case .remove(let id):
-        data = try await previous.prepareStockRemoval(
+        let removal = try await previous.prepareStockRemovalHistory(
           animalID: id, id: "planted-tank", name: "Planted tank")
+        data = removal.checkpoint
+        inverse = .restore(archive: removal.archive, id: id)
       case .add:
         data = try await previous.exportTank(id: "planted-tank", name: "Planted tank")
+      case .restore(let archive, _):
+        data = try await previous.prepareStockRestoration(
+          archive: archive, id: "planted-tank", name: "Planted tank")
       }
       guard let url = IdleScreenAquariumRuntime.sceneURL else {
         throw IdleScreenAquariumWebSurface.SurfaceError.invalidLocalResource
@@ -296,11 +330,19 @@ final class IdleScreenPlantedTankEditor {
       try await candidate.load(sceneURL: url)
       _ = try await candidate.restoreTank(from: data)
       var restored = try await candidate.beginEditing()
-      var addedID: String?
-      if case .add(let assetID, let id) = edit {
+      var returnedID: String?
+      switch edit {
+      case .add(let assetID, let id):
         restored = try await candidate.stageStockAddition(assetID: assetID, id: id)
         data = try await candidate.exportTank(id: "planted-tank", name: "Planted tank")
-        addedID = id
+        returnedID = id
+        inverse = .remove(id)
+      case .restore(_, let id):
+        restored = try await candidate.reconcileStockPose(id: id)
+        data = try await candidate.exportTank(id: "planted-tank", name: "Planted tank")
+        returnedID = id
+        inverse = .remove(id)
+      case .remove: break
       }
       if let store {
         storedRevision = try await store.write(data, expectedRevision: storedRevision)
@@ -308,7 +350,7 @@ final class IdleScreenPlantedTankEditor {
       }
       surface = candidate
       snapshot = restored
-      selectedID = addedID
+      selectedID = returnedID
       pointerTool = .select
       placingAssetID = nil
       movingID = nil
@@ -316,12 +358,14 @@ final class IdleScreenPlantedTankEditor {
       committed = true
       try? await previous.shutdown()
       if wantsVisible { try await candidate.resume() }
+      return inverse
     } catch {
       if !committed {
         try? await candidate.shutdown()
         if wantsVisible && previous.state == .paused { try? await previous.resume() }
       }
       errorMessage = error.localizedDescription
+      return committed ? inverse : nil
     }
   }
 
@@ -356,6 +400,8 @@ final class IdleScreenPlantedTankEditor {
       movingID = nil
       undoStack.removeAll()
       redoStack.removeAll()
+      animalUndoStack.removeAll()
+      animalRedoStack.removeAll()
       savedAt = nil
       errorMessage = nil
       try? await previous.shutdown()

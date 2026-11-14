@@ -152,6 +152,12 @@ private struct PlantedTankStockPicker: View {
         }
       }
       Button("Add animal") { Task { await editor.addAnimal(assetID: assetID) } }
+      HStack {
+        Button("Undo animal") { Task { await editor.undoAnimals() } }.disabled(
+          !editor.canUndoAnimals)
+        Button("Redo animal") { Task { await editor.redoAnimals() } }.disabled(
+          !editor.canRedoAnimals)
+      }
     }
     .disabled(editor.isBusy || editor.snapshot == nil || editor.pointerTool != .select)
   }

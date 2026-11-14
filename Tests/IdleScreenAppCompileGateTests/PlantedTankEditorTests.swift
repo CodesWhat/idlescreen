@@ -2,10 +2,128 @@ import AppKit
 import Foundation
 import IdleScreenRenderer
 import Testing
+import WebKit
 
 @Suite("Planted tank editor", .timeLimit(.minutes(1)))
 @MainActor
 struct PlantedTankEditorTests {
+  @Test func animalUndoAndRedoKeepIdentityAndIndependentLayoutHistory() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    await editor.activate()
+    await editor.add(assetID: "rotala", positionCm: .init(x: -22, y: 5, z: 12))
+    let plant = try #require(editor.snapshot?.placedObjects.first)
+    let originalIDs = try #require(editor.snapshot).animals.map(\.id)
+    await editor.addAnimal(assetID: "shrimp/blue-dream")
+    let added = try #require(editor.snapshot?.animals.first { !originalIDs.contains($0.id) })
+    #expect(editor.canUndoAnimals && editor.canUndo)
+    await editor.undoAnimals()
+    #expect(editor.errorMessage == nil)
+    #expect(editor.snapshot?.animals.map(\.id) == originalIDs)
+    #expect(editor.snapshot?.placedObjects == [plant])
+    #expect(editor.canRedoAnimals && editor.canUndo)
+    await editor.redoAnimals()
+    #expect(editor.errorMessage == nil)
+    #expect(editor.snapshot?.animals.contains { $0.id == added.id } == true)
+    await editor.removeAnimal(id: added.id)
+    await editor.undoAnimals()
+    #expect(editor.snapshot?.animals.contains { $0.id == added.id } == true)
+    await editor.undo()
+    #expect(editor.snapshot?.placedObjects.isEmpty == true)
+    #expect(editor.snapshot?.animals.contains { $0.id == added.id } == true)
+    try await editor.surface.shutdown()
+  }
+
+  @Test func failedAnimalUndoRetainsHistoryAndReloadClearsIt() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenPlantedTankStore(fileURL: directory.appendingPathComponent("tank.json"))
+    let editor = IdleScreenPlantedTankEditor(store: store)
+    await editor.activate()
+    await editor.addAnimal(assetID: "fish/chili")
+    let current = editor.surface
+    let ids = try #require(editor.snapshot).animals.map(\.id)
+    let external = try await current.exportTank(id: "planted-tank", name: "External edit")
+    let revision = try await store.read().revision
+    _ = try await store.write(external, expectedRevision: revision)
+    await editor.undoAnimals()
+    #expect(editor.errorMessage != nil)
+    #expect(editor.surface === current)
+    #expect(editor.snapshot?.animals.map(\.id) == ids)
+    #expect(editor.canUndoAnimals && !editor.canRedoAnimals)
+    #expect(try await store.read().data == external)
+    await editor.reloadCheckpoint()
+    #expect(editor.errorMessage == nil)
+    #expect(!editor.canUndoAnimals && !editor.canRedoAnimals)
+    try await editor.surface.shutdown()
+  }
+
+  @Test func animalRedoStaysPausedAfterHidingDuringUndo() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    await editor.activate()
+    await editor.addAnimal(assetID: "fish/chili")
+    let ids = try #require(editor.snapshot).animals.map(\.id)
+    let old = editor.surface
+    let undo = Task { await editor.undoAnimals() }
+    for _ in 0..<1000 {
+      if editor.isBusy { break }
+      await Task.yield()
+    }
+    #expect(editor.isBusy)
+    await editor.deactivate()
+    await undo.value
+    #expect(editor.errorMessage == nil && editor.canRedoAnimals)
+    #expect(old.state == .stopped && editor.surface.state == .paused)
+    await editor.redoAnimals()
+    #expect(editor.errorMessage == nil)
+    #expect(editor.snapshot?.animals.map(\.id) == ids)
+    #expect(editor.surface.state == .paused)
+    try await editor.surface.shutdown()
+  }
+
+  @Test func animalUndoDoesNotResurrectADeadAddition() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    await editor.activate()
+    await editor.addAnimal(assetID: "fish/chili")
+    let count = try #require(editor.snapshot).animals.filter { $0.kind == "fish" }.count
+    await editor.deactivate()
+    _ = try await editor.surface.view.evaluateJavaScript(
+      "for(let i=0;i<\(count);i++) aquariumStudy.previewLifeEvent('death'); true")
+    let current = editor.surface
+    let before = try await current.exportTank(id: "planted-tank", name: "Planted tank")
+    await editor.undoAnimals()
+    #expect(editor.errorMessage?.contains("living animal") == true)
+    #expect(editor.surface === current && editor.surface.state == .paused)
+    #expect(editor.canUndoAnimals && !editor.canRedoAnimals)
+    #expect(try await current.exportTank(id: "planted-tank", name: "Planted tank") == before)
+    try await editor.surface.shutdown()
+  }
+
+  @Test func animalUndoRetainsTheCurrentPopulationWhenCapacityChanged() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    await editor.activate()
+    let animal = try #require(editor.snapshot?.animals.first { $0.alive })
+    await editor.removeAnimal(id: animal.id)
+    await editor.deactivate()
+    _ = try await editor.surface.view.evaluateJavaScript(
+      """
+      (() => {
+        let i=0;
+        while(aquariumStudy.state.ecology.animals.length<80) {
+          aquariumStudy.addStock({assetID:'fish/chili',id:'stock-independent-'+i++});
+        }
+        return true;
+      })()
+      """)
+    let current = editor.surface
+    let before = try await current.exportTank(id: "planted-tank", name: "Planted tank")
+    await editor.undoAnimals()
+    #expect(editor.errorMessage?.contains("capacity") == true)
+    #expect(editor.surface === current && editor.surface.state == .paused)
+    #expect(editor.canUndoAnimals && !editor.canRedoAnimals)
+    #expect(try await current.exportTank(id: "planted-tank", name: "Planted tank") == before)
+    try await editor.surface.shutdown()
+  }
+
   @Test func removingLivingStockReplacesTheSurfaceAndSurvivesReopening() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
