@@ -36,7 +36,11 @@ This is unsigned
 test-host evidence. Signed screensaver-host compositing, WebKit subprocess
 sandbox behavior and real idle lifecycle remain separate verification gates.
 
-The runtime is not yet selected by the shipping app or screensaver presentation.
+The companion app's Aquarium workspace embeds this runtime in its Planted tank
+view. The Existing tanks view retains the earlier aquarium implementation. The
+planted-tank checkpoint is separate from that library and is not yet shared with
+the pop-out or screensaver presentation. Signed host integration remains
+unverified.
 
 ## Editing existing preset objects
 
@@ -51,5 +55,9 @@ restore the exact previous transforms, and stale revisions leave the scene
 unchanged. Successful edits recapture actual wet collision sources, revalidate
 added specimens and refresh navigation and breeding supports. They do not
 rebuild animals, advance biology or replace the active feeding state. The
-operation keeps each object's authored support height; support-aware vertical
-remounting, equipment connections and the full editor UI remain integration work.
+operation keeps each object's authored support height. The native editor exposes
+preset editing, added specimens and basic equipment placement through the same
+surface. Attached plants align with their support face; moving a support in a
+way that invalidates a mounted plant is rejected. Parent-following mounts remain
+open. See [equipment editing](AQUARIUM_EQUIPMENT.md) and
+[checkpoint persistence](AQUARIUM_CHECKPOINTS.md) for their current limits.
