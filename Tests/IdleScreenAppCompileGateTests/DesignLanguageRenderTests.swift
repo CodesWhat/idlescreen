@@ -24,6 +24,35 @@ struct DesignLanguageRenderTests {
     }
   }
 
+  @Test(
+    "the companion window has a minimum but no content-derived maximum",
+    arguments: Destination.allCases)
+  func companionWindowCanResizeNormally(destination: Destination) throws {
+    let harness = try RenderHarness()
+    defer { harness.removeScratchDirectory() }
+    harness.navigation.destination = destination
+    harness.navigation.isSetupDeferred = true
+    let window = IdleScreenAppDelegate.makeMainWindow(
+      rootView:
+        ContentView().environment(harness.model).environment(harness.cameraClient)
+        .environment(harness.navigation).environment(harness.coordinator))
+    window.contentAspectRatio = CGSize(width: 16, height: 9)
+    IdleScreenAppDelegate.configureMainWindowResizing(window)
+    #expect(window.contentResizeIncrements == CGSize(width: 1, height: 1))
+    window.contentView?.layoutSubtreeIfNeeded()
+    RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    #expect(window.styleMask.contains(.resizable))
+    #expect(window.contentMinSize == CGSize(width: 900, height: 600))
+    #expect(window.contentMaxSize.width > 10_000 && window.contentMaxSize.height > 10_000)
+    for size in [CGSize(width: 1600, height: 1000), CGSize(width: 1050, height: 720)] {
+      window.setContentSize(size)
+      window.contentView?.layoutSubtreeIfNeeded()
+      let content = window.contentRect(forFrameRect: window.frame).size
+      #expect(abs(content.width - size.width) < 1 && abs(content.height - size.height) < 1)
+    }
+    #expect(!window.isVisible)
+  }
+
   private static let width: CGFloat = 980
 
   @Test(
@@ -134,7 +163,8 @@ struct DesignLanguageRenderTests {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
     harness.navigation.destination = .studio
-    harness.navigation.isSetupDeferred = true  // otherwise Studio's place shows setup, which follows the system
+    // Otherwise Studio shows setup, which follows the system.
+    harness.navigation.isSetupDeferred = true
     let size = NSSize(width: 1_200, height: 800)
     let view = NSHostingView(
       rootView: AnyView(
@@ -169,7 +199,8 @@ struct DesignLanguageRenderTests {
     while window.appearance != nil && Date() < deadline {
       RunLoop.current.run(until: Date().addingTimeInterval(0.02))
     }
-    #expect(window.appearance == nil)  // the window follows the system again; the host's own appearance is not ours to assert
+    // Assert the window follows the system, independently of the host appearance.
+    #expect(window.appearance == nil)
   }
 
   /// The Studio controls: the compact dock, the expanded dock for each saver kind, and the Pixel Materials dock with Advanced open.
@@ -316,39 +347,39 @@ struct DesignLanguageRenderTests {
     return count == 0 ? 0 : total / count
   }
 
-  @Test("all four workbench pages fit the default and minimum windows in both appearances")
-  func workbenchShellRenders() throws {
+  @Test(
+    "all workbench pages fit the default and minimum windows in both appearances",
+    arguments: Destination.allCases)
+  func workbenchShellRenders(destination: Destination) throws {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
     harness.navigation.isSetupDeferred = true
     for size in [NSSize(width: 1_180, height: 780), NSSize(width: 900, height: 600)] {
       for dark in [false, true] {
-        for destination in Destination.allCases {
-          harness.navigation.destination = destination
-          let host = NSHostingView(
-            rootView:
-              ContentView()
-              .environment(harness.model).environment(harness.cameraClient)
-              .environment(harness.navigation).environment(harness.coordinator)
-              .environment(\.colorScheme, dark ? .dark : .light)
-              .frame(width: size.width, height: size.height)
-          )
-          let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: size), styleMask: [], backing: .buffered,
-            defer: false)
-          window.contentView = host
-          host.setFrameSize(size)
-          host.layoutSubtreeIfNeeded()
-          let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-          host.cacheDisplay(in: host.bounds, to: bitmap)
-          #expect(Self.hasVisibleContent(bitmap))
-          #expect(!window.isVisible)
-          try Self.save(
-            bitmap,
-            name:
-              "workbench-\(destination.rawValue.lowercased())-\(Int(size.width))-\(dark ? "dark" : "light")"
-          )
-        }
+        harness.navigation.destination = destination
+        let host = NSHostingView(
+          rootView:
+            ContentView()
+            .environment(harness.model).environment(harness.cameraClient)
+            .environment(harness.navigation).environment(harness.coordinator)
+            .environment(\.colorScheme, dark ? .dark : .light)
+            .frame(width: size.width, height: size.height)
+        )
+        let window = NSWindow(
+          contentRect: NSRect(origin: .zero, size: size), styleMask: [], backing: .buffered,
+          defer: false)
+        window.contentView = host
+        host.setFrameSize(size)
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        #expect(Self.hasVisibleContent(bitmap))
+        #expect(!window.isVisible)
+        try Self.save(
+          bitmap,
+          name:
+            "workbench-\(destination.rawValue.lowercased())-\(Int(size.width))-\(dark ? "dark" : "light")"
+        )
       }
     }
   }

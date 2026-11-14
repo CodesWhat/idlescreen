@@ -1,5 +1,20 @@
 # Third-party notices
 
+## Three.js
+
+The aquarium renderer bundles Three.js r160 from upstream commit
+`d04539a76736ff500cae883d6a38b3dd8643c548` under the MIT License.
+Copyright © 2010-2023 three.js authors.
+
+- Source: https://github.com/mrdoob/three.js/tree/d04539a76736ff500cae883d6a38b3dd8643c548
+- Bundled code: `Sources/IdleScreenRenderer/Resources/AquariumRuntime/vendor/three.min.js`
+- Full license: `Sources/IdleScreenRenderer/Resources/AquariumRuntime/vendor/LICENSE`
+- Import and checksum provenance: `Sources/IdleScreenRenderer/Resources/AquariumRuntime/PROVENANCE.json`
+
+The complete upstream license is included beside the library in the distributed
+renderer framework. Aquarium artwork is original procedural CodesWhat code;
+source-reference photographs are not bundled.
+
 ## AppexSaverMinimal
 
 `Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h` includes declarations

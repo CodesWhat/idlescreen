@@ -32,16 +32,18 @@ struct IdleScreenApp: App {
 
 enum Destination: String, CaseIterable, Identifiable {
   case studio = "Scene"
+  case aquarium = "Aquarium"
   case displays = "Displays"
   case integrations = "Agents"
   case status = "Settings"
 
-  static let primaryCases: [Destination] = [.studio, .displays, .integrations, .status]
+  static let primaryCases: [Destination] = [.studio, .aquarium, .displays, .integrations, .status]
 
   var id: String { rawValue }
   var symbol: String {
     switch self {
     case .studio: "play.rectangle"
+    case .aquarium: "fish"
     case .displays: "rectangle.3.group"
     case .integrations: "point.3.connected.trianglepath.dotted"
     case .status: "waveform.path.ecg"
@@ -125,6 +127,7 @@ struct ContentView: View {
               onLater: { navigation.setupSession.deferSetup() }
             )
           }
+        case .aquarium: IdleScreenAquariumWorkspaceView()
         case .displays: DisplaysView()
         case .integrations: IntegrationsView()
         case .status: StatusView()
@@ -161,9 +164,11 @@ struct ContentView: View {
     }
     .windowAppearance(Self.windowAppearance(for: navigation.destination, showsSetup: showsSetup))
     .ignoresSafeArea()
-    .onChange(of: model.configuration.revision, initial: true) { _, revision in
-      _ = displayCoordinator.update(
-        settings: model.configuration.display, configurationRevision: revision)
+    .onChange(of: model.configuration.revision, initial: true) {
+      _, _ in updateDisplayPresentation()
+    }
+    .onChange(of: IdleScreenAquariumController.shared.library.revision) { _, _ in
+      updateDisplayPresentation()
     }
     .onChange(of: displayCoordinator.latestSnapshot?.generation, initial: true) { _, _ in
       synchronizePreviewDisplay()
@@ -189,6 +194,15 @@ struct ContentView: View {
     if let selected {
       navigation.displayAspectRatio = selected.logicalFrame.width / selected.logicalFrame.height
     }
+  }
+
+  private func updateDisplayPresentation() {
+    let library = IdleScreenAquariumController.shared.library
+    _ = displayCoordinator.update(
+      settings: IdleScreenAquariumProduct.displaySettings(
+        configuration: model.configuration, library: library),
+      configurationRevision: IdleScreenAquariumProduct.presentationRevision(
+        configuration: model.configuration, library: library))
   }
 
   private var showsSetup: Bool { !(setupCompleted || navigation.isSetupDeferred) }
@@ -272,6 +286,7 @@ struct StudioView: View {
   @Environment(IdleScreenCompanionNavigation.self) private var navigation
   @Environment(DisplaySceneCoordinator.self) private var displayCoordinator
   @State private var isSaverChooserExpanded = true
+  @State private var isMoreGlyphScenesExpanded = false
   @State private var isPixelAdvancedExpanded = false
   @State private var isLoupeEnabled = false
   @State private var loupePointerLocation: CGPoint?
@@ -510,6 +525,7 @@ struct StudioView: View {
     model.configurationApplyingActiveAgentSignal(at: date)
       .rendererConfiguration(
         for: previewAssignment,
+        aquarium: IdleScreenAquariumController.shared.library,
         agentPresentations: model.agentPresentations(at: date),
         reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
       )
@@ -784,29 +800,40 @@ struct StudioView: View {
               }
             }
           } else {
-            ForEach(IdleScreenCreativePattern.allCases) { pattern in
-              Button {
-                select(pattern)
-              } label: {
-                SaverLibraryRow(
-                  title: pattern.displayName, art: .pattern(pattern),
-                  isSelected: !cameraSourceSelected
-                    && model.configuration.creative.pattern == pattern)
+            ForEach(IdleScreenSceneLibrary.families) { entry in
+              sceneLibraryRow(entry)
+            }
+            Text("Glyph scenes")
+              .designEyebrow()
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .padding(.horizontal, 6)
+              .padding(.top, 12)
+              .padding(.bottom, 4)
+              .accessibilityAddTraits(.isHeader)
+            ForEach(IdleScreenSceneLibrary.featuredGlyphs) { entry in
+              sceneLibraryRow(entry)
+            }
+            DisclosureGroup(isExpanded: $isMoreGlyphScenesExpanded) {
+              VStack(spacing: 4) {
+                ForEach(IdleScreenSceneLibrary.moreGlyphs) { entry in
+                  sceneLibraryRow(entry)
+                }
               }
-              .buttonStyle(.plain)
-              .accessibilityLabel(pattern.displayName)
-              .accessibilityAddTraits(
-                !cameraSourceSelected && model.configuration.creative.pattern == pattern
-                  ? .isSelected : [])
-            }
-            Button {
-              selectCameraSaver()
             } label: {
-              SaverLibraryRow(title: "Camera", art: .camera, isSelected: cameraSourceSelected)
+              VStack(alignment: .leading, spacing: 3) {
+                Text("More glyph scenes")
+                  .font(DesignFont.sans(DesignFont.caption))
+                if !isMoreGlyphScenesExpanded,
+                  IdleScreenSceneLibrary.moreGlyphs.contains(librarySelection)
+                {
+                  Text("Selected: \(librarySelection.title)")
+                    .font(DesignFont.sans(DesignFont.eyebrow))
+                    .foregroundStyle(DesignPalette.ink2)
+                }
+              }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Camera")
-            .accessibilityAddTraits(cameraSourceSelected ? .isSelected : [])
+            .padding(.horizontal, 6)
+            .padding(.top, 8)
           }
         }
         .padding(8)
@@ -822,6 +849,37 @@ struct StudioView: View {
       .padding(12)
     }
     .background(DesignPalette.surface)
+    .onChange(of: librarySelection, initial: true) { _, selection in
+      if IdleScreenSceneLibrary.moreGlyphs.contains(selection) {
+        isMoreGlyphScenesExpanded = true
+      }
+    }
+  }
+
+  private var librarySelection: IdleScreenSceneLibraryEntry {
+    IdleScreenSceneLibrary.selection(
+      source: model.configuration.source, pattern: model.configuration.creative.pattern)
+  }
+
+  private func sceneLibraryRow(_ entry: IdleScreenSceneLibraryEntry) -> some View {
+    let isSelected = librarySelection == entry
+    let art: SaverTileArt =
+      switch entry {
+      case .camera: .camera
+      case .pattern(let pattern): .pattern(pattern)
+      }
+    return Button {
+      switch entry {
+      case .camera: selectCameraSaver()
+      case .pattern(let pattern): select(pattern)
+      }
+    } label: {
+      SaverLibraryRow(title: entry.title, art: art, isSelected: isSelected)
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(entry.title)
+    .accessibilityIdentifier("scene-library-\(entry.id)")
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 
   private var compactSettingsDock: some View {
@@ -2094,6 +2152,7 @@ struct IdleScreenMetalPreview: View {
 /// deferred to the main actor so SwiftUI is never mutated during view creation.
 @MainActor
 private struct IdleScreenMetalViewHost: NSViewRepresentable {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   let configuration: IdleScreenRendererConfiguration
   let mode: IdleScreenRendererMode
   let cameraFrame: IdleScreenRendererCameraFrame?
@@ -2101,6 +2160,18 @@ private struct IdleScreenMetalViewHost: NSViewRepresentable {
   let elapsedTime: TimeInterval?
   let pointerLocationDidChange: ((CGPoint?) -> Void)?
   let status: IdleScreenMetalPreviewStatus
+
+  private var presentedConfiguration: IdleScreenRendererConfiguration {
+    var value = configuration
+    value.aquariumSettings?.reduceMotion =
+      reduceMotion || configuration.aquariumSettings?.reduceMotion == true
+    return value
+  }
+
+  private var staticAquarium: Bool {
+    configuration.patternRawValue == "aquarium" && mode != .camera
+      && presentedConfiguration.aquariumSettings?.reduceMotion == true
+  }
 
   @MainActor
   final class Coordinator {
@@ -2146,10 +2217,12 @@ private struct IdleScreenMetalViewHost: NSViewRepresentable {
     do {
       let renderer = try IdleScreenRenderer(
         metalView: metalView,
-        configuration: configuration,
+        configuration: presentedConfiguration,
         mode: mode,
-        automaticallyDraws: elapsedTime == nil
+        automaticallyDraws: elapsedTime == nil && !staticAquarium
       )
+      metalView.enableSetNeedsDisplay = staticAquarium
+      if staticAquarium { metalView.needsDisplay = true }
       context.coordinator.renderer = renderer
       context.coordinator.subscribe(
         renderer: renderer,
@@ -2175,8 +2248,11 @@ private struct IdleScreenMetalViewHost: NSViewRepresentable {
     context: Context
   ) {
     metalView.pointerLocationDidChange = pointerLocationDidChange
+    metalView.isPaused = elapsedTime != nil || staticAquarium
+    metalView.enableSetNeedsDisplay = staticAquarium
+    if staticAquarium { metalView.needsDisplay = true }
     guard let renderer = context.coordinator.renderer else { return }
-    renderer.update(configuration: configuration)
+    renderer.update(configuration: presentedConfiguration)
     renderer.update(mode: mode)
     context.coordinator.subscribe(
       renderer: renderer,
@@ -2645,12 +2721,14 @@ extension IdleScreenConfiguration {
 
   func rendererConfiguration(
     for assignment: DisplaySceneAssignment?,
+    aquarium: IdleScreenAquariumLibrary? = nil,
     agentPresentations: [IdleScreenAgentOverlayPresentation] = [],
     reduceMotion: Bool = false
   ) -> IdleScreenRendererConfiguration {
     IdleScreenRendererConfigurationBridge.configuration(
       for: self,
       assignment: assignment,
+      aquarium: aquarium,
       agentPresentations: agentPresentations,
       reduceMotion: reduceMotion
     )

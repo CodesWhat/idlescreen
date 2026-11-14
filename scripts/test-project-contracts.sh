@@ -592,7 +592,8 @@ done
 echo "PASS: modern app, screen saver tile, and UI copy use IdleScreen branding."
 
 if ! grep -Fq '@NSApplicationDelegateAdaptor(IdleScreenAppDelegate.self)' "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift" ||
-   ! grep -Fq 'NSHostingController' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
+   ! grep -Fq 'IdleScreenWorkbenchHostingController' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
+   ! grep -Fq 'NSHostingController' "$project_root/Products/IdleScreenApp/IdleScreenWorkbenchHostingController.swift" ||
    ! grep -Fq 'showMainWindow()' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
    ! grep -Fq 'makeKeyAndOrderFront' "$project_root/Products/IdleScreenApp/IdleScreenAppDelegate.swift" ||
    grep -Fq 'WindowGroup(' "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift"; then
