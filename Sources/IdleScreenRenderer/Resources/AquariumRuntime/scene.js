@@ -1255,6 +1255,7 @@ function applyPresetObjects(message){
    const status=designerRuntime.inspectObject(group,{solids:obstacles,placement:['base-wood','base-rock'].includes(record.id)?'buried-hardscape':'transform'});if(!status.valid)throw new Error(status.reason);
   }
   designerRuntime.setEnvironment({solids:baselineCollisionMeshes,mountSolids:baselineCollisionMeshes.filter(mesh=>mesh.userData.hardscape&&!mesh.userData.equipmentSolid)});
+  const invalidPlacement=designerRuntime.status.find(item=>!item.valid);if(invalidPlacement)throw new Error('Preset edit invalidates '+invalidPlacement.id+': '+invalidPlacement.reason);
   recaptureDesignerCollisions();rebuildSurfaceNavigation(false);buildBreedingSupports();presetRevision++;render();
   return{revision:presetRevision,objects:current,status:designerRuntime.status};
  }catch(error){

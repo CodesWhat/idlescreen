@@ -152,7 +152,7 @@
       for (const id of node.ids) {
         triangle(data, id, tri); tri.getNormal(normal);
         if (upwardOnly && normal.y < .5) continue;
-        if (ray.intersectTriangle(tri.a, tri.b, tri.c, false, rayPoint)) { const distance = rayPoint.distanceTo(ray.origin); if (distance > EPS) hits.push(components ? { distance, component: data.topology.triangleComponents[id] } : distance); }
+        if (ray.intersectTriangle(tri.a, tri.b, tri.c, false, rayPoint)) { const distance = rayPoint.distanceTo(ray.origin); if (distance > EPS) hits.push(components ? { distance, component: data.topology.triangleComponents[id], normal: upwardOnly ? normal.clone() : null } : distance); }
       }
     }
     function inside(data, position) {
@@ -274,15 +274,15 @@
       } catch (error) { release(record); throw error; }
     }
     function placeMount(record, mounts) {
-      const p = record.object.position; let height = -Infinity, mount = null;
+      const p = record.object.position, mountNormal = new THREE.Vector3(0, 1, 0); let height = -Infinity, mount = null;
       for (const data of mounts) {
         ensureTree(data);
         ray.set(point.set(p.x, waterLevel + .75 / cmPerUnit, p.z), normal.set(0, -1, 0)); const hits = [];
-        rayHits(data, data.tree, hits, true);
-        for (const distance of hits) { const y = waterLevel + .75 / cmPerUnit - distance; if (y > height && y >= bedLevel - EPS && y < waterLevel) { height = y; mount = data; } }
+        rayHits(data, data.tree, hits, true, true);
+        for (const hit of hits) { const y = waterLevel + .75 / cmPerUnit - hit.distance; if (y > height && y >= bedLevel - EPS && y < waterLevel) { height = y; mount = data; mountNormal.copy(hit.normal); } }
       }
       record.mount = mount;
-      if (mount) { p.y = height + .002; record.object.updateMatrixWorld(true); record.meshes.forEach(refresh); }
+      if (mount) { p.y = height + .002; record.object.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), mountNormal); record.object.rotateY(record.rotationY); record.object.updateMatrixWorld(true); record.meshes.forEach(refresh); }
       return !!mount;
     }
     function boundsReason(record) {

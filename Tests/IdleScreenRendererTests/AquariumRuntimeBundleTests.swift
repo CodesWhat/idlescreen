@@ -292,6 +292,20 @@ struct AquariumRuntimeBundleTests {
     try await surface.shutdown()
   }
 
+  @Test func epiphytesFollowActualSupportNormalsWithoutLosingCollisionChecks() async throws {
+    let result = try await runPresetFixture(
+      "mount-normal-check",
+      invocation:
+        "runAquariumMountNormalCheck(THREE,AquariumDesignerPlacement,AquariumEpiphytePlantsV2)")
+    #expect(result["checks"] == 8)
+  }
+
+  @Test func mountedPlantsSurviveRejectedSupportChangesAndAddedRocksCollide() async throws {
+    let result = try await runPresetFixture(
+      "mount-edit-check", invocation: "runAquariumMountEditCheck(aquariumStudy)")
+    #expect(result["checks"] == 9)
+  }
+
   @Test func nativeEditorBridgeMovesObjectsAndRecoversFromRejectedEdits() async throws {
     let surface = IdleScreenAquariumWebSurface()
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)

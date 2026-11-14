@@ -37,7 +37,10 @@ catalog. Added specimens and preset objects appear in separate list sections.
 The chooser accepts positions in centimeters. Rooted plants and hardscape
 anchor to the substrate, floaters anchor to the water surface, and epiphytes
 mount on the highest eligible wood or rock below the chosen position. Height
-is determined by that support. Across, depth and rotation remain editable.
+is determined by that support. Epiphytes align their mount axis to the actual
+upward rock or wood face, with the chosen turn applied around that axis. Across,
+depth and rotation remain editable. Preset changes that strand an attachment or
+invalidate an added specimen are rejected and roll back the live geometry.
 Choose **Place in tank** to click a bed, water-surface or eligible hardscape
 anchor. Added specimens can be selected in the scene and moved with **Move in
 tank**. Preset objects still use the list and coordinate inspector. Cancel or
