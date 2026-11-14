@@ -127,7 +127,7 @@ struct ContentView: View {
               onLater: { navigation.setupSession.deferSetup() }
             )
           }
-        case .aquarium: IdleScreenAquariumView()
+        case .aquarium: IdleScreenAquariumWorkspaceView()
         case .displays: DisplaysView()
         case .integrations: IntegrationsView()
         case .status: StatusView()

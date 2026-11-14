@@ -18,6 +18,47 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     case stopped
   }
 
+  public struct PositionCm: Codable, Equatable, Sendable {
+    public var x: Double
+    public var y: Double
+    public var z: Double
+  }
+
+  public struct PresetObject: Codable, Equatable, Identifiable, Sendable {
+    public let id: String
+    public let assetId: String
+    public var positionCm: PositionCm
+    public var rotationY: Double
+  }
+
+  public struct EditorSnapshot: Decodable, Equatable, Sendable {
+    public let revision: Int
+    public let objects: [PresetObject]
+  }
+
+  public enum EditorError: Error, LocalizedError {
+    case rejected(String)
+    case invalidResponse
+
+    public var errorDescription: String? {
+      switch self {
+      case .rejected(let message): message
+      case .invalidResponse: "The tank editor returned an unreadable response."
+      }
+    }
+  }
+
+  private struct EditRequest: Encodable {
+    let expectedRevision: Int
+    let objects: [PresetObject]
+  }
+
+  private struct EditorResponse: Decodable {
+    let revision: Int
+    let objects: [PresetObject]?
+    let error: String?
+  }
+
   public let view: WKWebView
   public private(set) var state = State.unloaded
   private var resourceDirectory: URL?
@@ -57,6 +98,43 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
       if state != .stopped { state = .failed }
       throw error
     }
+  }
+
+  public func beginEditing() async throws -> EditorSnapshot {
+    try await editorQuery("window.idleScreenScene.beginEditing()")
+  }
+
+  public func editorSnapshot() async throws -> EditorSnapshot {
+    try await editorQuery("window.idleScreenScene.editorSnapshot()")
+  }
+
+  public func applyPresetObjects(expectedRevision: Int, objects: [PresetObject]) async throws
+    -> EditorSnapshot
+  {
+    let request = EditRequest(expectedRevision: expectedRevision, objects: objects)
+    let data = try JSONEncoder().encode(request)
+    let json = String(decoding: data, as: UTF8.self)
+    return try await editorQuery("window.idleScreenScene.applyPresetObjects(\(json))")
+  }
+
+  private func editorQuery(_ expression: String) async throws -> EditorSnapshot {
+    guard state == .paused || state == .running else { throw SurfaceError.invalidState }
+    let json: String = try await withCheckedThrowingContinuation { continuation in
+      view.evaluateJavaScript("JSON.stringify(\(expression))") { value, error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else if let json = value as? String {
+          continuation.resume(returning: json)
+        } else {
+          continuation.resume(throwing: EditorError.invalidResponse)
+        }
+      }
+    }
+    guard state == .paused || state == .running else { throw SurfaceError.invalidState }
+    let response = try JSONDecoder().decode(EditorResponse.self, from: Data(json.utf8))
+    if let error = response.error { throw EditorError.rejected(error) }
+    guard let objects = response.objects else { throw EditorError.invalidResponse }
+    return EditorSnapshot(revision: response.revision, objects: objects)
   }
 
   public func resume() async throws {

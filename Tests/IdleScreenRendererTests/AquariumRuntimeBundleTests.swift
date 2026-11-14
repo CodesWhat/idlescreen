@@ -155,6 +155,60 @@ struct AquariumRuntimeBundleTests {
     #expect(result["checks"] == 10)
   }
 
+  @Test func nativeEditorBridgeMovesObjectsAndRecoversFromRejectedEdits() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    surface.view.configuration.userContentController.addUserScript(
+      WKUserScript(
+        source: Self.frameClock(emulatingVisibleDocument: false), injectionTime: .atDocumentStart,
+        forMainFrameOnly: true))
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let before = try await snapshot(surface)
+    let initial = try await surface.beginEditing()
+    #expect(!initial.objects.isEmpty)
+    #expect(try await surface.beginEditing() == initial)
+    let rock = try #require(initial.objects.first { $0.id == "base-rock" })
+    var moved = initial.objects
+    let index = try #require(moved.firstIndex { $0.id == rock.id })
+    moved[index].positionCm.z += 3
+    let edited = try await surface.applyPresetObjects(
+      expectedRevision: initial.revision, objects: moved)
+    #expect(edited.revision > initial.revision)
+    #expect(edited.objects[index].positionCm.z == rock.positionCm.z + 3)
+    do {
+      _ = try await surface.applyPresetObjects(
+        expectedRevision: initial.revision, objects: initial.objects)
+      Issue.record("Stale editor command was accepted")
+    } catch IdleScreenAquariumWebSurface.EditorError.rejected(let message) {
+      #expect(message.contains("stale"))
+    }
+    var invalid = edited.objects
+    invalid[index].positionCm.x = 50
+    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+      try await surface.applyPresetObjects(expectedRevision: edited.revision, objects: invalid)
+    }
+    #expect(surface.state == .paused)
+    #expect(try await surface.editorSnapshot() == edited)
+    let restored = try await surface.applyPresetObjects(
+      expectedRevision: edited.revision, objects: initial.objects)
+    #expect(restored.objects.map(\.id) == initial.objects.map(\.id))
+    for (actual, expected) in zip(restored.objects, initial.objects) {
+      #expect(actual.assetId == expected.assetId)
+      #expect(abs(actual.positionCm.x - expected.positionCm.x) < 1e-9)
+      #expect(abs(actual.positionCm.y - expected.positionCm.y) < 1e-9)
+      #expect(abs(actual.positionCm.z - expected.positionCm.z) < 1e-9)
+      #expect(abs(actual.rotationY - expected.rotationY) < 1e-9)
+    }
+    let after = try await snapshot(surface)
+    #expect(after.scene.ecology.animals == before.scene.ecology.animals)
+    #expect(after.scene.water.elapsedSeconds == before.scene.water.elapsedSeconds)
+    #expect(after.scene.clock == before.scene.clock)
+    try await surface.shutdown()
+    await #expect(throws: IdleScreenAquariumWebSurface.SurfaceError.self) {
+      try await surface.editorSnapshot()
+    }
+  }
+
   private func runPresetFixture(_ name: String, invocation: String) async throws -> [String: Int] {
     let fixture = try #require(
       Bundle(for: AquariumCollisionFixtureBundle.self).url(
