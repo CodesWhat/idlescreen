@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import IdleScreenCore
 import IdleScreenDisplay
+import IdleScreenRenderer
 import MetalKit
 import SwiftUI
 import Testing
@@ -9,6 +10,73 @@ import Testing
 @Suite("Aquarium display presentation planning")
 @MainActor
 struct AquariumPresentationPlanTests {
+  @Test func nonAquariumMappingAndClocksIgnoreSavedTankEpoch() {
+    let library = IdleScreenAquariumLibrary.starter
+    let mapped = IdleScreenRendererConfigurationBridge.configuration(
+      for: .default, assignment: nil, aquarium: library)
+    #expect(mapped.aquariumSettings == nil)
+    var frame = IdleScreenAquariumProduct.configuration(for: library.tanks[0])
+    let now = library.tanks[0].presentationEpoch.addingTimeInterval(200 * 86_400)
+    #expect(
+      IdleScreenAquariumProduct.sceneElapsed(
+        configuration: frame, mode: .generative, sessionElapsed: 12, at: now) == 200 * 86_400)
+    #expect(
+      IdleScreenAquariumProduct.sceneElapsed(
+        configuration: frame, mode: .camera, sessionElapsed: 12, at: now) == 12)
+    frame.patternRawValue = IdleScreenConfiguration.default.creative.pattern.rawValue
+    #expect(
+      IdleScreenAquariumProduct.sceneElapsed(
+        configuration: frame, mode: .generative, sessionElapsed: 12, at: now) == 12)
+  }
+
+  @Test func savedTankMappingIsCachedUntilItsInputsChange() throws {
+    var calls = 0
+    var cache = IdleScreenAquariumPresentationCache { tank, aspect in
+      calls += 1
+      return IdleScreenAquariumProduct.settings(for: tank, worldAspect: aspect)
+    }
+    var configuration = IdleScreenConfiguration.default
+    var library = IdleScreenAquariumLibrary.starter
+    func resolve(_ reduceMotion: Bool = false, hourOffset: Int = 0)
+      -> IdleScreenAquariumRenderSettings?
+    {
+      cache.settings(
+        for: configuration, assignment: nil, library: library,
+        reduceMotion: reduceMotion, hourOffset: hourOffset)
+    }
+    #expect(resolve() == nil && calls == 0)
+    configuration.creative.pattern = .aquarium
+    let first = resolve()
+    for _ in 0..<30 { #expect(resolve() == first) }
+    #expect(calls == 1)
+    library.tanks[0].seed = 999
+    library.revision += 1
+    #expect(resolve()?.seed == 999 && calls == 2)
+    let other = IdleScreenAquariumTank(name: "Other")
+    library.tanks.append(other)
+    library.selectedTankID = other.id
+    #expect(resolve()?.seed == other.seed && calls == 3)
+    #expect(resolve(true)?.reduceMotion == true && calls == 4)
+    #expect(resolve(true, hourOffset: 3_600)?.hourOffset == 3_600 && calls == 5)
+    library.presentation = .panorama
+    library.revision += 1
+    let topology = try DisplayTopology(displays: [
+      display("left", x: 0, primary: true), display("right", x: 1_000),
+    ])
+    let assignment = try DisplayScenePlanner().makePlan(
+      for: .init(generation: 1, topology: topology), settings: .init(policy: .panorama),
+      sceneEpoch: 1
+    ).assignments[0]
+    let panorama = cache.settings(
+      for: configuration, assignment: assignment, library: library,
+      reduceMotion: true, hourOffset: 3_600)
+    #expect(panorama?.worldWidth == 720 && calls == 6)
+    #expect(
+      cache.settings(
+        for: configuration, assignment: assignment, library: library,
+        reduceMotion: true, hourOffset: 3_600) == panorama && calls == 6)
+  }
+
   @Test func panoramaResolvesAttachedMossAtItsRenderedWorldWidth() throws {
     var library = IdleScreenAquariumLibrary.starter
     let wood = IdleScreenAquariumDecoration(kind: .driftwood, x: 0.5, y: 0.9)
@@ -40,8 +108,10 @@ struct AquariumPresentationPlanTests {
         library: library, topology: topology)
       #expect(surfaces[0].configuration.aquariumSettings?.lastFeedingElapsed == 90_000)
     }
+    var configuration = IdleScreenConfiguration.default
+    configuration.creative.pattern = .aquarium
     let saver = IdleScreenRendererConfigurationBridge.configuration(
-      for: .default, assignment: nil, aquarium: library, reduceMotion: false)
+      for: configuration, assignment: nil, aquarium: library, reduceMotion: false)
     #expect(saver.aquariumSettings?.lastFeedingElapsed == 90_000)
   }
 
@@ -142,8 +212,10 @@ struct AquariumPresentationPlanTests {
 
   @Test func productMappingPropagatesReducedMotionForStudioAndSaver() {
     let library = IdleScreenAquariumLibrary.starter
+    var configuration = IdleScreenConfiguration.default
+    configuration.creative.pattern = .aquarium
     let mapped = IdleScreenRendererConfigurationBridge.configuration(
-      for: .default, assignment: nil, aquarium: library, reduceMotion: true)
+      for: configuration, assignment: nil, aquarium: library, reduceMotion: true)
     #expect(mapped.aquariumSettings?.reduceMotion == true)
   }
 
