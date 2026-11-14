@@ -13,6 +13,9 @@
    check(saved.runtime.actors.length===++count&&life?.alive&&life.maturity===1&&life.isOffspring===false,'Every finished stock item must create one living purchased adult');
   }
   const stocked=capture(),domain=stocked.tank.document.checkpoint.data,prior=before.tank.document.checkpoint.data;
+  const inventory=study.state.inventory;
+  check(inventory.fish===23&&inventory.shrimp===33&&inventory.snails===4,'Inventory must count the living individuals actually added to the starter tank');
+  check(inventory.fishSpecies===4&&inventory.shrimpSpecies===3&&inventory.snailSpecies===2,'Inventory must distinguish modeled species groups from color variants');
   check(before.runtime.actors.every(a=>JSON.stringify(a)===JSON.stringify(stocked.runtime.actors.find(b=>b.id===a.id))),'Adding stock must preserve every existing visual binding');
   check(prior.ecology.animals.every(a=>JSON.stringify(a)===JSON.stringify(domain.ecology.animals.find(b=>b.id===a.id))),'Adding stock must preserve the other life records');
   check(JSON.stringify(before.runtime.food)===JSON.stringify(stocked.runtime.food)&&JSON.stringify(prior.water)===JSON.stringify(domain.water),'Adding stock must preserve food motion and water chemistry');
@@ -25,7 +28,7 @@
   check(rejected&&JSON.stringify(full)===JSON.stringify(capture()),'The rendering capacity must reject additions without changing state');
   check(full.tank.document.checkpoint.data.breeding.parents.filter(a=>a.alive).length===80,'Purchased adults must join the breeding roster without advancing its clock');
   check(full.tank.document.checkpoint.data.ecology.seconds===prior.ecology.seconds&&full.tank.document.checkpoint.data.breeding.seconds===prior.breeding.seconds,'Stock edits must not advance biological time');
-  return{checks:44};
+  return{checks:46};
  };
  root.runAquariumReservedStock=function(study){
   function check(value,message){if(!value)throw new Error(message);}
