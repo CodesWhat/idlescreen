@@ -808,7 +808,7 @@ struct AquariumRuntimeBundleTests {
   @Test func removedStockIsNotResurrectedWhenTheSceneRebuilds() async throws {
     let result = try await runPresetFixture(
       "checkpoint-stock", invocation: "runAquariumCheckpointStock(aquariumStudy)")
-    #expect(result["checks"] == 2)
+    #expect(result["checks"] == 14)
   }
 
   @Test func domainCheckpointsContinueBirthsWasteAndMassWithoutDuplicatingHistory() async throws {

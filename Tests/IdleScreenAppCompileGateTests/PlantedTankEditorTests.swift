@@ -6,6 +6,73 @@ import Testing
 @Suite("Planted tank editor", .timeLimit(.minutes(1)))
 @MainActor
 struct PlantedTankEditorTests {
+  @Test func removingLivingStockReplacesTheSurfaceAndSurvivesReopening() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenPlantedTankStore(fileURL: directory.appendingPathComponent("tank.json"))
+    let editor = IdleScreenPlantedTankEditor(store: store)
+    await editor.activate()
+    let original = editor.surface
+    let animal = try #require(editor.snapshot?.animals.first { $0.alive })
+    let retained = try #require(editor.snapshot).animals.map(\.id).filter { $0 != animal.id }
+    await editor.removeAnimal(id: animal.id)
+    #expect(editor.errorMessage == nil)
+    #expect(editor.surface !== original)
+    #expect(original.state == .stopped)
+    #expect(editor.snapshot?.animals.map(\.id) == retained)
+    await editor.deactivate()
+    let reopened = IdleScreenPlantedTankEditor(store: store)
+    await reopened.activate()
+    #expect(reopened.errorMessage == nil)
+    #expect(reopened.snapshot?.animals.map(\.id) == retained)
+    await reopened.deactivate()
+    try await editor.surface.shutdown()
+    try await reopened.surface.shutdown()
+  }
+
+  @Test func aStaleStockSaveRetainsTheCurrentSurfaceAndExternalFile() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenPlantedTankStore(fileURL: directory.appendingPathComponent("tank.json"))
+    let editor = IdleScreenPlantedTankEditor(store: store)
+    await editor.activate()
+    await editor.save()
+    let original = editor.surface
+    let animal = try #require(editor.snapshot?.animals.first { $0.alive })
+    let originalIDs = try #require(editor.snapshot).animals.map(\.id)
+    let external = try await original.exportTank(id: "planted-tank", name: "External edit")
+    let revision = try await store.read().revision
+    _ = try await store.write(external, expectedRevision: revision)
+    await editor.removeAnimal(id: animal.id)
+    #expect(editor.errorMessage != nil)
+    #expect(editor.surface === original)
+    #expect(editor.surface.state == .running)
+    #expect(editor.snapshot?.animals.map(\.id) == originalIDs)
+    #expect(try await store.read().data == external)
+    try await editor.surface.shutdown()
+  }
+
+  @Test func stockReplacementRemainsPausedWhenTheWorkspaceHides() async throws {
+    let editor = IdleScreenPlantedTankEditor()
+    await editor.activate()
+    let original = editor.surface
+    let animal = try #require(editor.snapshot?.animals.first { $0.alive })
+    let removal = Task { await editor.removeAnimal(id: animal.id) }
+    for _ in 0..<1000 {
+      if editor.isBusy { break }
+      await Task.yield()
+    }
+    #expect(editor.isBusy)
+    await editor.deactivate()
+    await removal.value
+    #expect(editor.errorMessage == nil)
+    #expect(editor.surface !== original)
+    #expect(original.state == .stopped)
+    #expect(editor.surface.state == .paused)
+    #expect(editor.snapshot?.animals.contains { $0.id == animal.id } == false)
+    try await editor.surface.shutdown()
+  }
+
   @Test func addedPlantsHaveIndependentHistoryAndSurviveReopening() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }

@@ -55,9 +55,28 @@
   if(JSON.stringify(result).length>maxChars)fail('document exceeds size limit');
   return JSON.parse(JSON.stringify(result));
  }
+ function removingAnimal(input,id,codec){
+  const result=normalize(input,codec),domain=result.tank.document.checkpoint.data;
+  if(typeof id!=='string'||!domain.ecology.animals.some(a=>a.id===id&&a.alive))fail('choose a living animal to remove');
+  domain.ecology.animals=domain.ecology.animals.filter(a=>a.id!==id);
+  result.runtime.actors=result.runtime.actors.filter(a=>a.id!==id);
+  const breeding=domain.breeding;
+  function event(kind,detail){breeding.events.push({id:++breeding.eventSerial,kind,at:breeding.seconds,...detail});if(breeding.events.length>64)breeding.events.shift();}
+  for(const brood of breeding.broods){
+   if(brood.motherId===id&&brood.phase!=='deposited-eggs'){
+    breeding.stats.cancelledBroods++;
+    event('brood-ended',{broodId:brood.id,motherId:id,reason:'mother-unavailable'});
+   }
+  }
+  breeding.broods=breeding.broods.filter(b=>b.motherId!==id||b.phase==='deposited-eggs');
+  if(breeding.offspring.some(a=>a.id===id))event('offspring-removed',{animalId:id});
+  breeding.offspring=breeding.offspring.filter(a=>a.id!==id);
+  breeding.parents=breeding.parents.filter(a=>a.id!==id);
+  return normalize(result,codec);
+ }
  function importJSON(text,codec){
   if(typeof text!=='string'||text.length>maxChars)fail('bounded JSON text required');
   return normalize(JSON.parse(text),codec);
  }
- return Object.freeze({normalize,importJSON,maxChars});
+ return Object.freeze({normalize,importJSON,removingAnimal,maxChars});
 });

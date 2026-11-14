@@ -62,6 +62,21 @@ way that invalidates a mounted plant is rejected. Parent-following mounts remain
 open. See [equipment editing](AQUARIUM_EQUIPMENT.md) and
 [checkpoint persistence](AQUARIUM_CHECKPOINTS.md) for their current limits.
 
+## Living animal removal
+
+The planted-tank inspector lists the retained animals. Removing a living animal
+prepares a normalized replacement checkpoint without mutating the live scene.
+Food motion, chemistry, feeding history, remaining actors and existing deposits
+are preserved. A carried brood leaves with its mother; already deposited eggs
+remain in the tank. Dead animals are excluded from this action.
+
+The native editor pauses its current surface, restores the replacement into a
+separate paused surface, and writes it through the existing store revision check
+before swapping views. A restore or stale-save failure keeps the current surface
+and file intact. The replacement remains paused if the workspace hides during
+the operation. Layout history remains separate from animal removal. Purchasing
+new stock and an animal-specific undo history remain unfinished.
+
 ## Isolated native QA
 
 A Debug QA bundle with an identifier under `com.idlescreen.aquarium-qa.` can
