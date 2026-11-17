@@ -53,9 +53,41 @@ lossless WebP. Two runs produce identical files.
 ## Headers
 
 `vercel.json` sets a strict CSP (`default-src 'self'`, no inline scripts or
-styles). The only extra origins are `api.star-history.com` and `codecov.io`,
-for the Star History chart and the Codecov badge. `e2e/serve.mjs` serves `dist/`
-with the same headers, so the browser tests run under the production policy.
+styles). The only extra origins are `api.star-history.com` and `codecov.io`
+(`img-src`, for the Star History chart and the Codecov badge) and
+`https://e.codeswhat.com` (`connect-src`, the PostHog proxy for analytics).
+`script-src` stays `'self'`: the analytics SDK is vendored, not loaded remotely.
+`e2e/serve.mjs` reads `vercel.json` and serves `dist/` with the same headers, so
+the browser tests run under the production policy.
+
+## Analytics
+
+Cookieless PostHog, on the landing page only (`/docs` is a separate app and has none).
+It initializes only when `location.hostname` is `idlescreen.codeswhat.com`, so
+localhost, the e2e server and preview deployments send nothing.
+
+Events go to `https://e.codeswhat.com` (project key in `dist/analytics-contract.mjs`;
+it's a public client key). PostHog runs with `cookieless_mode: "always"`, no
+persistence, no person profiles, no autocapture, no session replay. Every event is
+rebuilt by a `before_send` allowlist, so nothing else PostHog attaches can leave the
+browser. What is collected:
+
+- `$pageview` and `$pageleave`, with `schema_version`, `site: "idlescreen"`,
+  `surface: "marketing"`, and a canonical `path` (`/`, or `/_other`; no query or fragment).
+- `$web_vitals`: CLS, FCP, INP and LCP, sent once per page load. The `web-vitals`
+  package produces them and `analytics-contract.mjs` buffers them.
+- `cta activated` with `cta_id` and `placement`, from the `data-cta` and
+  `data-cta-placement` attributes in `index.html`: `download:hero`,
+  `install_brew:hero`, `install_brew:install`, `github_repository:header|hero|footer`,
+  `github_releases:footer`, `docs_root:header`.
+- Acquisition: `utm_*` labels that look like plain labels, and `$referring_domain`
+  (a hostname or `$direct`). Never the full referrer, URL, IP or click ids.
+
+`dist/analytics.mjs` is the loader and `dist/analytics-contract.mjs` is the pure
+contract (tested in `tests/analytics-contract.test.mjs`). The SDK is vendored into
+`dist/assets/vendor/`: posthog-js's slim `no-external` build (it never fetches a
+remote script) plus `web-vitals`, both pinned exactly in `package.json`, with their
+licenses. After bumping either, run `npm run vendor:analytics` and commit the output.
 
 ## Checks
 

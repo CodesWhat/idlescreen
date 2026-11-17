@@ -54,6 +54,7 @@
   <link rel="preload" href="./assets/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./styles.css">
   <script type="module" src="./app.mjs"></script>
+  <script type="module" src="./analytics.mjs"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -65,8 +66,8 @@
         <a href="#camera">Camera</a>
         <a href="#displays">Displays</a>
         <a href="#install">Install</a>
-        <a href="/docs">Docs</a>
-        <a href="https://github.com/CodesWhat/idlescreen">GitHub<span aria-hidden="true"> ↗</span></a>
+        <a href="/docs" data-cta="docs_root" data-cta-placement="header">Docs</a>
+        <a href="https://github.com/CodesWhat/idlescreen" data-cta="github_repository" data-cta-placement="header">GitHub<span aria-hidden="true"> ↗</span></a>
       </nav>
     </div>
   </header>
@@ -78,12 +79,12 @@
         <h1 id="hero-title">A screen saver made of animated characters.</h1>
         <p class="lede">Turn procedural scenes or a live camera into a Metal-rendered field of animated characters.</p>
         <div class="actions">
-          <a class="button primary" href="https://github.com/CodesWhat/idlescreen/releases/latest" data-download>Download for Mac<span aria-hidden="true"> ↓</span></a>
-          <a class="button" href="https://github.com/CodesWhat/idlescreen">View on GitHub<span aria-hidden="true"> ↗</span></a>
+          <a class="button primary" href="https://github.com/CodesWhat/idlescreen/releases/latest" data-download data-cta="download" data-cta-placement="hero">Download for Mac<span aria-hidden="true"> ↓</span></a>
+          <a class="button" href="https://github.com/CodesWhat/idlescreen" data-cta="github_repository" data-cta-placement="hero">View on GitHub<span aria-hidden="true"> ↗</span></a>
         </div>
         <div class="cmd" data-command>
           <code id="brew-command">brew install --cask codeswhat/tap/idlescreen</code>
-          <button type="button" class="copy" data-copy="#brew-command" aria-label="Copy the Homebrew install command">Copy</button>
+          <button type="button" class="copy" data-copy="#brew-command" data-cta="install_brew" data-cta-placement="hero" aria-label="Copy the Homebrew install command">Copy</button>
         </div>
         <p class="fine">Signed and notarized. Gatekeeper and System Integrity Protection stay enabled.</p>
       </div>
@@ -187,7 +188,7 @@
           <p>Download the signed, notarized DMG from the latest release, or install the Homebrew cask:</p>
           <div class="cmd">
             <code id="brew-command-2">brew install --cask codeswhat/tap/idlescreen</code>
-            <button type="button" class="copy" data-copy="#brew-command-2" aria-label="Copy the Homebrew install command">Copy</button>
+            <button type="button" class="copy" data-copy="#brew-command-2" data-cta="install_brew" data-cta-placement="install" aria-label="Copy the Homebrew install command">Copy</button>
           </div>
           <p>Open IdleScreen once, then select it in System Settings under Wallpaper and Screen Saver. Upgrade with <code>brew upgrade --cask idlescreen</code> or remove it with <code>brew uninstall --cask idlescreen</code>.</p>
           <h3>Requirements</h3>
@@ -265,8 +266,8 @@
         <p class="footer-note">Free software under the <a href="https://github.com/CodesWhat/idlescreen/blob/main/LICENSE">MIT License</a>.</p>
       </div>
       <nav aria-label="Project links">
-        <a href="https://github.com/CodesWhat/idlescreen">GitHub<span aria-hidden="true"> ↗</span></a>
-        <a href="https://github.com/CodesWhat/idlescreen/releases">Releases<span aria-hidden="true"> ↗</span></a>
+        <a href="https://github.com/CodesWhat/idlescreen" data-cta="github_repository" data-cta-placement="footer">GitHub<span aria-hidden="true"> ↗</span></a>
+        <a href="https://github.com/CodesWhat/idlescreen/releases" data-cta="github_releases" data-cta-placement="footer">Releases<span aria-hidden="true"> ↗</span></a>
         <a href="https://github.com/CodesWhat/idlescreen/blob/main/docs/ROADMAP.md">Roadmap<span aria-hidden="true"> ↗</span></a>
         <a href="https://github.com/CodesWhat/idlescreen/blob/main/SECURITY.md">Security<span aria-hidden="true"> ↗</span></a>
         <a href="https://github.com/sponsors/scttbnsn">Sponsor<span aria-hidden="true"> ↗</span></a>
