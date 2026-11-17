@@ -588,7 +588,7 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     metalView.colorPixelFormat = .bgra8Unorm
     metalView.depthStencilPixelFormat = .invalid
     metalView.framebufferOnly = true
-    metalView.preferredFramesPerSecond = 30
+    metalView.preferredFramesPerSecond = configuration.patternRawValue == "aquarium" ? 60 : 30
     metalView.enableSetNeedsDisplay = false
     metalView.isPaused = !automaticallyDraws
     metalView.clearColor = self.configuration.paletteColors.clearColor

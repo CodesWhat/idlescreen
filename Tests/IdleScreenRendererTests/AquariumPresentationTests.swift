@@ -1,11 +1,25 @@
 import CoreGraphics
 import Foundation
+import MetalKit
 import Testing
 
 @testable import IdleScreenRenderer
 
 @Suite("Aquarium framing and scene clock")
 struct AquariumPresentationTests {
+  @MainActor
+  @Test func aquariumRequestsSixtyFramesFromTheFirstPreviewFrame() throws {
+    #expect(IdleScreenProceduralPatterns.framesPerSecond(patternRawValue: "aquarium") == 60)
+    let view = MTKView(frame: .init(x: 0, y: 0, width: 384, height: 216))
+    var configuration = IdleScreenRendererConfiguration.default
+    configuration.patternRawValue = "aquarium"
+    let renderer = try IdleScreenRenderer(
+      metalView: view, configuration: configuration, automaticallyDraws: false)
+    defer { renderer.shutdown() }
+    #expect(renderer.preferredFramesPerSecond(at: 0) == 60)
+    #expect(view.preferredFramesPerSecond == 60)
+  }
+
   @Test func explicitFrameTimeWinsAndRetainsLongRunningFractions() {
     var settings = IdleScreenAquariumRenderSettings()
     settings.epoch = 0

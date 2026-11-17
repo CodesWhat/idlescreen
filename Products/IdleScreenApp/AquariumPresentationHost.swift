@@ -16,10 +16,11 @@ struct IdleScreenAquariumPresentationPolicy: Equatable {
   var renderCost: TimeInterval = 0
   var framesPerSecond: Int {
     guard screensAwake, sessionActive, !reduceMotion else { return 0 }
-    let ceiling = lowPower ? 12 : 30
+    let ceiling =
+      lowPower ? 12 : IdleScreenProceduralPatterns.framesPerSecond(patternRawValue: "aquarium")
     guard renderCost.isFinite, renderCost >= 0 else { return 0 }
     guard renderCost > 0 else { return ceiling }
-    let budget = lowPower ? 0.08 : 0.2
+    let budget = lowPower ? 0.08 : 0.8
     return max(1, Int(min(Double(ceiling), budget / max(0.000001, renderCost))))
   }
 }

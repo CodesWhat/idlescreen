@@ -130,12 +130,12 @@ struct AquariumPresentationPlanTests {
 
   @Test func lifecycleAndEnergyPolicyHaveExplicitStopConditions() {
     var policy = IdleScreenAquariumPresentationPolicy()
-    #expect(policy.framesPerSecond == 30)
+    #expect(policy.framesPerSecond == 60)
     policy.lowPower = true
     #expect(policy.framesPerSecond == 12)
     policy.lowPower = false
     policy.renderCost = 0.1
-    #expect(policy.framesPerSecond == 2)
+    #expect(policy.framesPerSecond == 8)
     policy.renderCost = 0
     policy.reduceMotion = true
     #expect(policy.framesPerSecond == 0)
