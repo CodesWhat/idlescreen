@@ -24,6 +24,40 @@ struct DesignLanguageRenderTests {
     }
   }
 
+  @Test(
+    "the companion window has a minimum but no content-derived maximum",
+    arguments: Destination.allCases)
+  func companionWindowCanResizeNormally(destination: Destination) throws {
+    let harness = try RenderHarness()
+    defer { harness.removeScratchDirectory() }
+    harness.navigation.destination = destination
+    harness.navigation.isSetupDeferred = true
+    let window = IdleScreenAppDelegate.makeMainWindow(
+      rootView:
+        ContentView().environment(harness.model).environment(harness.cameraClient)
+        .environment(harness.navigation).environment(harness.coordinator))
+    window.contentAspectRatio = CGSize(width: 16, height: 9)
+    IdleScreenAppDelegate.configureMainWindowResizing(window)
+    #expect(window.contentResizeIncrements == CGSize(width: 1, height: 1))
+    window.contentView?.layoutSubtreeIfNeeded()
+    RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    #expect(window.styleMask.contains(.resizable))
+    // AppKit recomputes contentMinSize from the hosting view on every layout pass, so the
+    // 900x600 floor is enforced by windowWillResize through the geometry clamp instead.
+    let clamped = IdleScreenPreviewWindowGeometry.constrainedContentSize(
+      proposed: CGSize(width: 500, height: 300), current: CGSize(width: 1_180, height: 780),
+      previewAspectRatio: 16.0 / 9)
+    #expect(clamped.width >= 900 && clamped.height >= 600)
+    #expect(window.contentMaxSize.width > 10_000 && window.contentMaxSize.height > 10_000)
+    for size in [CGSize(width: 1600, height: 1000), CGSize(width: 1050, height: 720)] {
+      window.setContentSize(size)
+      window.contentView?.layoutSubtreeIfNeeded()
+      let content = window.contentRect(forFrameRect: window.frame).size
+      #expect(abs(content.width - size.width) < 1 && abs(content.height - size.height) < 1)
+    }
+    #expect(!window.isVisible)
+  }
+
   private static let width: CGFloat = 980
 
   @Test(

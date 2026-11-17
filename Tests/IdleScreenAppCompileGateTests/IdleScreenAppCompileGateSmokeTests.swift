@@ -7,6 +7,23 @@ import Testing
 @Suite("Companion source compile gate")
 struct IdleScreenAppCompileGateSmokeTests {
   @MainActor
+  @Test("partial native resize requests preserve the valid dimension")
+  func previewWindowPartialResize() {
+    let current = CGSize(width: 1200, height: 800)
+    for (proposed, expected) in [
+      (CGSize(width: 1600, height: CGFloat.nan), CGSize(width: 1600, height: 800)),
+      (CGSize(width: CGFloat.nan, height: 1000), CGSize(width: 1200, height: 1000)),
+      (CGSize(width: CGFloat.infinity, height: 700), CGSize(width: 1200, height: 700)),
+      (CGSize(width: 1050, height: -1), CGSize(width: 1050, height: 800)),
+      (CGSize(width: 500, height: CGFloat.nan), CGSize(width: 900, height: 800)),
+    ] {
+      #expect(
+        IdleScreenAppDelegate.constrainedPreviewContentSize(
+          proposed: proposed, current: current, previewAspectRatio: 16.0 / 9) == expected)
+    }
+  }
+
+  @MainActor
   @Test("window resize keeps the proposed width and height independent of the display")
   func previewWindowFreeResize() {
     for ratio in [16.0 / 9, 9.0 / 16, 21.0 / 9] {
