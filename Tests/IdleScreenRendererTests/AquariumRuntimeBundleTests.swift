@@ -9,6 +9,53 @@ import WebKit
 @Suite("Bundled Three.js aquarium", .timeLimit(.minutes(1)))
 @MainActor
 struct AquariumRuntimeBundleTests {
+  @Test func premiumPlacementsKeepBodiesConnectionsAndGlassMountsTogether() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let result =
+      try await surface.view.evaluateJavaScript(
+        """
+        (()=>{
+          const options={stripPlug:{filter:[9,1,-6],co2:[-9,1,-6]}},factory=AquariumMetricEquipmentArt;
+          const original=factory.create(THREE,options);
+          if(!original.placementsCm)return 'missing premium centimeter placements';
+          const placementsCm={canister:{x:44,z:0},co2:{x:-42,z:8},intake:{x:-24},return:{x:-17},diffuser:{x:-8,y:7}};
+          const moved=factory.create(THREE,{...options,placementsCm}),cm=36/8.4,near=(a,b)=>Math.abs(a-b)<.00003;
+          for(const [slot,part]of [['canister','canister-housing'],['co2','cylinder-chart-envelope']]){
+            const before=original.dryGroup.userData.parts[part].bounds,after=moved.dryGroup.userData.parts[part].bounds;
+            if(!near(after.min[0]-before.min[0],(moved.placementsCm[slot].x-original.placementsCm[slot].x)/cm))throw new Error(slot+' body did not follow placement');
+            if(!near(after.max[2]-before.max[2],(moved.placementsCm[slot].z-original.placementsCm[slot].z)/cm))throw new Error(slot+' depth did not follow placement');
+          }
+          const authored=moved.dryGroup.userData.authored;
+          if(!near(authored.filterSideGapCm,4.9)||!near(authored.cylinderSideGapCm,6.45))throw new Error('Clearance metadata did not follow premium bodies');
+          const find=name=>moved.wetGroup.getObjectByName(name)||moved.dryGroup.getObjectByName(name);
+          for(const route of Object.values(moved.dryGroup.userData.routes)){
+            const points=[...route.dry,...(route.wet||[])];
+            for(const [key,index]of [['startConnector',0],['endConnector',points.length-1]]){
+              const connector=find(route[key]);if(!connector||!connector.position.toArray().every((n,i)=>near(n,points[index][i])))throw new Error('Disconnected '+route[key]);
+            }
+          }
+          if(!near(moved.returnPoint.x-original.returnPoint.x,3/cm))throw new Error('Return flow origin did not move');
+          if(!near(moved.diffuserPoint.y-original.diffuserPoint.y,(7-original.placementsCm.diffuser.y)/cm))throw new Error('Mist origin did not move');
+          for(const mount of moved.wetGroup.userData.mounts){
+            if(mount.kind==='rim'&&!near(mount.contact[1],8.4))throw new Error('Rim mount floats');
+            if(mount.kind==='suction'&&!near(mount.wallPoint[2],-4.36+.6/cm))throw new Error('Suction mount left rear glass');
+          }
+          const repeated=factory.create(THREE,{...options,placementsCm:moved.placementsCm});
+          if(JSON.stringify(repeated.placementsCm)!==JSON.stringify(moved.placementsCm))throw new Error('Premium placement cannot round trip');
+          for(const asset of [original,moved,repeated])asset.dispose();
+          let allocations=0;const tracked=Object.create(THREE);tracked.Group=class extends THREE.Group{constructor(){super();allocations++;}};
+          for(const invalid of [{unknown:{}},{co2:{x:0}},{canister:{y:1}},{intake:{z:0}},{return:{rotationY:1}},{diffuser:{y:34}},{canister:{x:Infinity}},{intake:{x:-29},return:{x:-28}}]){
+            let rejected=false;try{factory.create(tracked,{...options,placementsCm:invalid}).dispose();}catch(_){rejected=true;}
+            if(!rejected||allocations)throw new Error('Invalid premium placement allocated or was accepted');
+          }
+          return 'ok';
+        })()
+        """) as? String
+    #expect(result == "ok")
+    try await surface.shutdown()
+  }
+
   @Test func presentationSettingsPreserveTheCurrentEcosystemCheckpoint() async throws {
     let surface = IdleScreenAquariumWebSurface()
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
