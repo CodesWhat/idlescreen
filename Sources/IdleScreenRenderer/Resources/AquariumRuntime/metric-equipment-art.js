@@ -11,8 +11,41 @@
     return result;
   }
 
+  function placementsFor({tankHalf,cmPerUnit,backZ,frontZ,waterLevel,rimY,bedLevel},input){
+    function record(value,keys){
+      if(!value||typeof value!=='object'||Array.isArray(value))throw new TypeError('Premium placements require objects');
+      for(const key of Reflect.ownKeys(value)){
+        const p=Object.getOwnPropertyDescriptor(value,key);
+        if(typeof key!=='string'||!keys.includes(key)||!p.enumerable||!Object.prototype.hasOwnProperty.call(p,'value'))throw new TypeError('Unsupported premium placement field');
+      }
+    }
+    const half=tankHalf*cmPerUnit,centerZ=(backZ+frontZ)/2,rear=(backZ-centerZ)*cmPerUnit,front=(frontZ-centerZ)*cmPerUnit;
+    const defaults={
+      canister:{x:half+11.1,y:0,z:rear+14,rotationY:0},
+      co2:{x:-half-8.5,y:0,z:front-8,rotationY:0},
+      intake:{x:-half+4,y:rimY*cmPerUnit,z:rear,rotationY:0},
+      return:{x:-half+10,y:rimY*cmPerUnit,z:rear,rotationY:0},
+      diffuser:{x:-half+15.35,y:Math.max(4.2,bedLevel*cmPerUnit+.8),z:rear+2.2,rotationY:0}
+    };
+    record(input,Object.keys(defaults));const result={};
+    for(const [name,fallback]of Object.entries(defaults)){
+      const supplied=Object.prototype.hasOwnProperty.call(input,name)?input[name]:{};record(supplied,Object.keys(fallback));
+      const value={...fallback,...supplied};
+      if(!Object.values(value).every(Number.isFinite)||value.rotationY!==0)throw new RangeError('Premium poses require finite centimeters and an unturned mounting orientation');
+      if(name!=='diffuser'&&Math.abs(value.y-fallback.y)>1e-7||['intake','return','diffuser'].includes(name)&&Math.abs(value.z-fallback.z)>1e-7)throw new RangeError('Premium equipment must retain its counter, rim or rear-glass mounting plane');
+      if(name==='canister'&&(value.x<half+9.5||value.x>half+60||value.z-6.1<rear||value.z+6.1>front))throw new RangeError('Canister must stay on the counter beside the right glass');
+      if(name==='co2'&&(value.x> -half-7.1||value.x< -half-60||value.z-5.55<rear||value.z+6.8>front))throw new RangeError('CO2 assembly must stay on the counter beside the left glass');
+      if(['intake','return','diffuser'].includes(name)&&(Math.abs(value.x)+(name==='return'?5:2)>half-.6))throw new RangeError('Premium wet equipment crosses a side pane');
+      if(name==='diffuser'&&(value.y<bedLevel*cmPerUnit+.8||value.y+6.1>waterLevel*cmPerUnit))throw new RangeError('Diffuser must stay above the substrate and submerged');
+      result[name]=value;
+    }
+    const lanes=[result.intake.x,result.return.x,result.diffuser.x+.65];
+    for(let i=0;i<lanes.length;i++)for(let j=i+1;j<lanes.length;j++)if(Math.abs(lanes[i]-lanes[j])<5.2)throw new RangeError('Premium pipe and clip lanes overlap');
+    return result;
+  }
+
   function create(THREE, { tankHalf = 7, cmPerUnit = 36 / 8.4, backZ = -4.36, frontZ = 4.04,
-    waterLevel = 8.05, rimY = 8.4, bedLevel = .7, stripPlug } = {}) {
+    waterLevel = 8.05, rimY = 8.4, bedLevel = .7, stripPlug, placementsCm: requestedPlacements = {} } = {}) {
     if (!Number.isFinite(cmPerUnit) || cmPerUnit <= 0) throw new RangeError('cmPerUnit must be positive and finite');
     const u = cm => cm / cmPerUnit, counterY = -.055;
     if (!Number.isFinite(tankHalf) || tankHalf < u(20)) throw new RangeError('tankHalf must allow at least 40 cm tank width');
@@ -22,6 +55,8 @@
     const plugs = { filter: point(stripPlug?.filter, 'stripPlug.filter'), co2: point(stripPlug?.co2, 'stripPlug.co2') };
     if (new THREE.Vector3(...plugs.filter).distanceTo(new THREE.Vector3(...plugs.co2)) < u(.5)) throw new RangeError('stripPlug connections must be distinct');
     for (const p of Object.values(plugs)) if (p[1] < counterY + u(.3) || (Math.abs(p[0]) < tankHalf + u(.4) && p[2] > backZ - u(.4) && p[2] < frontZ)) throw new RangeError('stripPlug must be above the counter and outside the tank');
+    const placementsCm=placementsFor({tankHalf,cmPerUnit,backZ,frontZ,waterLevel,rimY,bedLevel},requestedPlacements);
+    const centerZ=(backZ+frontZ)/2;
     const dryGroup = new THREE.Group(), wetGroup = new THREE.Group();
     dryGroup.name = 'premium-equipment-dry'; wetGroup.name = 'premium-equipment-wet';
     const materials = [], geometries = [], maps = [], batches = new Map(), parts = {}, partStack = [], mounts = [];
@@ -120,7 +155,7 @@
         new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2));
     }
 
-    const fx = tankHalf + u(11.1), fz = backZ + u(14), cx = -tankHalf - u(8.5), cz = frontZ - u(8);
+    const fx = u(placementsCm.canister.x), fz = centerZ+u(placementsCm.canister.z), cx = u(placementsCm.co2.x), cz = centerZ+u(placementsCm.co2.z);
     const F = (x, y, z) => [fx + u(x), counterY + u(y), fz + u(z)];
     const C = (x, y, z) => [cx + u(x), counterY + u(y), cz + u(z)];
     const ports = { intake: F(-5.2, 26, -3.5), output: F(5.2, 26, -3.5) }, filterPower = F(6.8, 24, -6.1);
@@ -178,7 +213,7 @@
     marker(dryGroup, 'co2-tube-outlet', gasStart); marker(dryGroup, 'co2-power-exit', solenoidPower);
     part('co2-power-adapter', () => box(black, 3.4, 2, 5.4, [cx, counterY + u(1), backZ + u(3)]));
 
-    const intakeX = -tankHalf + u(4), returnX = -tankHalf + u(10), gasX = -tankHalf + u(16);
+    const intakeX = u(placementsCm.intake.x), returnX = u(placementsCm.return.x), gasX = u(placementsCm.diffuser.x+.65);
     const innerZ = backZ + u(2.2), outerZ = backZ - u(2), rearInner = backZ + u(.6);
     function rimBend(x, inner = innerZ, outer = outerZ, liftCm = 1.1) {
       const radius = (inner - outer) / 2, middle = (inner + outer) / 2, y = rimY + u(liftCm);
@@ -195,7 +230,7 @@
     const intakeEnd = [intakeX, u(6), innerZ];
     const returnDirection = new THREE.Vector3(1, 0, .22).normalize(), returnStem = new THREE.Vector3(returnX + u(2.2), waterLevel - u(1.9), innerZ + u(1));
     const returnPoint = returnStem.clone().addScaledVector(returnDirection, u(2.1));
-    const diffuserBase = [gasX - u(.65), Math.max(u(4.2), bedLevel + u(.8)), innerZ], D = (x, y, z = 0) => [diffuserBase[0] + u(x), diffuserBase[1] + u(y), diffuserBase[2] + u(z)];
+    const diffuserBase = [u(placementsCm.diffuser.x), u(placementsCm.diffuser.y), centerZ+u(placementsCm.diffuser.z)], D = (x, y, z = 0) => [diffuserBase[0] + u(x), diffuserBase[1] + u(y), diffuserBase[2] + u(z)];
     const diffuserInlet = D(.65, 5.9), diffuserPoint = new THREE.Vector3(...D(-.35, 1.2));
     const routes = {};
     for (const [name, x, port, arch, lane] of [['filterIntake', intakeX, ports.intake, intakeArch, 5.5], ['filterReturn', returnX, ports.output, returnArch, 7.5]]) {
@@ -298,14 +333,18 @@
       gasTubing: { status: 'manufacturer-standard', innerDiameterMm: 4, outerDiameterMm: 6, source: 'https://ultumnaturesystems.com/co2/' },
       installedCo2Verified: false
     };
-    dryGroup.userData = { cmPerUnit, routes, parts, dimensions, mounts,
-      authored: { glassThicknessCm: .6, rimClearanceCm: 1.1, clipGapCm: .8, filterSideGapCm: 2, cylinderSideGapCm: 2.95,
+    dryGroup.userData = { cmPerUnit, placementsCm, routes, parts, dimensions, mounts,
+      authored: { glassThicknessCm: .6, rimClearanceCm: 1.1, clipGapCm: .8, filterSideGapCm: placementsCm.canister.x-tankHalf*cmPerUnit-9.1, cylinderSideGapCm: -placementsCm.co2.x-tankHalf*cmPerUnit-5.55,
         glassPipeOuterDiameterCm: 1.3, glassPipeInnerDiameterCm: 1.1, installedCo2HeightCm: 36.8, counterY },
       requiredCounterBounds: { min: [dryBounds.min.x, counterY, dryBounds.min.z], max: [dryBounds.max.x, counterY, dryBounds.max.z] },
       returnDirection: returnDirection.toArray()
     };
-    wetGroup.userData = { cmPerUnit, routes, parts, mounts, returnDirection: returnDirection.toArray() };
-    return { dryGroup, wetGroup, geometries, materials, maps, returnPoint, diffuserPoint, returnDirection };
+    wetGroup.userData = { cmPerUnit, placementsCm, routes, parts, mounts, returnDirection: returnDirection.toArray() };
+    function dispose(){
+      dryGroup.removeFromParent();wetGroup.removeFromParent();
+      for(const resource of new Set([...geometries,...materials,...maps]))resource.dispose();
+    }
+    return { dryGroup, wetGroup, geometries, materials, maps, returnPoint, diffuserPoint, returnDirection, placementsCm, dispose };
   }
   return { create };
 });
