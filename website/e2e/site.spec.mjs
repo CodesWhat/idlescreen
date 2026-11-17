@@ -1,4 +1,5 @@
 import { expect, test as base } from '@playwright/test';
+import { isValidCta } from '../dist/analytics-contract.mjs';
 
 const stubImage = '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><rect width="600" height="400" fill="#888"/></svg>';
 
@@ -184,5 +185,25 @@ test.describe('discoverability and security', () => {
     expect(await page.locator('style').count()).toBe(0);
     expect(await page.locator('[style]').count()).toBe(0);
     expect(await page.locator('script:not([src]):not([type="application/ld+json"])').count()).toBe(0);
+  });
+});
+
+test.describe('analytics', () => {
+  test('sends nothing to PostHog from a non-production host', async ({ page }) => {
+    const requests = [];
+    page.on('request', request => requests.push(request.url()));
+    await page.goto('/');
+    await page.locator('[data-copy]').first().click();
+    await page.waitForLoadState('networkidle');
+    expect(requests.filter(url => new URL(url).hostname === 'e.codeswhat.com')).toEqual([]);
+    expect(requests.filter(url => url.includes('/assets/vendor/'))).toEqual([]);
+  });
+
+  test('CTA elements carry valid, unique data-cta attributes', async ({ page }) => {
+    await page.goto('/');
+    const pairs = await page.locator('[data-cta]').evaluateAll(nodes => nodes.map(node => [node.dataset.cta, node.dataset.ctaPlacement]));
+    expect(pairs.length).toBe(8);
+    for (const [id, placement] of pairs) expect(isValidCta(id, placement), `${id}:${placement}`).toBe(true);
+    expect(new Set(pairs.map(pair => pair.join(':'))).size).toBe(pairs.length);
   });
 });

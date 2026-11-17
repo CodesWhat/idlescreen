@@ -1,0 +1,12 @@
+title = "IdleScreen Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+# The PostHog project key for the shared CodesWhat Public Websites project. It's a
+# public, ingest-only client key that every CodesWhat site serves to browsers, so the
+# static site has to embed it. Only this exact value is allowed.
+[[allowlists]]
+description = "Public PostHog client key for idlescreen.codeswhat.com"
+regexTarget = "match"
+regexes = ['''phc_mav2oHZzTVaC4mAFEqaLbGEff65uvGMy47LcWSNBFp9J''']
