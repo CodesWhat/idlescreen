@@ -1,6 +1,6 @@
 # IdleScreen roadmap
 
-Last updated: November 3, 2026
+Last updated: November 7, 2026
 
 IdleScreen 0.1 is a released public product. The companion app, modern
 screen-saver extension, Metal renderer, camera agent, multi-display planner,
@@ -10,8 +10,11 @@ useful after it ships.
 
 ## v0.3.0
 
-Status: in progress. The last GA is `v0.2.0` (build 65, November 3, 2026). This
-release is prepared as `0.3.0` build 66.
+Status: released as `0.3.0` build 66 on November 5, 2026.
+The signed tag identifies `c7095365badf5cfbc3e3b6a05f777110bde517b2`.
+The DMG, immutable candidate manifest and SPDX SBOM are published in the
+[GitHub release](https://github.com/CodesWhat/idlescreen/releases/tag/v0.3.0);
+the manifest-derived cask landed in CodesWhat/homebrew-tap#30.
 
 - Frame the saver on a horizon with a Cobalt default palette, a sprite lattice,
   Departure Mono glyphs, per-seed variation, aspect handling and a crossfade.
