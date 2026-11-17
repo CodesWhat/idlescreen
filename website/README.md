@@ -81,7 +81,11 @@ browser. What is collected:
   `install_brew:hero`, `install_brew:install`, `github_repository:header|hero|footer`,
   `github_releases:footer`, `docs_root:header`.
 - Acquisition: `utm_*` labels that look like plain labels, and `$referring_domain`
-  (a hostname or `$direct`). Never the full referrer, URL, IP or click ids.
+  (a hostname or `$direct`). Never the full referrer, URL or click ids.
+- The browser payload never includes an IP. It does carry `$raw_user_agent` and
+  `$host`, because PostHog's cookieless mode hashes those with the connection's IP
+  and a daily salt to count visitors. PostHog sees the IP when it processes the
+  request; the hash is what it keeps, not a person profile.
 
 `dist/analytics.mjs` is the loader and `dist/analytics-contract.mjs` is the pure
 contract (tested in `tests/analytics-contract.test.mjs`). The SDK is vendored into

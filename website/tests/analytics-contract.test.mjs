@@ -303,6 +303,21 @@ test('the web vitals reporter flushes a partial event on the timer or on flush()
   assert.deepEqual(empty, []);
 });
 
+test('the web vitals timer alone flushes a partial event once, then ignores late metrics', () => {
+  const events = [];
+  let timerCallback;
+  const reporter = createWebVitalsReporter('/', (e) => events.push(e), (cb) => { timerCallback = cb; return 'timer'; }, () => {});
+  reporter.record('LCP', 640);
+  assert.equal(typeof timerCallback, 'function');
+  timerCallback();
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0].properties, { ...BASE, path: '/', $web_vitals_LCP_value: 640 });
+  reporter.record('CLS', 0.3);
+  reporter.flush();
+  timerCallback();
+  assert.equal(events.length, 1);
+});
+
 test('the loader module is inert off the production host', async () => {
   // Importing in node (no location) must not start anything or throw.
   await import('../dist/analytics.mjs');
