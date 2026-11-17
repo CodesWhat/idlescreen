@@ -13,7 +13,9 @@ import {
   buildWebVitalsEvent,
   canonicalizeAnalyticsRoute,
   createPostHogOptions,
+  createSanitizer,
   createWebVitalsReporter,
+  isTrackingOptedOut,
   isValidCta,
   sanitizeEvent,
   shouldInitializeAnalytics,
@@ -280,7 +282,7 @@ test('the web vitals reporter emits one complete event once all four arrive', ()
   assert.equal(events.length, 1);
 });
 
-test('the web vitals reporter flushes a partial event on the timer or on flush(), then ignores late metrics', () => {
+test('the web vitals reporter flushes on flush(), keeps late metrics for the next flush, and sends each name once', () => {
   const events = [];
   let timerCallback;
   let cancelled = 0;
@@ -294,28 +296,96 @@ test('the web vitals reporter flushes a partial event on the timer or on flush()
   assert.equal(cancelled, 1);
   assert.equal(events.length, 1);
   assert.deepEqual(events[0].properties, { ...BASE, path: '/', $web_vitals_LCP_value: 800 });
-  reporter.record('CLS', 0.2);
-  timerCallback();
+  reporter.record('LCP', 900);
+  reporter.flush();
   assert.equal(events.length, 1);
+  reporter.record('CLS', 0.2);
+  reporter.flush();
+  assert.equal(events.length, 2);
+  assert.deepEqual(events[1].properties, { ...BASE, path: '/', $web_vitals_CLS_value: 0.2 });
 
   const empty = [];
   createWebVitalsReporter('/', (e) => empty.push(e)).flush();
   assert.deepEqual(empty, []);
 });
 
-test('the web vitals timer alone flushes a partial event once, then ignores late metrics', () => {
+test('the timer sends LCP+FCP, then the hide flush sends only the late CLS and INP', () => {
   const events = [];
   let timerCallback;
   const reporter = createWebVitalsReporter('/', (e) => events.push(e), (cb) => { timerCallback = cb; return 'timer'; }, () => {});
   reporter.record('LCP', 640);
-  assert.equal(typeof timerCallback, 'function');
+  reporter.record('FCP', 300);
   timerCallback();
   assert.equal(events.length, 1);
-  assert.deepEqual(events[0].properties, { ...BASE, path: '/', $web_vitals_LCP_value: 640 });
+  assert.deepEqual(events[0].properties, { ...BASE, path: '/', $web_vitals_LCP_value: 640, $web_vitals_FCP_value: 300 });
   reporter.record('CLS', 0.3);
+  reporter.record('INP', 80);
+  reporter.record('LCP', 700);
   reporter.flush();
-  timerCallback();
+  assert.equal(events.length, 2);
+  assert.deepEqual(events[1].properties, { ...BASE, path: '/', $web_vitals_CLS_value: 0.3, $web_vitals_INP_value: 80 });
+  reporter.flush();
+  assert.equal(events.length, 2);
+});
+
+test('an unsent metric updates to its latest value before the flush', () => {
+  const events = [];
+  const reporter = createWebVitalsReporter('/', (e) => events.push(e), () => 'timer', () => {});
+  reporter.record('CLS', 0.1);
+  reporter.record('CLS', 0.4);
+  reporter.flush();
+  assert.equal(events[0].properties.$web_vitals_CLS_value, 0.4);
+});
+
+test('a visit shorter than the flush delay gets everything on the hide flush', () => {
+  const events = [];
+  let timerCallback;
+  const reporter = createWebVitalsReporter('/', (e) => events.push(e), (cb) => { timerCallback = cb; return 'timer'; }, () => {});
+  reporter.record('FCP', 200);
+  reporter.record('LCP', 500);
+  reporter.record('CLS', 0.05);
+  assert.equal(events.length, 0);
+  reporter.flush();
   assert.equal(events.length, 1);
+  assert.deepEqual(events[0].properties, {
+    ...BASE, path: '/', $web_vitals_CLS_value: 0.05, $web_vitals_FCP_value: 200, $web_vitals_LCP_value: 500,
+  });
+});
+
+test('all four arriving across sends still sends immediately when the last lands', () => {
+  const events = [];
+  const reporter = createWebVitalsReporter('/', (e) => events.push(e), () => 'timer', () => {});
+  reporter.record('LCP', 1);
+  reporter.flush();
+  reporter.record('FCP', 2);
+  reporter.record('CLS', 3);
+  assert.equal(events.length, 1);
+  reporter.record('INP', 4);
+  assert.equal(events.length, 2);
+  assert.deepEqual(Object.keys(events[1].properties).filter((k) => k.startsWith('$web_vitals')).sort(),
+    ['$web_vitals_CLS_value', '$web_vitals_FCP_value', '$web_vitals_INP_value']);
+});
+
+test('isTrackingOptedOut honors DNT, msDoNotTrack, window DNT and GPC', () => {
+  assert.equal(isTrackingOptedOut({ doNotTrack: '1' }), true);
+  assert.equal(isTrackingOptedOut({ doNotTrack: 'yes' }), true);
+  assert.equal(isTrackingOptedOut({ msDoNotTrack: '1' }), true);
+  assert.equal(isTrackingOptedOut({ globalPrivacyControl: true }), true);
+  assert.equal(isTrackingOptedOut({}, { doNotTrack: '1' }), true);
+  assert.equal(isTrackingOptedOut({ doNotTrack: '0', msDoNotTrack: '0', globalPrivacyControl: false }, { doNotTrack: '0' }), false);
+  assert.equal(isTrackingOptedOut({ doNotTrack: 'unspecified' }), false);
+  assert.equal(isTrackingOptedOut({}), false);
+  assert.equal(isTrackingOptedOut(undefined), false);
+  assert.equal(isTrackingOptedOut(null, undefined), false);
+});
+
+test('the sanitizer returns null for a valid envelope when the navigator opts out', () => {
+  const envelope = fakeEnvelope('$pageview');
+  assert.equal(createSanitizer({ navigator: { doNotTrack: '1' }, window: {} })(envelope), null);
+  assert.equal(createSanitizer({ navigator: { globalPrivacyControl: true }, window: {} })(envelope), null);
+  const allowed = createSanitizer({ navigator: { doNotTrack: '0' }, window: {} })(envelope);
+  assert.equal(allowed.event, '$pageview');
+  assert.deepEqual(createSanitizer({ navigator: undefined, window: {} })(envelope), sanitizeEvent(envelope));
 });
 
 test('the loader module is inert off the production host', async () => {

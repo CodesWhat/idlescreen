@@ -10,12 +10,14 @@ import {
   buildPageviewEvent,
   createPostHogOptions,
   createWebVitalsReporter,
+  isTrackingOptedOut,
   shouldInitializeAnalytics,
 } from './analytics-contract.mjs';
 
 async function start() {
   const options = createPostHogOptions(POSTHOG_PROJECT_KEY, POSTHOG_PROXY_HOST, POSTHOG_UI_HOST);
   if (!options) return;
+  if (isTrackingOptedOut(navigator, window)) return;
   const { default: posthog } = await import('./assets/vendor/posthog-js.slim.no-external.js');
   posthog.init(POSTHOG_PROJECT_KEY, options);
 
@@ -35,10 +37,11 @@ async function start() {
   for (const [name, observe] of [['CLS', vitals.onCLS], ['FCP', vitals.onFCP], ['INP', vitals.onINP], ['LCP', vitals.onLCP]]) {
     observe((metric) => reporter.record(name, metric.value));
   }
-  // CLS, INP and LCP settle when the page is hidden, so flush then rather than wait out the timer.
+  // CLS and INP settle when the page is hidden, so flush then rather than wait out the timer.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') reporter.flush();
   });
+  window.addEventListener('pagehide', () => reporter.flush());
 }
 
 if (typeof location !== 'undefined' && shouldInitializeAnalytics(location.hostname)) {

@@ -74,12 +74,17 @@ browser. What is collected:
 
 - `$pageview` and `$pageleave`, with `schema_version`, `site: "idlescreen"`,
   `surface: "marketing"`, and a canonical `path` (`/`, or `/_other`; no query or fragment).
-- `$web_vitals`: CLS, FCP, INP and LCP, sent once per page load. The `web-vitals`
-  package produces them and `analytics-contract.mjs` buffers them.
+- `$web_vitals`: CLS, FCP, INP and LCP. Sent 5 seconds after the first metric, and
+  again at page hide for metrics that arrive late (CLS and INP usually do), each
+  metric at most once per page load. The `web-vitals` package produces them and
+  `analytics-contract.mjs` buffers them.
 - `cta activated` with `cta_id` and `placement`, from the `data-cta` and
   `data-cta-placement` attributes in `index.html`: `download:hero`,
   `install_brew:hero`, `install_brew:install`, `github_repository:header|hero|footer`,
   `github_releases:footer`, `docs_root:header`.
+- Do Not Track and Global Privacy Control are respected: with either set, the SDK
+  isn't loaded and `before_send` drops anything that still comes through
+  (posthog-js ignores `respect_dnt` in cookieless mode, so the contract checks).
 - Acquisition: `utm_*` labels that look like plain labels, and `$referring_domain`
   (a hostname or `$direct`). Never the full referrer, URL or click ids.
 - The browser payload never includes an IP. It does carry `$raw_user_agent` and

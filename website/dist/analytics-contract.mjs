@@ -150,7 +150,26 @@ function rawPathFromProperties(properties) {
   }
 }
 
-export function sanitizeEvent(envelope) {
+// posthog-js ignores respect_dnt in cookieless_mode "always", so the contract
+// checks the browser's own opt-out signals (DNT, GPC) itself.
+export function isTrackingOptedOut(nav, win) {
+  if (nav && (nav.doNotTrack === '1' || nav.doNotTrack === 'yes' || nav.msDoNotTrack === '1' || nav.globalPrivacyControl === true)) {
+    return true;
+  }
+  return Boolean(win && win.doNotTrack === '1');
+}
+
+// The navigator is injectable for tests; by default it is read from globalThis at call time.
+export function createSanitizer(options = {}) {
+  return function sanitize(envelope) {
+    const nav = 'navigator' in options ? options.navigator : globalThis.navigator;
+    const win = 'window' in options ? options.window : globalThis;
+    if (isTrackingOptedOut(nav, win)) return null;
+    return rebuildEnvelope(envelope);
+  };
+}
+
+function rebuildEnvelope(envelope) {
   if (!envelope || typeof envelope.event !== 'string' || !envelope.properties) return null;
   const rawPath = rawPathFromProperties(envelope.properties);
   const projectKey = envelope.properties.token;
@@ -216,6 +235,8 @@ export function sanitizeEvent(envelope) {
   return output;
 }
 
+export const sanitizeEvent = createSanitizer();
+
 export function createPostHogOptions(projectKey, proxyHost, uiHost) {
   if (
     !projectKey ||
@@ -259,9 +280,11 @@ export function createPostHogOptions(projectKey, proxyHost, uiHost) {
 
 export const WEB_VITALS_FLUSH_DELAY_MS = 5_000;
 
-// Collects CLS/FCP/INP/LCP and emits one $web_vitals event: when all four have
-// arrived, when the flush timer fires, or on an explicit flush() (page hidden).
-// Late metrics after the send are ignored.
+// Collects CLS/FCP/INP/LCP. A flush (timer, explicit flush() on page hide, or all
+// four arrived) sends the metrics not yet sent as one $web_vitals event. Late
+// metrics stay buffered for the next flush. Each metric name is sent at most
+// once per page: a repeat of a sent metric is ignored, and an unsent metric's
+// value updates to the latest.
 export function createWebVitalsReporter(
   initialPath,
   emit,
@@ -269,28 +292,34 @@ export function createWebVitalsReporter(
   cancel = (timer) => clearTimeout(timer),
 ) {
   const path = canonicalizeAnalyticsRoute(initialPath).normalizedPath;
-  const metrics = {};
+  const pending = {};
+  const sent = new Set();
   let timer;
-  let sent = false;
 
   const flush = () => {
-    if (sent) return;
-    sent = true;
     if (timer !== undefined) {
       cancel(timer);
       timer = undefined;
     }
-    const event = buildWebVitalsEvent(path, metrics);
-    if (event) emit(event);
+    const event = buildWebVitalsEvent(path, pending);
+    if (!event) return;
+    for (const name of Object.keys(pending)) {
+      sent.add(name);
+      delete pending[name];
+    }
+    emit(event);
   };
 
   return {
     record(name, value) {
-      if (sent || !WEB_VITAL_NAMES.includes(name)) return;
+      if (!WEB_VITAL_NAMES.includes(name) || sent.has(name)) return;
       if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return;
-      metrics[name] = value;
-      if (timer === undefined) timer = schedule(flush, WEB_VITALS_FLUSH_DELAY_MS);
-      if (WEB_VITAL_NAMES.length === Object.keys(metrics).length) flush();
+      pending[name] = value;
+      if (WEB_VITAL_NAMES.length === sent.size + Object.keys(pending).length) {
+        flush();
+      } else if (timer === undefined) {
+        timer = schedule(flush, WEB_VITALS_FLUSH_DELAY_MS);
+      }
     },
     flush,
   };
