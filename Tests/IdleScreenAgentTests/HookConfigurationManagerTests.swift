@@ -166,4 +166,110 @@ struct HookConfigurationManagerTests {
     }
     #expect(try Data(contentsOf: settingsURL) == original)
   }
+
+  private static let downloadsPath =
+    "/Users/me/Downloads/IdleScreen.app/Contents/Helpers/idlescreenctl"
+  private static let applicationsPath =
+    "/Applications/IdleScreen.app/Contents/Helpers/idlescreenctl"
+
+  private static func scratchDirectory() throws -> URL {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    return root
+  }
+
+  private static func manager(
+    _ provider: IdleScreenAgentProvider, _ settingsURL: URL, _ path: String
+  ) -> IdleScreenAgentHookConfigurationManager {
+    IdleScreenAgentHookConfigurationManager(
+      provider: provider,
+      settingsURL: settingsURL,
+      executableURL: URL(fileURLWithPath: path),
+      appGroupIdentifier: "group.com.idlescreen.shared"
+    )
+  }
+
+  private static func commands(_ settingsURL: URL) throws -> [String: [String]] {
+    let root = try #require(
+      JSONSerialization.jsonObject(with: Data(contentsOf: settingsURL)) as? [String: Any])
+    let hooks = root["hooks"] as? [String: [[String: Any]]] ?? [:]
+    return hooks.mapValues { entries in
+      entries.flatMap { entry in
+        (entry["hooks"] as? [[String: Any]] ?? []).compactMap { $0["command"] as? String }
+      }
+    }
+  }
+
+  @Test(
+    "reinstall from a new path leaves one current command per event",
+    arguments: [
+      IdleScreenAgentProvider.codex, .claude,
+    ])
+  func reinstallReplacesMovedExecutable(provider: IdleScreenAgentProvider) throws {
+    let root = try Self.scratchDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let settingsURL = root.appending(path: "settings.json")
+    try Self.manager(provider, settingsURL, Self.downloadsPath).install()
+    let current = Self.manager(provider, settingsURL, Self.applicationsPath)
+    #expect(!(try current.isInstalled()))
+
+    try current.install()
+
+    #expect(try current.isInstalled())
+    let commands = try Self.commands(settingsURL)
+    #expect(!commands.isEmpty)
+    for (_, list) in commands {
+      #expect(list.count == 1)
+      #expect(list.allSatisfy { $0.contains(Self.applicationsPath) })
+    }
+    #expect(!(try String(contentsOf: settingsURL, encoding: .utf8)).contains("Downloads"))
+  }
+
+  @Test(
+    "uninstall from a new path removes stale managed commands",
+    arguments: [
+      IdleScreenAgentProvider.codex, .claude,
+    ])
+  func uninstallRemovesStalePaths(provider: IdleScreenAgentProvider) throws {
+    let root = try Self.scratchDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let settingsURL = root.appending(path: "settings.json")
+    try Self.manager(provider, settingsURL, Self.downloadsPath).install()
+
+    try Self.manager(provider, settingsURL, Self.applicationsPath).uninstall()
+
+    let text = try String(contentsOf: settingsURL, encoding: .utf8)
+    #expect(!text.contains("idlescreen-v1"))
+    #expect(!text.contains("Downloads"))
+  }
+
+  @Test("ownership keeps unrelated handlers and commands without the marker")
+  func ownershipKeepsUnrelatedHandlers() throws {
+    let root = try Self.scratchDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let settingsURL = root.appending(path: "settings.json")
+    let owned =
+      "'\(Self.downloadsPath)' hook --provider codex --app-group 'g' --installation idlescreen-v1"
+    let lookalike = "'\(Self.downloadsPath)' hook --provider codex --app-group 'g'"
+    let original: [String: Any] = [
+      "hooks": [
+        "Stop": [
+          [
+            "hooks": [
+              ["type": "command", "command": owned],
+              ["type": "command", "command": "/usr/local/bin/mine"],
+            ]
+          ],
+          ["hooks": [["type": "command", "command": lookalike]]],
+        ]
+      ]
+    ]
+    try JSONSerialization.data(withJSONObject: original).write(to: settingsURL)
+
+    try Self.manager(.codex, settingsURL, Self.applicationsPath).uninstall()
+
+    let commands = try Self.commands(settingsURL)
+    #expect(Set(commands["Stop"] ?? []) == ["/usr/local/bin/mine", lookalike])
+  }
 }

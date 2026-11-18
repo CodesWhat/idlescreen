@@ -169,7 +169,6 @@ public struct IdleScreenAgentHookConfigurationManager: Sendable {
     command.contains(" hook ")
       && command.contains("--provider \(provider.rawValue)")
       && command.contains("--installation idlescreen-v1")
-      && command.contains(executableURL.path)
   }
 
   private func readRoot() throws -> [String: Any] {
