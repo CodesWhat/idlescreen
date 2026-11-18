@@ -7,9 +7,12 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
+    "vendor:analytics": "node scripts/vendor-analytics.mjs",
     "render:social": "node social/render-card.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1"
+    "@playwright/test": "1.64.1",
+    "posthog-js": "1.449.2",
+    "web-vitals": "6.2.3"
   }
 }
