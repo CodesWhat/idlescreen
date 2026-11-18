@@ -363,6 +363,62 @@ struct AquariumPresentationPlanTests {
     #expect(!host.isAnimating)
   }
 
+  @Test func powerStateNotificationFromABackgroundQueueUpdatesPolicyOnTheMainThread() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let controller = IdleScreenAquariumController(
+      fileURL: directory.appending(path: "aquariums.json"))
+    let probe = ReducedMotionProbe()
+    let host = IdleScreenAquariumPresentationHost(
+      controller: controller, reducedMotion: { probe.read() })
+    host.start()
+    defer { host.shutdown() }
+    #expect(!host.policy.reduceMotion)
+    let initialReads = probe.reads
+    probe.value = true
+    await Task.detached {
+      NotificationCenter.default.post(name: .NSProcessInfoPowerStateDidChange, object: nil)
+    }.value
+    try await waitUntil { probe.reads > initialReads }
+    #expect(probe.reads == initialReads + 1)
+    #expect(probe.readsOnMainThread == probe.reads)
+    #expect(host.policy.reduceMotion)
+    #expect(!host.isAnimating)
+  }
+
+  @Test func shutdownDropsQueuedAndLaterPowerNotifications() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let controller = IdleScreenAquariumController(
+      fileURL: directory.appending(path: "aquariums.json"))
+    let probe = ReducedMotionProbe()
+    let host = IdleScreenAquariumPresentationHost(
+      controller: controller, reducedMotion: { probe.read() })
+    host.start()
+    let reads = probe.reads
+    probe.value = true
+    // Delivery on the main thread queues the hop; shutdown runs before it can.
+    NotificationCenter.default.post(name: .NSProcessInfoPowerStateDidChange, object: nil)
+    host.shutdown()
+    await Task.detached {
+      NotificationCenter.default.post(name: .NSProcessInfoPowerStateDidChange, object: nil)
+    }.value
+    for _ in 0..<20 { await Task.yield() }
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(probe.reads == reads)
+    #expect(!host.policy.reduceMotion)
+    #expect(!host.isAnimating)
+    #expect(host.desktopWindowCount == 0)
+  }
+
+  private func waitUntil(_ condition: @MainActor () -> Bool) async throws {
+    for _ in 0..<300 {
+      if condition() { return }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    Issue.record("condition not reached")
+  }
+
   @Test func desktopWindowCannotStealKeyboardOrDesktopMouseInput() {
     let window = IdleScreenAquariumBackgroundWindow(
       frame: .init(x: 0, y: 0, width: 300, height: 200))
@@ -404,5 +460,17 @@ private final class AquariumPreviewTestSurface: NSView, IdleScreenAquariumPrevie
   override func viewDidMoveToWindow() {
     super.viewDidMoveToWindow()
     onWindowChange?()
+  }
+}
+
+@MainActor
+private final class ReducedMotionProbe {
+  var value = false
+  private(set) var reads = 0
+  private(set) var readsOnMainThread = 0
+  func read() -> Bool {
+    reads += 1
+    if Thread.isMainThread { readsOnMainThread += 1 }
+    return value
   }
 }

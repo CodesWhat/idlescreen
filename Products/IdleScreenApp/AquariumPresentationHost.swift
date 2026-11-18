@@ -158,8 +158,7 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
     workspace.addObserver(
       self, selector: #selector(powerChanged),
       name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
-    powerChanged()
-    reconcile()
+    applyPowerChange()
   }
 
   func toggleDesktop() {
@@ -341,7 +340,17 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
     reconcile()
   }
   @objc private func visibilityChanged() { if !reconciling { updateTimer() } }
-  @objc private func powerChanged() {
+  /// Foundation posts the power-state notification from a global queue, and the
+  /// Swift 6 thunk for an isolated selector traps on that. The entry point stays
+  /// nonisolated and hops to the main actor before touching any state.
+  @objc private nonisolated func powerChanged() {
+    Task { @MainActor [weak self] in self?.applyPowerChangeIfStarted() }
+  }
+  private func applyPowerChangeIfStarted() {
+    guard started else { return }
+    applyPowerChange()
+  }
+  private func applyPowerChange() {
     policy.lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
     policy.reduceMotion = reducedMotion()
     lastReducedFrameRevision = nil
