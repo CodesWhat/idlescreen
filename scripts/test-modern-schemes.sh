@@ -46,6 +46,11 @@ case "$stall_seconds" in '' | *[!0-9]*) stall_seconds=300 ;; esac
 # Overridable so the guards can be exercised with stubs.
 xcodebuild_bin="${IDLESCREEN_XCODEBUILD:-xcodebuild}"
 xcresulttool_bin="${IDLESCREEN_XCRESULTTOOL:-xcrun xcresulttool}"
+# CI sets this on push so the same test run also produces coverage data.
+coverage_args=()
+if [[ "${IDLESCREEN_ENABLE_COVERAGE:-NO}" == YES ]]; then
+  coverage_args=(-enableCodeCoverage YES)
+fi
 
 descendants() {
   local child
@@ -118,6 +123,7 @@ run_scheme() {
     -destination 'platform=macOS' \
     -derivedDataPath "$derived" \
     -resultBundlePath "$result_bundle" \
+    ${coverage_args[@]+"${coverage_args[@]}"} \
     CODE_SIGNING_ALLOWED=NO \
     SWIFT_TREAT_WARNINGS_AS_ERRORS=YES >"$log" 2>&1 &
   xcodebuild_pid=$!
