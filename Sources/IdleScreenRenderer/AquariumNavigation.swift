@@ -15,6 +15,9 @@ struct IdleScreenAquariumNavigation {
   let floor: Double
   let worldWidth: Int
   let grazingAnchors: [Anchor]
+  /// Parallel to `grazingAnchors`: stops under a cliff's approach slope, where
+  /// an animal would hover instead of sit on the surface.
+  private let liftedAnchors: [Bool]
   let shelters: [Shelter]
   private let schoolRanks: [UInt64: Int]
   private let surfaces: [Double]
@@ -81,6 +84,7 @@ struct IdleScreenAquariumNavigation {
       }
     }
     surfaces = heights
+    let rawHeights = heights
     // A two-pass distance transform creates a bounded approach above steep
     // faces. Shrimp swim these approaches rather than walking through stone.
     for x in 1..<width { heights[x] = min(heights[x], heights[x - 1] + 0.65) }
@@ -91,6 +95,12 @@ struct IdleScreenAquariumNavigation {
     self.owners = owners
     self.portals = portals
     grazingAnchors = grazes
+    liftedAnchors = grazes.map {
+      let spot = Int(min(Double(width - 32), max(32, $0.x)))
+      let lo = max(0, spot - 8)
+      let hi = min(width - 1, spot + 8)
+      return rawHeights[lo...hi].min()! - heights[lo...hi].min()! > 1.5
+    }
     self.shelters = shelters
   }
 
@@ -150,6 +160,69 @@ struct IdleScreenAquariumNavigation {
       strikeProgress: 0)
   }
 
+  /// Timid animals favor tight openings, bold ones wide openings, and seeded
+  /// noise breaks ties. Stable for an identity and seed; nil when the animal
+  /// never takes cover.
+  func shelter(for personality: IdleScreenAquariumPersonality, identity: UInt64, seed: UInt64)
+    -> Shelter?
+  {
+    guard personality.shelterAffinity >= IdleScreenAquariumPersonality.minimumShelterAffinity
+    else { return nil }
+    var best: Shelter?
+    var bestScore = -Double.infinity
+    for candidate in shelters {
+      let openness = min(1, Double(candidate.opening.width * candidate.opening.height) / 400)
+      let fit = personality.boldness * openness + (1 - personality.boldness) * (1 - openness)
+      let noise = IdleScreenAquariumPersonality.unit(identity, seed, UInt64(candidate.objectIndex))
+      let score = noise * 0.4 + fit * 0.6
+      if score > bestScore {
+        bestScore = score
+        best = candidate
+      }
+    }
+    return best
+  }
+
+  /// One grazing stop per trip. Timid animals keep to stops near their cover;
+  /// bold ones wander, so successive trips trace a trail across the hardscape.
+  func grazeAnchor(
+    for personality: IdleScreenAquariumPersonality, identity: UInt64, seed: UInt64, trip: Int,
+    origin: Double, side: Double
+  ) -> Anchor {
+    var best: Anchor?
+    var bestScore = -Double.infinity
+    for (index, candidate) in grazeStops.enumerated() {
+      let distance = abs(candidate.x - origin) / Double(worldWidth)
+      let noise = IdleScreenAquariumPersonality.unit(
+        identity, seed, UInt64(trip) << 8 | UInt64(index & 0xFF) | 1 << 62)
+      var score =
+        noise * 0.5 - (1 - personality.boldness) * distance + personality.boldness * distance * 0.3
+      // Stops stay on the animal's own side of its cover, so the resting spot
+      // behind the opening never flips between trips.
+      if (candidate.x <= origin) != (side > 0) { score -= 4 }
+      // A stop under a cliff's approach slope would leave the animal hovering.
+      if !liftedAnchors.isEmpty, liftedAnchors[index] { score -= 1.5 }
+      if score > bestScore {
+        bestScore = score
+        best = candidate
+      }
+    }
+    return best ?? Anchor(x: Double(worldWidth) * 0.25, y: floor)
+  }
+
+  private var grazeStops: [Anchor] {
+    grazingAnchors.isEmpty ? [Anchor(x: Double(worldWidth) * 0.25, y: floor)] : grazingAnchors
+  }
+
+  /// +1 when the animal's grazing stops lie left of `origin` (it rests on the
+  /// right side of its cover), -1 for the other side. Fixed per individual.
+  private func restingSide(origin: Double, identity: UInt64, seed: UInt64) -> Double {
+    let lefts = grazeStops.filter { $0.x <= origin }.count
+    if lefts == 0 { return -1 }
+    if lefts == grazeStops.count { return 1 }
+    return IdleScreenAquariumPersonality.unit(identity, seed, 99) < 0.5 ? 1 : -1
+  }
+
   func groundPose(
     item: IdleScreenAquariumRenderInhabitant, species: IdleScreenAquariumSpecies,
     base: IdleScreenAquariumAnimal, time: Double, seed: UInt64
@@ -158,34 +231,109 @@ struct IdleScreenAquariumNavigation {
     let radius =
       species == .mantisShrimp ? 22 : species == .clawedCrab ? 18 : species == .corydoras ? 13 : 8
     let identity = item.identity &+ seed
-    let graze =
-      grazingAnchors.isEmpty
-      ? Anchor(x: Double(worldWidth) * 0.25, y: floor)
-      : grazingAnchors[Int(identity % UInt64(grazingAnchors.count))]
+    let personality = IdleScreenAquariumPersonality(identity: item.identity, seed: seed)
     let floorWalker = species == .clawedCrab
+    let safeTime = time.isFinite ? max(0, time) : 0
+    let rate = species == .snail ? 0.22 : 1.0
+    let shifted = safeTime * rate + Double(identity % 997) * 0.17
+    let trip = Int(shifted / 80)
+    let local = shifted.truncatingRemainder(dividingBy: 80)
     let shelter =
-      floorWalker || shelters.isEmpty ? nil : shelters[Int(identity % UInt64(shelters.count))]
-    let aX = min(Double(worldWidth - 32), max(32, graze.x))
-    let a = Anchor(x: aX, y: floorWalker ? floor + 3 : surface(at: aX, radius: radius))
+      floorWalker ? nil : self.shelter(for: personality, identity: item.identity, seed: seed)
     let bX = shelter.map { Double($0.opening.midX) } ?? Double(worldWidth) * 0.75
-    let inset = shelter == nil ? 0 : (bX >= a.x ? 10 : -10) * scale
+    // Resting height: on the surface, and never above the approach slope, so
+    // pausing at a stop keeps the same height the route used to reach it.
+    func ground(_ x: Double) -> Double {
+      floorWalker
+        ? floor + 3
+        : min(surface(at: x, radius: radius), height(in: travelSurfaces, at: x, radius: radius))
+    }
+    let side = restingSide(origin: bX, identity: item.identity, seed: seed)
+
+    // Snails sometimes spend a trip on the side glass: floor, then up the wall.
+    let glass =
+      species == .snail
+      && personality.glassAffinity
+        > IdleScreenAquariumPersonality.unit(item.identity, seed, UInt64(trip) | 1 << 61)
+    let a: Anchor
+    var wallHeight = 0.0
+    if glass {
+      let inset = 12 * scale + 2
+      let left =
+        shelter != nil
+        ? side > 0
+        : IdleScreenAquariumPersonality.unit(item.identity, seed, UInt64(trip) | 1 << 60) < 0.5
+      let wallX = left ? inset : Double(worldWidth) - inset
+      a = Anchor(x: wallX, y: ground(wallX))
+      wallHeight = 28 + 42 * personality.boldness
+    } else {
+      let graze = grazeAnchor(
+        for: personality, identity: item.identity, seed: seed, trip: trip, origin: bX, side: side)
+      let aX = min(Double(worldWidth - 32), max(32, graze.x))
+      a = Anchor(x: aX, y: ground(aX))
+    }
+    let inset = shelter == nil ? 0 : (side > 0 ? 10 : -10) * scale
     let b = Anchor(
       x: min(Double(worldWidth - 32), max(32, bX + inset)),
       y: floorWalker
         ? floor + 3
         : shelter.map { Double($0.opening.maxY) + 2 * scale } ?? surface(at: bX, radius: radius))
-    let safeTime = time.isFinite ? max(0, time) : 0
-    let rate = species == .snail ? 0.22 : 1.0
-    let local = (safeTime * rate + Double(identity % 997) * 0.17).truncatingRemainder(
-      dividingBy: 80)
-    let outbound = local < 40
-    let movement = outbound ? local : local - 40
-    let moving = movement < 24
-    let t = min(1, movement / 24)
+
+    // Timid animals sometimes abandon a grazing stop early and dash for cover.
+    let retreat =
+      !glass && shelter != nil
+      && IdleScreenAquariumPersonality.unit(item.identity, seed, UInt64(trip) | 1 << 58)
+        < personality.retreatChance
+    let travelWindow = 24 / personality.speed
+    let returnStart = retreat ? 38 - 2 * (1 - personality.boldness) : 40
+    let outbound = local < returnStart
+    var movement = outbound ? local : local - returnStart
+    // On a glass trip the snail climbs after reaching the wall and descends
+    // before it heads back across the floor.
+    var climb = 0.0
+    if glass {
+      if outbound {
+        climb = Self.ease(min(1, max(0, (movement - travelWindow) / 8)))
+      } else {
+        climb = 1 - Self.ease(min(1, movement / 8))
+        movement -= 8
+      }
+    }
+    let window = !outbound && retreat ? travelWindow * 0.75 : travelWindow
+    let moving = movement >= 0 && movement < window
+    let t = min(1, max(0, movement / window))
     let progress = t * t * (3 - 2 * t)
-    let start = outbound ? b : a
+    var aEnd = a
+    if !glass, species != .mantisShrimp, !outbound || movement >= window {
+      // A short grazing creep along the same surface. Only creeps that stay
+      // on one smooth stretch are taken, so the animal never hops a cliff.
+      let direction =
+        IdleScreenAquariumPersonality.unit(item.identity, seed, UInt64(trip) | 1 << 59) < 0.5
+        ? -1.0 : 1.0
+      // Not `scale`: the prototype's scale breathes with time and would flip the choice.
+      let length = (6 + 14 * personality.boldness) * (item.juvenile ? 0.55 : 1)
+      for fraction in [1.0, 0.66, 0.33] {
+        let x = min(Double(worldWidth - 32), max(32, a.x + direction * length * fraction))
+        let level = ground(x)
+        let steps = max(3, Int((abs(x - a.x) / 2).rounded(.up)))
+        var hugs = true
+        for step in 1...steps {
+          let f = Double(step) / Double(steps)
+          let gap = ground(a.x + (x - a.x) * f) - (a.y + (level - a.y) * f)
+          if gap < 0 || gap > 3 {
+            hugs = false
+            break
+          }
+        }
+        if hugs {
+          aEnd = Anchor(x: x, y: level)
+          break
+        }
+      }
+    }
+    let start = outbound ? b : aEnd
     let end = outbound ? a : b
-    let x = start.x + (end.x - start.x) * progress
+    var x = start.x + (end.x - start.x) * progress
     let travel = floorWalker ? floor + 3 : height(in: travelSurfaces, at: x, radius: radius)
     let fromEnd = min(1, max(0, (1 - progress) * 6))
     let fromStart = min(1, max(0, progress * 6))
@@ -193,8 +341,14 @@ struct IdleScreenAquariumNavigation {
     let endpoints = start.y + (end.y - start.y) * progress
     let blendedY = endpoints + (travel - endpoints) * middleWeight
     let enteringShelter = shelter != nil && (outbound ? progress < 1.0 / 6 : progress > 5.0 / 6)
-    let y = floorWalker || enteringShelter ? blendedY : min(blendedY, travel)
-    let turn = min(1, max(0, (movement - 24) / 1.2))
+    var y = floorWalker || enteringShelter ? blendedY : min(blendedY, travel)
+    if outbound, !glass, movement >= window {
+      let creep = Self.ease(min(1, (movement - window) / 6))
+      x = a.x + (aEnd.x - a.x) * creep
+      y = a.y + (aEnd.y - a.y) * creep
+    }
+    y -= climb * wallHeight
+    let turn = glass && outbound ? 0 : min(1, max(0, (movement - window) / 1.2))
     let direction = end.x >= start.x
     let facing = turn < 0.5 ? direction : !direction
     var activity: IdleScreenAquariumActivity = moving ? .walking : outbound ? .grazing : .resting
@@ -207,14 +361,18 @@ struct IdleScreenAquariumNavigation {
       activity = .striking
     }
     if turn > 0, turn < 1 { activity = .turning }
+    if climb > 0 { activity = climb < 1 ? .walking : .grazing }
     var pose = IdleScreenAquariumAnimal(
       species: species, x: x, y: y + (species == .cherryShrimp ? 2 * scale : 0),
       scale: scale, horizontalScale: 1 - 0.76 * sin(.pi * turn),
       facingRight: facing, activity: activity,
-      animationPhase: Int(local * (moving ? 5 : 2)) % 4, strikeProgress: strike)
-    pose.shelterIndex = shelter?.objectIndex
+      animationPhase: Int(local * (moving || climb > 0 && climb < 1 ? 5 : 2)) % 4,
+      strikeProgress: strike)
+    pose.shelterIndex = climb > 0 ? nil : shelter?.objectIndex
     return pose
   }
+
+  private static func ease(_ value: Double) -> Double { value * value * (3 - 2 * value) }
 
   private func height(in values: [Double], at x: Double, radius: Int) -> Double {
     let center = x.isFinite ? Int(min(Double(worldWidth - 1), max(0, x))) : 0
