@@ -96,6 +96,49 @@ struct IdleScreenSaverViewTests {
     #expect(clock.consumerCount == 0)
   }
 
+  @Test("aquarium persistence is read once for every display and never for other patterns")
+  func aquariumSnapshotIsSharedAndGatedByPattern() throws {
+    final class Reads: @unchecked Sendable {
+      let lock = NSLock()
+      var count = 0
+    }
+    let reads = Reads()
+    let monitor = IdleScreenAquariumSnapshotMonitor(
+      observe: { _ in
+        .present(
+          .init(device: 1, inode: 7, size: 10, modifiedSeconds: 1, modifiedNanoseconds: 1))
+      },
+      read: { _ in
+        reads.lock.withLock { reads.count += 1 }
+        return .starter
+      })
+    func makeView(_ pattern: IdleScreenCreativePattern) throws -> IdleScreenSaverView {
+      var configuration = IdleScreenConfiguration.default
+      configuration.creative.pattern = pattern
+      let view = try #require(
+        IdleScreenSaverView(
+          frame: NSRect(x: 0, y: 0, width: 640, height: 360),
+          isPreview: false,
+          cameraClient: nil,
+          configuration: configuration
+        ))
+      view.aquariumSnapshotMonitor = monitor
+      view.aquariumStoreURL = { URL(fileURLWithPath: "/tmp/idlescreen-view-aquariums.json") }
+      return view
+    }
+    let plain = try makeView(.plasma)
+    plain.startAnimation()
+    for _ in 0..<5 { plain.animateOneFrame() }
+    #expect(reads.count == 0)
+    plain.stopAnimation()
+
+    let displays = try (0..<3).map { _ in try makeView(.aquarium) }
+    displays.forEach { $0.startAnimation() }
+    for _ in 0..<5 { displays.forEach { $0.animateOneFrame() } }
+    #expect(reads.count == 1)
+    displays.forEach { $0.stopAnimation() }
+  }
+
   @Test("initialization produces a visible attached preview frame")
   func initialPreviewFrame() throws {
     let view = try #require(
