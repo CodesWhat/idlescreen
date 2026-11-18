@@ -338,11 +338,21 @@ public struct IdleScreenAquariumTank: Codable, Equatable, Identifiable, Sendable
 
   public var worldWidth: Int { (worldSize ?? .standard).width }
 
-  public var reservedPopulation: Int { animals.count + broods.reduce(0) { $0 + $1.count } }
+  public var reservedPopulation: Int {
+    var population = animals.count
+    for brood in broods {
+      guard brood.count > 0 else { return .max }
+      let (next, overflow) = population.addingReportingOverflow(brood.count)
+      guard !overflow else { return .max }
+      population = next
+    }
+    return population
+  }
 
   public func validate() throws {
     guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, name.count <= 64,
-      (4...32).contains(capacity), reservedPopulation <= capacity, nursery.count <= 64,
+      (4...32).contains(capacity), broods.allSatisfy({ (1...4).contains($0.count) }),
+      reservedPopulation <= capacity, nursery.count <= 64,
       substrateDepth.isFinite, (0.08...0.24).contains(substrateDepth),
       (0...1_000_000_000).contains(simulationStep),
       Set(animals.map(\.id)).count == animals.count,
@@ -525,8 +535,7 @@ public struct IdleScreenAquariumLibrary: Codable, Equatable, Sendable {
       displayAssignments.allSatisfy({ assignment in
         !assignment.key.isEmpty && assignment.key.count <= 256
           && tanks.contains(where: { $0.id == assignment.value })
-      }),
-      tanks.reduce(0, { $0 + $1.reservedPopulation }) <= 128
+      })
     else { throw IdleScreenAquariumError.invalidTank }
     let presets = layoutPresets ?? []
     guard presets.count <= 16, Set(presets.map(\.id)).count == presets.count else {
@@ -534,6 +543,9 @@ public struct IdleScreenAquariumLibrary: Codable, Equatable, Sendable {
     }
     for preset in presets { try preset.validate() }
     for tank in tanks { try tank.validate() }
+    guard tanks.reduce(0, { $0 + $1.reservedPopulation }) <= 128 else {
+      throw IdleScreenAquariumError.invalidTank
+    }
     let inhabitants = tanks.flatMap { $0.animals + $0.nursery }
     guard Set(inhabitants.map(\.id)).count == inhabitants.count else {
       throw IdleScreenAquariumError.invalidTank

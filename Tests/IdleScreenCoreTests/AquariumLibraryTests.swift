@@ -5,6 +5,20 @@ import Testing
 
 @Suite("Saved aquarium library")
 struct AquariumLibraryTests {
+  @Test(arguments: [Int.max, Int.min, 0, 5])
+  func malformedBroodCountsAreRejectedAfterDecoding(count: Int) throws {
+    var library = IdleScreenAquariumLibrary.starter
+    let animals = library.tanks[0].animals
+    library.tanks[0].broods = [
+      .init(
+        id: UUID(), motherID: animals[0].id, fatherID: animals[1].id,
+        dueStep: 1, count: count, variant: .red)
+    ]
+    let decoded = try JSONDecoder().decode(
+      IdleScreenAquariumLibrary.self, from: JSONEncoder().encode(library))
+    #expect(throws: IdleScreenAquariumError.invalidTank) { try decoded.validate() }
+  }
+
   @Test func catalogGroupsCoverEveryDecorationOnce() {
     #expect(
       IdleScreenAquariumDecorationKind.allCases.filter { $0.catalogGroup == .plants } == [

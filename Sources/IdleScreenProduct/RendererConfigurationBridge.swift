@@ -10,6 +10,7 @@ enum IdleScreenRendererConfigurationBridge {
     for configuration: IdleScreenConfiguration,
     assignment: DisplaySceneAssignment?,
     aquarium: IdleScreenAquariumLibrary? = nil,
+    preparedAquariumSettings: IdleScreenAquariumRenderSettings? = nil,
     agentPresentations: [IdleScreenAgentOverlayPresentation] = [],
     reduceMotion: Bool = false
   ) -> IdleScreenRendererConfiguration {
@@ -92,14 +93,16 @@ enum IdleScreenRendererConfigurationBridge {
         reduceMotion: reduceMotion
       ),
       framing: IdleScreenRendererFraming(rawValue: creative.framing.rawValue) ?? .none,
-      aquariumSettings: aquarium.map {
-        let bounds = $0.presentation == .panorama ? assignment?.scene?.bounds : nil
-        var settings = IdleScreenAquariumProduct.settings(
-          for: $0.tank(for: assignment?.representativeIdentifier.rawValue),
-          worldAspect: bounds.map { $0.width / $0.height })
-        settings.reduceMotion = reduceMotion
-        return settings
-      }
+      aquariumSettings: creative.pattern == .aquarium
+        ? preparedAquariumSettings
+          ?? aquarium.map {
+            let bounds = $0.presentation == .panorama ? assignment?.scene?.bounds : nil
+            var settings = IdleScreenAquariumProduct.settings(
+              for: $0.tank(for: assignment?.representativeIdentifier.rawValue),
+              worldAspect: bounds.map { $0.width / $0.height })
+            settings.reduceMotion = reduceMotion
+            return settings
+          } : nil
     )
   }
 

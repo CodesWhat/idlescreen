@@ -191,7 +191,9 @@ struct IdleScreenAquariumNavigation {
     let fromStart = min(1, max(0, progress * 6))
     let middleWeight = fromEnd * fromStart
     let endpoints = start.y + (end.y - start.y) * progress
-    let y = endpoints + (travel - endpoints) * middleWeight
+    let blendedY = endpoints + (travel - endpoints) * middleWeight
+    let enteringShelter = shelter != nil && (outbound ? progress < 1.0 / 6 : progress > 5.0 / 6)
+    let y = floorWalker || enteringShelter ? blendedY : min(blendedY, travel)
     let turn = min(1, max(0, (movement - 24) / 1.2))
     let direction = end.x >= start.x
     let facing = turn < 0.5 ? direction : !direction
