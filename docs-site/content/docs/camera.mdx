@@ -22,19 +22,19 @@ If a camera frame is unavailable or stale, the renderer falls back to a procedur
 
 ## Privacy
 
-- Camera frames stay inside the local App Group mailbox described below. They are not sent over the network, written to logs or retained as test evidence.
+- Camera frames stay on your Mac: on disk they exist only in the App Group mailbox described below, and in memory only while the renderer samples them. They are not sent over the network, written to logs or retained as test evidence.
 - A separately signed camera agent is the only process allowed to open the camera.
 - Capture starts when the first valid consumer asks for it and stops after the last one ends.
 - Diagnostics never contain camera pixels.
 
 ## Frame mailbox
 
-Frames move from the camera agent to the renderer through one file, `camera-frames-v1.mailbox`, in IdleScreen's App Group container on your Mac. Nothing else is stored: there's no recording, no history and no copy of a frame anywhere else.
+Frames move from the camera agent to the renderer through one file, `camera-frames-v1.mailbox`, in IdleScreen's App Group container on your Mac. Nothing else is stored on disk: there's no recording, no history and no frame file anywhere else. The renderer copies a frame into memory only while it samples it.
 
 - **Size.** The file is allocated once at a fixed size: a 128-byte header and three frame slots. Each slot holds one frame of up to 1920 by 1080 pixels at 4 bytes per pixel, so the file is about 25 MB. Larger camera frames aren't written.
 - **Permissions.** Only your user can read or write it (mode 0600). The agent opens it without following symbolic links and refuses a file that isn't a regular file, isn't owned by you or has extra hard links.
 - **Writing.** While the camera runs, each new frame overwrites the oldest of the three slots. At most the three most recent frames exist at any moment. Readers check a generation counter, so a frame that was being overwritten is never shown.
-- **Staleness.** The renderer ignores a frame older than one second and falls back to a procedural scene.
+- **Staleness.** The renderer ignores a frame once it has held it for more than one second without a newer one, and falls back to a procedural scene.
 - **Cleanup.** When capture stops, the agent zeroes the header and all three slots, so no frame pixels remain in the file. The same happens if the agent shuts down. The emptied file itself stays in the container and gets reused the next time the camera starts.
 
 See [Architecture](/architecture#camera-lifecycle) for the lease and mailbox design, and [Security and privacy](/security).
