@@ -97,6 +97,10 @@ contract (tested in `tests/analytics-contract.test.mjs`). The SDK is vendored in
 `dist/assets/vendor/`: posthog-js's slim `no-external` build (it never fetches a
 remote script) plus `web-vitals`, both pinned exactly in `package.json`, with their
 licenses. After bumping either, run `npm run vendor:analytics` and commit the output.
+`npm run vendor:analytics:check` is read-only: it compares the committed vendor files
+against the installed packages (same source-map-comment normalization as the generator,
+exact license bytes) and fails on a missing package, a missing artifact or any byte
+difference. `scripts/verify-website-browsers.sh` runs it right after `npm ci`.
 
 ## Checks
 
