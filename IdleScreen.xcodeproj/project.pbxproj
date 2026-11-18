@@ -203,6 +203,7 @@
 		5B9823873C2DE2062A3CEDCF /* ScreenSaverCompatibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27BFE01A558112871659082 /* ScreenSaverCompatibilityTests.swift */; };
 		5C5BB910E2F802427F9A7F57 /* CameraClientBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8799E86AB97E3F9B26E4C6D5 /* CameraClientBootstrap.swift */; };
 		5CB90CF84F88CC80B010586A /* IdleScreenCompanionCameraClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B4912DD2A54657439C579B /* IdleScreenCompanionCameraClient.swift */; };
+		5D27F6A34437503EFAA5CABD /* AgentIntegrationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 989FB068B6D31EA6C965F52B /* AgentIntegrationController.swift */; };
 		5D3F6BFB4048EDDB3E348284 /* CameraFrameMailboxWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBA00CAB82431F9AD3959E18 /* CameraFrameMailboxWriter.swift */; };
 		5D4302AC0B1FF351E3E6829F /* DisplaySceneCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4492351994BE823F4EBFD07A /* DisplaySceneCoordinatorTests.swift */; };
 		5DDEBE6B8ECA03E64EB16105 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEA410F56388DB9323F62460 /* AppKit.framework */; };
@@ -265,6 +266,7 @@
 		7C3C7914820472E5C7E5C735 /* StatusSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41512FA32EC16F8A7C30399C /* StatusSummaryTests.swift */; };
 		7C52D6DA537082D2C3FA298F /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 229F7EDF5A9548AF91DD4D9D /* QuartzCore.framework */; };
 		7C53591934DA8A5D026A33D6 /* CoreVideo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7EE85391BE8A694AB764F34B /* CoreVideo.framework */; };
+		7C8DBBDD4176513550682424 /* AgentIntegrationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 989FB068B6D31EA6C965F52B /* AgentIntegrationController.swift */; };
 		7D594F1BD65FF83643A8AEA4 /* CommandRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FCC2B799F65F747F9B369DC /* CommandRunner.swift */; };
 		7DC4E47ECB73A02436516A18 /* IdleScreenPerformance.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 39ACDF561B9DC1DBE755E3A3 /* IdleScreenPerformance.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		7E2462AD49D2C43283F3B91E /* IdleScreenSyntheticHostedGateViewControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20B1D8A37D46F3AB286C574C /* IdleScreenSyntheticHostedGateViewControllerTests.swift */; };
@@ -412,6 +414,7 @@
 		C8218979D806A0974CA747FC /* IdleScreenAppCompileGateSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC1418A86E1F8B7C5B8830FF /* IdleScreenAppCompileGateSmokeTests.swift */; };
 		C82D685D3633DF6C7C06E676 /* HookAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2799AA4AE474794C103BCB /* HookAdapterTests.swift */; };
 		C85F898A3861C98BF25477A6 /* IdleScreenMenuBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC9AEB64E61C99DCDD266C61 /* IdleScreenMenuBar.swift */; };
+		C9D99A6B26BD00C518612061 /* AgentIntegrationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 989FB068B6D31EA6C965F52B /* AgentIntegrationController.swift */; };
 		CA1B963357B99975EA251FE3 /* IdleScreenSaverViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C91BC794A861F83CD7A318C /* IdleScreenSaverViewTests.swift */; };
 		CACC8529A21927FB3D73FEFD /* IdleScreenCameraAgent.app in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 311266CB86AA52796FCD79AA /* IdleScreenCameraAgent.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CB479C27D10078029FB85C7D /* IdleScreenCamera.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9068229D1CD3299655B7C94 /* IdleScreenCamera.framework */; };
@@ -1561,6 +1564,7 @@
 		94538690489047F2E20EBF33 /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
 		9521BB58A24E9BEF82B1692A /* IdleScreenDisplay.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IdleScreenDisplay.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		98630BAEAE7347003FEC06D6 /* DesignComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignComponents.swift; sourceTree = "<group>"; };
+		989FB068B6D31EA6C965F52B /* AgentIntegrationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIntegrationController.swift; sourceTree = "<group>"; };
 		992BC35B510FF1F05D8ECB19 /* DisplaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaysView.swift; sourceTree = "<group>"; };
 		A17139C7969E4EEB08BA8AC8 /* CreativeConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreativeConfiguration.swift; sourceTree = "<group>"; };
 		A17728A15940B5EB078BA524 /* IdleScreenScreenSaverExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenScreenSaverExtension.swift; sourceTree = "<group>"; };
@@ -2550,6 +2554,7 @@
 		D600B68539E3CD94ADE33BC3 /* IdleScreenApp */ = {
 			isa = PBXGroup;
 			children = (
+				989FB068B6D31EA6C965F52B /* AgentIntegrationController.swift */,
 				D3C33C07A092B6AE369F1FF0 /* Assets.xcassets */,
 				992BC35B510FF1F05D8ECB19 /* DisplaysView.swift */,
 				69EF38E1699C6F6836CE784F /* IdleScreenApp-Debug.entitlements */,
@@ -3781,6 +3786,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C9D99A6B26BD00C518612061 /* AgentIntegrationController.swift in Sources */,
 				A1C102DC4979241C4240E2DB /* CameraCardGuidance.swift in Sources */,
 				369774D07E3B520EBA6FF5B7 /* DesignComponents.swift in Sources */,
 				456912063D3E9A94747FCC2D /* DesignFontRegistry.swift in Sources */,
@@ -3891,6 +3897,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5D27F6A34437503EFAA5CABD /* AgentIntegrationController.swift in Sources */,
 				380B7B83B46FA56154F0574F /* CameraCardGuidance.swift in Sources */,
 				5256C40EE80F1A7BBA0984AD /* DesignComponents.swift in Sources */,
 				227D9FF22A0FFC6BDCD47621 /* DesignFontRegistry.swift in Sources */,
@@ -3968,6 +3975,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7C8DBBDD4176513550682424 /* AgentIntegrationController.swift in Sources */,
 				07CB259FAFB0354E68BC3882 /* CameraCardGuidance.swift in Sources */,
 				EA36A573BDA4C07AECDEA7B6 /* DesignComponents.swift in Sources */,
 				20280FD093EB0ACF92D32B8A /* DesignFontRegistry.swift in Sources */,

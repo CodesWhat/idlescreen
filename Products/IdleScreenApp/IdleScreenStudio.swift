@@ -173,7 +173,7 @@ struct ContentView: View {
     }
     .task {
       while !Task.isCancelled {
-        model.refreshAgentSignals()
+        model.agentIntegration.refreshAgentSignals()
         try? await Task.sleep(for: .seconds(1))
       }
     }
@@ -507,10 +507,10 @@ struct StudioView: View {
   }
 
   private func previewRendererConfiguration(at date: Date) -> IdleScreenRendererConfiguration {
-    model.configurationApplyingActiveAgentSignal(at: date)
+    model.agentIntegration.configurationApplyingActiveAgentSignal(at: date)
       .rendererConfiguration(
         for: previewAssignment,
-        agentPresentations: model.agentPresentations(at: date),
+        agentPresentations: model.agentIntegration.agentPresentations(at: date),
         reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
       )
   }
