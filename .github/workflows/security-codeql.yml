@@ -140,15 +140,16 @@ jobs:
   analyze-swift:
     name: Analyze (swift)
     needs: changes
-    if: needs.changes.outputs.swift == 'true'
     timeout-minutes: 45
     permissions:
+      actions: read
       contents: read
       security-events: write
-    runs-on: macos-26
+    runs-on: ${{ needs.changes.outputs.swift == 'true' && 'macos-26' || 'ubuntu-24.04' }}
 
     steps:
       - name: Harden runner
+        if: needs.changes.outputs.swift == 'true'
         uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
@@ -163,27 +164,32 @@ jobs:
             uploads.github.com:443
 
       - name: Checkout
+        if: needs.changes.outputs.swift == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Install XcodeGen
+        if: needs.changes.outputs.swift == 'true'
         run: |
           arch -arm64 /opt/homebrew/bin/brew install xcodegen
           [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
 
       - name: Initialize CodeQL
+        if: needs.changes.outputs.swift == 'true'
         uses: github/codeql-action/init@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
         with:
           languages: swift
           build-mode: manual
 
       - name: Generate Xcode project
+        if: needs.changes.outputs.swift == 'true'
         run: |
           xcodegen generate
           git diff --exit-code -- IdleScreen.xcodeproj
 
       - name: Build Swift manually
+        if: needs.changes.outputs.swift == 'true'
         run: |
           xcodebuild build -quiet \
             -project IdleScreen.xcodeproj \
@@ -196,6 +202,44 @@ jobs:
             EXCLUDED_SOURCE_FILE_NAMES='*.metal'
 
       - name: Analyze
+        if: needs.changes.outputs.swift == 'true'
         uses: github/codeql-action/analyze@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
         with:
+          category: "/language:swift"
+
+      - name: Harden runner (reuse)
+        if: needs.changes.outputs.swift != 'true' && github.event_name == 'pull_request'
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            uploads.github.com:443
+
+      - name: Fetch base Swift analysis
+        if: needs.changes.outputs.swift != 'true' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          id="$(gh api --paginate "repos/$REPO/code-scanning/analyses?ref=refs/heads/$BASE_REF&tool_name=CodeQL&per_page=100" \
+            --jq '.[] | select(.category == "/language:swift") | "\(.created_at) \(.id)"' \
+            | sort | awk 'END { print $2 }')"
+          if [[ -z "$id" ]]; then
+            echo "::error::No Swift CodeQL analysis found on $BASE_REF. Run this workflow on $BASE_REF (workflow_dispatch) so a Swift baseline exists."
+            exit 1
+          fi
+          echo "Reusing base Swift analysis $id from $BASE_REF"
+          gh api -H 'Accept: application/sarif+json' "repos/$REPO/code-scanning/analyses/$id" > "$RUNNER_TEMP/swift-base-raw.sarif"
+          # Drop automationDetails so the category input alone sets the analysis id.
+          jq 'del(.runs[].automationDetails)' "$RUNNER_TEMP/swift-base-raw.sarif" > "$RUNNER_TEMP/swift-base.sarif"
+
+      - name: Upload base Swift analysis
+        if: needs.changes.outputs.swift != 'true' && github.event_name == 'pull_request'
+        uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
+        with:
+          sarif_file: ${{ runner.temp }}/swift-base.sarif
           category: "/language:swift"
