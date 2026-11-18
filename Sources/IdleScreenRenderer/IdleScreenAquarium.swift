@@ -10,26 +10,37 @@ public enum IdleScreenAquarium {
     at elapsed: TimeInterval, seed: UInt64,
     settings: IdleScreenAquariumRenderSettings? = nil
   ) -> [SIMD4<Float>] {
+    frame(
+      at: elapsed, seed: seed, settings: settings, preparation: IdleScreenAquariumScenePreparation()
+    )
+  }
+
+  /// Renders with scene data retained by `preparation` across timestamps.
+  /// `reusing` donates storage for the raster; copy-on-write keeps any other
+  /// holder of that storage unchanged.
+  static func frame(
+    at elapsed: TimeInterval, seed: UInt64,
+    settings: IdleScreenAquariumRenderSettings?,
+    preparation: IdleScreenAquariumScenePreparation,
+    reusing storage: [SIMD4<Float>] = []
+  ) -> [SIMD4<Float>] {
     let lightTime = elapsed.isFinite ? max(0, elapsed) : 0
     let elapsed = settings?.reduceMotion == true ? 0 : elapsed
     let time = elapsed.isFinite ? max(0, elapsed).truncatingRemainder(dividingBy: 86_400) : 0
     let requestedFlow = settings?.flow ?? 0.5
     let flow = requestedFlow.isFinite ? min(1, max(0, requestedFlow)) : 0.5
     let width = min(1152, max(384, settings?.worldWidth ?? Self.width))
-    var canvas = Canvas(width: width)
     let phase = Double(seed % 997) / 997 * 6.28
-    for y in 0..<height {
-      let depth = Float(y) / Float(height)
-      let water = SIMD4<Float>(0.035 + depth * 0.015, 0.12 + depth * 0.025, 0.19 + depth * 0.025, 1)
-      canvas.rect(0, y, width, 1, water)
-    }
-    // Backlit suspended particles, kept sparse enough to leave open water.
-    for i in 0..<32 {
-      let x = Int(
-        (Double(i * 71) + sin(time * 0.12 + Double(i)) * 4 + time * flow * 4).truncatingRemainder(
-          dividingBy: Double(width - 4)))
-      let y = Int((Double(i * 43) - time * 1.8).truncatingRemainder(dividingBy: 180) + 180) % 180
-      canvas.rect(x, y, 1, 1, .init(0.10, 0.24, 0.30, 1))
+    var canvas: Canvas
+    if let settings {
+      // Water and substrate don't move, so they're drawn once per scene.
+      let base = preparation.base(seed: seed, settings: settings, width: width)
+      canvas = Canvas(width: width, copying: base.pixels, reusing: storage)
+      particles(&canvas, time: time, flow: flow, cover: base.cover)
+    } else {
+      canvas = Canvas(width: width)
+      water(&canvas)
+      particles(&canvas, time: time, flow: flow, cover: nil)
     }
     if settings == nil {
       for layer in 0..<3 {
@@ -41,32 +52,8 @@ public enum IdleScreenAquarium {
         }
       }
     }
-    let depth = settings?.substrateDepth ?? 0.14
-    let safeDepth = depth.isFinite ? min(0.24, max(0.08, depth)) : 0.14
-    let floor = Int(Double(height) * (1 - safeDepth))
-    for y in max(0, floor - 5)..<height {
-      for x in stride(from: 0, to: width, by: 3) {
-        let ridge = floor + Int(sin(Double(x) * 0.032 + phase) * 4)
-        guard y >= ridge else { continue }
-        let shade = Float(hash(x / 3, y / 2, seed) % 7) / 6
-        var color = SIMD4<Float>(0.16 + shade * 0.18, 0.16 + shade * 0.13, 0.19 + shade * 0.14, 1)
-        switch settings?.substrate {
-        case "creamSand":
-          color = .init(0.46 + shade * 0.25, 0.40 + shade * 0.22, 0.29 + shade * 0.19, 1)
-        case "riverGravel":
-          color = .init(0.25 + shade * 0.22, 0.23 + shade * 0.19, 0.20 + shade * 0.15, 1)
-        case "plantedSoil":
-          color = .init(0.12 + shade * 0.12, 0.09 + shade * 0.08, 0.08 + shade * 0.07, 1)
-        case "neonGravel":
-          color =
-            (x / 3 + y / 2) % 3 == 0
-            ? .init(0.30, 0.19 + shade * 0.23, 0.49, 1) : .init(0.08, 0.23 + shade * 0.15, 0.30, 1)
-        default: break
-        }
-        canvas.rect(x, y, 3, 1, color)
-      }
-    }
     if settings == nil {
+      substrate(&canvas, seed: seed, phase: phase, depth: 0.14, kind: nil)
       // Flat, stepped stones give the shrimp places to graze.
       for i in 0..<7 {
         let x = i * 61 + 8
@@ -77,8 +64,7 @@ public enum IdleScreenAquarium {
       }
     }
     if let settings {
-      let navigation = IdleScreenAquariumNavigation(
-        settings: settings, worldWidth: width)
+      let navigation = preparation.navigation(settings: settings, width: width)
       for item in settings.objects.prefix(24) where !item.foreground {
         canvas.object(item, time: time, flow: flow)
       }
@@ -86,12 +72,8 @@ public enum IdleScreenAquarium {
         let pose = savedAnimal(
           inhabitant, at: time, seed: seed, settings: settings, worldWidth: width,
           navigation: navigation)
-        var sprite = pose.species.sprite(
-          phase: pose.animationPhase, facingRight: pose.facingRight,
-          activity: pose.activity, strikeProgress: pose.strikeProgress)
-        if pose.species == .cherryShrimp {
-          sprite = coloredShrimp(sprite, variant: inhabitant.variant, eggs: inhabitant.carryingEggs)
-        }
+        let sprite = IdleScreenAquariumSpriteCache.shared.sprite(
+          for: pose, variant: inhabitant.variant, eggs: inhabitant.carryingEggs)
         canvas.sprite(sprite, animal: pose, navigation: navigation)
       }
       for item in settings.objects.prefix(24) where item.foreground {
@@ -100,7 +82,8 @@ public enum IdleScreenAquarium {
       canvas.equipment(settings.equipment)
       if !settings.reduceMotion, let fedAt = settings.lastFeedingElapsed {
         canvas.food(
-          at: lightTime - fedAt, floor: floor, flow: flow,
+          at: lightTime - fedAt, floor: floorRow(depth: safeDepth(settings.substrateDepth)),
+          flow: flow,
           feeder: settings.equipment.contains("feeder"))
       }
     } else {
@@ -127,6 +110,89 @@ public enum IdleScreenAquarium {
     }
     if let settings { canvas.applyLight(settings, time: lightTime) }
     return canvas.pixels
+  }
+
+  static func safeDepth(_ depth: Double) -> Double {
+    depth.isFinite ? min(0.24, max(0.08, depth)) : 0.14
+  }
+
+  static func floorRow(depth: Double) -> Int { Int(Double(height) * (1 - depth)) }
+
+  static func water(_ canvas: inout Canvas) {
+    for y in 0..<height {
+      let depth = Float(y) / Float(height)
+      let water = SIMD4<Float>(0.035 + depth * 0.015, 0.12 + depth * 0.025, 0.19 + depth * 0.025, 1)
+      canvas.rect(0, y, canvas.width, 1, water)
+    }
+  }
+
+  /// Backlit suspended particles, kept sparse enough to leave open water.
+  /// `cover` holds the first substrate row per column so a prepared base,
+  /// which already has the substrate drawn, still lets it hide the particles.
+  static func particles(_ canvas: inout Canvas, time: Double, flow: Double, cover: [Int]?) {
+    let width = canvas.width
+    for i in 0..<32 {
+      let x = Int(
+        (Double(i * 71) + sin(time * 0.12 + Double(i)) * 4 + time * flow * 4).truncatingRemainder(
+          dividingBy: Double(width - 4)))
+      let y = Int((Double(i * 43) - time * 1.8).truncatingRemainder(dividingBy: 180) + 180) % 180
+      if let cover, (0..<width).contains(x), y >= cover[x] { continue }
+      canvas.rect(x, y, 1, 1, .init(0.10, 0.24, 0.30, 1))
+    }
+  }
+
+  static func substrate(
+    _ canvas: inout Canvas, seed: UInt64, phase: Double, depth: Double, kind: String?
+  ) {
+    let width = canvas.width
+    let floor = floorRow(depth: depth)
+    for y in max(0, floor - 5)..<height {
+      for x in stride(from: 0, to: width, by: 3) {
+        let ridge = floor + Int(sin(Double(x) * 0.032 + phase) * 4)
+        guard y >= ridge else { continue }
+        let shade = Float(hash(x / 3, y / 2, seed) % 7) / 6
+        var color = SIMD4<Float>(0.16 + shade * 0.18, 0.16 + shade * 0.13, 0.19 + shade * 0.14, 1)
+        switch kind {
+        case "creamSand":
+          color = .init(0.46 + shade * 0.25, 0.40 + shade * 0.22, 0.29 + shade * 0.19, 1)
+        case "riverGravel":
+          color = .init(0.25 + shade * 0.22, 0.23 + shade * 0.19, 0.20 + shade * 0.15, 1)
+        case "plantedSoil":
+          color = .init(0.12 + shade * 0.12, 0.09 + shade * 0.08, 0.08 + shade * 0.07, 1)
+        case "neonGravel":
+          color =
+            (x / 3 + y / 2) % 3 == 0
+            ? .init(0.30, 0.19 + shade * 0.23, 0.49, 1) : .init(0.08, 0.23 + shade * 0.15, 0.30, 1)
+        default: break
+        }
+        canvas.rect(x, y, 3, 1, color)
+      }
+    }
+  }
+
+  /// Per column, the first row the substrate paints (the ridge, never above
+  /// the band's top). Particles below it are hidden by the substrate.
+  static func substrateCover(width: Int, seed: UInt64, depth: Double) -> [Int] {
+    let phase = Double(seed % 997) / 997 * 6.28
+    let floor = floorRow(depth: depth)
+    let top = max(0, floor - 5)
+    return (0..<width).map { column in
+      let x = column / 3 * 3
+      return max(top, floor + Int(sin(Double(x) * 0.032 + phase) * 4))
+    }
+  }
+
+  /// Water and substrate only: everything in a saved scene that never moves.
+  static func staticBase(
+    seed: UInt64, settings: IdleScreenAquariumRenderSettings, width: Int
+  ) -> (pixels: [SIMD4<Float>], cover: [Int]) {
+    let depth = safeDepth(settings.substrateDepth)
+    var canvas = Canvas(width: width)
+    water(&canvas)
+    substrate(
+      &canvas, seed: seed, phase: Double(seed % 997) / 997 * 6.28, depth: depth,
+      kind: settings.substrate)
+    return (canvas.pixels, substrateCover(width: width, seed: seed, depth: depth))
   }
 
   private static func hash(_ x: Int, _ y: Int, _ seed: UInt64) -> UInt64 {
@@ -160,6 +226,17 @@ public enum IdleScreenAquarium {
     init(width: Int = IdleScreenAquarium.width) {
       self.width = width
       pixels = .init(repeating: .zero, count: width * height)
+    }
+
+    /// Starts from a copy of `base`, reusing `storage`'s allocation when this
+    /// is its only owner. A shared buffer is never written: append on a
+    /// non-unique array allocates a fresh one.
+    init(width: Int, copying base: [SIMD4<Float>], reusing storage: [SIMD4<Float>]) {
+      self.width = width
+      var pixels = storage
+      pixels.removeAll(keepingCapacity: true)
+      pixels.append(contentsOf: base)
+      self.pixels = pixels
     }
 
     mutating func sprite(

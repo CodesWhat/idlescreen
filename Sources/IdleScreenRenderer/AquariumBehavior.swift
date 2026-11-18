@@ -1,6 +1,6 @@
 import Foundation
 
-enum IdleScreenAquariumActivity: Equatable {
+enum IdleScreenAquariumActivity: Hashable {
   case walking, grazing, swimming, exploring, resting, striking, hovering, turning, hiding
 }
 
