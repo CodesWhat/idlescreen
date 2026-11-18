@@ -80,43 +80,74 @@ final class IdleScreenAquariumScenePreparation {
   }
 }
 
-/// Panorama consumers share their scene time and snapshot. Keep a small number
-/// of owned rasters so different crops don't each rebuild the same world.
+/// Panorama consumers share their scene time and snapshot. Each distinct scene
+/// (seed plus settings) keeps only its latest raster, so an animating tank holds
+/// one frame instead of a history. A byte bound caps what several active scenes
+/// can hold, and an evicted or superseded raster's storage renders the next
+/// frame when nothing else still references it.
 @MainActor
 final class IdleScreenAquariumFrameCache {
   static let shared = IdleScreenAquariumFrameCache()
+  /// Four 1152-wide scenes.
+  static let defaultByteLimit =
+    4 * 1152 * IdleScreenAquarium.height * MemoryLayout<SIMD4<Float>>.stride
+
   private struct Entry {
-    let time: TimeInterval
+    var time: TimeInterval
     let seed: UInt64
     let settings: IdleScreenAquariumRenderSettings?
-    let pixels: [SIMD4<Float>]
+    var pixels: [SIMD4<Float>]
+    var bytes: Int { pixels.count * MemoryLayout<SIMD4<Float>>.stride }
   }
+  /// Least recently used first.
   private var entries: [Entry] = []
   let preparation = IdleScreenAquariumScenePreparation()
+  let byteLimit: Int
   private(set) var generatedFrameCount = 0
   var cachedFrameCount: Int { entries.count }
+  var cachedByteCount: Int { entries.reduce(0) { $0 + $1.bytes } }
+
+  init(byteLimit: Int = IdleScreenAquariumFrameCache.defaultByteLimit) {
+    self.byteLimit = byteLimit
+  }
 
   func frame(at time: TimeInterval, seed: UInt64, settings: IdleScreenAquariumRenderSettings?)
     -> [SIMD4<Float>]
   {
     let time: TimeInterval = {
-      guard settings?.reduceMotion == true else { return time }
+      guard settings?.reduceMotion == true else { return time.isFinite ? max(0, time) : 0 }
       guard settings?.light == "automatic", time.isFinite else { return 0 }
       return floor(max(0, time) / 60) * 60
     }()
-    if let index = entries.firstIndex(where: {
-      $0.time == time && $0.seed == seed && $0.settings == settings
-    }) {
-      let entry = entries.remove(at: index)
-      entries.append(entry)
-      return entry.pixels
+    var storage: [SIMD4<Float>] = []
+    var entry: Entry
+    if let index = entries.firstIndex(where: { $0.seed == seed && $0.settings == settings }) {
+      entry = entries.remove(at: index)
+      if entry.time == time {
+        entries.append(entry)
+        return entry.pixels
+      }
+      // The scene advanced: its superseded raster becomes the render target.
+      swap(&storage, &entry.pixels)
+    } else {
+      entry = .init(time: time, seed: seed, settings: settings, pixels: [])
     }
-    let pixels = IdleScreenAquarium.frame(
-      at: time, seed: seed, settings: settings, preparation: preparation)
+    entry.time = time
+    let needed = Self.byteCount(settings: settings)
+    while !entries.isEmpty, cachedByteCount + needed > byteLimit {
+      var evicted = entries.removeFirst()
+      if storage.isEmpty { swap(&storage, &evicted.pixels) }
+    }
+    entry.pixels = IdleScreenAquarium.frame(
+      at: time, seed: seed, settings: settings, preparation: preparation, reusing: &storage)
     generatedFrameCount += 1
-    entries.append(.init(time: time, seed: seed, settings: settings, pixels: pixels))
-    if entries.count > 8 { entries.removeFirst() }
-    return pixels
+    entries.append(entry)
+    return entry.pixels
+  }
+
+  private static func byteCount(settings: IdleScreenAquariumRenderSettings?) -> Int {
+    let width = min(1152, max(384, settings?.worldWidth ?? IdleScreenAquarium.width))
+    return width * IdleScreenAquarium.height * MemoryLayout<SIMD4<Float>>.stride
   }
 
   func clear() {

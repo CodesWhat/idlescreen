@@ -10,19 +10,22 @@ public enum IdleScreenAquarium {
     at elapsed: TimeInterval, seed: UInt64,
     settings: IdleScreenAquariumRenderSettings? = nil
   ) -> [SIMD4<Float>] {
-    frame(
-      at: elapsed, seed: seed, settings: settings, preparation: IdleScreenAquariumScenePreparation()
-    )
+    var storage: [SIMD4<Float>] = []
+    return frame(
+      at: elapsed, seed: seed, settings: settings,
+      preparation: IdleScreenAquariumScenePreparation(),
+      reusing: &storage)
   }
 
   /// Renders with scene data retained by `preparation` across timestamps.
-  /// `reusing` donates storage for the raster; copy-on-write keeps any other
-  /// holder of that storage unchanged.
+  /// `reusing` donates storage for the raster and is left empty. The donor must
+  /// be the only reference to move; copy-on-write keeps any other holder of that
+  /// storage (a snapshot already handed out) unchanged.
   static func frame(
     at elapsed: TimeInterval, seed: UInt64,
     settings: IdleScreenAquariumRenderSettings?,
     preparation: IdleScreenAquariumScenePreparation,
-    reusing storage: [SIMD4<Float>] = []
+    reusing storage: inout [SIMD4<Float>]
   ) -> [SIMD4<Float>] {
     let lightTime = elapsed.isFinite ? max(0, elapsed) : 0
     let elapsed = settings?.reduceMotion == true ? 0 : elapsed
@@ -35,7 +38,7 @@ public enum IdleScreenAquarium {
     if let settings {
       // Water and substrate don't move, so they're drawn once per scene.
       let base = preparation.base(seed: seed, settings: settings, width: width)
-      canvas = Canvas(width: width, copying: base.pixels, reusing: storage)
+      canvas = Canvas(width: width, copying: base.pixels, reusing: &storage)
       particles(&canvas, time: time, flow: flow, cover: base.cover)
     } else {
       canvas = Canvas(width: width)
@@ -231,9 +234,10 @@ public enum IdleScreenAquarium {
     /// Starts from a copy of `base`, reusing `storage`'s allocation when this
     /// is its only owner. A shared buffer is never written: append on a
     /// non-unique array allocates a fresh one.
-    init(width: Int, copying base: [SIMD4<Float>], reusing storage: [SIMD4<Float>]) {
+    init(width: Int, copying base: [SIMD4<Float>], reusing storage: inout [SIMD4<Float>]) {
       self.width = width
-      var pixels = storage
+      var pixels: [SIMD4<Float>] = []
+      swap(&pixels, &storage)
       pixels.removeAll(keepingCapacity: true)
       pixels.append(contentsOf: base)
       self.pixels = pixels
