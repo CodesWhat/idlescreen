@@ -140,6 +140,9 @@ final class IdleScreenAppModel {
       }
     }
   }
+  /// Set when the saved configuration could not be read at launch. Unlike `lastError` it survives unrelated status updates, and
+  /// while it is set nothing may overwrite the unreadable file on disk.
+  private(set) var configurationLoadFailure: String?
   var activeAgentSignal: IdleScreenAgentSignal?
   /// The strongest live signal per provider, which drive the scene's sprites.
   var activeAgentSignals: [IdleScreenAgentSignal] = []
@@ -229,6 +232,7 @@ final class IdleScreenAppModel {
           ?? .default
       } catch {
         configuration = .default
+        configurationLoadFailure = error.localizedDescription
         lastError = error.localizedDescription
         shouldPersistInitialConfiguration = false
       }
@@ -1040,6 +1044,11 @@ final class IdleScreenAppModel {
   }
 
   private func commitConfiguration() {
+    if let configurationLoadFailure {
+      lastError = configurationLoadFailure
+      publishAppHealth()
+      return
+    }
     configuration.schemaVersion = IdleScreenConfiguration.currentSchemaVersion
     configuration.revision &+= 1
     configuration.modifiedAt = clock()
@@ -1058,7 +1067,7 @@ final class IdleScreenAppModel {
   }
 
   private func persistConfigurationIfNeeded(overwritingExisting: Bool = false) {
-    guard let sharedPaths else { return }
+    guard let sharedPaths, configurationLoadFailure == nil else { return }
     let store = IdleScreenConfigurationStore(fileURL: sharedPaths.configurationURL)
     do {
       let existingConfiguration = try store.read()

@@ -655,3 +655,105 @@ private func eventually(
   }
   return condition()
 }
+
+@MainActor
+@Suite("Companion configuration load failure")
+struct ConfigurationLoadFailureTests {
+  private func makeModel(
+    root: URL,
+    sharedPaths: IdleScreenSharedPaths
+  ) -> IdleScreenAppModel {
+    IdleScreenAppModel(
+      bundle: Bundle(for: TestBundleMarker.self),
+      agentIntegrationDependencies: .init(
+        sharedPaths: sharedPaths,
+        appGroupIdentifier: "group.com.idlescreen.tests.shared",
+        legacyConfigurationURLs: [root.appending(path: "Legacy/config.json")],
+        codexHookSettingsURL: root.appending(path: "Home/.codex/hooks.json"),
+        claudeHookSettingsURL: root.appending(path: "Home/.claude/settings.json"),
+        agentControlExecutableURL: root.appending(path: "Helpers/idlescreenctl"),
+        clock: { Date(timeIntervalSince1970: 1_800_000_000) },
+        loadAgentSignals: { store, date in try store.read(at: date) }
+      )
+    )
+  }
+
+  private func scratch() throws -> (root: URL, paths: IdleScreenSharedPaths) {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    let paths = IdleScreenSharedPaths(
+      rootURL: root.appending(path: "Shared", directoryHint: .isDirectory)
+    )
+    try FileManager.default.createDirectory(
+      at: paths.configurationURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+    return (root, paths)
+  }
+
+  private func assertEditsNeverOverwrite(original: Data, name: String) throws {
+    let (root, paths) = try scratch()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try original.write(to: paths.configurationURL)
+
+    let model = makeModel(root: root, sharedPaths: paths)
+    #expect(model.configurationLoadFailure != nil, "\(name)")
+    #expect(try Data(contentsOf: paths.configurationURL) == original, "\(name) after init")
+
+    let failure = model.configurationLoadFailure
+    for seed: UInt64 in [11, 12, 13] {
+      model.lastError = nil
+      model.updatePixelMaterials { $0.seed = seed }
+      #expect(model.configuration.materials.seed == seed, "\(name) edit applied in memory")
+      #expect(model.lastError == failure, "\(name) surfaces the retained error")
+      #expect(try Data(contentsOf: paths.configurationURL) == original, "\(name) after edits")
+    }
+    #expect(model.configurationLoadFailure == failure)
+  }
+
+  @Test("Malformed configuration is never overwritten by edits")
+  func malformedConfigurationSurvivesEdits() throws {
+    try assertEditsNeverOverwrite(
+      original: Data("{ not json at all".utf8),
+      name: "malformed"
+    )
+  }
+
+  @Test("Future-schema configuration is never overwritten by edits")
+  func futureSchemaConfigurationSurvivesEdits() throws {
+    var future = IdleScreenConfiguration.default
+    future.schemaVersion = IdleScreenConfiguration.currentSchemaVersion + 1
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let data = try encoder.encode(future)
+    try assertEditsNeverOverwrite(original: data, name: "future schema")
+  }
+
+  @Test("Missing configuration initializes and persists normally")
+  func missingConfigurationPersists() throws {
+    let (root, paths) = try scratch()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let model = makeModel(root: root, sharedPaths: paths)
+    #expect(model.configurationLoadFailure == nil)
+    #expect(FileManager.default.fileExists(atPath: paths.configurationURL.path))
+
+    let before = model.configuration.revision
+    model.updatePixelMaterial(.mixed)
+    let stored = try IdleScreenConfigurationStore(fileURL: paths.configurationURL).read()
+    #expect(stored?.materials.material == .mixed)
+    #expect(stored?.revision == before &+ 1)
+  }
+
+  @Test("Supported existing configuration persists edits")
+  func supportedConfigurationPersists() throws {
+    let (root, paths) = try scratch()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try IdleScreenConfigurationStore(fileURL: paths.configurationURL).write(.default)
+
+    let model = makeModel(root: root, sharedPaths: paths)
+    #expect(model.configurationLoadFailure == nil)
+    model.updatePixelMaterial(.mixed)
+    let stored = try IdleScreenConfigurationStore(fileURL: paths.configurationURL).read()
+    #expect(stored?.materials.material == .mixed)
+  }
+}
