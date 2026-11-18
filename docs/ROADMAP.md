@@ -80,8 +80,7 @@ useful coverage and product work:
   each row out of the README's not-verified list.
 - Repeat the full mixed-scale multi-display, hot-plug, Spaces, and sleep/wake
   matrix on additional physical Mac configurations.
-- Smoke-test the next macOS beta and Intel hardware while universal support is
-  advertised.
+- Smoke-test the next macOS beta on Apple silicon hardware.
 - Move signed-release construction and artifact attestations into GitHub Actions
   after Apple signing and notary credentials have an approved enrollment path.
 - Consider the optional custom-pet importer only with explicit user-owned art

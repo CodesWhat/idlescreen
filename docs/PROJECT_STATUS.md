@@ -6,7 +6,7 @@ Controls below retain that audit scope unless a newer release record is stated.
 ## Classification
 
 IdleScreen is a public CodesWhat Swift product. It publishes a signed and
-notarized universal macOS app, a GitHub release DMG, and a Homebrew cask. It has
+notarized Apple silicon macOS app, a GitHub release DMG, and a Homebrew cask. It has
 no hosted service, container image, package registry artifact, localization
 pipeline, or web runtime.
 
@@ -53,8 +53,8 @@ SPDX SBOM. Downloaded asset digests match the GitHub release records:
 
 The controlled-Mac release record includes accepted notarization, stapling,
 Gatekeeper, mounted-app signature checks and manifest replay. The generated
-Homebrew cask merged in CodesWhat/homebrew-tap#30. Physical camera lifecycle,
-Intel and broader multi-display coverage remain explicitly unverified in the
+Homebrew cask merged in CodesWhat/homebrew-tap#30. Physical camera lifecycle
+and broader multi-display coverage remain explicitly unverified in the
 README; release publication does not close those rows.
 
 The v0.1.2 candidate/SBOM snapshot-binding follow-up was completed in the
