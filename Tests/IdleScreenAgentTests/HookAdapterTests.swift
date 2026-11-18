@@ -130,6 +130,28 @@ struct HookAdapterTests {
     }
   }
 
+  @Test("event IDs follow the invocation nonce, not the turn")
+  func eventIDsFollowNonce() throws {
+    func eventID(nonce: String) throws -> String {
+      let mutation = try IdleScreenAgentHookAdapter.mutation(
+        provider: .codex,
+        payload: try hookPayload(event: "PermissionRequest"),
+        configuration: enabledConfiguration,
+        receivedAt: now,
+        nonce: nonce
+      )
+      return try #require(mutation.signal).eventID
+    }
+
+    let first = try eventID(nonce: "nonce-a")
+    let second = try eventID(nonce: "nonce-b")
+    let replay = try eventID(nonce: "nonce-a")
+
+    #expect(first != second)
+    #expect(first == replay)
+    #expect(!first.contains("turn-456"))
+  }
+
   private var enabledConfiguration: IdleScreenAgentIntegrationConfiguration {
     .init(codexEnabled: true, claudeEnabled: true, messageTimeout: 90)
   }

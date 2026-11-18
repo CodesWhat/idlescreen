@@ -242,6 +242,57 @@ struct CommandExecutorTests {
     #expect(executor.run(arguments: status, standardInput: Data()) == .success)
   }
 
+  @Test("two permission requests in one turn each publish with their own nonce")
+  func permissionRequestsInOneTurnArePublishedSeparately() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let paths = IdleScreenSharedPaths(rootURL: root)
+    var configuration = IdleScreenConfiguration.default
+    configuration.agentIntegration.codexEnabled = true
+    try IdleScreenConfigurationStore(fileURL: paths.configurationURL).write(configuration)
+    let timeout = configuration.agentIntegration.messageTimeout
+    let payload = try JSONSerialization.data(withJSONObject: [
+      "hook_event_name": "PermissionRequest",
+      "session_id": "session-1",
+      "turn_id": "turn-1",
+    ])
+    var clock = Self.testDate
+    var nonce = "nonce-1"
+    let executor = IdleScreenAgentCommandExecutor(
+      sharedPaths: paths,
+      now: { clock },
+      nonce: { nonce }
+    )
+    let store = IdleScreenAgentSignalStore(fileURL: paths.agentSignalsInboxURL)
+    let hook = ["hook", "--provider", "codex"]
+
+    #expect(executor.run(arguments: hook, standardInput: payload) == .success)
+    let first = try store.read(at: clock)
+    let firstSignal = try #require(first.signals.first)
+
+    clock = Self.testDate.addingTimeInterval(timeout + 1)
+    #expect(try store.read(at: clock).signals.isEmpty)
+    nonce = "nonce-2"
+    #expect(executor.run(arguments: hook, standardInput: payload) == .success)
+    let second = try store.read(at: clock)
+    let secondSignal = try #require(second.signals.first)
+    #expect(secondSignal.state == .needsAttention)
+    #expect(secondSignal.createdAt == clock)
+    #expect(secondSignal.eventID != firstSignal.eventID)
+    #expect(second.revision > first.revision)
+
+    clock = clock.addingTimeInterval(1)
+    nonce = "nonce-3"
+    #expect(executor.run(arguments: hook, standardInput: payload) == .success)
+    let third = try store.read(at: clock)
+    let thirdSignal = try #require(third.signals.first)
+    #expect(third.signals.count == 1)
+    #expect(thirdSignal.createdAt == clock)
+    #expect(thirdSignal.expiresAt > secondSignal.expiresAt)
+    #expect(third.revision > second.revision)
+  }
+
   private func makeExecutor(root: URL) -> IdleScreenAgentCommandExecutor {
     IdleScreenAgentCommandExecutor(
       sharedPaths: IdleScreenSharedPaths(rootURL: root),
