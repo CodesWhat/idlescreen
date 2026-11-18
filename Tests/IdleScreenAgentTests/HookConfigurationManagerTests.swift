@@ -272,4 +272,66 @@ struct HookConfigurationManagerTests {
     let commands = try Self.commands(settingsURL)
     #expect(Set(commands["Stop"] ?? []) == ["/usr/local/bin/mine", lookalike])
   }
+
+  @Test("symlinked settings are edited in place and the link survives")
+  func symlinkedSettingsFollowLinks() throws {
+    let fm = FileManager.default
+    let root = try Self.scratchDirectory()
+    defer { try? fm.removeItem(at: root) }
+    let real = root.appending(path: "real", directoryHint: .isDirectory)
+    try fm.createDirectory(at: real, withIntermediateDirectories: true)
+    let referent = real.appending(path: "settings.json")
+    try Data(#"{"theme":"dark"}"#.utf8).write(to: referent)
+    let absolute = root.appending(path: "absolute.json")
+    try fm.createSymbolicLink(atPath: absolute.path, withDestinationPath: referent.path)
+    let relative = root.appending(path: "relative.json")
+    try fm.createSymbolicLink(atPath: relative.path, withDestinationPath: "real/settings.json")
+    let chainMid = root.appending(path: "mid.json")
+    try fm.createSymbolicLink(atPath: chainMid.path, withDestinationPath: "relative.json")
+    let chain = root.appending(path: "chain.json")
+    try fm.createSymbolicLink(atPath: chain.path, withDestinationPath: chainMid.path)
+
+    for link in [absolute, relative, chain] {
+      let manager = Self.manager(.claude, link, Self.applicationsPath)
+      let destination = try fm.destinationOfSymbolicLink(atPath: link.path)
+      try manager.install()
+      let once = try Data(contentsOf: referent)
+      try manager.install()
+      #expect(try Data(contentsOf: referent) == once)
+      #expect(try manager.isInstalled())
+      #expect(try fm.destinationOfSymbolicLink(atPath: link.path) == destination)
+      let attributes = try fm.attributesOfItem(atPath: referent.path)
+      #expect((attributes[.posixPermissions] as? Int) == 0o600)
+      let object = try #require(JSONSerialization.jsonObject(with: once) as? [String: Any])
+      #expect(object["theme"] as? String == "dark")
+
+      try manager.uninstall()
+      #expect(try fm.destinationOfSymbolicLink(atPath: link.path) == destination)
+      let removed = try String(contentsOf: referent, encoding: .utf8)
+      #expect(!removed.contains("idlescreen-v1"))
+      #expect(removed.contains("dark"))
+    }
+  }
+
+  @Test("dangling and cyclic settings links fail without replacement")
+  func unresolvableLinksFail() throws {
+    let fm = FileManager.default
+    let root = try Self.scratchDirectory()
+    defer { try? fm.removeItem(at: root) }
+    let dangling = root.appending(path: "dangling.json")
+    try fm.createSymbolicLink(atPath: dangling.path, withDestinationPath: "missing/none.json")
+    let cycleA = root.appending(path: "a.json")
+    let cycleB = root.appending(path: "b.json")
+    try fm.createSymbolicLink(atPath: cycleA.path, withDestinationPath: "b.json")
+    try fm.createSymbolicLink(atPath: cycleB.path, withDestinationPath: "a.json")
+
+    for link in [dangling, cycleA] {
+      let destination = try fm.destinationOfSymbolicLink(atPath: link.path)
+      #expect(throws: IdleScreenAgentHookConfigurationManager.Error.self) {
+        try Self.manager(.codex, link, Self.applicationsPath).install()
+      }
+      #expect(try fm.destinationOfSymbolicLink(atPath: link.path) == destination)
+    }
+    #expect(!fm.fileExists(atPath: root.appending(path: "missing").path))
+  }
 }

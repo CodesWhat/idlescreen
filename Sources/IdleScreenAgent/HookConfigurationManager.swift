@@ -5,6 +5,7 @@ import IdleScreenCore
 public struct IdleScreenAgentHookConfigurationManager: Sendable {
   public enum Error: Swift.Error, Equatable, Sendable {
     case malformedSettings
+    case unresolvableSettingsLink
   }
 
   public let provider: IdleScreenAgentProvider
@@ -184,19 +185,33 @@ public struct IdleScreenAgentHookConfigurationManager: Sendable {
   }
 
   private func write(_ root: [String: Any]) throws {
+    let targetURL = try resolvedSettingsURL()
     try FileManager.default.createDirectory(
-      at: settingsURL.deletingLastPathComponent(),
+      at: targetURL.deletingLastPathComponent(),
       withIntermediateDirectories: true
     )
     let data = try JSONSerialization.data(
       withJSONObject: root,
       options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
     )
-    try data.write(to: settingsURL, options: .atomic)
+    try data.write(to: targetURL, options: .atomic)
     try FileManager.default.setAttributes(
       [.posixPermissions: 0o600],
-      ofItemAtPath: settingsURL.path
+      ofItemAtPath: targetURL.path
     )
+  }
+
+  /// Follows symlinks so the referent is edited and the link survives.
+  /// A dangling or cyclic link fails instead of being replaced.
+  private func resolvedSettingsURL() throws -> URL {
+    var linkInfo = stat()
+    if lstat(settingsURL.path, &linkInfo) == 0, (linkInfo.st_mode & S_IFMT) == S_IFLNK {
+      var targetInfo = stat()
+      guard stat(settingsURL.path, &targetInfo) == 0 else {
+        throw Error.unresolvableSettingsLink
+      }
+    }
+    return settingsURL.resolvingSymlinksInPath()
   }
 
   private func shellQuote(_ value: String) -> String {
