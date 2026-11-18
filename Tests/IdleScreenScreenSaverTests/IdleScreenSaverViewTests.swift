@@ -75,6 +75,27 @@ struct IdleScreenSaverViewTests {
     #expect(view.diagnosticState.lifecycle == .animating)
   }
 
+  @Test("saver views join and leave the shared aquarium scene clock with their animation")
+  func aquariumClockRegistration() throws {
+    let clock = IdleScreenAquariumSceneClock()
+    let views = try (0..<2).map { _ in
+      let view = try #require(
+        IdleScreenSaverView(
+          frame: NSRect(x: 0, y: 0, width: 640, height: 360),
+          isPreview: false
+        )
+      )
+      view.aquariumSceneClock = clock
+      return view
+    }
+    views.forEach { $0.startAnimation() }
+    #expect(clock.consumerCount == 2)
+    views[0].stopAnimation()
+    #expect(clock.consumerCount == 1)
+    views[1].stopAnimation()
+    #expect(clock.consumerCount == 0)
+  }
+
   @Test("initialization produces a visible attached preview frame")
   func initialPreviewFrame() throws {
     let view = try #require(

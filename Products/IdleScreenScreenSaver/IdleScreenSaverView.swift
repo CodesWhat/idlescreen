@@ -227,6 +227,9 @@ final class IdleScreenSaverView: ScreenSaverView {
   private var aquariumSnapshot: IdleScreenAquariumLibrary?
   private var aquariumPresentationCache = IdleScreenAquariumPresentationCache()
   private var aquariumLastReadAt: TimeInterval?
+  /// Shared by every saver view in the process so displays sample one instant.
+  var aquariumSceneClock = IdleScreenAquariumSceneClock.shared
+  private var aquariumClockToken: UUID?
   private var configurationMonitor: IdleScreenConfigurationMonitor?
   private var agentSignalMonitor: IdleScreenAgentSignalMonitor?
   private var activeAgentSignal: IdleScreenAgentSignal?
@@ -438,6 +441,7 @@ final class IdleScreenSaverView: ScreenSaverView {
     if lifecycle.phase == .detached {
       lifecycle.apply(.attach)
     }
+    aquariumClockToken = aquariumClockToken ?? aquariumSceneClock.register()
     refreshConfiguration(at: CACurrentMediaTime())
     refreshAgentSignal(at: agentClock())
     refreshGlobalHostActivity(
@@ -458,6 +462,10 @@ final class IdleScreenSaverView: ScreenSaverView {
     lifecycle.apply(.stopAnimating)
     detachCameraIfNeeded()
     shutdownRenderer()
+    if let token = aquariumClockToken {
+      aquariumSceneClock.unregister(token)
+      aquariumClockToken = nil
+    }
     animationStartedAt = nil
     publishHealth()
     super.stopAnimation()
@@ -748,8 +756,12 @@ final class IdleScreenSaverView: ScreenSaverView {
       } else {
         renderer.clearCameraFrame()
       }
+      // Aquarium tanks read the process-shared tick, not this view's own Date.
+      let sceneDate =
+        frameConfiguration.patternRawValue == "aquarium"
+        ? aquariumSceneClock.sample().date : Date()
       let sceneElapsed = IdleScreenAquariumProduct.sceneElapsed(
-        configuration: frameConfiguration, mode: frameMode, sessionElapsed: elapsed, at: Date())
+        configuration: frameConfiguration, mode: frameMode, sessionElapsed: elapsed, at: sceneDate)
       if renderer.draw(at: sceneElapsed) {
         hasSubmittedRendererFrame = true
       }
