@@ -726,6 +726,148 @@ struct AgentSignalInboxTests {
     }
   }
 
+  private func unreadableInboxStore(
+    backup: Bool,
+    corruption: Data = Data("{broken".utf8)
+  ) throws -> (store: IdleScreenAgentSignalStore, fileURL: URL, root: URL, now: Date) {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    _ = try store.apply(
+      .set(try signal(eventID: "turn-1", state: .working, createdAt: now)), at: now)
+    if backup {
+      _ = try store.apply(
+        .set(try signal(eventID: "turn-2", state: .done, createdAt: now)), at: now)
+      try corruption.write(to: fileURL.appendingPathExtension("previous"))
+    }
+    try corruption.write(to: fileURL)
+    if !backup {
+      try? FileManager.default.removeItem(at: fileURL.appendingPathExtension("previous"))
+    }
+    return (store, fileURL, root, now)
+  }
+
+  private func expectClearAllRepairs(
+    _ fixture: (store: IdleScreenAgentSignalStore, fileURL: URL, root: URL, now: Date),
+    ordinaryFailure: (any Error) -> Bool
+  ) throws {
+    let store = fixture.store
+    let later = fixture.now.addingTimeInterval(1)
+    let ordinary = try signal(eventID: "turn-3", state: .working, createdAt: later)
+    do {
+      _ = try store.apply(.set(ordinary), at: later)
+      Issue.record("an ordinary mutation must fail closed on an unreadable inbox")
+    } catch {
+      #expect(ordinaryFailure(error))
+    }
+    #expect(throws: (any Error).self) {
+      _ = try store.apply(.recordIgnored(provider: .codex), at: later)
+    }
+
+    let cleared = try store.apply(.clearAll, at: later)
+
+    #expect(cleared.signals.isEmpty)
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    let persisted = try decoder.decode(
+      IdleScreenAgentSignalInbox.self,
+      from: Data(contentsOf: fixture.fileURL)
+    )
+    #expect(persisted.signals.isEmpty)
+    #expect(persisted.schemaVersion == IdleScreenAgentSignalInbox.currentSchemaVersion)
+    let afterwards = try store.apply(.set(ordinary), at: later)
+    #expect(afterwards.signals.count == 1)
+  }
+
+  @Test("clear-all repairs a malformed primary with no backup")
+  func clearAllRepairsMalformedPrimary() throws {
+    let fixture = try unreadableInboxStore(backup: false)
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    try expectClearAllRepairs(fixture) { $0 is DecodingError }
+  }
+
+  @Test("clear-all repairs a malformed primary and malformed backup")
+  func clearAllRepairsMalformedPrimaryAndBackup() throws {
+    let fixture = try unreadableInboxStore(backup: true)
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    try expectClearAllRepairs(fixture) { $0 is DecodingError }
+  }
+
+  @Test("clear-all repairs an unsupported schema inbox")
+  func clearAllRepairsUnsupportedSchema() throws {
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let future = try encoder.encode(IdleScreenAgentSignalInbox(schemaVersion: 99))
+    let fixture = try unreadableInboxStore(backup: false, corruption: future)
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    try expectClearAllRepairs(fixture) {
+      ($0 as? IdleScreenAgentSignalStore.StoreError) == .unsupportedSchema(99)
+    }
+  }
+
+  @Test("clear-all repairs an oversized inbox")
+  func clearAllRepairsOversizedInbox() throws {
+    let oversized = Data(
+      repeating: 0x20,
+      count: IdleScreenAgentSignalStore.maximumInboxByteCount + 1
+    )
+    let fixture = try unreadableInboxStore(backup: false, corruption: oversized)
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    try expectClearAllRepairs(fixture) {
+      ($0 as? IdleScreenAgentSignalStore.StoreError) == .payloadTooLarge
+    }
+  }
+
+  @Test("clear-all on a malformed primary with a valid backup recovers from the backup")
+  func clearAllWithValidBackupIsUnchanged() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let prior = try store.apply(
+      .set(try signal(eventID: "turn-1", state: .working, createdAt: now)), at: now)
+    _ = try store.apply(
+      .set(try signal(eventID: "turn-2", state: .done, createdAt: now)), at: now)
+    try Data("{broken".utf8).write(to: fileURL)
+
+    let cleared = try store.apply(.clearAll, at: now.addingTimeInterval(1))
+
+    #expect(cleared.signals.isEmpty)
+    #expect(cleared.revision == prior.revision + 1)
+    #expect(cleared.recentEvents == prior.recentEvents)
+  }
+
+  @Test("clear-all still propagates filesystem and coordination failures")
+  func clearAllPropagatesOperationalFailures() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    try FileManager.default.createDirectory(at: fileURL, withIntermediateDirectories: true)
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+
+    #expect(throws: (any Error).self) {
+      _ = try IdleScreenAgentSignalStore(fileURL: fileURL).apply(.clearAll, at: now)
+    }
+    var isDirectory: ObjCBool = false
+    #expect(FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory))
+    #expect(isDirectory.boolValue)
+
+    let clock = TestMonotonicClock(now: 1_000_000_000)
+    let locked = IdleScreenAgentSignalStore(
+      fileURL: root.appending(path: "other/inbox-v1.json"),
+      clock: clock,
+      processLock: TestProcessLock(clock: clock, availableAt: nil)
+    )
+    #expect(throws: IdleScreenAgentSignalStore.StoreError.coordinationTimedOut) {
+      _ = try locked.apply(.clearAll, at: now)
+    }
+  }
+
   private func signal(
     eventID: String,
     state: IdleScreenAgentSignalState,

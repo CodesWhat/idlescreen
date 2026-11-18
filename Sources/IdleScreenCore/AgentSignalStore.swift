@@ -207,8 +207,18 @@ public struct IdleScreenAgentSignalStore: Sendable {
     at date: Date,
     directoryDescriptor: Int32
   ) throws -> IdleScreenAgentSignalInbox {
-    let (decodedInbox, validPrimaryData) = try readInbox(at: date)
-    var inbox = decodedInbox
+    var inbox: IdleScreenAgentSignalInbox
+    var validPrimaryData: Data?
+    do {
+      let decoded = try readInbox(at: date)
+      inbox = decoded.inbox
+      validPrimaryData = decoded.validPrimaryData
+    } catch where Self.isRecoverableContentError(error, for: mutation) {
+      // Only the explicit emergency clear may discard an unreadable inbox.
+      // Every other mutation stays fail-closed.
+      inbox = .empty
+      validPrimaryData = nil
+    }
 
     switch mutation {
     case .set(let signal):
@@ -286,6 +296,20 @@ public struct IdleScreenAgentSignalStore: Sendable {
       directoryDescriptor: directoryDescriptor
     )
     return inbox
+  }
+
+  private static func isRecoverableContentError(
+    _ error: any Error,
+    for mutation: Mutation
+  ) -> Bool {
+    guard case .clearAll = mutation else { return false }
+    if error is DecodingError || error is IdleScreenAgentSignal.ValidationError {
+      return true
+    }
+    switch error as? StoreError {
+    case .unsupportedSchema, .payloadTooLarge: return true
+    default: return false
+    }
   }
 
   private func withExclusiveLock<T>(

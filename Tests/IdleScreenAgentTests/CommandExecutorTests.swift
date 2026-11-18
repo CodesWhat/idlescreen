@@ -223,6 +223,25 @@ struct CommandExecutorTests {
         ], standardInput: Data()) == .storageFailure)
   }
 
+  @Test("an unrecoverable malformed inbox fails status with 74 and clear-all repairs it")
+  func clearAllRepairsMalformedInbox() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let executor = makeExecutor(root: root)
+    let status = [
+      "status", "--provider", "codex", "--session", "session", "--state", "done",
+    ]
+    let inboxURL = IdleScreenSharedPaths(rootURL: root).agentSignalsInboxURL
+    #expect(executor.run(arguments: status, standardInput: Data()) == .success)
+    try Data("{broken".utf8).write(to: inboxURL)
+    try? FileManager.default.removeItem(at: inboxURL.appendingPathExtension("previous"))
+
+    #expect(executor.run(arguments: status, standardInput: Data()) == .storageFailure)
+    #expect(executor.run(arguments: ["clear-all"], standardInput: Data()) == .success)
+    #expect(executor.run(arguments: status, standardInput: Data()) == .success)
+  }
+
   private func makeExecutor(root: URL) -> IdleScreenAgentCommandExecutor {
     IdleScreenAgentCommandExecutor(
       sharedPaths: IdleScreenSharedPaths(rootURL: root),
