@@ -5,6 +5,13 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- Add the Aquarium pattern, a planted pixel-art tank with shrimp, fish and crabs.
+  You can edit the tank natively (plants, hardscape, equipment, specimens and
+  saved layouts), run it on the desktop or in a window, and it honors reduced
+  motion.
+
 ### Fixed
 
 - Remove failed C8 plan output entries after poisoning so a retry can use the
