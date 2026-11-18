@@ -224,9 +224,12 @@ final class IdleScreenSaverView: ScreenSaverView {
   private let injectedDisplayHostFrame: DisplayTopology.Rect?
   private var displayResolutionWorkItem: DispatchWorkItem?
   private var sharedPaths: IdleScreenSharedPaths?
-  private var aquariumSnapshot: IdleScreenAquariumLibrary?
+  private var aquariumPoller = IdleScreenAquariumSnapshotPoller()
+  private var aquariumSnapshot: IdleScreenAquariumLibrary? { aquariumPoller.snapshot }
+  /// Shared by every saver view so one change is decoded once per process.
+  var aquariumSnapshotMonitor = IdleScreenAquariumSnapshotMonitor.shared
+  var aquariumStoreURL: () -> URL = { IdleScreenAquariumProduct.storeURL() }
   private var aquariumPresentationCache = IdleScreenAquariumPresentationCache()
-  private var aquariumLastReadAt: TimeInterval?
   /// Shared by every saver view in the process so displays sample one instant.
   var aquariumSceneClock = IdleScreenAquariumSceneClock.shared
   private var aquariumClockToken: UUID?
@@ -1040,48 +1043,56 @@ final class IdleScreenSaverView: ScreenSaverView {
   }
 
   private func refreshConfiguration(at monotonicTime: TimeInterval) {
-    if aquariumLastReadAt == nil || monotonicTime - (aquariumLastReadAt ?? 0) >= 1 {
-      aquariumLastReadAt = monotonicTime
+    // Normal configuration first: whether the saved aquarium is read at all
+    // depends on what the active configuration shows.
+    var updatedConfiguration: IdleScreenConfiguration?
+    if configurationMonitor != nil {
       do {
-        let previousRevision = aquariumSnapshot?.revision
-        aquariumSnapshot = try IdleScreenAquariumStore(
-          fileURL: IdleScreenAquariumProduct.storeURL()
-        ).read()
-        if previousRevision != aquariumSnapshot?.revision {
-          _ = displayCoordinator?.update(
-            settings: IdleScreenAquariumProduct.displaySettings(
-              configuration: configuration, library: aquariumSnapshot),
-            configurationRevision: IdleScreenAquariumProduct.presentationRevision(
-              configuration: configuration, library: aquariumSnapshot))
-        }
+        updatedConfiguration = try configurationMonitor?.readChange(at: monotonicTime)
       } catch {
         viewLogger.error(
-          "Unable to read aquarium snapshot: \(error.localizedDescription, privacy: .public)")
+          "Unable to read configuration: \(error.localizedDescription, privacy: .public)")
       }
     }
-    guard configurationMonitor != nil else { return }
-    do {
-      guard let updated = try configurationMonitor?.readChange(at: monotonicTime) else {
-        return
-      }
+    if let updated = updatedConfiguration {
       if updated.source != configuration.source {
         detachCameraIfNeeded()
         cameraDiagnosticPolicy = IdleScreenSaverCameraDiagnosticPolicy()
       }
       configuration = updated
-      _ = displayCoordinator?.update(
-        settings: IdleScreenAquariumProduct.displaySettings(
-          configuration: updated, library: aquariumSnapshot),
-        configurationRevision: IdleScreenAquariumProduct.presentationRevision(
-          configuration: updated, library: aquariumSnapshot)
-      )
-      updateTypography()
-      publishHealth()
-      viewLogger.info("Configuration loaded revision=\(updated.revision, privacy: .public)")
-    } catch {
-      viewLogger.error(
-        "Unable to read configuration: \(error.localizedDescription, privacy: .public)")
     }
+    // Entering an aquarium loads the latest snapshot now; the poller then
+    // holds to its interval. The display plan updates once for both changes.
+    let snapshotChanged = pollAquariumSnapshot(at: monotonicTime)
+    guard let updated = updatedConfiguration else {
+      if snapshotChanged { updateDisplayPlan() }
+      return
+    }
+    updateDisplayPlan()
+    updateTypography()
+    publishHealth()
+    viewLogger.info("Configuration loaded revision=\(updated.revision, privacy: .public)")
+  }
+
+  private func pollAquariumSnapshot(at monotonicTime: TimeInterval) -> Bool {
+    guard
+      let outcome = aquariumPoller.poll(
+        at: monotonicTime, needed: configuration.creative.pattern == .aquarium,
+        url: aquariumStoreURL(), monitor: aquariumSnapshotMonitor)
+    else { return false }
+    if let error = outcome.error {
+      viewLogger.error(
+        "Unable to read aquarium snapshot: \(error.localizedDescription, privacy: .public)")
+    }
+    return outcome.revisionChanged
+  }
+
+  private func updateDisplayPlan() {
+    _ = displayCoordinator?.update(
+      settings: IdleScreenAquariumProduct.displaySettings(
+        configuration: configuration, library: aquariumSnapshot),
+      configurationRevision: IdleScreenAquariumProduct.presentationRevision(
+        configuration: configuration, library: aquariumSnapshot))
   }
 
   private func refreshAgentSignal(at date: Date) {
