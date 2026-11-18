@@ -282,31 +282,31 @@ struct IdleScreenAppCompileGateSmokeTests {
     #expect(model.configuration.agentIntegration.claudeEnabled)
     #expect(model.configuration.agentIntegration.messageTimeout == 45)
 
-    model.testAgentSignal(for: .codex, at: now)
-    #expect(await eventually { model.activeAgentSignal?.provider == .codex })
+    model.agentIntegration.testAgentSignal(for: .codex, at: now)
+    #expect(await eventually { model.agentIntegration.activeAgentSignal?.provider == .codex })
     _ = try fixture.store.apply(.recordIgnored(provider: .claude), at: now)
-    model.refreshAgentSignals(at: now.addingTimeInterval(2))
-    #expect(await eventually { model.agentIgnoredEventCounts[.claude] == 1 })
+    model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(2))
+    #expect(await eventually { model.agentIntegration.agentIgnoredEventCounts[.claude] == 1 })
 
-    model.installAgentHooks(for: .codex)
-    model.installAgentHooks(for: .claude)
-    model.refreshAgentHookInstallationStatus()
-    #expect(model.codexHooksInstalled)
-    #expect(model.claudeHooksInstalled)
+    model.agentIntegration.installAgentHooks(for: .codex)
+    model.agentIntegration.installAgentHooks(for: .claude)
+    model.agentIntegration.refreshAgentHookInstallationStatus()
+    #expect(model.agentIntegration.codexHooksInstalled)
+    #expect(model.agentIntegration.claudeHooksInstalled)
     #expect(FileManager.default.fileExists(atPath: fixture.codexSettingsURL.path))
     #expect(FileManager.default.fileExists(atPath: fixture.claudeSettingsURL.path))
     #expect(fixture.codexSettingsURL.path.hasPrefix(fixture.root.path + "/"))
     #expect(fixture.claudeSettingsURL.path.hasPrefix(fixture.root.path + "/"))
 
-    model.uninstallAgentHooks(for: .codex)
-    model.uninstallAgentHooks(for: .claude)
-    model.refreshAgentHookInstallationStatus()
-    #expect(!model.codexHooksInstalled)
-    #expect(!model.claudeHooksInstalled)
+    model.agentIntegration.uninstallAgentHooks(for: .codex)
+    model.agentIntegration.uninstallAgentHooks(for: .claude)
+    model.agentIntegration.refreshAgentHookInstallationStatus()
+    #expect(!model.agentIntegration.codexHooksInstalled)
+    #expect(!model.agentIntegration.claudeHooksInstalled)
 
-    model.clearAgentSignals(at: now.addingTimeInterval(3))
-    #expect(await eventually { model.activeAgentSignal == nil })
-    #expect(model.agentIntegrationStatus == "All agent signals cleared.")
+    model.agentIntegration.clearAgentSignals(at: now.addingTimeInterval(3))
+    #expect(await eventually { model.agentIntegration.activeAgentSignal == nil })
+    #expect(model.agentIntegration.status == "All agent signals cleared.")
   }
 
   @MainActor
@@ -333,12 +333,12 @@ struct IdleScreenAppCompileGateSmokeTests {
 
     #expect(
       await eventually {
-        fixture.model.agentIntegrationStatus?.contains("unavailable") == true
+        fixture.model.agentIntegration.status?.contains("unavailable") == true
       })
-    fixture.model.refreshAgentSignals(at: now)
+    fixture.model.agentIntegration.refreshAgentSignals(at: now)
 
-    #expect(await eventually { fixture.model.activeAgentSignal == signal })
-    #expect(fixture.model.agentIgnoredEventCounts == [.codex: 3])
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == signal })
+    #expect(fixture.model.agentIntegration.agentIgnoredEventCounts == [.codex: 3])
     #expect(loader.callCount == 2)
   }
 
@@ -381,12 +381,12 @@ struct IdleScreenAppCompileGateSmokeTests {
     }
     #expect(await eventually { loader.callCount == 1 })
 
-    fixture.model.refreshAgentSignals(at: now.addingTimeInterval(1))
-    fixture.model.refreshAgentSignals(at: now.addingTimeInterval(2))
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(1))
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(2))
     releaseFirstLoad.signal()
 
-    #expect(await eventually { fixture.model.activeAgentSignal == newestSignal })
-    #expect(fixture.model.agentIgnoredEventCounts == [.claude: 4])
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == newestSignal })
+    #expect(fixture.model.agentIntegration.agentIgnoredEventCounts == [.claude: 4])
     #expect(loader.callCount == 2)
     #expect(loader.loadedDates == [now, now.addingTimeInterval(2)])
   }
@@ -427,11 +427,11 @@ struct IdleScreenAppCompileGateSmokeTests {
     }
     #expect(await eventually { loader.callCount == 1 })
 
-    fixture.model.clearAgentSignals(at: now.addingTimeInterval(1))
+    fixture.model.agentIntegration.clearAgentSignals(at: now.addingTimeInterval(1))
     releaseStaleLoad.signal()
     #expect(await eventually { loader.callCount == 2 })
 
-    #expect(fixture.model.activeAgentSignal == nil)
+    #expect(fixture.model.agentIntegration.activeAgentSignal == nil)
     releaseClearLoad.signal()
     #expect(await eventually { loader.completedCallCount == 2 })
   }
@@ -453,9 +453,9 @@ struct IdleScreenAppCompileGateSmokeTests {
     defer { fixture.removeScratchDirectory() }
     #expect(await eventually { loader.completedCallCount == 1 })
 
-    fixture.model.refreshAgentSignals(at: now.addingTimeInterval(1))
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(1))
     #expect(await eventually { loader.completedCallCount == 2 })
-    fixture.model.refreshAgentSignals(at: now.addingTimeInterval(1.5))
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(1.5))
     try? await Task.sleep(for: .milliseconds(50))
 
     #expect(loader.callCount == 2)
@@ -471,13 +471,13 @@ struct IdleScreenAppCompileGateSmokeTests {
     )
     defer { fixture.removeScratchDirectory() }
 
-    fixture.model.installAgentHooks(for: .codex)
+    fixture.model.agentIntegration.installAgentHooks(for: .codex)
     #expect(
-      fixture.model.agentIntegrationStatus
+      fixture.model.agentIntegration.status
         == "Hook installation unavailable until the app is signed for its App Group.")
-    fixture.model.uninstallAgentHooks(for: .codex)
+    fixture.model.agentIntegration.uninstallAgentHooks(for: .codex)
     #expect(
-      fixture.model.agentIntegrationStatus
+      fixture.model.agentIntegration.status
         == "Hook removal unavailable until the app is signed for its App Group.")
   }
 
@@ -488,19 +488,19 @@ struct IdleScreenAppCompileGateSmokeTests {
       now: Date(timeIntervalSince1970: 1_786_296_900)
     )
     defer { fixture.removeScratchDirectory() }
-    fixture.model.installAgentHooks(for: .codex)
+    fixture.model.agentIntegration.installAgentHooks(for: .codex)
     try FileManager.default.createDirectory(
       at: fixture.claudeSettingsURL.deletingLastPathComponent(),
       withIntermediateDirectories: true
     )
     try Data("{malformed".utf8).write(to: fixture.claudeSettingsURL)
 
-    fixture.model.refreshAgentHookInstallationStatus()
+    fixture.model.agentIntegration.refreshAgentHookInstallationStatus()
 
-    #expect(fixture.model.codexHooksInstalled)
-    #expect(!fixture.model.claudeHooksInstalled)
+    #expect(fixture.model.agentIntegration.codexHooksInstalled)
+    #expect(!fixture.model.agentIntegration.claudeHooksInstalled)
     #expect(
-      fixture.model.agentIntegrationStatus?
+      fixture.model.agentIntegration.status?
         .contains("Claude hook status unavailable") == true
     )
   }
