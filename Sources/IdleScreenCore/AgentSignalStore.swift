@@ -232,12 +232,10 @@ public struct IdleScreenAgentSignalStore: Sendable {
         $0.provider == signal.provider && $0.sessionID == signal.sessionID
       }
       if signal.state != .idle, signal.expiresAt > date {
+        Self.reserveCapacity(in: &inbox.signals)
         inbox.signals.append(signal)
       }
       inbox.signals.sort(by: Self.signalOrder)
-      if inbox.signals.count > Self.maximumSignalCount {
-        inbox.signals.removeFirst(inbox.signals.count - Self.maximumSignalCount)
-      }
       inbox.recentEvents.append(event)
       if inbox.recentEvents.count > Self.maximumRecentEventCount {
         inbox.recentEvents.removeFirst(
@@ -296,6 +294,18 @@ public struct IdleScreenAgentSignalStore: Sendable {
       directoryDescriptor: directoryDescriptor
     )
     return inbox
+  }
+
+  /// Evicts the oldest signals, ties broken by `signalOrder`, until one slot
+  /// is free, so a new live signal is never the one dropped by sort order.
+  private static func reserveCapacity(in signals: inout [IdleScreenAgentSignal]) {
+    let overflow = signals.count - (maximumSignalCount - 1)
+    guard overflow > 0 else { return }
+    let evicted = signals.sorted { lhs, rhs in
+      lhs.createdAt != rhs.createdAt ? lhs.createdAt < rhs.createdAt : signalOrder(lhs, rhs)
+    }.prefix(overflow)
+    let evictedKeys = Set(evicted.map { "\($0.provider.rawValue):\($0.sessionID)" })
+    signals.removeAll { evictedKeys.contains("\($0.provider.rawValue):\($0.sessionID)") }
   }
 
   private static func isRecoverableContentError(

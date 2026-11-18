@@ -868,6 +868,155 @@ struct AgentSignalInboxTests {
     }
   }
 
+  private func capacitySignal(
+    provider: IdleScreenAgentProvider,
+    session: String,
+    eventID: String? = nil,
+    state: IdleScreenAgentSignalState = .working,
+    createdAt: Date
+  ) throws -> IdleScreenAgentSignal {
+    try IdleScreenAgentSignal.validated(
+      provider: provider,
+      sessionID: session,
+      eventID: eventID ?? "event-\(session)",
+      state: state,
+      title: nil,
+      message: nil,
+      temporaryLookID: nil,
+      priority: 0,
+      createdAt: createdAt,
+      expiresAt: createdAt.addingTimeInterval(120),
+      acknowledgedAt: nil,
+      nonce: "nonce-\(eventID ?? session)",
+      validatedAt: createdAt
+    )
+  }
+
+  private func fullInbox(
+    provider: IdleScreenAgentProvider = .codex,
+    sessionPrefix: String = "session",
+    createdAt: (Int) -> Date
+  ) throws -> (store: IdleScreenAgentSignalStore, root: URL) {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    let store = IdleScreenAgentSignalStore(fileURL: root.appending(path: "inbox-v1.json"))
+    for index in 0..<IdleScreenAgentSignalStore.maximumSignalCount {
+      let created = createdAt(index)
+      _ = try store.apply(
+        .set(
+          try capacitySignal(
+            provider: provider,
+            session: "\(sessionPrefix)-\(String(format: "%02d", index))",
+            createdAt: created
+          )),
+        at: created
+      )
+    }
+    return (store, root)
+  }
+
+  @Test("a lexically earlier provider survives a full inbox of another provider")
+  func newSignalSurvivesAcrossProviders() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { now.addingTimeInterval(Double($0) / 100) }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let at = now.addingTimeInterval(1)
+    let incoming = try capacitySignal(
+      provider: .claude, session: "claude-session", state: .needsAttention, createdAt: at)
+
+    let inbox = try store.apply(.set(incoming), at: at)
+
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+    #expect(inbox.signals.contains(incoming))
+    #expect(!inbox.signals.contains { $0.sessionID == "session-00" })
+    #expect(
+      inbox.recentEvents.filter { $0.eventID == incoming.eventID }.count == 1)
+    #expect(
+      inbox.signals
+        == inbox.signals.sorted { lhs, rhs in
+          "\(lhs.provider.rawValue):\(lhs.sessionID)" < "\(rhs.provider.rawValue):\(rhs.sessionID)"
+        })
+  }
+
+  @Test("a lexically earlier session survives a full inbox of its own provider")
+  func newSignalSurvivesWithinProvider() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { now.addingTimeInterval(Double($0) / 100) }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let at = now.addingTimeInterval(1)
+    let incoming = try capacitySignal(provider: .codex, session: "a-first", createdAt: at)
+
+    let inbox = try store.apply(.set(incoming), at: at)
+
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+    #expect(inbox.signals.first == incoming)
+    #expect(!inbox.signals.contains { $0.sessionID == "session-00" })
+  }
+
+  @Test("eviction removes the oldest signal by creation time")
+  func evictsOldestByCreation() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    // Session 10 is the oldest even though session 00 sorts first.
+    let (store, root) = try fullInbox { index in
+      now.addingTimeInterval(index == 10 ? -5 : Double(index) / 100)
+    }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let at = now.addingTimeInterval(1)
+
+    let inbox = try store.apply(
+      .set(try capacitySignal(provider: .claude, session: "new", createdAt: at)), at: at)
+
+    #expect(!inbox.signals.contains { $0.sessionID == "session-10" })
+    #expect(inbox.signals.contains { $0.sessionID == "session-00" })
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+  }
+
+  @Test("equal creation times evict deterministically by signal order")
+  func evictsTiesDeterministically() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { _ in now }
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let inbox = try store.apply(
+      .set(try capacitySignal(provider: .claude, session: "new", createdAt: now)), at: now)
+
+    #expect(!inbox.signals.contains { $0.sessionID == "session-00" })
+    #expect(inbox.signals.contains { $0.sessionID == "session-01" })
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+  }
+
+  @Test("replacing an existing session at capacity evicts nothing")
+  func replacingAtCapacityEvictsNothing() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { now.addingTimeInterval(Double($0) / 100) }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let before = try store.read(at: now.addingTimeInterval(1))
+    let at = now.addingTimeInterval(1)
+    let replacement = try capacitySignal(
+      provider: .codex, session: "session-30", eventID: "turn-new", state: .done, createdAt: at)
+
+    let inbox = try store.apply(.set(replacement), at: at)
+
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+    #expect(inbox.signals.contains(replacement))
+    #expect(
+      Set(inbox.signals.map(\.sessionID)) == Set(before.signals.map(\.sessionID)))
+  }
+
+  @Test("replaying an event at capacity changes nothing")
+  func replayAtCapacityIsUnchanged() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { now.addingTimeInterval(Double($0) / 100) }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let at = now.addingTimeInterval(1)
+    let incoming = try capacitySignal(provider: .claude, session: "claude-session", createdAt: at)
+    let first = try store.apply(.set(incoming), at: at)
+
+    let replay = try store.apply(.set(incoming), at: at.addingTimeInterval(1))
+
+    #expect(replay == first)
+  }
+
   private func signal(
     eventID: String,
     state: IdleScreenAgentSignalState,
