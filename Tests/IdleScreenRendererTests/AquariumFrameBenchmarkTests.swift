@@ -77,14 +77,20 @@ struct AquariumFrameBenchmarkTests {
     var report: [String] = []
     for width in AquariumFrameFixtures.widths {
       let settings = AquariumFrameFixtures.settings(width: width)
-      let iterations = width == 1152 ? 60 : 150
-      let navigation = IdleScreenAquariumNavigation(settings: settings, worldWidth: width)
+      #if DEBUG
+        // Unoptimized numbers aren't comparable; just prove the stages run.
+        let iterations = 2
+      #else
+        let iterations = width == 1152 ? 60 : 150
+      #endif
+      let preparation = IdleScreenAquariumScenePreparation()
+      let navigation = preparation.navigation(settings: settings, width: width)
       var results: [(String, Sample)] = []
       results.append(
         (
           "navigation",
           Self.measure(iterations: iterations) { _ in
-            let built = IdleScreenAquariumNavigation(settings: settings, worldWidth: width)
+            let built = preparation.navigation(settings: settings, width: width)
             return UInt64(built.shelters.count) &+ UInt64(built.floor)
           }
         ))
@@ -116,13 +122,8 @@ struct AquariumFrameBenchmarkTests {
           Self.measure(iterations: iterations) { index in
             var total = 0
             for (item, pose) in zip(settings.inhabitants, poses[index]) {
-              var sprite = pose.species.sprite(
-                phase: pose.animationPhase, facingRight: pose.facingRight,
-                activity: pose.activity, strikeProgress: pose.strikeProgress)
-              if pose.species == .cherryShrimp {
-                sprite = IdleScreenAquarium.coloredShrimp(
-                  sprite, variant: item.variant, eggs: item.carryingEggs)
-              }
+              let sprite = IdleScreenAquariumSpriteCache.shared.sprite(
+                for: pose, variant: item.variant, eggs: item.carryingEggs)
               total += sprite.width
             }
             for object in settings.objects {
@@ -144,13 +145,8 @@ struct AquariumFrameBenchmarkTests {
               canvas.object(item, time: time, flow: settings.flow)
             }
             for (item, pose) in zip(settings.inhabitants, poses[index]) {
-              var sprite = pose.species.sprite(
-                phase: pose.animationPhase, facingRight: pose.facingRight,
-                activity: pose.activity, strikeProgress: pose.strikeProgress)
-              if pose.species == .cherryShrimp {
-                sprite = IdleScreenAquarium.coloredShrimp(
-                  sprite, variant: item.variant, eggs: item.carryingEggs)
-              }
+              let sprite = IdleScreenAquariumSpriteCache.shared.sprite(
+                for: pose, variant: item.variant, eggs: item.carryingEggs)
               canvas.sprite(sprite, animal: pose, navigation: navigation)
             }
             for item in settings.objects where item.foreground {

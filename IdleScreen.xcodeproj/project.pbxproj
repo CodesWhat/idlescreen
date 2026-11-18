@@ -389,6 +389,7 @@
 		A4B104FA141A2501CB9910E1 /* SetupFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9CEA35C6C71CDEA294028D6 /* SetupFlowView.swift */; };
 		A52A1D063E75A8B3E325C45E /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 229F7EDF5A9548AF91DD4D9D /* QuartzCore.framework */; };
 		A5C130144AA86E01CB339224 /* CameraFrameMailboxWriterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C7E92F6408A7E1B8E6387D1 /* CameraFrameMailboxWriterTests.swift */; };
+		A5D3F2920B724F4004CB99C2 /* AquariumSceneCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA53F3591A6AC1DD49E2169D /* AquariumSceneCacheTests.swift */; };
 		A60BB29F081267CEF8C5D126 /* IdleScreenSystem.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61F132022B69FDCF99049744 /* IdleScreenSystem.framework */; };
 		A628D22B9A0EA255A089AA6C /* CameraDeviceInventory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34EC82DE199EDE2DBF99D678 /* CameraDeviceInventory.swift */; };
 		A7E7BAEB14D63F54904F06EB /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 458DDD28016EB7C25F90388A /* AppIcon.icon */; };
@@ -1740,6 +1741,7 @@
 		D92B04F5180393351C3EEF47 /* AquariumSavedSceneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumSavedSceneTests.swift; sourceTree = "<group>"; };
 		D9455DAE15A0BF6E260E28A2 /* AquariumPresentationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumPresentationPlanTests.swift; sourceTree = "<group>"; };
 		D9B4912DD2A54657439C579B /* IdleScreenCompanionCameraClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenCompanionCameraClient.swift; sourceTree = "<group>"; };
+		DA53F3591A6AC1DD49E2169D /* AquariumSceneCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumSceneCacheTests.swift; sourceTree = "<group>"; };
 		DA6E95F7BFAC7CF5A27F7286 /* IdleScreenDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenDisplay.swift; sourceTree = "<group>"; };
 		DC1418A86E1F8B7C5B8830FF /* IdleScreenAppCompileGateSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenAppCompileGateSmokeTests.swift; sourceTree = "<group>"; };
 		DC9AEB64E61C99DCDD266C61 /* IdleScreenMenuBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenMenuBar.swift; sourceTree = "<group>"; };
@@ -2629,6 +2631,7 @@
 				3BF3D436EC4AEA5FC533976C /* AquariumPresentationTests.swift */,
 				C0382190ED7BDCFD263FC2BF /* AquariumRuntimeBundleTests.swift */,
 				D92B04F5180393351C3EEF47 /* AquariumSavedSceneTests.swift */,
+				DA53F3591A6AC1DD49E2169D /* AquariumSceneCacheTests.swift */,
 				F10F51DAD4E968608E46D702 /* AquariumSpriteTests.swift */,
 				81165C0F8ADE820C9AD3C48A /* AquariumTests.swift */,
 				D8B978002C3B261C0D4AAC3B /* AquariumWebSurfaceTests.swift */,
@@ -4092,6 +4095,7 @@
 				9CE812CF44DFAA57E211AC78 /* AquariumPresentationTests.swift in Sources */,
 				CF031AA1E0ABC1117C3A93D6 /* AquariumRuntimeBundleTests.swift in Sources */,
 				B74ACABED8D3E68E98D3C835 /* AquariumSavedSceneTests.swift in Sources */,
+				A5D3F2920B724F4004CB99C2 /* AquariumSceneCacheTests.swift in Sources */,
 				33530EA32E3E1D806A16C281 /* AquariumSpriteTests.swift in Sources */,
 				D5558119A0DDB44847614200 /* AquariumTests.swift in Sources */,
 				8427FEFB6EA5BECF5B0DC352 /* AquariumWebSurfaceTests.swift in Sources */,
