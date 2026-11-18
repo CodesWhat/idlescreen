@@ -35,6 +35,9 @@ companion Studio. The companion controls the look, the embedded extension
 renders it, and a separately signed camera agent owns the complete camera
 lifecycle.
 
+Current release: [v0.3.0](https://github.com/CodesWhat/idlescreen/releases/tag/v0.3.0)
+(November 5, 2026).
+
 ## Contents
 
 - [Quick Start](#quick-start)
@@ -120,7 +123,7 @@ so ownership and teardown remain inspectable.
 
 ## Features
 
-- 19 Metal-rendered modes, including 18 procedural patterns and live camera
+- 19 procedural patterns, including Topograph, plus Pixel Materials and live camera
 - Pixel Materials sand and water simulations with deterministic scene state
 - Panorama, Per Display, and Focus Display multi-screen layouts
 - Saved Looks and native controls for color, scale, contrast, motion, terrain,
