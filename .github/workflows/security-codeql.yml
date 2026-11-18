@@ -225,8 +225,9 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          id="$(gh api "repos/$REPO/code-scanning/analyses?ref=refs/heads/$BASE_REF&tool_name=CodeQL&per_page=100" \
-            | jq -r '[.[] | select(.category == "/language:swift")] | sort_by(.created_at) | last | .id // empty')"
+          id="$(gh api --paginate "repos/$REPO/code-scanning/analyses?ref=refs/heads/$BASE_REF&tool_name=CodeQL&per_page=100" \
+            --jq '.[] | select(.category == "/language:swift") | "\(.created_at) \(.id)"' \
+            | sort | awk 'END { print $2 }')"
           if [[ -z "$id" ]]; then
             echo "::error::No Swift CodeQL analysis found on $BASE_REF. Run this workflow on $BASE_REF (workflow_dispatch) so a Swift baseline exists."
             exit 1
