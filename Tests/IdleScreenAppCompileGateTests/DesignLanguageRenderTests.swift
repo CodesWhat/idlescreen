@@ -48,6 +48,7 @@ struct DesignLanguageRenderTests {
       proposed: CGSize(width: 500, height: 300), current: CGSize(width: 1_180, height: 780),
       previewAspectRatio: 16.0 / 9)
     #expect(clamped.width >= 900 && clamped.height >= 600)
+    #expect(window.contentMinSize == CGSize(width: 900, height: 600))
     #expect(window.contentMaxSize.width > 10_000 && window.contentMaxSize.height > 10_000)
     for size in [CGSize(width: 1600, height: 1000), CGSize(width: 1050, height: 720)] {
       window.setContentSize(size)
@@ -168,7 +169,8 @@ struct DesignLanguageRenderTests {
     let harness = try RenderHarness()
     defer { harness.removeScratchDirectory() }
     harness.navigation.destination = .studio
-    harness.navigation.isSetupDeferred = true  // otherwise Studio's place shows setup, which follows the system
+    // Otherwise Studio shows setup, which follows the system.
+    harness.navigation.isSetupDeferred = true
     let size = NSSize(width: 1_200, height: 800)
     let view = NSHostingView(
       rootView: AnyView(
@@ -203,7 +205,8 @@ struct DesignLanguageRenderTests {
     while window.appearance != nil && Date() < deadline {
       RunLoop.current.run(until: Date().addingTimeInterval(0.02))
     }
-    #expect(window.appearance == nil)  // the window follows the system again; the host's own appearance is not ours to assert
+    // Assert the window follows the system, independently of the host appearance.
+    #expect(window.appearance == nil)
   }
 
   /// The Studio controls: the compact dock, the expanded dock for each saver kind, and the Pixel Materials dock with Advanced open.

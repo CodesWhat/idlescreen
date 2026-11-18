@@ -216,10 +216,9 @@ final class IdleScreenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDele
   #endif
 
   static func makeMainWindow<Content: View>(rootView: Content) -> NSWindow {
-    let hostingController = NSHostingController(
+    let hostingController = IdleScreenWorkbenchHostingController(
       rootView: rootView.frame(
         minWidth: 900, maxWidth: .infinity, minHeight: 600, maxHeight: .infinity))
-    hostingController.sizingOptions = []
     let window = NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
       styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
