@@ -20,6 +20,12 @@ test("the policy has no unsafe-inline for scripts and no frame-ancestors (a meta
   assert.doesNotMatch(csp, /frame-ancestors/);
 });
 
+test("connect-src allows the analytics proxy and nothing else remote", () => {
+  const csp = cspForHTML("<head></head>");
+  const connect = csp.split("; ").find((part) => part.startsWith("connect-src"));
+  assert.equal(connect, "connect-src 'self' https://e.codeswhat.com");
+});
+
 test("injection is first in <head> and replaces an earlier meta", () => {
   const once = injectCspMeta("<html><head><title>t</title><script>a</script></head></html>");
   const twice = injectCspMeta(once);
