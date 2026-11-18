@@ -54,6 +54,8 @@ release_fixtures() {
     ./scripts/test-controlled-physical-soak.py &&
     ./scripts/test-camera-gate-c4-evidence-fixtures.py &&
     ./scripts/test-camera-gate-c5-evidence-fixtures.py &&
+    ./scripts/test-camera-gate-c6-offline-fixtures.py &&
+    ./scripts/test-camera-gate-c8-offline-fixtures.py &&
     ./scripts/test-companion-compile-gate.sh &&
     ./scripts/test-release-archive-provenance-fixtures.sh &&
     ./scripts/test-r1-release-candidate-fixtures.sh &&
