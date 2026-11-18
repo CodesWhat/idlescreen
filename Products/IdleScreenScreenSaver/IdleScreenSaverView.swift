@@ -1071,6 +1071,7 @@ final class IdleScreenSaverView: ScreenSaverView {
         } : []
       applyAgentSprites(presentations)
     } catch {
+      agentSignalMonitor = monitor
       activeAgentSignal = nil
       activeAgentSignals = []
       applyAgentSprites([])

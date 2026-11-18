@@ -62,8 +62,8 @@ struct AgentSignalMonitorTests {
     #expect(change?.ignoredEventCounts == [.claude: 1])
   }
 
-  @Test("a failed read does not consume the polling interval")
-  func failedReadRetriesImmediately() throws {
+  @Test("a failed read consumes the polling interval and stays throttled")
+  func failedReadConsumesInterval() throws {
     let root = FileManager.default.temporaryDirectory
       .appending(path: UUID().uuidString, directoryHint: .isDirectory)
     defer { try? FileManager.default.removeItem(at: root) }
@@ -91,9 +91,83 @@ struct AgentSignalMonitorTests {
     encoder.dateEncodingStrategy = .iso8601
     try encoder.encode(inbox).write(to: fileURL)
 
-    let retried = try monitor.poll(at: now)
+    let beforeDeadline = try monitor.poll(at: now.addingTimeInterval(9))
+    let retried = try monitor.poll(at: now.addingTimeInterval(10))
 
+    #expect(beforeDeadline == nil)
     #expect(retried?.inboxRevision == 7)
     #expect(retried?.ignoredEventCounts == [.codex: 2])
+  }
+
+  @Test("repeated failed reads stay throttled to the polling interval")
+  func repeatedFailuresStayThrottled() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(
+      at: root,
+      withIntermediateDirectories: true
+    )
+    let fileURL = root.appending(path: "inbox-v1.json")
+    try Data("not json".utf8).write(to: fileURL)
+    let now = Date(timeIntervalSince1970: 1_786_296_300)
+    var monitor = IdleScreenAgentSignalMonitor(
+      store: IdleScreenAgentSignalStore(fileURL: fileURL),
+      pollingInterval: 10
+    )
+
+    for step in [0.0, 10, 20] {
+      #expect(throws: (any Error).self) {
+        _ = try monitor.poll(at: now.addingTimeInterval(step))
+      }
+      #expect(!monitor.canPoll(at: now.addingTimeInterval(step + 9)))
+      #expect(monitor.canPoll(at: now.addingTimeInterval(step + 10)))
+      let throttled = try monitor.poll(at: now.addingTimeInterval(step + 5))
+      #expect(throttled == nil)
+    }
+  }
+
+  @Test("a transient failure republishes the identical signal at the next scheduled poll")
+  func republishesAfterTransientFailure() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let now = Date(timeIntervalSince1970: 1_786_296_400)
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    let signal = try IdleScreenAgentSignal.validated(
+      provider: .codex,
+      sessionID: "session-1",
+      eventID: "event-1",
+      state: .needsAttention,
+      title: "Codex",
+      message: nil,
+      temporaryLookID: nil,
+      priority: 0,
+      createdAt: now,
+      expiresAt: now.addingTimeInterval(120),
+      acknowledgedAt: nil,
+      nonce: "nonce-1",
+      validatedAt: now
+    )
+    _ = try store.apply(.set(signal), at: now)
+    let healthy = try Data(contentsOf: fileURL)
+    var monitor = IdleScreenAgentSignalMonitor(store: store, pollingInterval: 1)
+
+    let first = try monitor.poll(at: now)
+    try Data("not json".utf8).write(to: fileURL)
+    #expect(throws: (any Error).self) {
+      _ = try monitor.poll(at: now.addingTimeInterval(1))
+    }
+    try healthy.write(to: fileURL)
+    let beforeDeadline = try monitor.poll(at: now.addingTimeInterval(1.5))
+    let republished = try monitor.poll(at: now.addingTimeInterval(2))
+    let unchanged = try monitor.poll(at: now.addingTimeInterval(3))
+
+    #expect(first?.signal == signal)
+    #expect(beforeDeadline == nil)
+    #expect(republished?.signal == signal)
+    #expect(republished?.inboxRevision == first?.inboxRevision)
+    #expect(unchanged == nil)
   }
 }
