@@ -80,8 +80,7 @@ for codeql_contract in \
   'language: actions' \
   'language: c-cpp' \
   'language: python' \
-  'language: swift' \
-  'runner: macos-26' \
+  'runs-on: macos-26' \
   'build-mode: manual' \
   'arch -arm64 /opt/homebrew/bin/brew install xcodegen' \
   'xcodebuild build' \
