@@ -485,6 +485,7 @@
 		F70856A3D92139FD7682F02E /* ScreenSaverRegistrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51E66C49A6A282F14F330FC3 /* ScreenSaverRegistrationTests.swift */; };
 		F79B15392527FE743BBF59FA /* CameraAgentXPCListenerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54F055C5DB3435FAE3A2A8A7 /* CameraAgentXPCListenerTests.swift */; };
 		F8EE417C594CBA411CA5B074 /* IdleScreenCameraAtomics.h in Headers */ = {isa = PBXBuildFile; fileRef = 5A9E3682C1CDFF480D0C2E8B /* IdleScreenCameraAtomics.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FAA8364C12820533766AE49E /* CameraFramePointSamplingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B27568E548A9B48FAF7763 /* CameraFramePointSamplingTests.swift */; };
 		FB4723BC34D4E8E2C3F40EBF /* IdleScreenLaunchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70687D92E674C044E9D0B62 /* IdleScreenLaunchPolicy.swift */; };
 		FBE98934B8F5148999E68CB7 /* IdleScreenScreenSaverConfigurationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FBD4BE6322930E63D3FA4FF /* IdleScreenScreenSaverConfigurationViewController.swift */; };
 		FC6D9568D97D4A632240E290 /* IdleScreenMenuBarState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92840D7688F0B9B2813A6354 /* IdleScreenMenuBarState.swift */; };
@@ -1461,6 +1462,7 @@
 		36477D9DB13AAF59C674B199 /* IdleScreenSyntheticGateTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IdleScreenSyntheticGateTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3648470CCB8E584699ABE1C7 /* IdleScreenCameraSyntheticAgentCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IdleScreenCameraSyntheticAgentCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		366CB1E7441F72176353A1FD /* idlescreenctl-DeveloperID.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "idlescreenctl-DeveloperID.entitlements"; sourceTree = "<group>"; };
+		36B27568E548A9B48FAF7763 /* CameraFramePointSamplingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraFramePointSamplingTests.swift; sourceTree = "<group>"; };
 		36B2E35EB7EC8E7688BC3B4B /* IdleScreenCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IdleScreenCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		38351B22A7EA99D0962EF932 /* SharedContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedContainer.swift; sourceTree = "<group>"; };
 		39ACDF561B9DC1DBE755E3A3 /* IdleScreenPerformance.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IdleScreenPerformance.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2118,6 +2120,7 @@
 				278298A64AD4EAE3A0C8DE40 /* CameraFrameAtomicLoaderTests.swift */,
 				6EA5541B093A9797CE067DD2 /* CameraFrameContractTests.swift */,
 				B050048521B5763507370E4D /* CameraFrameMappingTests.swift */,
+				36B27568E548A9B48FAF7763 /* CameraFramePointSamplingTests.swift */,
 				FE7A35A7CCB7C4F591C8E792 /* CameraFrameSourceTests.swift */,
 				F4FBF2AFAF82F50A6ABCA305 /* CameraLeaseContractTests.swift */,
 				B519BCA851EEBFA613656685 /* CameraLeaseControllerTests.swift */,
@@ -3738,6 +3741,7 @@
 				7769630D61326AFFBC0BA632 /* CameraFrameAtomicLoaderTests.swift in Sources */,
 				3373B9A12F05ECD162EDEFDB /* CameraFrameContractTests.swift in Sources */,
 				F1FA0CC046C90AC19A7CE458 /* CameraFrameMappingTests.swift in Sources */,
+				FAA8364C12820533766AE49E /* CameraFramePointSamplingTests.swift in Sources */,
 				0F991901FE586FD5F218B417 /* CameraFrameSourceTests.swift in Sources */,
 				C19261C3ACC3792DC138F58A /* CameraLeaseContractTests.swift in Sources */,
 				E35E3CC2840470BD9B671844 /* CameraLeaseControllerTests.swift in Sources */,
