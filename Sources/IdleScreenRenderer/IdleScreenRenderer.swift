@@ -188,6 +188,67 @@ public struct IdleScreenRendererCameraFrame: Equatable, Sendable {
     )
   }
 
+  /// Builds a frame from already-sampled BGRA points (row-major, four bytes
+  /// per point) taken on the same grid `samplingBGRA` uses. The result is
+  /// identical to `samplingBGRA` over the full frame, checksum included.
+  public static func fromSampledBGRA(
+    producerStreamEpoch: UInt64,
+    sequence: UInt64,
+    columns: Int,
+    rows: Int,
+    sampledBGRA: [UInt8]
+  ) -> Self? {
+    guard producerStreamEpoch > 0,
+      sequence > 0,
+      columns > 0,
+      rows > 0,
+      columns <= maximumColumns,
+      rows <= maximumRows,
+      sampledBGRA.count == columns * rows * 4
+    else {
+      return nil
+    }
+
+    let count = columns * rows
+    var luminance = [UInt8]()
+    luminance.reserveCapacity(count)
+    var interleavedRGB = [UInt8]()
+    interleavedRGB.reserveCapacity(count * 3)
+    var checksum = fnvOffsetBasis
+
+    for index in 0..<count {
+      let offset = index * 4
+      let blue = sampledBGRA[offset]
+      let green = sampledBGRA[offset + 1]
+      let red = sampledBGRA[offset + 2]
+      let alpha = sampledBGRA[offset + 3]
+
+      checksum = updateChecksum(checksum, byte: blue)
+      checksum = updateChecksum(checksum, byte: green)
+      checksum = updateChecksum(checksum, byte: red)
+      checksum = updateChecksum(checksum, byte: alpha)
+
+      let value =
+        (29 * Int(blue)
+          + 150 * Int(green)
+          + 77 * Int(red)) >> 8
+      luminance.append(UInt8(clamping: value))
+      interleavedRGB.append(red)
+      interleavedRGB.append(green)
+      interleavedRGB.append(blue)
+    }
+
+    return Self(
+      producerStreamEpoch: producerStreamEpoch,
+      sequence: sequence,
+      columns: columns,
+      rows: rows,
+      luminance: luminance,
+      interleavedRGB: interleavedRGB,
+      checksum: checksum
+    )
+  }
+
   private init(
     producerStreamEpoch: UInt64,
     sequence: UInt64,
