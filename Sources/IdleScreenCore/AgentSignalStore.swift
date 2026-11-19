@@ -182,7 +182,14 @@ public struct IdleScreenAgentSignalStore: Sendable {
       guard FileManager.default.fileExists(atPath: previousFileURL.path) else {
         throw primaryError
       }
-      inbox = try decode(readData(at: previousFileURL))
+      do {
+        inbox = try decode(readData(at: previousFileURL))
+      } catch {
+        // A filesystem failure on the primary must not be masked by a
+        // content failure on the backup, or clear-all would treat it as
+        // recoverable and replace a file it could not read.
+        throw Self.isContentError(primaryError) ? error : primaryError
+      }
       diagnosticSink(.recoveredPrevious(fallbackReason(for: primaryError)))
     }
     return (pruningExpiredSignals(from: inbox, at: date), validPrimaryData)
@@ -301,11 +308,13 @@ public struct IdleScreenAgentSignalStore: Sendable {
   private static func reserveCapacity(in signals: inout [IdleScreenAgentSignal]) {
     let overflow = signals.count - (maximumSignalCount - 1)
     guard overflow > 0 else { return }
-    let evicted = signals.sorted { lhs, rhs in
-      lhs.createdAt != rhs.createdAt ? lhs.createdAt < rhs.createdAt : signalOrder(lhs, rhs)
-    }.prefix(overflow)
-    let evictedKeys = Set(evicted.map { "\($0.provider.rawValue):\($0.sessionID)" })
-    signals.removeAll { evictedKeys.contains("\($0.provider.rawValue):\($0.sessionID)") }
+    let evictedIndices = Set(
+      signals.indices.sorted { lhs, rhs in
+        let (left, right) = (signals[lhs], signals[rhs])
+        return left.createdAt != right.createdAt
+          ? left.createdAt < right.createdAt : signalOrder(left, right)
+      }.prefix(overflow))
+    signals = signals.enumerated().filter { !evictedIndices.contains($0.offset) }.map(\.element)
   }
 
   private static func isRecoverableContentError(
@@ -313,6 +322,10 @@ public struct IdleScreenAgentSignalStore: Sendable {
     for mutation: Mutation
   ) -> Bool {
     guard case .clearAll = mutation else { return false }
+    return isContentError(error)
+  }
+
+  private static func isContentError(_ error: any Error) -> Bool {
     if error is DecodingError || error is IdleScreenAgentSignal.ValidationError {
       return true
     }

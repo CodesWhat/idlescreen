@@ -841,6 +841,31 @@ struct AgentSignalInboxTests {
     #expect(cleared.recentEvents == prior.recentEvents)
   }
 
+  @Test("clear-all keeps a primary read failure when the backup is also malformed")
+  func clearAllKeepsPrimaryReadFailure() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer {
+      try? FileManager.default.setAttributes(
+        [.posixPermissions: 0o600], ofItemAtPath: root.appending(path: "inbox-v1.json").path)
+      try? FileManager.default.removeItem(at: root)
+    }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    _ = try store.apply(
+      .set(try signal(eventID: "turn-1", state: .working, createdAt: now)), at: now)
+    try Data("{broken".utf8).write(to: fileURL.appendingPathExtension("previous"))
+    try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: fileURL.path)
+
+    #expect(throws: (any Error).self) {
+      _ = try store.apply(.clearAll, at: now.addingTimeInterval(1))
+    }
+    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
+    let persisted = try store.read(at: now.addingTimeInterval(1))
+    #expect(persisted.signals.count == 1)
+  }
+
   @Test("clear-all still propagates filesystem and coordination failures")
   func clearAllPropagatesOperationalFailures() throws {
     let root = FileManager.default.temporaryDirectory
@@ -983,6 +1008,29 @@ struct AgentSignalInboxTests {
     #expect(!inbox.signals.contains { $0.sessionID == "session-00" })
     #expect(inbox.signals.contains { $0.sessionID == "session-01" })
     #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+  }
+
+  @Test("eviction removes only the selected entry when a persisted inbox has duplicate keys")
+  func evictionKeepsNewerDuplicate() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { now.addingTimeInterval(Double($0) / 100) }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    var object = try #require(
+      JSONSerialization.jsonObject(with: Data(contentsOf: fileURL)) as? [String: Any])
+    var signals = try #require(object["signals"] as? [[String: Any]])
+    // The newest entry becomes a duplicate of the oldest (session-00).
+    signals[signals.count - 1]["sessionID"] = "session-00"
+    signals[signals.count - 1]["eventID"] = "event-dup"
+    object["signals"] = signals
+    try JSONSerialization.data(withJSONObject: object).write(to: fileURL)
+    let at = now.addingTimeInterval(1)
+
+    let inbox = try store.apply(
+      .set(try capacitySignal(provider: .claude, session: "new", createdAt: at)), at: at)
+
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+    #expect(inbox.signals.filter { $0.sessionID == "session-00" }.map(\.eventID) == ["event-dup"])
   }
 
   @Test("replacing an existing session at capacity evicts nothing")
