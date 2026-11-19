@@ -131,7 +131,7 @@ so ownership and teardown remain inspectable.
 - Automatic camera fallback and recovery after permission or device changes
 - Optional expiring Codex and Claude status overlays with no prompt,
   transcript, command, or response ingestion
-- Universal Apple silicon and Intel build for macOS 26 Tahoe or newer
+- Apple silicon build (M1 or later) for macOS 26 Tahoe or newer
 
 Camera frames stay inside the local App Group mailbox. They are not sent over
 the network, written to logs, or retained as test evidence. Capture stops after

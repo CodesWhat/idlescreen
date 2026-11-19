@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 
 import {
   POSTHOG_PROJECT_KEY,
   POSTHOG_PROXY_HOST,
   POSTHOG_UI_HOST,
+  DOCS_OTHER_PATH,
+  DOCS_SLUGS,
   WEB_VITALS_FLUSH_DELAY_MS,
   buildCtaEvent,
   buildPageleaveEvent,
@@ -13,6 +15,7 @@ import {
   buildWebVitalsEvent,
   canonicalizeAnalyticsRoute,
   createPostHogOptions,
+  createRouteTracker,
   createSanitizer,
   createWebVitalsReporter,
   isTrackingOptedOut,
@@ -30,6 +33,55 @@ const COOKIELESS = {
   $host: 'idlescreen.codeswhat.com',
 };
 
+const DOCS = { schema_version: 1, site: 'idlescreen', surface: 'docs' };
+
+test('docs routes canonicalize to the docs surface and a known-slug allowlist', () => {
+  assert.deepEqual(canonicalizeAnalyticsRoute('/docs'), { normalizedPath: '/docs', path: '/docs', surface: 'docs' });
+  assert.equal(canonicalizeAnalyticsRoute('/docs/').path, '/docs');
+  assert.equal(canonicalizeAnalyticsRoute('/docs/studio').path, '/docs/studio');
+  assert.equal(canonicalizeAnalyticsRoute('/docs/studio/').path, '/docs/studio');
+  assert.equal(canonicalizeAnalyticsRoute('/docs/studio.html?a=1#frag').path, '/docs/studio');
+  assert.equal(canonicalizeAnalyticsRoute('/docs/getting-started').surface, 'docs');
+  for (const unknown of ['/docs/no-such-page', '/docs/studio/extra', '/docs/_next/static/x.js', '/docs/private/acme?token=secret', '/docs/STUDIO']) {
+    assert.deepEqual(
+      [canonicalizeAnalyticsRoute(unknown).path, canonicalizeAnalyticsRoute(unknown).surface],
+      [DOCS_OTHER_PATH, 'docs'],
+      unknown,
+    );
+  }
+  assert.deepEqual(buildPageviewEvent('/docs/camera').properties, { ...DOCS, path: '/docs/camera', $pathname: '/docs/camera' });
+});
+
+test('the docs slug allowlist matches the pages in docs-site/content/docs', async () => {
+  const dir = new URL('../../docs-site/content/docs/', import.meta.url);
+  const slugs = (await readdir(dir)).filter(name => name.endsWith('.mdx')).map(name => name.slice(0, -4)).filter(name => name !== 'index');
+  assert.deepEqual([...DOCS_SLUGS].sort(), slugs.sort());
+});
+
+test('the route tracker emits a pageview only when the canonical route changes', () => {
+  const events = [];
+  const track = createRouteTracker('/docs', event => events.push(event));
+  track('/docs');
+  track('/docs?q=1#x');
+  assert.deepEqual(events, []);
+  track('/docs/studio');
+  track('/docs/studio/');
+  track('/docs/never-heard-of-it?token=secret');
+  assert.deepEqual(events.map(event => event.properties.path), ['/docs/studio', DOCS_OTHER_PATH]);
+  assert.ok(events.every(event => event.event === '$pageview' && event.properties.surface === 'docs'));
+});
+
+test('docs events pass through before_send on the docs allowlist and opt-outs still drop them', () => {
+  const docsEnvelope = (event, extra = {}) => fakeEnvelope(event, { $current_url: 'https://idlescreen.codeswhat.com/docs/studio?utm_source=x&token=secret#h', ...extra });
+  const out = sanitizeEvent(docsEnvelope('$pageview'));
+  assert.equal(out.properties.surface, 'docs');
+  assert.equal(out.properties.path, '/docs/studio');
+  assert.equal(out.properties.site, 'idlescreen');
+  assert.ok(!JSON.stringify(out).includes('secret'));
+  assert.equal(createSanitizer({ navigator: { doNotTrack: '1' }, window: {} })(docsEnvelope('$pageview')), null);
+  assert.equal(createSanitizer({ navigator: { globalPrivacyControl: true }, window: {} })(docsEnvelope('$web_vitals', { $web_vitals_LCP_value: 1200 })), null);
+});
+
 test('pageviews canonicalize "/" and collapse everything else to /_other', () => {
   assert.deepEqual(buildPageviewEvent('/?utm_source=x#hero'), {
     event: '$pageview',
@@ -37,8 +89,7 @@ test('pageviews canonicalize "/" and collapse everything else to /_other', () =>
   });
   assert.equal(canonicalizeAnalyticsRoute('/index.html').path, '/');
   assert.equal(canonicalizeAnalyticsRoute('/index.html?a=1#b').path, '/');
-  assert.equal(canonicalizeAnalyticsRoute('/docs').path, '/_other');
-  assert.equal(canonicalizeAnalyticsRoute('/docs/anything/else').path, '/_other');
+  assert.equal(canonicalizeAnalyticsRoute('/docsify').path, '/_other');
   assert.equal(canonicalizeAnalyticsRoute('/private/acme?token=secret').path, '/_other');
   assert.equal(canonicalizeAnalyticsRoute('no-leading-slash').path, '/');
   assert.equal(canonicalizeAnalyticsRoute('/').surface, 'marketing');

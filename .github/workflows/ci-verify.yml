@@ -98,6 +98,9 @@ jobs:
           ./scripts/test-public-release-contract.sh
           ./scripts/test-camera-gate-c4-evidence-fixtures.py
           ./scripts/test-camera-gate-c5-evidence-fixtures.py
+          ./scripts/test-camera-gate-evidence-common.py
+          ./scripts/test-camera-gate-c6-offline-fixtures.py
+          ./scripts/test-camera-gate-c8-offline-fixtures.py
           ./scripts/test-camera-agent-profile-policy.sh
           ./scripts/test-camera-gate-a1-config.sh
           ./scripts/test-camera-gate-a1-runner.sh

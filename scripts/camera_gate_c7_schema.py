@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 import camera_gate_app_paths
+import camera_gate_evidence_common
 from camera_gate_c6_schema import POLICIES, C6EvidenceError, verify_matrix
 
 
@@ -38,38 +39,7 @@ SWIFT_CASES = {
     "camera-disabled-saver-fallback": "cameraDisabledSaverFallback",
 }
 
-C3_FIELDS = (
-    "schema",
-    "verification_mode",
-    "archive_tree_sha256",
-    "team_identifier",
-    "app_group",
-    "mach_service",
-    "camera_usage_description_sha256",
-    "launch_agent_sha256",
-    "signer_certificate_sha256",
-    "app_bundle_identifier",
-    "app_cdhash",
-    "app_designated_requirement_sha256",
-    "app_entitlements_sha256",
-    "app_profile_sha256",
-    "app_profile_uuid",
-    "app_profile_expiration",
-    "extension_bundle_identifier",
-    "extension_cdhash",
-    "extension_designated_requirement_sha256",
-    "extension_entitlements_sha256",
-    "extension_profile_sha256",
-    "extension_profile_uuid",
-    "extension_profile_expiration",
-    "helper_bundle_identifier",
-    "helper_cdhash",
-    "helper_designated_requirement_sha256",
-    "helper_entitlements_sha256",
-    "helper_profile_sha256",
-    "helper_profile_uuid",
-    "helper_profile_expiration",
-)
+C3_FIELDS = camera_gate_evidence_common.C3_FIELDS
 
 
 class C7EvidenceError(RuntimeError):
@@ -202,40 +172,9 @@ def parse_release_provenance(path: Path, expected_hash: str, label: str) -> Rele
     if SHA256_RE.fullmatch(expected_hash) is None or sha256(path) != expected_hash:
         fail(f"{label} does not match its exact manifest SHA-256")
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeError) as error:
-        fail(f"{label} is unreadable: {error}")
-    pairs: list[tuple[str, str]] = []
-    for line_number, line in enumerate(lines, 1):
-        if "=" not in line or any(ord(character) < 0x20 for character in line):
-            fail(f"{label} line {line_number} is malformed")
-        key, value = line.split("=", 1)
-        if not value:
-            fail(f"{label} field {key!r} is empty")
-        pairs.append((key, value))
-    if tuple(key for key, _ in pairs) != C3_FIELDS:
-        fail(f"{label} is not the exact Release provenance schema")
-    values = dict(pairs)
-    expected = {
-        "schema": "IdleScreenReleaseArchiveProvenance/v1",
-        "verification_mode": "release",
-        "team_identifier": TEAM,
-        "app_group": APP_GROUP,
-        "mach_service": MACH_SERVICE,
-        "app_bundle_identifier": APP_ID,
-        "helper_bundle_identifier": HELPER_ID,
-        "extension_bundle_identifier": EXTENSION_ID,
-    }
-    for key, value in expected.items():
-        if values[key] != value:
-            fail(f"{label} {key} is not exact production Release provenance")
-    if SHA256_RE.fullmatch(values["archive_tree_sha256"]) is None:
-        fail(f"{label} archive tree SHA-256 is malformed")
-    for key, value in values.items():
-        if key.endswith("_sha256") and SHA256_RE.fullmatch(value) is None:
-            fail(f"{label} {key} is malformed")
-        if key.endswith("_cdhash") and CDHASH_RE.fullmatch(value) is None:
-            fail(f"{label} {key} is malformed")
+        values = camera_gate_evidence_common.parse_c3_manifest(path, label)
+    except camera_gate_evidence_common.C3ProvenanceError as error:
+        fail(str(error))
     return ReleaseProvenance(
         path=path,
         sha256=expected_hash,
