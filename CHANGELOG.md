@@ -17,6 +17,9 @@ All notable changes to idlescreen are documented here. The project follows
   three-renderer submission benchmark.
 - Correct the shipped 0.3.0 roadmap, current app install paths and private
   security-reporting guidance.
+- Correct the procedural pattern count to 19 (Topograph was missing), add the
+  current release to the README, refresh the project status record, and document
+  how the camera frame mailbox is stored and cleared.
 
 ## [0.3.0] - 2026-11-04
 
