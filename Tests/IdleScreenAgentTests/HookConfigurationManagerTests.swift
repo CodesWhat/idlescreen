@@ -327,11 +327,68 @@ struct HookConfigurationManagerTests {
 
     for link in [dangling, cycleA] {
       let destination = try fm.destinationOfSymbolicLink(atPath: link.path)
-      #expect(throws: IdleScreenAgentHookConfigurationManager.Error.self) {
+      #expect(throws: IdleScreenAgentHookConfigurationManager.Error.unresolvableSettingsLink) {
         try Self.manager(.codex, link, Self.applicationsPath).install()
+      }
+      #expect(throws: IdleScreenAgentHookConfigurationManager.Error.unresolvableSettingsLink) {
+        try Self.manager(.codex, link, Self.applicationsPath).uninstall()
       }
       #expect(try fm.destinationOfSymbolicLink(atPath: link.path) == destination)
     }
     #expect(!fm.fileExists(atPath: root.appending(path: "missing").path))
+  }
+
+  @Test("a symlink loop in an ancestor directory is an unresolvable link")
+  func ancestorLoopIsUnresolvable() throws {
+    let fm = FileManager.default
+    let root = try Self.scratchDirectory()
+    defer { try? fm.removeItem(at: root) }
+    try fm.createSymbolicLink(
+      atPath: root.appending(path: "loopA").path, withDestinationPath: "loopB")
+    try fm.createSymbolicLink(
+      atPath: root.appending(path: "loopB").path, withDestinationPath: "loopA")
+    let settingsURL = root.appending(path: "loopA/settings.json")
+
+    #expect(throws: IdleScreenAgentHookConfigurationManager.Error.unresolvableSettingsLink) {
+      try Self.manager(.claude, settingsURL, Self.applicationsPath).install()
+    }
+    #expect(throws: IdleScreenAgentHookConfigurationManager.Error.unresolvableSettingsLink) {
+      try Self.manager(.claude, settingsURL, Self.applicationsPath).uninstall()
+    }
+  }
+
+  @Test("uninstall with no settings file is a no-op")
+  func uninstallMissingSettingsIsNoOp() throws {
+    let root = try Self.scratchDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let settingsURL = root.appending(path: "absent/settings.json")
+
+    try Self.manager(.codex, settingsURL, Self.applicationsPath).uninstall()
+
+    #expect(!FileManager.default.fileExists(atPath: settingsURL.path))
+  }
+
+  @Test("ownership needs the exact generated structure, not marker text")
+  func ownershipIsAnchored() throws {
+    let root = try Self.scratchDirectory()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let settingsURL = root.appending(path: "settings.json")
+    let embedded = "/usr/local/bin/other 'x hook --provider codex --installation idlescreen-v1'"
+    let longerMarker =
+      "'\(Self.downloadsPath)' hook --provider codex --app-group 'g' --installation idlescreen-v10"
+    let wrongProvider =
+      "'\(Self.downloadsPath)' hook --provider claude --app-group 'g' --installation idlescreen-v1"
+    let owned =
+      "'\(Self.downloadsPath)' hook --provider codex --app-group 'g' --installation idlescreen-v1"
+    let handlers = [embedded, longerMarker, wrongProvider, owned].map {
+      ["type": "command", "command": $0]
+    }
+    let original: [String: Any] = ["hooks": ["Stop": [["hooks": handlers]]]]
+    try JSONSerialization.data(withJSONObject: original).write(to: settingsURL)
+
+    try Self.manager(.codex, settingsURL, Self.applicationsPath).uninstall()
+
+    let commands = try Self.commands(settingsURL)
+    #expect(Set(commands["Stop"] ?? []) == [embedded, longerMarker, wrongProvider])
   }
 }

@@ -44,7 +44,8 @@ public struct IdleScreenAgentHookConfigurationManager: Sendable {
   }
 
   public func install() throws {
-    var root = try readRoot()
+    let targetURL = try resolvedSettingsURL()
+    var root = try readRoot(at: targetURL)
     var hooks: [String: Any]
     if let existingHooks = root["hooks"] {
       guard let decodedHooks = existingHooks as? [String: Any] else {
@@ -69,11 +70,12 @@ public struct IdleScreenAgentHookConfigurationManager: Sendable {
       hooks[event] = entries
     }
     root["hooks"] = hooks
-    try write(root)
+    try write(root, to: targetURL)
   }
 
   public func uninstall() throws {
-    var root = try readRoot()
+    let targetURL = try resolvedSettingsURL()
+    var root = try readRoot(at: targetURL)
     guard var hooks = root["hooks"] as? [String: Any] else { return }
     for (event, rawEntries) in hooks {
       guard let entries = rawEntries as? [Any] else { continue }
@@ -89,11 +91,11 @@ public struct IdleScreenAgentHookConfigurationManager: Sendable {
     } else {
       root["hooks"] = hooks
     }
-    try write(root)
+    try write(root, to: targetURL)
   }
 
   public func isInstalled() throws -> Bool {
-    let root = try readRoot()
+    let root = try readRoot(at: settingsURL)
     guard let hooks = root["hooks"] as? [String: Any] else { return false }
     return events.allSatisfy { event in
       let entries = hooks[event] as? [Any] ?? []
@@ -167,16 +169,61 @@ public struct IdleScreenAgentHookConfigurationManager: Sendable {
   }
 
   private func isOwnedManagedCommand(_ command: String) -> Bool {
-    command.contains(" hook ")
-      && command.contains("--provider \(provider.rawValue)")
-      && command.contains("--installation idlescreen-v1")
+    // Generated shape: <exe> hook --provider <p> [--app-group <g>] --installation idlescreen-v1.
+    // The executable path and app group vary across installs, so neither is pinned.
+    guard let words = Self.shellWords(command) else { return false }
+    guard words.count == 6 || words.count == 8 else { return false }
+    if words.count == 8, words[4] != "--app-group" { return false }
+    return words[1] == "hook"
+      && words[2] == "--provider" && words[3] == provider.rawValue
+      && words[words.count - 2] == "--installation" && words[words.count - 1] == "idlescreen-v1"
   }
 
-  private func readRoot() throws -> [String: Any] {
-    guard FileManager.default.fileExists(atPath: settingsURL.path) else { return [:] }
+  /// Splits a command into POSIX-style words, honoring single quotes,
+  /// double quotes and backslashes. Returns nil for unbalanced quoting.
+  private static func shellWords(_ command: String) -> [String]? {
+    var words: [String] = []
+    var current = ""
+    var inWord = false
+    var quote: Character?
+    var escaped = false
+    for character in command {
+      if escaped {
+        current.append(character)
+        escaped = false
+      } else if let open = quote {
+        if character == open {
+          quote = nil
+        } else if character == "\\", open == "\"" {
+          escaped = true
+        } else {
+          current.append(character)
+        }
+      } else if character == "'" || character == "\"" {
+        quote = character
+        inWord = true
+      } else if character == "\\" {
+        escaped = true
+        inWord = true
+      } else if character.isWhitespace {
+        if inWord { words.append(current) }
+        current = ""
+        inWord = false
+      } else {
+        current.append(character)
+        inWord = true
+      }
+    }
+    guard quote == nil, !escaped else { return nil }
+    if inWord { words.append(current) }
+    return words
+  }
+
+  private func readRoot(at url: URL) throws -> [String: Any] {
+    guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
     guard
       let object = try? JSONSerialization.jsonObject(
-        with: Data(contentsOf: settingsURL)
+        with: Data(contentsOf: url)
       ), let root = object as? [String: Any]
     else {
       throw Error.malformedSettings
@@ -184,8 +231,7 @@ public struct IdleScreenAgentHookConfigurationManager: Sendable {
     return root
   }
 
-  private func write(_ root: [String: Any]) throws {
-    let targetURL = try resolvedSettingsURL()
+  private func write(_ root: [String: Any], to targetURL: URL) throws {
     try FileManager.default.createDirectory(
       at: targetURL.deletingLastPathComponent(),
       withIntermediateDirectories: true
@@ -205,7 +251,11 @@ public struct IdleScreenAgentHookConfigurationManager: Sendable {
   /// A dangling or cyclic link fails instead of being replaced.
   private func resolvedSettingsURL() throws -> URL {
     var linkInfo = stat()
-    if lstat(settingsURL.path, &linkInfo) == 0, (linkInfo.st_mode & S_IFMT) == S_IFLNK {
+    let status = lstat(settingsURL.path, &linkInfo)
+    if status != 0, errno == ELOOP {
+      throw Error.unresolvableSettingsLink
+    }
+    if status == 0, (linkInfo.st_mode & S_IFMT) == S_IFLNK {
       var targetInfo = stat()
       guard stat(settingsURL.path, &targetInfo) == 0 else {
         throw Error.unresolvableSettingsLink
