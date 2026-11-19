@@ -618,3 +618,194 @@ private func eventually(
   }
   return condition()
 }
+
+@MainActor
+@Suite("Companion configuration load failure")
+struct ConfigurationLoadFailureTests {
+  private func makeModel(
+    root: URL,
+    sharedPaths: IdleScreenSharedPaths
+  ) -> IdleScreenAppModel {
+    IdleScreenAppModel(
+      bundle: Bundle(for: TestBundleMarker.self),
+      agentIntegrationDependencies: .init(
+        sharedPaths: sharedPaths,
+        appGroupIdentifier: "group.com.idlescreen.tests.shared",
+        legacyConfigurationURLs: [root.appending(path: "Legacy/config.json")],
+        codexHookSettingsURL: root.appending(path: "Home/.codex/hooks.json"),
+        claudeHookSettingsURL: root.appending(path: "Home/.claude/settings.json"),
+        agentControlExecutableURL: root.appending(path: "Helpers/idlescreenctl"),
+        clock: { Date(timeIntervalSince1970: 1_800_000_000) },
+        loadAgentSignals: { store, date in try store.read(at: date) }
+      )
+    )
+  }
+
+  private func scratch() throws -> (root: URL, paths: IdleScreenSharedPaths) {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    let paths = IdleScreenSharedPaths(
+      rootURL: root.appending(path: "Shared", directoryHint: .isDirectory)
+    )
+    try FileManager.default.createDirectory(
+      at: paths.configurationURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+    return (root, paths)
+  }
+
+  private func assertEditsNeverOverwrite(original: Data, name: String) throws {
+    let (root, paths) = try scratch()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try original.write(to: paths.configurationURL)
+
+    let model = makeModel(root: root, sharedPaths: paths)
+    #expect(model.configurationLoadFailure != nil, "\(name)")
+    #expect(try Data(contentsOf: paths.configurationURL) == original, "\(name) after init")
+
+    let failure = model.configurationLoadFailure
+    for seed: UInt64 in [11, 12, 13] {
+      model.lastError = nil
+      model.updatePixelMaterials { $0.seed = seed }
+      #expect(model.configuration.materials.seed == seed, "\(name) edit applied in memory")
+      #expect(model.lastError == failure, "\(name) surfaces the retained error")
+      #expect(try Data(contentsOf: paths.configurationURL) == original, "\(name) after edits")
+    }
+    #expect(model.configurationLoadFailure == failure)
+  }
+
+  @Test("Malformed configuration is never overwritten by edits")
+  func malformedConfigurationSurvivesEdits() throws {
+    try assertEditsNeverOverwrite(
+      original: Data("{ not json at all".utf8),
+      name: "malformed"
+    )
+  }
+
+  @Test("Future-schema configuration is never overwritten by edits")
+  func futureSchemaConfigurationSurvivesEdits() throws {
+    var future = IdleScreenConfiguration.default
+    future.schemaVersion = IdleScreenConfiguration.currentSchemaVersion + 1
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let data = try encoder.encode(future)
+    try assertEditsNeverOverwrite(original: data, name: "future schema")
+  }
+
+  @Test("Missing configuration initializes and persists normally")
+  func missingConfigurationPersists() throws {
+    let (root, paths) = try scratch()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let model = makeModel(root: root, sharedPaths: paths)
+    #expect(model.configurationLoadFailure == nil)
+    #expect(FileManager.default.fileExists(atPath: paths.configurationURL.path))
+
+    let before = model.configuration.revision
+    model.updatePixelMaterial(.mixed)
+    let stored = try IdleScreenConfigurationStore(fileURL: paths.configurationURL).read()
+    #expect(stored?.materials.material == .mixed)
+    #expect(stored?.revision == before &+ 1)
+  }
+
+  @Test("Supported existing configuration persists edits")
+  func supportedConfigurationPersists() throws {
+    let (root, paths) = try scratch()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try IdleScreenConfigurationStore(fileURL: paths.configurationURL).write(.default)
+
+    let model = makeModel(root: root, sharedPaths: paths)
+    #expect(model.configurationLoadFailure == nil)
+    model.updatePixelMaterial(.mixed)
+    let stored = try IdleScreenConfigurationStore(fileURL: paths.configurationURL).read()
+    #expect(stored?.materials.material == .mixed)
+  }
+}
+
+private final class SuspendedHealthLoader: @unchecked Sendable {
+  private let lock = NSLock()
+  private let release = DispatchSemaphore(value: 0)
+  private var calls = 0
+  private var firstEntered = false
+
+  var callCount: Int { lock.withLock { calls } }
+  var hasEntered: Bool { lock.withLock { firstEntered } }
+
+  func resume() { release.signal() }
+
+  /// The first call blocks until `resume()`; later calls return at once.
+  func load(
+    snapshots: [IdleScreenAppModel.ProcessHealthSnapshot]
+  ) -> IdleScreenAppModel.ProcessHealthSnapshot {
+    let index = lock.withLock { () -> Int in
+      calls += 1
+      if calls == 1 { firstEntered = true }
+      return calls - 1
+    }
+    if index == 0 { release.wait() }
+    return snapshots[min(index, snapshots.count - 1)]
+  }
+}
+
+@MainActor
+@Suite("Companion process health refresh")
+struct ProcessHealthRefreshTests {
+  private func report(_ pid: Int32, at seconds: TimeInterval) -> IdleScreenProcessHealth {
+    IdleScreenProcessHealth(
+      process: .cameraAgent,
+      processIdentifier: pid,
+      lifecycle: .attached,
+      build: .init(version: "0.1", buildNumber: "1", bundleIdentifier: "com.idlescreen.tests"),
+      updatedAt: Date(timeIntervalSince1970: seconds),
+      issue: nil
+    )
+  }
+
+  @Test("a suspended loader leaves the main actor free and stale results never win")
+  func suspendedLoaderCoalescesAndKeepsNewest() async throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let older = IdleScreenAppModel.ProcessHealthSnapshot(
+      reports: [report(1, at: 1)], liveReportIdentifiers: [])
+    let newer = IdleScreenAppModel.ProcessHealthSnapshot(
+      reports: [report(2, at: 2)], liveReportIdentifiers: [report(2, at: 2).reportIdentifier])
+    let loader = SuspendedHealthLoader()
+    let model = IdleScreenAppModel(
+      bundle: Bundle(for: TestBundleMarker.self),
+      agentIntegrationDependencies: .init(
+        sharedPaths: IdleScreenSharedPaths(rootURL: root.appending(path: "Shared")),
+        appGroupIdentifier: "group.com.idlescreen.tests.shared",
+        legacyConfigurationURLs: [root.appending(path: "Legacy/config.json")],
+        codexHookSettingsURL: root.appending(path: "Home/.codex/hooks.json"),
+        claudeHookSettingsURL: root.appending(path: "Home/.claude/settings.json"),
+        agentControlExecutableURL: root.appending(path: "Helpers/idlescreenctl"),
+        clock: { Date(timeIntervalSince1970: 1_800_000_000) },
+        loadAgentSignals: { store, date in try store.read(at: date) },
+        loadProcessHealth: { _ in loader.load(snapshots: [older, newer]) }
+      )
+    )
+
+    // Init started the first (suspended) pass.
+    #expect(await eventually { loader.hasEntered })
+
+    // The main actor still runs while the loader is blocked, and overlapping
+    // refreshes coalesce rather than starting more loads.
+    model.refreshProcessHealth()
+    model.refreshProcessHealth()
+    model.refreshProcessHealth()
+    model.updatePixelMaterials { $0.seed = 4242 }
+    #expect(model.configuration.materials.seed == 4242)
+    #expect(model.processHealth.isEmpty)
+    #expect(loader.callCount == 1)
+
+    loader.resume()
+    // The first pass publishes, then the single coalesced follow-up replaces it.
+    #expect(await eventually { model.processHealth.map(\.processIdentifier) == [2] })
+    #expect(model.isProcessReportLive(report(2, at: 2)))
+    #expect(loader.callCount == 2)
+
+    // No later write may bring the older snapshot back.
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(model.processHealth.map(\.processIdentifier) == [2])
+  }
+}

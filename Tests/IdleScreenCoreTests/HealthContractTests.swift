@@ -329,4 +329,143 @@ struct HealthContractTests {
       !FileManager.default.fileExists(
         atPath: directory.appending(path: "screenSaverExtension-2001.json").path))
   }
+
+  private func retentionReport(
+    _ process: IdleScreenProcessKind,
+    pid: Int32,
+    instance: String? = nil,
+    at seconds: TimeInterval,
+    lifecycle: IdleScreenLifecyclePhase = .detached
+  ) -> IdleScreenProcessHealth {
+    IdleScreenProcessHealth(
+      process: process,
+      processIdentifier: pid,
+      instanceIdentifier: instance,
+      lifecycle: lifecycle,
+      build: .init(version: "0.1", buildNumber: "1", bundleIdentifier: "com.idlescreen.tests"),
+      updatedAt: Date(timeIntervalSince1970: seconds),
+      issue: nil
+    )
+  }
+
+  private func retentionDirectory() -> URL {
+    FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+  }
+
+  @Test("retention bounds history per process kind and keeps protected live reports")
+  func retentionBoundsHistory() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory)
+
+    var protected: Set<String> = []
+    for index in 0..<100 {
+      try store.write(
+        retentionReport(
+          .screenSaverExtension, pid: Int32(10_000 + index), instance: "view",
+          at: 1_000 + Double(index)))
+    }
+    for index in 0..<70 {
+      try store.write(
+        retentionReport(.cameraAgent, pid: Int32(20_000 + index), at: 1_000 + Double(index)))
+    }
+    // Old live view reports that the age ordering alone would prune.
+    for display in 0..<3 {
+      let live = retentionReport(
+        .screenSaverExtension, pid: 5, instance: "display-\(display)",
+        at: 1, lifecycle: .animating)
+      try store.write(live)
+      protected.insert(live.reportIdentifier)
+    }
+
+    let result = try store.enforceRetention(protecting: protected)
+    let kept = try store.readAll()
+    #expect(kept == result.retained)
+
+    let extensionReports = kept.filter { $0.process == .screenSaverExtension }
+    let history = extensionReports.filter { !protected.contains($0.reportIdentifier) }
+    #expect(history.count == IdleScreenHealthStore.historicalReportLimit)
+    #expect(extensionReports.count == 64 + 3)
+    // The newest 64 (indexes 36..<100) survive; the oldest are gone.
+    #expect(
+      history.compactMap(\.processIdentifier).sorted() == (36..<100).map { Int32(10_000 + $0) })
+    #expect(protected.isSubset(of: Set(kept.map(\.reportIdentifier))))
+    #expect(kept.filter { $0.process == .cameraAgent }.count == 64)
+    #expect(result.removedReportIdentifiers.count == 36 + 6)
+
+    // Idempotent.
+    #expect(try store.enforceRetention(protecting: protected).removedReportIdentifiers.isEmpty)
+  }
+
+  @Test("retention breaks updatedAt ties by filename")
+  func retentionTieBreak() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory)
+    for pid in 1...5 {
+      try store.write(retentionReport(.companionApp, pid: Int32(pid), at: 50))
+    }
+    try store.enforceRetention(historicalLimitPerProcess: 2)
+    #expect(try store.readAll().map(\.processIdentifier) == [1, 2])
+  }
+
+  @Test("repeated writes to one identity replace the report")
+  func repeatedWritesReplace() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory)
+    for tick in 0..<10 {
+      try store.write(
+        retentionReport(.screenSaverExtension, pid: 9, instance: "v", at: Double(tick)))
+    }
+    let reports = try store.readAll()
+    #expect(reports.count == 1)
+    #expect(reports.first?.updatedAt == Date(timeIntervalSince1970: 9))
+  }
+
+  @Test("retention never removes unrecognized files")
+  func retentionIgnoresUnrecognizedFiles() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory)
+    try store.write(retentionReport(.companionApp, pid: 1, at: 1))
+    try store.write(retentionReport(.companionApp, pid: 2, at: 2))
+    let renamed = retentionReport(.companionApp, pid: 3, at: 0)
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let stray = directory.appending(path: "backup-of-report.json")
+    try encoder.encode(renamed).write(to: stray)
+    let corrupt = directory.appending(path: "companionApp-corrupt.json")
+    try Data("{nope".utf8).write(to: corrupt)
+    let notes = directory.appending(path: "notes.txt")
+    try Data("hi".utf8).write(to: notes)
+
+    try store.enforceRetention(historicalLimitPerProcess: 0)
+
+    #expect(FileManager.default.fileExists(atPath: stray.path))
+    #expect(FileManager.default.fileExists(atPath: corrupt.path))
+    #expect(FileManager.default.fileExists(atPath: notes.path))
+    #expect(try store.readAll().map(\.processIdentifier) == [3])
+  }
+
+  @Test("a report refreshed while retention runs survives pruning")
+  func concurrentRefreshSurvivesPruning() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory)
+    for pid in 1...5 {
+      try store.write(retentionReport(.cameraAgent, pid: Int32(pid), at: Double(pid)))
+    }
+    // pid 1 is the oldest and selected for removal; it is rewritten first.
+    let refreshed = retentionReport(.cameraAgent, pid: 1, at: 99)
+    let result = try store.enforceRetention(
+      protecting: [],
+      historicalLimitPerProcess: 4,
+      beforeRemoving: { _ in try? store.write(refreshed) }
+    )
+
+    #expect(result.removedReportIdentifiers.isEmpty)
+    #expect(try store.readAll().contains(refreshed))
+  }
 }
