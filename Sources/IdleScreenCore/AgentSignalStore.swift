@@ -213,7 +213,7 @@ public struct IdleScreenAgentSignalStore: Sendable {
       let decoded = try readInbox(at: date)
       inbox = decoded.inbox
       validPrimaryData = decoded.validPrimaryData
-    } catch where Self.isRecoverableContentError(error, for: mutation) {
+    } catch  where Self.isRecoverableContentError(error, for: mutation) {
       // Only the explicit emergency clear may discard an unreadable inbox.
       // Every other mutation stays fail-closed.
       inbox = .empty
