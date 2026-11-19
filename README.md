@@ -86,6 +86,7 @@ Not verified on a device for 0.3.0:
 - Multiple screen saver views, displays, Spaces and users at once.
 - Helper and extension crash recovery.
 - A long soak run.
+- Intel Macs.
 - Mixed-scale multi-display hot-plug beyond the maintainer's own setup.
 
 These paths have automated or fixture coverage only. If one of them breaks for
