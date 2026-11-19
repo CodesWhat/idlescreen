@@ -14,6 +14,7 @@ npm run assemble
 
 cd "$root/website"
 npm ci
+npm run vendor:analytics:check
 npx playwright install chromium firefox webkit
 npm run test:unit
 npx playwright test
