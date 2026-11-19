@@ -165,6 +165,7 @@ for required_text in \
   'skip "Auto-generated on release."' \
   'name "IdleScreen"' \
   'depends_on macos: :tahoe' \
+  'depends_on arch: :arm64' \
   '  app "IdleScreen.app"' \
   'quit: "com.idlescreen.app"' \
   'group.com.idlescreen.shared'; do

@@ -194,7 +194,7 @@ jobs:
           xcodebuild build -quiet \
             -project IdleScreen.xcodeproj \
             -scheme IdleScreenApp \
-            -destination 'platform=macOS' \
+            -destination 'generic/platform=macOS' \
             -derivedDataPath "$RUNNER_TEMP/idlescreen-codeql" \
             ARCHS=arm64 \
             ONLY_ACTIVE_ARCH=YES \

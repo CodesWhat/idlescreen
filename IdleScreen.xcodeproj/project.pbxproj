@@ -189,7 +189,6 @@
 		522FBCFF94C7B7FE40A1BB3A /* IdleScreenCtl in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 32FFF60F9D62D8DD7677EF56 /* IdleScreenCtl */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		5256C40EE80F1A7BBA0984AD /* DesignComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98630BAEAE7347003FEC06D6 /* DesignComponents.swift */; };
 		527C29F7FA7259682B45214A /* ProceduralComputeRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA8CF6ED371021EDB976389A /* ProceduralComputeRendererTests.swift */; };
-		53F32620D4B33989EA6EB605 /* PixelMaterialsInspectorContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC28FEB285957CC3C80874D /* PixelMaterialsInspectorContract.swift */; };
 		54BEFD549B5AA83B7A3E8D26 /* StatusSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C15C7C1628D3BFBF5DC23354 /* StatusSummary.swift */; };
 		5609064331C2DF614EF11C6F /* AgentSignalPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF00299DA905E59EDBEA0058 /* AgentSignalPresentation.swift */; };
 		5705CF8032671A4F9E4AEB15 /* CameraCaptureSessionControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16B3B50017BBB9244229D485 /* CameraCaptureSessionControllerTests.swift */; };
@@ -277,7 +276,6 @@
 		81070AA94262F1745942E8E8 /* AnimationContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F157C1C0001C5ADCA55581F4 /* AnimationContractTests.swift */; };
 		81188AA1333773EB26C4EC8E /* IdleScreenAgent.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = EDB73BF104D765DA90F9ED68 /* IdleScreenAgent.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		83528BBE6A109102CFB6580D /* group.com.idlescreen.dev.shared.camera-agent.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = F20FCA2E7D8F4775FE5D207B /* group.com.idlescreen.dev.shared.camera-agent.plist */; };
-		83CB843BF08E6FB97B073E4A /* PixelMaterialsInspectorContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC28FEB285957CC3C80874D /* PixelMaterialsInspectorContract.swift */; };
 		8512359CFEE84DA1DEAACCBB /* IdleScreenRendererViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA922D22BC43F4D141EC1BC9 /* IdleScreenRendererViewport.swift */; };
 		8572F2E759029AFBE3FE4510 /* IdleScreenCamera.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9068229D1CD3299655B7C94 /* IdleScreenCamera.framework */; };
 		85CAC26534B96C0F842A1412 /* IdleScreenCompanionCameraClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE7213968D563463E3BEFDD /* IdleScreenCompanionCameraClientTests.swift */; };
@@ -363,7 +361,6 @@
 		B157C3FC837772B74DC1D2A9 /* Workbench.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5CF0CDCADCE48EDE99E32F2 /* Workbench.swift */; };
 		B237187BF45B96AEB73619B6 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEA410F56388DB9323F62460 /* AppKit.framework */; };
 		B2580C50473A704E126A9DF3 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6DF5148B776EA476C5BB7324 /* MetalKit.framework */; };
-		B299B7A6A310AE381D2344A8 /* PixelMaterialsInspectorContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC28FEB285957CC3C80874D /* PixelMaterialsInspectorContract.swift */; };
 		B2FB171EFB6C81B8701B8847 /* CameraFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21272F4D033091DD8238AA5C /* CameraFrame.swift */; };
 		B304F54D25B4331FF4F5F3D7 /* CoreVideo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7EE85391BE8A694AB764F34B /* CoreVideo.framework */; };
 		B310DD1A46E197EA2E677F3D /* DesignWindowAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15F5BE5D812A37C5D0EE4F45 /* DesignWindowAppearance.swift */; };
@@ -1546,7 +1543,6 @@
 		88ED5845CBBA9520E6C75B3E /* ScreenSaverActivation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenSaverActivation.swift; sourceTree = "<group>"; };
 		89C3BFB5185E8463938B7BA6 /* CameraProcessLeaseCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraProcessLeaseCoordinatorTests.swift; sourceTree = "<group>"; };
 		89E20B4D3808AF3DBCE5E282 /* DisplayTopologyPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayTopologyPublisher.swift; sourceTree = "<group>"; };
-		8AC28FEB285957CC3C80874D /* PixelMaterialsInspectorContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelMaterialsInspectorContract.swift; sourceTree = "<group>"; };
 		8AE7213968D563463E3BEFDD /* IdleScreenCompanionCameraClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenCompanionCameraClientTests.swift; sourceTree = "<group>"; };
 		8B253FA47747E739F8D9E0DD /* HookConfigurationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookConfigurationManager.swift; sourceTree = "<group>"; };
 		8BAEB5CDFF8CB4420B17218F /* DisplayScenePlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayScenePlannerTests.swift; sourceTree = "<group>"; };
@@ -2573,7 +2569,6 @@
 				79DA8946DDF932E2CB2F86A2 /* IdleScreenStudio.swift */,
 				EB544F8A77528685956DA812 /* Info.plist */,
 				D32F378F3FC4FB3768DF8CDE /* IntegrationsView.swift */,
-				8AC28FEB285957CC3C80874D /* PixelMaterialsInspectorContract.swift */,
 				058BBBFE753B432DEBB102FC /* StudioCameraPreviewReconciliation.swift */,
 				A7220C759882261E1A041FF5 /* SystemViews.swift */,
 				CAA38F3FCF03496F7CE3E45F /* Design */,
@@ -3807,7 +3802,6 @@
 				B5668AE087BF9F895B2525D4 /* IdleScreenPreviewWindowGeometry.swift in Sources */,
 				25CAFCDE845E6E8E1331D255 /* IdleScreenStudio.swift in Sources */,
 				384B36817CE1D68BDF8FED99 /* IntegrationsView.swift in Sources */,
-				83CB843BF08E6FB97B073E4A /* PixelMaterialsInspectorContract.swift in Sources */,
 				8EE6B1C5D547161C1E78ACB3 /* RendererConfigurationBridge.swift in Sources */,
 				F5E15C3EE84F3607D497B2C0 /* SetupFlowView.swift in Sources */,
 				B887C6E423CD67A18650346A /* SetupProgress.swift in Sources */,
@@ -3918,7 +3912,6 @@
 				480DAAF4F70B70FA36B324CF /* IdleScreenPreviewWindowGeometry.swift in Sources */,
 				507F996B1072B6D142AA0455 /* IdleScreenStudio.swift in Sources */,
 				886D54443F46B6FDA46F0A92 /* IntegrationsView.swift in Sources */,
-				B299B7A6A310AE381D2344A8 /* PixelMaterialsInspectorContract.swift in Sources */,
 				C101ED9D185317F0DA66E279 /* RendererConfigurationBridge.swift in Sources */,
 				A4B104FA141A2501CB9910E1 /* SetupFlowView.swift in Sources */,
 				DB95213FF530489B55883B9D /* SetupProgress.swift in Sources */,
@@ -4000,7 +3993,6 @@
 				BAB299C4BD1AE0F7FB1E2A17 /* IdleScreenPreviewWindowGeometry.swift in Sources */,
 				6F168B5CCC04462FACB4FBEA /* IdleScreenStudio.swift in Sources */,
 				B7CF04848AC201994CE7E1FA /* IntegrationsView.swift in Sources */,
-				53F32620D4B33989EA6EB605 /* PixelMaterialsInspectorContract.swift in Sources */,
 				781218D82F6B0884C7D964F9 /* RendererConfigurationBridge.swift in Sources */,
 				950E51B8D082A1DE97108C0C /* SaverTileArtTests.swift in Sources */,
 				AFAC03067D0DC044777FB5C9 /* SetupFlowRenderTests.swift in Sources */,
@@ -5105,6 +5097,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -5138,6 +5131,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				EXCLUDED_ARCHS = x86_64;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -6185,6 +6179,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -6218,6 +6213,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXCLUDED_ARCHS = x86_64;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

@@ -80,7 +80,7 @@ struct IntegrationsView: View {
   }
 
   private func providerSection(_ provider: IdleScreenAgentProvider) -> some View {
-    let name = providerName(provider)
+    let name = provider.displayName
     let enabled = model.configuration.agentIntegration.isEnabled(for: provider)
     let installed =
       provider == .codex
@@ -131,7 +131,7 @@ struct IntegrationsView: View {
   }
 
   private func hooksDetail(_ provider: IdleScreenAgentProvider, installed: Bool) -> String {
-    let name = providerName(provider)
+    let name = provider.displayName
     if installed { return "\(name) reports status to IdleScreen." }
     if !model.hasSharedContainer { return "Hook install isn't available in this build." }
     return "Install hooks so \(name) can report status."
@@ -274,7 +274,7 @@ struct IntegrationsView: View {
 
   @ViewBuilder
   private func hookConfigRow(_ provider: IdleScreenAgentProvider) -> some View {
-    let name = providerName(provider)
+    let name = provider.displayName
     let isExpanded = expandedSnippet == provider
     DesignRow(
       title: "\(name) hook config",
@@ -314,7 +314,7 @@ struct IntegrationsView: View {
 
   private var activeSignalSummary: String {
     guard let signal = model.activeAgentSignal else { return "No active signal" }
-    return "\(providerName(signal.provider)) \(stateSentence(signal.state)). "
+    return "\(signal.provider.displayName) \(stateSentence(signal.state)). "
       + "Clears at \(signal.expiresAt.formatted(date: .omitted, time: .shortened))."
   }
 
@@ -491,10 +491,6 @@ struct IntegrationsView: View {
       second: 0,
       of: Date()
     ) ?? Date()
-  }
-
-  private func providerName(_ provider: IdleScreenAgentProvider) -> String {
-    provider == .codex ? "Codex" : "Claude"
   }
 
   private func providerMapping(_ provider: IdleScreenAgentProvider) -> String {
