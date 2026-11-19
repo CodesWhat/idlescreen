@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import IOKit.ps
 import IdleScreenCore
 import IdleScreenDisplay
 import IdleScreenRenderer
@@ -8,19 +9,81 @@ import MetalKit
 import Observation
 import QuartzCore
 
+enum IdleScreenPowerSource: Equatable {
+  case ac
+  case battery
+}
+
+/// Reads the providing power source and reports AC/battery transitions. Both
+/// ends are injectable so tests never depend on real power changes.
+struct IdleScreenPowerSourceProvider: Sendable {
+  var current: @Sendable () -> IdleScreenPowerSource
+  /// Registers a handler that may run on any thread and returns a cancel closure.
+  var observe: @Sendable (@escaping @Sendable () -> Void) -> @Sendable () -> Void
+
+  static let system = IdleScreenPowerSourceProvider(
+    current: {
+      let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue()
+      let type = info.flatMap { IOPSGetProvidingPowerSourceType($0)?.takeUnretainedValue() }
+      return (type as String?) == kIOPSBatteryPowerValue ? .battery : .ac
+    },
+    observe: { handler in
+      let box = Unmanaged.passRetained(PowerSourceHandlerBox(handler))
+      guard
+        let source = IOPSNotificationCreateRunLoopSource(
+          { context in
+            guard let context else { return }
+            Unmanaged<PowerSourceHandlerBox>.fromOpaque(context).takeUnretainedValue().handler()
+          }, box.toOpaque()
+        )?.takeRetainedValue()
+      else {
+        box.release()
+        return {}
+      }
+      CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+      let cancel = PowerSourceCancel {
+        CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        CFRunLoopSourceInvalidate(source)
+        box.release()
+      }
+      return { cancel.run() }
+    })
+}
+
+private final class PowerSourceHandlerBox: @unchecked Sendable {
+  let handler: @Sendable () -> Void
+  init(_ handler: @escaping @Sendable () -> Void) { self.handler = handler }
+}
+
+/// Runs its teardown once, whichever thread asks first.
+private final class PowerSourceCancel: @unchecked Sendable {
+  private let lock = NSLock()
+  private var action: (() -> Void)?
+  init(_ action: @escaping () -> Void) { self.action = action }
+  func run() {
+    lock.lock()
+    let action = self.action
+    self.action = nil
+    lock.unlock()
+    action?()
+  }
+}
+
 struct IdleScreenAquariumPresentationPolicy: Equatable {
   var screensAwake = true
   var sessionActive = true
   var lowPower = false
+  var powerSource = IdleScreenPowerSource.ac
   var reduceMotion = false
   var renderCost: TimeInterval = 0
   var framesPerSecond: Int {
     guard screensAwake, sessionActive, !reduceMotion else { return 0 }
-    let ceiling =
-      lowPower ? 12 : IdleScreenProceduralPatterns.framesPerSecond(patternRawValue: "aquarium")
+    let onBattery = powerSource == .battery
+    let patternRate = IdleScreenProceduralPatterns.framesPerSecond(patternRawValue: "aquarium")
+    let ceiling = lowPower ? 12 : (onBattery ? min(patternRate, 30) : patternRate)
     guard renderCost.isFinite, renderCost >= 0 else { return 0 }
     guard renderCost > 0 else { return ceiling }
-    let budget = lowPower ? 0.08 : 0.8
+    let budget = lowPower ? 0.08 : (onBattery ? 0.4 : 0.8)
     return max(1, Int(min(Double(ceiling), budget / max(0.000001, renderCost))))
   }
 }
@@ -93,10 +156,12 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
   @ObservationIgnored private let topology: () throws -> DisplayTopology
   @ObservationIgnored private let clock: () -> Date
   @ObservationIgnored private let reducedMotion: () -> Bool
+  @ObservationIgnored private let powerSource: IdleScreenPowerSourceProvider
+  @ObservationIgnored private var cancelPowerSourceObservation: (() -> Void)?
   @ObservationIgnored private var desktop: [String: Surface] = [:]
   @ObservationIgnored private var windowed: Surface?
   @ObservationIgnored private var timer: Timer?
-  @ObservationIgnored private var timerRate = 0
+  @ObservationIgnored private(set) var timerRate = 0
   @ObservationIgnored private var started = false
   @ObservationIgnored private var reconciling = false
   @ObservationIgnored private(set) var policy = IdleScreenAquariumPresentationPolicy()
@@ -117,12 +182,14 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
     clock: @escaping () -> Date = { Date() },
     reducedMotion: @escaping () -> Bool = {
       NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-    }
+    },
+    powerSource: IdleScreenPowerSourceProvider = .system
   ) {
     self.controller = controller
     self.topology = topology
     self.clock = clock
     self.reducedMotion = reducedMotion
+    self.powerSource = powerSource
     super.init()
   }
 
@@ -158,6 +225,9 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
     workspace.addObserver(
       self, selector: #selector(powerChanged),
       name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
+    cancelPowerSourceObservation = powerSource.observe { [weak self] in
+      Task { @MainActor in self?.applyPowerSourceChange() }
+    }
     applyPowerChange()
   }
 
@@ -198,6 +268,8 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
     timer = nil
     timerRate = 0
     isAnimating = false
+    cancelPowerSourceObservation?()
+    cancelPowerSourceObservation = nil
     NotificationCenter.default.removeObserver(self)
     NSWorkspace.shared.notificationCenter.removeObserver(self)
     reconciling = true
@@ -350,7 +422,15 @@ final class IdleScreenAquariumPresentationHost: NSObject, NSWindowDelegate {
     guard started else { return }
     applyPowerChange()
   }
+  /// AC/battery transitions only change the rate ceiling and draw budget, so the
+  /// timer is retuned in place without rebuilding surfaces.
+  private func applyPowerSourceChange() {
+    guard started else { return }
+    policy.powerSource = powerSource.current()
+    updateTimer()
+  }
   private func applyPowerChange() {
+    policy.powerSource = powerSource.current()
     policy.lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
     policy.reduceMotion = reducedMotion()
     lastReducedFrameRevision = nil
