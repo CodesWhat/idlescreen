@@ -11,7 +11,11 @@ export default defineConfig({
   outputDir: './test-results',
   use: { baseURL: `http://127.0.0.1:${port}` },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      // Lets docs.spec.mjs load pages as idlescreen.codeswhat.com from the local server.
+      use: { ...devices['Desktop Chrome'], launchOptions: { args: ['--host-resolver-rules=MAP idlescreen.codeswhat.com 127.0.0.1'] } },
+    },
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],

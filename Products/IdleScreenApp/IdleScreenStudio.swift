@@ -1145,28 +1145,7 @@ struct StudioView: View {
           .buttonStyle(.designSecondary)
         }
 
-        StudioSection(title: "Appearance") {
-          StudioSlider(
-            title: "Size",
-            value: Binding(
-              get: { model.configuration.appearance.glyphScale },
-              set: { model.updateGlyphScale($0) }
-            ),
-            range: 0...1,
-            valueText: percentage(model.configuration.appearance.glyphScale),
-            step: 0.01
-          )
-          StudioSlider(
-            title: "Contrast",
-            value: Binding(
-              get: { model.configuration.appearance.contrast },
-              set: { model.updateContrast($0) }
-            ),
-            range: 0...1,
-            valueText: percentage(model.configuration.appearance.contrast),
-            step: 0.01
-          )
-        }
+        appearanceSection
       }
 
       expandedSettingsFooter(showsQuality: false)
@@ -1221,28 +1200,7 @@ struct StudioView: View {
           .pickerStyle(.segmented)
         }
 
-        StudioSection(title: "Appearance") {
-          StudioSlider(
-            title: "Size",
-            value: Binding(
-              get: { model.configuration.appearance.glyphScale },
-              set: { model.updateGlyphScale($0) }
-            ),
-            range: 0...1,
-            valueText: percentage(model.configuration.appearance.glyphScale),
-            step: 0.01
-          )
-          StudioSlider(
-            title: "Contrast",
-            value: Binding(
-              get: { model.configuration.appearance.contrast },
-              set: { model.updateContrast($0) }
-            ),
-            range: 0...1,
-            valueText: percentage(model.configuration.appearance.contrast),
-            step: 0.01
-          )
-        }
+        appearanceSection
       }
 
       DisclosureGroup("Pattern") {
@@ -1819,6 +1777,31 @@ struct StudioView: View {
 
   private var expandedQualityControlApplies: Bool {
     model.configuration.creative.pattern != .dvdBounce
+  }
+
+  private var appearanceSection: some View {
+    StudioSection(title: "Appearance") {
+      StudioSlider(
+        title: "Size",
+        value: Binding(
+          get: { model.configuration.appearance.glyphScale },
+          set: { model.updateGlyphScale($0) }
+        ),
+        range: 0...1,
+        valueText: percentage(model.configuration.appearance.glyphScale),
+        step: 0.01
+      )
+      StudioSlider(
+        title: "Contrast",
+        value: Binding(
+          get: { model.configuration.appearance.contrast },
+          set: { model.updateContrast($0) }
+        ),
+        range: 0...1,
+        valueText: percentage(model.configuration.appearance.contrast),
+        step: 0.01
+      )
+    }
   }
 
   private func percentage(_ value: Double) -> String {

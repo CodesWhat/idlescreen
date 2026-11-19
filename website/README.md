@@ -62,9 +62,11 @@ the browser tests run under the production policy.
 
 ## Analytics
 
-Cookieless PostHog, on the landing page only (`/docs` is a separate app and has none).
-It initializes only when `location.hostname` is `idlescreen.codeswhat.com`, so
-localhost, the e2e server and preview deployments send nothing.
+Cookieless PostHog on the landing page and on `/docs`. Both load the same loader
+(`/analytics.mjs`) and the same contract module, so the privacy rules can't drift. The docs
+app (`docs-site/src/app/layout.tsx`) just adds the script tag; its `/docs` CSP rule allows
+`connect-src https://e.codeswhat.com` too. The loader initializes only when
+`location.hostname` is `idlescreen.codeswhat.com`, so localhost, the e2e server and preview deployments send nothing.
 
 Events go to `https://e.codeswhat.com` (project key in `dist/analytics-contract.mjs`;
 it's a public client key). PostHog runs with `cookieless_mode: "always"`, no
@@ -74,6 +76,10 @@ browser. What is collected:
 
 - `$pageview` and `$pageleave`, with `schema_version`, `site: "idlescreen"`,
   `surface: "marketing"`, and a canonical `path` (`/`, or `/_other`; no query or fragment).
+  On `/docs` the surface is `"docs"` and `path` is `/docs` or `/docs/<slug>` for a slug in
+  `DOCS_SLUGS` (a test keeps it equal to `docs-site/content/docs`), else `/docs/_other`.
+  The docs are a client-side router, so a pageview also fires on each route change.
+  Adding a docs page means adding its slug to `DOCS_SLUGS`.
 - `$web_vitals`: CLS, FCP, INP and LCP. Sent 5 seconds after the first metric, and
   again at page hide for metrics that arrive late (CLS and INP usually do), each
   metric at most once per page load. The `web-vitals` package produces them and

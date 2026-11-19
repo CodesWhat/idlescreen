@@ -93,20 +93,27 @@ if [[ "$(grep -Ec "$checkout_pin" "$ci_workflow" || true)" -ne 3 ]] ||
    ! grep -Eq "$codecov_pin" <<<"$ci_coverage_block" ||
    ! grep -Fq "if: github.event_name == 'push'" <<<"$ci_coverage_block" ||
    ! grep -Fq 'keybase.io:443' <<<"$ci_coverage_block" ||
-   ! grep -Fq -- '-enableCodeCoverage YES' <<<"$ci_coverage_block" ||
-   ! grep -Fq -- '-resultBundlePath "$result_bundle"' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'xcrun xccov view --archive --json "$result_bundle"' <<<"$ci_coverage_block" ||
+   grep -Fq -- '-enableCodeCoverage YES' <<<"$ci_coverage_block" ||
+   grep -Fq 'xcodebuild test' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'actions/download-artifact@' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'name: coverage-lcov' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'IDLESCREEN_ENABLE_COVERAGE: ${{ github.event_name == '"'push'"' && '"'YES'"' || '"'NO'"' }}' "$ci_workflow" ||
+   ! grep -Fq -- '-enableCodeCoverage YES' "$modern_test_runner" ||
+   ! grep -Fq -- '-enableCodeCoverage YES' "$companion_compile_gate" ||
+   ! grep -Fq 'IDLESCREEN_COVERAGE_RESULT_BUNDLE' "$ci_workflow" ||
+   ! grep -Fq 'xcrun xccov view --archive --json "$result_bundle"' "$ci_workflow" ||
+   ! grep -Fq 'actions/upload-artifact@' "$ci_workflow" ||
    ! grep -Fq 'use_oidc: true' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'python3 ./scripts/xccov_to_lcov.py' <<<"$ci_coverage_block" ||
-   ! grep -Fq -- '--source-root "$GITHUB_WORKSPACE"' <<<"$ci_coverage_block" ||
-   ! grep -Fq -- '--output "$coverage_root/coverage.lcov" "$coverage_root"/*.json' <<<"$ci_coverage_block" ||
+   ! grep -Fq 'python3 ./scripts/xccov_to_lcov.py' "$ci_workflow" ||
+   ! grep -Fq -- '--source-root "$GITHUB_WORKSPACE"' "$ci_workflow" ||
+   ! grep -Fq -- '--output "$coverage_root/coverage.lcov" "$coverage_root"/*.json' "$ci_workflow" ||
    ! grep -Fq 'files: ${{ runner.temp }}/idlescreen-coverage/coverage.lcov' <<<"$ci_coverage_block" ||
    ! grep -Fq 'disable_search: true' <<<"$ci_coverage_block" ||
    ! grep -Fq 'plugins: noop' <<<"$ci_coverage_block" ||
    ! grep -Fq 'fail_ci_if_error: true' <<<"$ci_coverage_block" ||
    ! grep -Fq 'python3 ./scripts/test_xccov_to_lcov.py' "$ci_workflow" ||
    grep -Fq 'plugins: xcode' <<<"$ci_coverage_block" ||
-   ! grep -Fq 'IdleScreenAppCompileGate; do' <<<"$ci_coverage_block" ||
+   grep -Fq 'macos' <<<"$ci_coverage_block" ||
    grep -Eq '^[[:space:]]+token:' <<<"$ci_coverage_block" ||
    grep -Fq 'QLTY_COVERAGE_TOKEN' "$ci_workflow" ||
    grep -Eq 'uses: [^[:space:]]+@v[0-9]' "$ci_workflow"; then
@@ -239,7 +246,7 @@ if [[ -z "$agent_target_block" || -z "$control_tool_target_block" ]] ||
    ! grep -Fq 'subpath: Contents/Helpers' "$project_file" ||
    ! grep -Fq 'IdleScreenAgentSignalMonitor' "$project_root/Products/IdleScreenScreenSaver/IdleScreenSaverView.swift" ||
    ! grep -Fq 'IntegrationsView()' "$project_root/Products/IdleScreenApp/IdleScreenStudio.swift" ||
-   ! grep -Fq 'IdleScreenAgent' "$project_root/.github/workflows/ci-verify.yml"; then
+   ! grep -Fq 'IdleScreenAgent' "$modern_test_runner"; then
   echo "FAIL: P3 requires tested privacy-minimal adapters, a release-inaccessible scratch-tested App Group control tool, explicit companion controls, and saver monitoring." >&2
   exit 1
 fi
@@ -1763,3 +1770,29 @@ if ! grep -Fq 'IDLESCREEN_ALLOW_REAL_DISTRIBUTION:-' "$r1_builder" ||
 fi
 
 echo "PASS: R1.2a has one consent-gated, provenance-bound, fixture-tested Developer ID signing, notarization, stapling, and Gatekeeper authority."
+
+# Shipped targets are Apple silicon only: the project-wide settings pin arm64,
+# and no target or configuration may re-enable x86_64.
+project_settings_block="$({
+  awk '
+    /^settings:$/ { in_settings = 1; next }
+    in_settings && /^[^[:space:]]/ { exit }
+    in_settings { print }
+  ' "$project_file"
+})"
+if ! grep -Eq '^  ARCHS: arm64$' <<<"$project_settings_block" ||
+   ! grep -Eq '^  EXCLUDED_ARCHS: x86_64$' <<<"$project_settings_block" ||
+   grep -Eq '^[[:space:]]+(ARCHS|EXCLUDED_ARCHS|ONLY_ACTIVE_ARCH):' <(sed '1,/^targets:$/d' "$project_file") ||
+   grep -Eq 'x86_64|universal' <(grep -vE '^  EXCLUDED_ARCHS: x86_64$' "$project_file"); then
+  echo "FAIL: project.yml must pin ARCHS to arm64 for every shipped target and must not override it per target." >&2
+  exit 1
+fi
+
+generated_pbxproj="$project_root/IdleScreen.xcodeproj/project.pbxproj"
+if [[ -f "$generated_pbxproj" ]] &&
+   { ! grep -Fq 'ARCHS = arm64;' "$generated_pbxproj" || grep -Eq '^[[:space:]]+ARCHS = "?(x86_64|arm64 x86_64|x86_64 arm64)' "$generated_pbxproj"; }; then
+  echo "FAIL: generated IdleScreen.xcodeproj must build arm64 only; regenerate with xcodegen." >&2
+  exit 1
+fi
+
+echo "PASS: shipped targets are arm64-only."
