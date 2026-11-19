@@ -1770,3 +1770,29 @@ if ! grep -Fq 'IDLESCREEN_ALLOW_REAL_DISTRIBUTION:-' "$r1_builder" ||
 fi
 
 echo "PASS: R1.2a has one consent-gated, provenance-bound, fixture-tested Developer ID signing, notarization, stapling, and Gatekeeper authority."
+
+# Shipped targets are Apple silicon only: the project-wide settings pin arm64,
+# and no target or configuration may re-enable x86_64.
+project_settings_block="$({
+  awk '
+    /^settings:$/ { in_settings = 1; next }
+    in_settings && /^[^[:space:]]/ { exit }
+    in_settings { print }
+  ' "$project_file"
+})"
+if ! grep -Eq '^  ARCHS: arm64$' <<<"$project_settings_block" ||
+   ! grep -Eq '^  EXCLUDED_ARCHS: x86_64$' <<<"$project_settings_block" ||
+   grep -Eq '^[[:space:]]+(ARCHS|EXCLUDED_ARCHS|ONLY_ACTIVE_ARCH):' <(sed '1,/^targets:$/d' "$project_file") ||
+   grep -Eq 'x86_64|universal' <(grep -vE '^  EXCLUDED_ARCHS: x86_64$' "$project_file"); then
+  echo "FAIL: project.yml must pin ARCHS to arm64 for every shipped target and must not override it per target." >&2
+  exit 1
+fi
+
+generated_pbxproj="$project_root/IdleScreen.xcodeproj/project.pbxproj"
+if [[ -f "$generated_pbxproj" ]] &&
+   { ! grep -Fq 'ARCHS = arm64;' "$generated_pbxproj" || grep -Eq '^[[:space:]]+ARCHS = "?(x86_64|arm64 x86_64|x86_64 arm64)' "$generated_pbxproj"; }; then
+  echo "FAIL: generated IdleScreen.xcodeproj must build arm64 only; regenerate with xcodegen." >&2
+  exit 1
+fi
+
+echo "PASS: shipped targets are arm64-only."

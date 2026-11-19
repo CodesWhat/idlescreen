@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- macOS 26 Tahoe or later
+- Apple silicon Mac (M1 or later), macOS 26 Tahoe or later
 - Xcode 26
 - XcodeGen 2.46.0
 - Python 3 for deterministic fixture tests
