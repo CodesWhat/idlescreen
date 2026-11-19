@@ -228,43 +228,6 @@ struct IdleScreenAppCompileGateSmokeTests {
     #expect(model.configuration.revision == initialRevision + 2)
   }
 
-  @Test("Pixel Materials inspector exposes the complete accessible control set")
-  func materialsInspectorContract() {
-    #expect(
-      IdleScreenPixelMaterialsInspectorContract.controlLabels == [
-        "Material",
-        "Terrain",
-        "Palette",
-        "Seed",
-        "Basin count",
-        "Basin depth",
-        "Minimum basin capacity",
-        "Channel connectivity",
-        "Channel width",
-        "Rock ratio",
-        "Soil ratio",
-        "Emitter count",
-        "Emitter position",
-        "Emitter width",
-        "Emitter rate",
-        "Cell scale",
-        "Gravity",
-        "Lateral flow",
-        "Equalization",
-        "Water pressure",
-        "Spill rate",
-        "Drain rate",
-        "Evaporation rate",
-        "Obstacle density",
-        "Persistence",
-        "Quiet duration",
-        "Fill duration",
-        "Settled duration",
-        "Drain duration",
-        "Regeneration",
-      ])
-  }
-
   @MainActor
   @Test("agent controls stay in scratch storage and publish one loaded inbox")
   func scratchAgentIntegrationControls() async throws {

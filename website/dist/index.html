@@ -120,12 +120,12 @@
     <section class="section wrap" id="patterns" aria-labelledby="patterns-title">
       <div class="section-head">
         <p class="eyebrow">Patterns</p>
-        <h2 id="patterns-title">18 procedural patterns, plus sand and water.</h2>
+        <h2 id="patterns-title">19 procedural patterns, plus sand and water.</h2>
       </div>
       <div class="section-body">
         <p>Each pattern is drawn as a field of characters. Pick one, or use Auto Cycle to step through them.</p>
         <ul class="chips" aria-label="Procedural patterns">
-          <li>Perlin Noise</li><li>Plasma</li><li>Sweep</li><li>Rain</li><li>Rainbow Cycle</li><li>Fire Effect</li>
+          <li>Topograph</li><li>Perlin Noise</li><li>Plasma</li><li>Sweep</li><li>Rain</li><li>Rainbow Cycle</li><li>Fire Effect</li>
           <li>Ripple</li><li>Voronoi</li><li>Warp</li><li>Static</li><li>Pulse</li><li>DVD Bounce</li>
           <li>Metaballs</li><li>Starfield</li><li>Spiral Galaxy</li><li>Terrain</li><li>Rain on Glass</li><li>Aurora</li>
         </ul>
@@ -193,13 +193,13 @@
           <p>Open IdleScreen once, then select it in System Settings under Wallpaper and Screen Saver. Upgrade with <code>brew upgrade --cask idlescreen</code> or remove it with <code>brew uninstall --cask idlescreen</code>.</p>
           <h3>Requirements</h3>
           <ul class="plain">
+            <li>Apple silicon Mac (M1 or later).</li>
             <li>macOS 26 Tahoe or newer.</li>
-            <li>A universal build for Apple silicon and Intel.</li>
             <li>A camera, only if you want camera mode.</li>
           </ul>
           <div class="note" id="not-verified">
             <h3>Not verified on a device</h3>
-            <p>Some paths have automated or fixture coverage only, including sleep and wake, camera permission changes and Intel Macs. If one breaks for you, please open an issue. The README keeps the current list.</p>
+            <p>Some paths have automated or fixture coverage only, including sleep and wake and camera permission changes. If one breaks for you, please open an issue. The README keeps the current list.</p>
             <p><a href="https://github.com/CodesWhat/idlescreen#not-verified-on-a-device">Not verified on a device, in the README<span aria-hidden="true"> ↗</span></a></p>
           </div>
         </div>
@@ -226,7 +226,7 @@
         </details>
         <details>
           <summary>Does it run on Intel Macs?</summary>
-          <p>The build is universal, but Intel hasn't been verified on a device yet.</p>
+          <p>No. IdleScreen supports Apple silicon Macs only.</p>
         </details>
         <details>
           <summary>Where do I report a bug?</summary>

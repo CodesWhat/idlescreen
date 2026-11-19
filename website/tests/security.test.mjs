@@ -65,7 +65,8 @@ test('the /docs CSP leaves script-src to each page\'s own hashed meta and still 
   assert.deepEqual(directives['frame-ancestors'], ["'none'"]);
   assert.deepEqual(directives['object-src'], ["'none'"]);
   assert.deepEqual(directives['img-src'], ["'self'", 'data:']);
-  assert.deepEqual(directives['connect-src'], ["'self'"]);
+  // Analytics: the docs app reports to the same PostHog proxy as the landing page, and nowhere else.
+  assert.deepEqual(directives['connect-src'], ["'self'", 'https://e.codeswhat.com']);
 });
 
 test('the site-wide CSP rule does not also match /docs, where the two policies would collide', () => {

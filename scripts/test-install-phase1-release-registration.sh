@@ -155,4 +155,46 @@ mkdir -p "$expected_path"
     fail "canonical registration continued after an inventory failure: $events"
 )
 
+for implementation in install-phase1-release test-phase1 build-phase1-release test-modern-product; do
+  implementation_path="$project_root/scripts/$implementation.sh"
+  implementation_function="$(
+    awk '
+      $0 == "paths_refer_to_same_file() {" { inside = 1 }
+      inside { print }
+      inside && $0 == "}" { exit }
+    ' "$implementation_path"
+  )"
+  [[ -n "$implementation_function" ]] || fail "$implementation.sh needs paths_refer_to_same_file"
+
+  (
+    eval "$implementation_function"
+
+    alias_root="$test_root/path-compare-$implementation"
+    mkdir -p "$alias_root/real" "$alias_root/other"
+    ln -s "$alias_root/real" "$alias_root/alias"
+    missing_one="$alias_root/missing-one"
+    missing_two="$alias_root/missing-two"
+
+    paths_refer_to_same_file "$alias_root/real" "$alias_root/real" ||
+      fail "$implementation: equal paths were rejected"
+    paths_refer_to_same_file "$alias_root/real" "$alias_root/alias" ||
+      fail "$implementation: symlink alias was rejected"
+    if paths_refer_to_same_file "$alias_root/real" "$alias_root/other"; then
+      fail "$implementation: distinct paths were accepted"
+    fi
+    if paths_refer_to_same_file "" ""; then
+      fail "$implementation: empty arguments were accepted"
+    fi
+    if paths_refer_to_same_file "$alias_root/real" "$missing_one"; then
+      fail "$implementation: one unresolved path was accepted"
+    fi
+    if paths_refer_to_same_file "$missing_one" "$alias_root/real"; then
+      fail "$implementation: one unresolved first path was accepted"
+    fi
+    if paths_refer_to_same_file "$missing_one" "$missing_two"; then
+      fail "$implementation: two unresolved paths were accepted"
+    fi
+  )
+done
+
 echo "PASS: canonical registration convergence separates inventory from Tahoe cache selection."

@@ -1,4 +1,5 @@
-// Privacy contract for the marketing site's PostHog analytics. Pure: no DOM, no
+// Privacy contract for PostHog analytics on idlescreen.codeswhat.com: the marketing
+// page and the /docs app share this one module, so the privacy rules can't drift. Pure: no DOM, no
 // network, importable in node. Ported from the portwing analytics contract.
 // The before_send sanitizer rebuilds every envelope from an allowlist, so
 // nothing PostHog attaches by default (full URL, referrer, click ids, person
@@ -11,11 +12,31 @@ export const PRODUCTION_HOSTNAME = 'idlescreen.codeswhat.com';
 
 const SCHEMA_VERSION = 1;
 const SITE = 'idlescreen';
-const SURFACE = 'marketing';
+const MARKETING_SURFACE = 'marketing';
+const DOCS_SURFACE = 'docs';
 const PROJECT_KEY_PATTERN = /^phc_[A-Za-z0-9_-]+$/u;
 const COOKIELESS_DISTINCT_ID = '$posthog_cookieless';
 
 const MARKETING_PATHS = new Set(['/']);
+
+// Docs routes, one per page in docs-site/content/docs (tests keep this in step with
+// the content). Any other /docs path reports as DOCS_OTHER_PATH, never verbatim.
+export const DOCS_ROOT = '/docs';
+export const DOCS_OTHER_PATH = '/docs/_other';
+export const DOCS_SLUGS = [
+  'agent-signals',
+  'architecture',
+  'building',
+  'camera',
+  'changelog',
+  'displays',
+  'getting-started',
+  'menu-bar',
+  'security',
+  'studio',
+  'troubleshooting',
+];
+const DOCS_PATHS = new Set([DOCS_ROOT, ...DOCS_SLUGS.map(slug => `${DOCS_ROOT}/${slug}`)]);
 
 const CTA_COMBINATIONS = new Set([
   'download:hero',
@@ -44,16 +65,28 @@ function normalizedPath(rawPath) {
   const withoutQuery = String(rawPath).split(/[?#]/u, 1)[0] || '/';
   if (!withoutQuery.startsWith('/')) return '/';
   if (withoutQuery === '/index.html') return '/';
-  if (withoutQuery.length > 1 && withoutQuery.endsWith('/')) return withoutQuery.slice(0, -1);
-  return withoutQuery;
+  const withoutHtml = withoutQuery.replace(/\.html$/u, '');
+  if (withoutHtml.length > 1 && withoutHtml.endsWith('/')) return withoutHtml.slice(0, -1);
+  return withoutHtml;
+}
+
+function isDocsRoute(normalized) {
+  return normalized === DOCS_ROOT || normalized.startsWith(`${DOCS_ROOT}/`);
 }
 
 export function canonicalizeAnalyticsRoute(rawPath) {
   const normalized = normalizedPath(rawPath);
+  if (isDocsRoute(normalized)) {
+    return {
+      normalizedPath: normalized,
+      path: DOCS_PATHS.has(normalized) ? normalized : DOCS_OTHER_PATH,
+      surface: DOCS_SURFACE,
+    };
+  }
   return {
     normalizedPath: normalized,
     path: MARKETING_PATHS.has(normalized) ? normalized : '/_other',
-    surface: SURFACE,
+    surface: MARKETING_SURFACE,
   };
 }
 
@@ -275,6 +308,19 @@ export function createPostHogOptions(projectKey, proxyHost, uiHost) {
     mask_all_text: true,
     capture_performance: false,
     before_send: sanitizeEvent,
+  };
+}
+
+// Fires a pageview when the canonical path changes. The docs app is a Next app router
+// SPA: client-side navigation never reloads the page, so it has to be noticed. Query and
+// fragment changes on the same route are not new pageviews.
+export function createRouteTracker(initialPath, emit) {
+  let current = canonicalizeAnalyticsRoute(initialPath).normalizedPath;
+  return function onNavigate(nextPath) {
+    const next = canonicalizeAnalyticsRoute(nextPath).normalizedPath;
+    if (next === current) return;
+    current = next;
+    emit(buildPageviewEvent(next));
   };
 }
 

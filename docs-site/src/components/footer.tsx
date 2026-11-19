@@ -16,7 +16,7 @@ export function Footer() {
         <div>
           <a className="brand" href="/">
             {/* biome-ignore lint/performance/noImgElement: basePath makes next/image prepend /docs to root-relative src. */}
-            <img src="/assets/logo.png" alt="" width={28} height={28} loading="lazy" />
+            <img src="/assets/logo-64.png" alt="" width={28} height={28} loading="lazy" />
             <span>{SITE_CONFIG.name}</span>
           </a>
           <p className="fnote">

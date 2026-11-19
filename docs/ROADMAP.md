@@ -1,6 +1,6 @@
 # IdleScreen roadmap
 
-Last updated: November 7, 2026
+Last updated: November 18, 2026
 
 IdleScreen 0.1 is a released public product. The companion app, modern
 screen-saver extension, Metal renderer, camera agent, multi-display planner,
@@ -61,7 +61,7 @@ was not verified on a device instead.
 
 - One native companion containing the extension, renderer framework, camera
   agent, and local integration command
-- 18 procedural patterns plus live camera glyph rendering
+- 19 procedural patterns (including Topograph) plus live camera glyph rendering
 - Panorama, Per Display, and Focus Display scene planning
 - Deterministic Pixel Materials sand and water scenes
 - Saved Looks, camera selection, mirroring, and native Studio controls
@@ -80,8 +80,7 @@ useful coverage and product work:
   each row out of the README's not-verified list.
 - Repeat the full mixed-scale multi-display, hot-plug, Spaces, and sleep/wake
   matrix on additional physical Mac configurations.
-- Smoke-test the next macOS beta and Intel hardware while universal support is
-  advertised.
+- Smoke-test the next macOS beta on Apple silicon hardware.
 - Move signed-release construction and artifact attestations into GitHub Actions
   after Apple signing and notary credentials have an approved enrollment path.
 - Consider the optional custom-pet importer only with explicit user-owned art
