@@ -1,6 +1,6 @@
 # IdleScreen roadmap
 
-Last updated: November 7, 2026
+Last updated: November 18, 2026
 
 IdleScreen 0.1 is a released public product. The companion app, modern
 screen-saver extension, Metal renderer, camera agent, multi-display planner,
@@ -61,7 +61,7 @@ was not verified on a device instead.
 
 - One native companion containing the extension, renderer framework, camera
   agent, and local integration command
-- 18 procedural patterns plus live camera glyph rendering
+- 19 procedural patterns (including Topograph) plus live camera glyph rendering
 - Panorama, Per Display, and Focus Display scene planning
 - Deterministic Pixel Materials sand and water scenes
 - Saved Looks, camera selection, mirroring, and native Studio controls
