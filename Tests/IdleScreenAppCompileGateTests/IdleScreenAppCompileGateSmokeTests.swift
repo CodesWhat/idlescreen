@@ -425,6 +425,85 @@ struct IdleScreenAppCompileGateSmokeTests {
   }
 
   @MainActor
+  @Test("regular ticks do not invalidate a slow read in progress")
+  func regularTicksCoalesceIntoSlowRead() async throws {
+    let now = Date(timeIntervalSince1970: 1_786_296_450)
+    let signal = try testSignal(provider: .codex, eventID: "slow", at: now)
+    let release = DispatchSemaphore(value: 0)
+    let loader = ScriptedAgentInboxLoader(steps: [
+      .blocked(
+        release: release,
+        inbox: IdleScreenAgentSignalInbox(revision: 1, updatedAt: now, signals: [signal])
+      )
+    ])
+    let fixture = try AgentModelFixture(now: now, loader: loader.load)
+    defer {
+      release.signal()
+      fixture.removeScratchDirectory()
+    }
+    #expect(await eventually { loader.callCount == 1 })
+
+    fixture.model.agentIntegration.refreshAgentSignals()
+    fixture.model.agentIntegration.refreshAgentSignals()
+    release.signal()
+
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == signal })
+    #expect(loader.callCount == 1)
+  }
+
+  @MainActor
+  @Test("a read that finishes after a signal expired does not publish it")
+  func lateReadDoesNotPublishExpiredSignal() async throws {
+    let now = Date(timeIntervalSince1970: 1_786_296_460)
+    let signal = try testSignal(provider: .codex, eventID: "expiring", at: now)
+    let clockBox = MutableTestClock(now)
+    let release = DispatchSemaphore(value: 0)
+    let loader = ScriptedAgentInboxLoader(steps: [
+      .blocked(
+        release: release,
+        inbox: IdleScreenAgentSignalInbox(revision: 1, updatedAt: now, signals: [signal])
+      )
+    ])
+    let fixture = try AgentModelFixture(now: now, clock: clockBox.read, loader: loader.load)
+    defer {
+      release.signal()
+      fixture.removeScratchDirectory()
+    }
+    #expect(await eventually { loader.callCount == 1 })
+
+    clockBox.set(now.addingTimeInterval(120))
+    release.signal()
+    #expect(await eventually { loader.completedCallCount == 1 })
+    try? await Task.sleep(for: .milliseconds(50))
+
+    #expect(fixture.model.agentIntegration.activeAgentSignal == nil)
+    #expect(fixture.model.agentIntegration.activeAgentSignals.isEmpty)
+  }
+
+  @MainActor
+  @Test("an identical inbox republishes after a failed read")
+  func identicalInboxRepublishesAfterFailure() async throws {
+    let now = Date(timeIntervalSince1970: 1_786_296_470)
+    let signal = try testSignal(provider: .claude, eventID: "recover", at: now)
+    let inbox = IdleScreenAgentSignalInbox(revision: 5, updatedAt: now, signals: [signal])
+    let loader = ScriptedAgentInboxLoader(steps: [
+      .success(inbox),
+      .failure(.expectedFailure),
+      .success(inbox),
+    ])
+    let fixture = try AgentModelFixture(now: now, loader: loader.load)
+    defer { fixture.removeScratchDirectory() }
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == signal })
+
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(1))
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == nil })
+    #expect(fixture.model.agentIntegration.status?.contains("unavailable") == true)
+
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(2))
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == signal })
+  }
+
+  @MainActor
   @Test("hook mutations report unavailable App Group access")
   func hookMutationsRequireAppGroup() throws {
     let now = Date(timeIntervalSince1970: 1_786_296_800)
@@ -474,6 +553,23 @@ private final class TestBundleMarker {}
 private enum AgentModelTestError: Error {
   case expectedFailure
   case missingScriptedResult
+}
+
+private final class MutableTestClock: @unchecked Sendable {
+  private let lock = NSLock()
+  private var date: Date
+
+  init(_ date: Date) {
+    self.date = date
+  }
+
+  @Sendable func read() -> Date {
+    lock.withLock { date }
+  }
+
+  func set(_ newDate: Date) {
+    lock.withLock { date = newDate }
+  }
 }
 
 private final class ScriptedAgentInboxLoader: @unchecked Sendable {
@@ -545,6 +641,7 @@ private final class AgentModelFixture {
   init(
     now: Date,
     appGroupIdentifier: String? = "group.com.idlescreen.tests.shared",
+    clock: (@Sendable () -> Date)? = nil,
     loader:
       @escaping @Sendable (
         IdleScreenAgentSignalStore,
@@ -574,7 +671,7 @@ private final class AgentModelFixture {
         codexHookSettingsURL: codexSettingsURL,
         claudeHookSettingsURL: claudeSettingsURL,
         agentControlExecutableURL: root.appending(path: "Helpers/idlescreenctl"),
-        clock: { now },
+        clock: clock ?? { now },
         loadAgentSignals: loader
       )
     )

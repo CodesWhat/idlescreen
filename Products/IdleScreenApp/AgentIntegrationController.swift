@@ -94,8 +94,13 @@ final class AgentIntegrationController {
       agentIgnoredEventCounts = [:]
       return
     }
+    let isRegularTick = date == nil
     let date = date ?? clock()
     guard monitor.canPoll(at: date) else { return }
+    // A regular tick coalesces into the read already running, so a slow read
+    // can't be invalidated by every tick before it lands. Explicit requests
+    // (test, clear) still supersede it.
+    if isRegularTick, agentSignalRefreshInFlight { return }
 
     agentSignalRefreshGeneration &+= 1
     let request = AgentSignalRefreshRequest(
@@ -326,7 +331,9 @@ final class AgentIntegrationController {
       switch outcome {
       case .loaded(_, let inbox):
         if var monitor = agentSignalMonitor {
-          let change = monitor.consume(inbox, at: request.date)
+          // Arbitrate expiry at publication time so a read that straddled an
+          // expiry can't publish a dead signal. Explicit future dates win.
+          let change = monitor.consume(inbox, at: max(request.date, clock()))
           agentSignalMonitor = monitor
           if let change {
             activeAgentSignal = change.signal
@@ -340,6 +347,7 @@ final class AgentIntegrationController {
           status = nil
         }
       case .failed(_, let message):
+        agentSignalMonitor?.discardComparisonState()
         activeAgentSignal = nil
         activeAgentSignals = []
         status = "Agent signal inbox unavailable: \(message)"
