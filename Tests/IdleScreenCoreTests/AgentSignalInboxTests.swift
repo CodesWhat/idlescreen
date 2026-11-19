@@ -379,6 +379,65 @@ struct AgentSignalInboxTests {
     #expect(recovered == prior)
   }
 
+  @Test("a mutation backs up the prior valid bytes exactly and persists the new inbox")
+  func mutationBacksUpPriorValidBytes() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    _ = try store.apply(
+      .set(try signal(eventID: "turn-1", state: .working, createdAt: now)),
+      at: now
+    )
+    let priorBytes = try Data(contentsOf: fileURL)
+
+    let updated = try store.apply(
+      .set(
+        try signal(
+          eventID: "turn-2",
+          state: .done,
+          createdAt: now.addingTimeInterval(1)
+        )),
+      at: now.addingTimeInterval(1)
+    )
+
+    #expect(try Data(contentsOf: fileURL.appendingPathExtension("previous")) == priorBytes)
+    #expect(try store.read(at: now.addingTimeInterval(1)) == updated)
+  }
+
+  @Test("a malformed primary is never copied over the previous snapshot")
+  func malformedPrimaryIsNotBackedUp() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let previousURL = fileURL.appendingPathExtension("previous")
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    _ = try store.apply(
+      .set(try signal(eventID: "turn-1", state: .working, createdAt: now)),
+      at: now
+    )
+    _ = try store.apply(
+      .set(
+        try signal(
+          eventID: "turn-2",
+          state: .done,
+          createdAt: now.addingTimeInterval(1)
+        )),
+      at: now.addingTimeInterval(1)
+    )
+    let previousBytes = try Data(contentsOf: previousURL)
+    try Data("{broken".utf8).write(to: fileURL, options: .atomic)
+
+    _ = try store.apply(.clearAll, at: now.addingTimeInterval(2))
+
+    #expect(try Data(contentsOf: previousURL) == previousBytes)
+    #expect(try store.read(at: now.addingTimeInterval(2)).signals.isEmpty)
+  }
+
   @Test("fallback recovery emits one redacted reason")
   func reportsRedactedFallback() throws {
     let root = FileManager.default.temporaryDirectory
