@@ -292,6 +292,65 @@ struct AquariumPresentationPlanTests {
     #expect(policy.framesPerSecond == 0)
   }
 
+  @Test func powerSourceAndLowPowerModeSelectTheCeilingAndDrawBudget() {
+    var policy = IdleScreenAquariumPresentationPolicy()
+    #expect(policy.framesPerSecond == 60)
+    policy.powerSource = .battery
+    #expect(policy.framesPerSecond == 30)
+    // Budget over cost: AC 0.8, battery 0.4 with a 30 fps cap, Low Power Mode 0.08 with 12 fps.
+    policy.renderCost = 0.1
+    #expect(policy.framesPerSecond == 4)
+    policy.powerSource = .ac
+    #expect(policy.framesPerSecond == 8)
+    policy.renderCost = 0.001
+    #expect(policy.framesPerSecond == 60)
+    policy.powerSource = .battery
+    #expect(policy.framesPerSecond == 30)
+    policy.lowPower = true
+    #expect(policy.framesPerSecond == 12)
+    policy.renderCost = 0.02
+    #expect(policy.framesPerSecond == 4)
+    policy.powerSource = .ac
+    #expect(policy.framesPerSecond == 4)
+    policy.lowPower = false
+    #expect(policy.framesPerSecond == 40)
+    policy.renderCost = .nan
+    #expect(policy.framesPerSecond == 0)
+    policy.renderCost = 0
+    policy.screensAwake = false
+    #expect(policy.framesPerSecond == 0)
+  }
+
+  @Test func injectedPowerSourceTransitionsRetuneTheHostTimerAndStopAtShutdown() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let controller = IdleScreenAquariumController(
+      fileURL: directory.appending(path: "aquariums.json"))
+    let power = PowerSourceStub()
+    let host = IdleScreenAquariumPresentationHost(
+      controller: controller, reducedMotion: { false }, powerSource: power.provider)
+    host.start()
+    #expect(power.observerCount == 1)
+    #expect(host.policy.powerSource == .ac)
+    host.showWindowed()
+    defer { host.shutdown() }
+    power.source = .battery
+    await Task.detached { power.fire() }.value
+    try await waitUntil { host.policy.powerSource == .battery }
+    if host.isAnimating { #expect(host.timerRate <= 30) }
+    power.source = .ac
+    await Task.detached { power.fire() }.value
+    try await waitUntil { host.policy.powerSource == .ac }
+    if host.isAnimating { #expect(host.timerRate > 30) }
+    host.shutdown()
+    #expect(power.observerCount == 0)
+    power.source = .battery
+    power.fire()
+    for _ in 0..<20 { await Task.yield() }
+    #expect(host.policy.powerSource == .ac)
+    #expect(host.timerRate == 0 && !host.isAnimating)
+  }
+
   @Test func reducedMotionPreviewDoesNotRunAContinuousMetalClock() throws {
     let tank = try #require(IdleScreenAquariumLibrary.starter.selectedTank)
     let host = NSHostingView(
@@ -472,5 +531,34 @@ private final class ReducedMotionProbe {
     reads += 1
     if Thread.isMainThread { readsOnMainThread += 1 }
     return value
+  }
+}
+
+/// A power source whose AC/battery state and change notifications the test drives.
+private final class PowerSourceStub: @unchecked Sendable {
+  private let lock = NSLock()
+  private var _source = IdleScreenPowerSource.ac
+  private var handlers: [Int: @Sendable () -> Void] = [:]
+  private var next = 0
+  var source: IdleScreenPowerSource {
+    get { lock.withLock { _source } }
+    set { lock.withLock { _source = newValue } }
+  }
+  var observerCount: Int { lock.withLock { handlers.count } }
+  func fire() {
+    let current = lock.withLock { Array(handlers.values) }
+    for handler in current { handler() }
+  }
+  var provider: IdleScreenPowerSourceProvider {
+    .init(
+      current: { self.source },
+      observe: { handler in
+        let id = self.lock.withLock { () -> Int in
+          self.next += 1
+          self.handlers[self.next] = handler
+          return self.next
+        }
+        return { self.lock.withLock { _ = self.handlers.removeValue(forKey: id) } }
+      })
   }
 }
