@@ -167,7 +167,7 @@ jobs:
   coverage:
     if: github.event_name == 'push'
     needs: build-and-test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -213,7 +213,7 @@ jobs:
 
   qlty:
     name: qlty
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
 
     steps:
