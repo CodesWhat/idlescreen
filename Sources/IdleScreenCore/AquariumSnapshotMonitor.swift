@@ -76,7 +76,9 @@ public final class IdleScreenAquariumSnapshotMonitor: @unchecked Sendable {
       }
       let snapshot = try read(url)
       reads += 1
-      if observation != .unknown {
+      // A file that appeared between observing and reading would be cached as
+      // missing, so only a nil result may sit under `.missing`.
+      if observation != .unknown, !(observation == .missing && snapshot != nil) {
         entries[key] = Entry(observation: observation, snapshot: snapshot)
       }
       return snapshot

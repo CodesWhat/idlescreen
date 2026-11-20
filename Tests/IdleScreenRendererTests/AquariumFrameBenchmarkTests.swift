@@ -8,8 +8,15 @@ private typealias MallocLogger = @convention(c) (UInt32, UInt, UInt, UInt, UInt,
 nonisolated(unsafe) private var allocationCount = 0
 nonisolated(unsafe) private var allocationBytes = 0
 nonisolated(unsafe) private var benchmarkSink: UInt64 = 0
+/// Mach port of the thread being measured, and the observer that was installed
+/// before ours. Both are written before the hook goes in.
+nonisolated(unsafe) private var measuredThread: UInt32 = 0
+nonisolated(unsafe) private var previousLogger: MallocLogger?
 
-private let countAllocation: MallocLogger = { type, _, size, newSize, _, _ in
+private let countAllocation: MallocLogger = { type, arg1, size, newSize, result, skip in
+  previousLogger?(type, arg1, size, newSize, result, skip)
+  // The hook is process-wide; only the measured thread may touch the counters.
+  guard pthread_mach_thread_np(pthread_self()) == measuredThread else { return }
   // stack_logging_type_alloc is bit 1; a realloc sets alloc and dealloc.
   guard type & 2 != 0 else { return }
   allocationCount += 1
@@ -57,11 +64,14 @@ struct AquariumFrameBenchmarkTests {
     }
     allocationCount = 0
     allocationBytes = 0
+    measuredThread = pthread_mach_thread_np(pthread_self())
+    let previous = hook?.pointee
+    previousLogger = previous
     hook?.pointee = countAllocation
     let start = cpuSeconds()
     for index in 0..<iterations { benchmarkSink &+= body(index + 2) }
     let elapsed = cpuSeconds() - start
-    hook?.pointee = nil
+    hook?.pointee = previous
     return .init(
       cpuMilliseconds: elapsed * 1000 / Double(iterations),
       allocations: allocationCount / iterations, bytes: allocationBytes / iterations)

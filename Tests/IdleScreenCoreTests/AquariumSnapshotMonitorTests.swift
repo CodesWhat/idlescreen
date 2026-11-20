@@ -59,6 +59,14 @@ struct AquariumSnapshotMonitorTests {
         library = Self.library(revision)
       }
     }
+    /// The file appeared after the stat and before the read.
+    func appearAfterObserving(revision: UInt64) {
+      lock.withLock {
+        observation = .missing
+        library = Self.library(revision)
+        failure = nil
+      }
+    }
     func makeUnknown() { lock.withLock { observation = .unknown } }
 
     var observeCount: Int { lock.withLock { observed } }
@@ -98,6 +106,19 @@ struct AquariumSnapshotMonitorTests {
     }
     #expect(monitor.readCount == 1)
     #expect(disk.attemptCount == 1)
+  }
+
+  @Test func aSnapshotReadUnderAMissingObservationIsNotCached() throws {
+    let disk = Disk()
+    disk.delete()
+    disk.appearAfterObserving(revision: 7)
+    let monitor = disk.monitor()
+    #expect(try monitor.snapshot(at: url)?.revision == 7)
+    disk.delete()
+    #expect(try monitor.snapshot(at: url) == nil)
+    // A plain missing file is still cached.
+    #expect(try monitor.snapshot(at: url) == nil)
+    #expect(disk.attemptCount == 2)
   }
 
   @Test func nonAquariumTicksNeverTouchTheFile() {

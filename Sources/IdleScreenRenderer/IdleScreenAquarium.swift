@@ -41,7 +41,7 @@ public enum IdleScreenAquarium {
       canvas = Canvas(width: width, copying: base.pixels, reusing: &storage)
       particles(&canvas, time: time, flow: flow, cover: base.cover)
     } else {
-      canvas = Canvas(width: width)
+      canvas = Canvas(width: width, reusing: &storage)
       water(&canvas)
       particles(&canvas, time: time, flow: flow, cover: nil)
     }
@@ -240,6 +240,16 @@ public enum IdleScreenAquarium {
       swap(&pixels, &storage)
       pixels.removeAll(keepingCapacity: true)
       pixels.append(contentsOf: base)
+      self.pixels = pixels
+    }
+
+    /// A blank canvas built in `storage`'s allocation when this is its only owner.
+    init(width: Int, reusing storage: inout [SIMD4<Float>]) {
+      self.width = width
+      var pixels: [SIMD4<Float>] = []
+      swap(&pixels, &storage)
+      pixels.removeAll(keepingCapacity: true)
+      pixels.append(contentsOf: repeatElement(.zero, count: width * IdleScreenAquarium.height))
       self.pixels = pixels
     }
 

@@ -39,6 +39,18 @@ struct AquariumFrameCacheTests {
     pixels.withUnsafeBufferPointer { UnsafeRawPointer($0.baseAddress) }
   }
 
+  @Test func aSettingsFreeFrameBuildsInDonatedStorage() {
+    var storage = [SIMD4<Float>](
+      repeating: .zero, count: IdleScreenAquarium.width * IdleScreenAquarium.height)
+    let donated = address(storage)
+    let pixels = IdleScreenAquarium.frame(
+      at: 3, seed: 42, settings: nil, preparation: IdleScreenAquariumScenePreparation(),
+      reusing: &storage)
+    #expect(address(pixels) == donated)
+    #expect(storage.isEmpty)
+    #expect(pixels == IdleScreenAquarium.frame(at: 3, seed: 42))
+  }
+
   @Test func oneAnimatedSceneKeepsOnlyItsLatestRaster() {
     let cache = IdleScreenAquariumFrameCache()
     let settings = AquariumFrameFixtures.settings(width: 384)

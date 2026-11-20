@@ -265,7 +265,10 @@ struct IdleScreenAquariumNavigation {
         : IdleScreenAquariumPersonality.unit(item.identity, seed, UInt64(trip) | 1 << 60) < 0.5
       let wallX = left ? inset : Double(worldWidth) - inset
       a = Anchor(x: wallX, y: ground(wallX))
-      wallHeight = 28 + 42 * personality.boldness
+      // Keep the sprite inside the tank when an object lifts the ground near the wall.
+      // The snail sprite is 20 rows tall.
+      let spriteHeight = 20 * scale
+      wallHeight = min(28 + 42 * personality.boldness, max(0, a.y - spriteHeight))
     } else {
       let graze = grazeAnchor(
         for: personality, identity: item.identity, seed: seed, trip: trip, origin: bX, side: side)

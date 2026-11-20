@@ -33,7 +33,11 @@ struct AquariumPersonalityTests {
     #expect(all.allSatisfy { (0.1...1).contains($0.shelterAffinity) })
     #expect(all.allSatisfy { (0.2...0.9).contains($0.glassAffinity) })
     #expect(Set(all.map(\.speed)).count > 300)
-    #expect(all.map(\.boldness).min()! < 0.1 && all.map(\.boldness).max()! > 0.9)
+    let boldnesses: [Double] = all.map(\.boldness)
+    let lowest: Double = boldnesses.min() ?? 1
+    let highest: Double = boldnesses.max() ?? 0
+    #expect(lowest < 0.1)
+    #expect(highest > 0.9)
   }
 
   @Test func shelterChoiceIsStableForASeedAndFollowsPersonality() throws {
@@ -58,7 +62,10 @@ struct AquariumPersonalityTests {
     }
     #expect(chosen.count == 3)
     #expect(bold.count > 5 && timid.count > 5)
-    #expect(bold.reduce(0, +) / Double(bold.count) > timid.reduce(0, +) / Double(timid.count) * 2)
+    let boldMean: Double = bold.reduce(0, +) / Double(bold.count)
+    let timidMean: Double = timid.reduce(0, +) / Double(timid.count)
+    let threshold: Double = timidMean * 2
+    #expect(boldMean > threshold)
   }
 
   @Test func shelterIsNeverChosenWithoutOne() {
@@ -72,7 +79,9 @@ struct AquariumPersonalityTests {
     let timid = people.filter { $0.boldness < 0.2 && $0.shelterAffinity > 0.8 }
     let bold = people.filter { $0.boldness > 0.8 && $0.shelterAffinity < 0.5 }
     #expect(!timid.isEmpty && !bold.isEmpty)
-    #expect(timid.map(\.retreatChance).min()! > bold.map(\.retreatChance).max()!)
+    let timidFloor: Double = timid.map(\.retreatChance).min() ?? 0
+    let boldCeiling: Double = bold.map(\.retreatChance).max() ?? 1
+    #expect(timidFloor > boldCeiling)
   }
 
   @Test func grazingTrailsVisitSeveralSupportedStopsAndStayOnTheSurface() {
@@ -128,6 +137,32 @@ struct AquariumPersonalityTests {
     #expect(crept)
   }
 
+  @Test func aSnailNeverClimbsAboveTheTankWhenAnObjectLiftsTheGroundByTheWall() throws {
+    var settings = IdleScreenAquariumRenderSettings()
+    settings.objects = [
+      .init(kind: "driftwood", x: 0.03, y: 0.4, scale: 1),
+      .init(kind: "driftwood", x: 0.97, y: 0.4, scale: 1),
+    ]
+    let navigation = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
+    var checked = 0
+    for identity in 1...UInt64(400) {
+      guard IdleScreenAquariumPersonality(identity: identity, seed: 42).glassAffinity > 0.85
+      else { continue }
+      let item = IdleScreenAquariumRenderInhabitant(identity: identity, species: "snail")
+      for tick in stride(from: 0, to: 12_000, by: 3) {
+        let pose = IdleScreenAquarium.savedAnimal(
+          item, at: Double(tick) / 4, seed: 42, settings: settings, worldWidth: 384,
+          navigation: navigation)
+        let sprite = pose.species.sprite(phase: pose.animationPhase, facingRight: pose.facingRight)
+        let top: Double = pose.y - Double(sprite.height) * pose.scale
+        #expect(top >= 0, "identity \(identity) tick \(tick)")
+        checked += 1
+      }
+      if checked > 4_000 { break }
+    }
+    #expect(checked > 0)
+  }
+
   @Test func snailsMoveBetweenFloorAndGlassInsideTheTank() throws {
     let settings = scene([])
     for width in [384, 768] {
@@ -145,11 +180,19 @@ struct AquariumPersonalityTests {
         let pose = IdleScreenAquarium.savedAnimal(
           item, at: Double(tick) / 4, seed: 42, settings: settings, worldWidth: width,
           navigation: navigation)
-        #expect(abs(pose.x - previous.x) < 2 && abs(pose.y - previous.y) < 2)
+        let stepX: Double = abs(pose.x - previous.x)
+        let stepY: Double = abs(pose.y - previous.y)
+        #expect(stepX < 2)
+        #expect(stepY < 2)
         let sprite = pose.species.sprite(phase: pose.animationPhase, facingRight: pose.facingRight)
         let half = Double(sprite.width) * pose.scale * pose.horizontalScale / 2
-        #expect(pose.x - half >= 0 && pose.x + half <= Double(width))
-        #expect(pose.y - Double(sprite.height) * pose.scale >= 0 && pose.y <= 216)
+        let leftEdge: Double = pose.x - half
+        let rightEdge: Double = pose.x + half
+        #expect(leftEdge >= 0)
+        #expect(rightEdge <= Double(width))
+        let top: Double = pose.y - Double(sprite.height) * pose.scale
+        #expect(top >= 0)
+        #expect(pose.y <= 216)
         let wall = min(pose.x, Double(width) - pose.x) < 16
         if wall, pose.y < navigation.floor - 12 { onGlass += 1 }
         if pose.y >= navigation.floor - 6 { onFloor += 1 }
