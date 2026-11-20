@@ -1,6 +1,6 @@
 import Foundation
 
-enum IdleScreenAquariumSpecies: CaseIterable, Equatable {
+enum IdleScreenAquariumSpecies: CaseIterable, Hashable {
   case cherryShrimp
   case mantisShrimp
   case lionfish
@@ -404,5 +404,64 @@ struct IdleScreenAquariumSprite {
       let b = points[(i + 1) % points.count]
       line(a.0, a.1, b.0, b.1, color)
     }
+  }
+}
+
+/// Immutable animal sprites shared by every frame. A sprite depends only on the
+/// fields in `Key`, so a pose that repeats reuses the same pixel storage.
+final class IdleScreenAquariumSpriteCache: @unchecked Sendable {
+  static let shared = IdleScreenAquariumSpriteCache()
+  init() {}
+  /// Unknown shrimp variants render as the base red, so they share its entry.
+  static let shrimpVariants: Set<String> = ["orange", "yellow", "blue", "dark", "rili"]
+
+  struct Key: Hashable {
+    let species: IdleScreenAquariumSpecies
+    let phase: Int
+    let facingRight: Bool
+    let activity: IdleScreenAquariumActivity
+    /// Rendered mantis arm reach, 0...4. Zero for every other species.
+    let reach: Int
+    let variant: String
+    let eggs: Bool
+  }
+  private let lock = NSLock()
+  private var sprites: [Key: IdleScreenAquariumSprite] = [:]
+  private var generated = 0
+  private static let limit = 2_048
+
+  var generatedCount: Int { lock.withLock { generated } }
+  var cachedCount: Int { lock.withLock { sprites.count } }
+
+  static func key(for pose: IdleScreenAquariumAnimal, variant: String, eggs: Bool) -> Key {
+    var reach = 0
+    if pose.species == .mantisShrimp, pose.activity == .striking, pose.strikeProgress.isFinite {
+      reach = Int((min(1, max(0, pose.strikeProgress)) * 4).rounded())
+    }
+    let shrimp = pose.species == .cherryShrimp
+    return .init(
+      species: pose.species, phase: pose.animationPhase & 3, facingRight: pose.facingRight,
+      activity: pose.activity, reach: reach,
+      variant: shrimp ? (shrimpVariants.contains(variant) ? variant : "red") : "",
+      eggs: shrimp && eggs)
+  }
+
+  func sprite(for pose: IdleScreenAquariumAnimal, variant: String, eggs: Bool)
+    -> IdleScreenAquariumSprite
+  {
+    let key = Self.key(for: pose, variant: variant, eggs: eggs)
+    if let hit = lock.withLock({ sprites[key] }) { return hit }
+    var sprite = pose.species.sprite(
+      phase: pose.animationPhase, facingRight: pose.facingRight,
+      activity: pose.activity, strikeProgress: pose.strikeProgress)
+    if pose.species == .cherryShrimp {
+      sprite = IdleScreenAquarium.coloredShrimp(sprite, variant: variant, eggs: eggs)
+    }
+    lock.withLock {
+      if sprites.count >= Self.limit { sprites.removeAll() }
+      if sprites[key] == nil { generated += 1 }
+      sprites[key] = sprite
+    }
+    return sprite
   }
 }

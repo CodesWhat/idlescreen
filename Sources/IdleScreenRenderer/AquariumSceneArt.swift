@@ -1,15 +1,57 @@
 import Foundation
 
+/// Time-independent ornaments are drawn once. The chest lid has two poses and
+/// the plants sway continuously, so only the chest is cached by pose.
+final class IdleScreenAquariumOrnamentCache: @unchecked Sendable {
+  static let shared = IdleScreenAquariumOrnamentCache()
+  private let lock = NSLock()
+  private var sprites: [String: IdleScreenAquariumSprite] = [:]
+  private var generated = 0
+  var generatedCount: Int { lock.withLock { generated } }
+
+  func sprite(key: String, build: () -> IdleScreenAquariumSprite) -> IdleScreenAquariumSprite {
+    if let hit = lock.withLock({ sprites[key] }) { return hit }
+    let sprite = build()
+    lock.withLock {
+      if sprites[key] == nil { generated += 1 }
+      sprites[key] = sprite
+    }
+    return sprite
+  }
+}
+
 extension IdleScreenAquarium {
+  private static let ornamentSizes: [String: (Int, Int)] = [
+    "rock": (32, 12), "slate": (42, 25), "cave": (48, 30), "driftwood": (72, 46),
+    "hollowLog": (56, 26), "moss": (30, 16), "grass": (22, 34), "fern": (32, 48),
+    "purplePlant": (34, 66), "pirateChest": (34, 26), "skull": (28, 24),
+    "shipwreck": (78, 44), "castle": (48, 58), "diver": (20, 32), "volcano": (42, 34),
+  ]
+
   static func objectSprite(kind: String, time: Double, flow: Double = 0.5)
     -> IdleScreenAquariumSprite
   {
-    let sizes: [String: (Int, Int)] = [
-      "rock": (32, 12), "slate": (42, 25), "cave": (48, 30), "driftwood": (72, 46),
-      "hollowLog": (56, 26), "moss": (30, 16), "grass": (22, 34), "fern": (32, 48),
-      "purplePlant": (34, 66), "pirateChest": (34, 26), "skull": (28, 24),
-      "shipwreck": (78, 44), "castle": (48, 58), "diver": (20, 32), "volcano": (42, 34),
-    ]
+    switch kind {
+    case "moss", "grass", "fern", "purplePlant":
+      return buildObjectSprite(kind: kind, time: time, flow: flow)
+    case "pirateChest":
+      let lifted = Int(time / 6) % 2 != 0
+      return IdleScreenAquariumOrnamentCache.shared.sprite(
+        key: lifted ? "pirateChest.lifted" : "pirateChest"
+      ) { buildObjectSprite(kind: kind, time: lifted ? 6 : 0, flow: flow) }
+    default:
+      // Unknown kinds draw as the default stone, so they share its entry.
+      let known = ornamentSizes[kind] != nil ? kind : "rock"
+      return IdleScreenAquariumOrnamentCache.shared.sprite(key: known) {
+        buildObjectSprite(kind: known, time: 0, flow: flow)
+      }
+    }
+  }
+
+  static func buildObjectSprite(kind: String, time: Double, flow: Double = 0.5)
+    -> IdleScreenAquariumSprite
+  {
+    let sizes = ornamentSizes
     let size = sizes[kind] ?? (32, 12)
     var s = IdleScreenAquariumSprite(width: size.0, height: size.1)
     let stone = SIMD4<Float>(0.25, 0.31, 0.34, 1)
