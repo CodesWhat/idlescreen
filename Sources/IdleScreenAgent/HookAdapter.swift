@@ -39,23 +39,14 @@ public enum IdleScreenAgentHookAdapter {
         return .clear(
           provider: provider,
           sessionID: sessionID,
-          eventID: eventIdentifier(
-            eventName: hookEventName,
-            sourceID: nil,
-            nonce: nonce
-          )
+          eventID: eventIdentifier(eventName: hookEventName, nonce: nonce)
         )
       }
       return .recordIgnored(provider: provider)
     }
 
     let sessionID = try requiredIdentifier("session_id", in: fields)
-    let sourceEventID = fields["turn_id"] as? String
-    let eventID = eventIdentifier(
-      eventName: hookEventName,
-      sourceID: sourceEventID,
-      nonce: nonce
-    )
+    let eventID = eventIdentifier(eventName: hookEventName, nonce: nonce)
     let timeout = configuration.messageTimeout
     let signal = try IdleScreenAgentSignal.validated(
       provider: provider,
@@ -127,11 +118,10 @@ public enum IdleScreenAgentHookAdapter {
 
   private static func eventIdentifier(
     eventName: String,
-    sourceID: String?,
     nonce: String
   ) -> String {
     let event = eventName.lowercased().filter { $0.isLetter || $0.isNumber }
-    let suffix = normalizedIdentifier(sourceID ?? nonce, prefix: "event")
+    let suffix = normalizedIdentifier(nonce, prefix: "event")
     return normalizedIdentifier("\(event)-\(suffix)", prefix: "event")
   }
 

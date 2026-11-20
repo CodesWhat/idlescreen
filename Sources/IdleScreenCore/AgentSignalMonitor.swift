@@ -74,7 +74,16 @@ public struct IdleScreenAgentSignalMonitor: Sendable {
       )
     }
     guard canPoll(at: date), let store else { return nil }
-    let inbox = try store.read(at: date)
+    let inbox: IdleScreenAgentSignalInbox
+    do {
+      inbox = try store.read(at: date)
+    } catch {
+      // A failed read still consumes the interval, and the next good read
+      // republishes even when it matches what was shown before the failure.
+      nextPollAt = date.addingTimeInterval(pollingInterval)
+      hasPolled = false
+      throw error
+    }
     return consume(inbox, at: date)
   }
 

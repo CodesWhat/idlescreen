@@ -182,7 +182,14 @@ public struct IdleScreenAgentSignalStore: Sendable {
       guard FileManager.default.fileExists(atPath: previousFileURL.path) else {
         throw primaryError
       }
-      inbox = try decode(readData(at: previousFileURL))
+      do {
+        inbox = try decode(readData(at: previousFileURL))
+      } catch {
+        // A filesystem failure on the primary must not be masked by a
+        // content failure on the backup, or clear-all would treat it as
+        // recoverable and replace a file it could not read.
+        throw Self.isContentError(primaryError) ? error : primaryError
+      }
       diagnosticSink(.recoveredPrevious(fallbackReason(for: primaryError)))
     }
     return (pruningExpiredSignals(from: inbox, at: date), validPrimaryData)
@@ -207,8 +214,18 @@ public struct IdleScreenAgentSignalStore: Sendable {
     at date: Date,
     directoryDescriptor: Int32
   ) throws -> IdleScreenAgentSignalInbox {
-    let (decodedInbox, validPrimaryData) = try readInbox(at: date)
-    var inbox = decodedInbox
+    var inbox: IdleScreenAgentSignalInbox
+    var validPrimaryData: Data?
+    do {
+      let decoded = try readInbox(at: date)
+      inbox = decoded.inbox
+      validPrimaryData = decoded.validPrimaryData
+    } catch  where Self.isRecoverableContentError(error, for: mutation) {
+      // Only the explicit emergency clear may discard an unreadable inbox.
+      // Every other mutation stays fail-closed.
+      inbox = .empty
+      validPrimaryData = nil
+    }
 
     switch mutation {
     case .set(let signal):
@@ -222,12 +239,10 @@ public struct IdleScreenAgentSignalStore: Sendable {
         $0.provider == signal.provider && $0.sessionID == signal.sessionID
       }
       if signal.state != .idle, signal.expiresAt > date {
+        Self.reserveCapacity(in: &inbox.signals)
         inbox.signals.append(signal)
       }
       inbox.signals.sort(by: Self.signalOrder)
-      if inbox.signals.count > Self.maximumSignalCount {
-        inbox.signals.removeFirst(inbox.signals.count - Self.maximumSignalCount)
-      }
       inbox.recentEvents.append(event)
       if inbox.recentEvents.count > Self.maximumRecentEventCount {
         inbox.recentEvents.removeFirst(
@@ -286,6 +301,38 @@ public struct IdleScreenAgentSignalStore: Sendable {
       directoryDescriptor: directoryDescriptor
     )
     return inbox
+  }
+
+  /// Evicts the oldest signals, ties broken by `signalOrder`, until one slot
+  /// is free, so a new live signal is never the one dropped by sort order.
+  private static func reserveCapacity(in signals: inout [IdleScreenAgentSignal]) {
+    let overflow = signals.count - (maximumSignalCount - 1)
+    guard overflow > 0 else { return }
+    let evictedIndices = Set(
+      signals.indices.sorted { lhs, rhs in
+        let (left, right) = (signals[lhs], signals[rhs])
+        return left.createdAt != right.createdAt
+          ? left.createdAt < right.createdAt : signalOrder(left, right)
+      }.prefix(overflow))
+    signals = signals.enumerated().filter { !evictedIndices.contains($0.offset) }.map(\.element)
+  }
+
+  private static func isRecoverableContentError(
+    _ error: any Error,
+    for mutation: Mutation
+  ) -> Bool {
+    guard case .clearAll = mutation else { return false }
+    return isContentError(error)
+  }
+
+  private static func isContentError(_ error: any Error) -> Bool {
+    if error is DecodingError || error is IdleScreenAgentSignal.ValidationError {
+      return true
+    }
+    switch error as? StoreError {
+    case .unsupportedSchema, .payloadTooLarge: return true
+    default: return false
+    }
   }
 
   private func withExclusiveLock<T>(
