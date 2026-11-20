@@ -405,6 +405,107 @@ struct AquariumRuntimeBundleTests {
     try await old.shutdown()
   }
 
+  @Test func aTankWhoseBaselineAndEquipmentSwappedPlacesRestoresAsOneLayout() async throws {
+    let source = try await freshEditingSurface()
+    let start = try await source.editorSnapshot()
+    let filter = try #require(start.equipmentObjects.first { $0.id == "equipment/filter" })
+    let plant = try #require(start.objects.first { $0.id == "base-plant-0" })
+    let initial = try await source.applyPresetObjects(
+      expectedRevision: start.revision, objects: [plant])
+    var equipment = initial.equipmentObjects
+    let filterIndex = try #require(equipment.firstIndex { $0.id == "equipment/filter" })
+    equipment[filterIndex].positionCm.x = -15
+    equipment[filterIndex].positionCm.z = 8
+    let moved = try await source.applyEquipmentObjects(
+      expectedRevision: initial.revision, objects: equipment)
+    var plants = moved.objects
+    let plantIndex = try #require(plants.firstIndex { $0.id == plant.id })
+    plants[plantIndex].positionCm.x = filter.positionCm.x
+    plants[plantIndex].positionCm.z = filter.positionCm.z
+    let edited = try await source.applyPresetObjects(
+      expectedRevision: moved.revision, objects: plants)
+    #expect(edited.equipmentObjects == equipment)
+    let saved = try await source.exportTank(id: "swap-test", name: "Swap")
+    let target = IdleScreenAquariumWebSurface()
+    try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let reopened = try await target.restoreTank(from: saved)
+    #expect(reopened.equipmentObjects == edited.equipmentObjects)
+    expectSamePoses(reopened.objects, edited.objects)
+    let again = try await target.exportTank(id: "swap-test", name: "Swap")
+    let before = try #require(JSONSerialization.jsonObject(with: saved) as? [String: Any])
+    let after = try #require(JSONSerialization.jsonObject(with: again) as? [String: Any])
+    func checkpoint(_ envelope: [String: Any]) throws -> NSDictionary {
+      let tank = try #require(envelope["tank"] as? [String: Any])
+      let document = try #require(tank["document"] as? [String: Any])
+      return NSDictionary(dictionary: try #require(document["checkpoint"] as? [String: Any]))
+    }
+    #expect(try checkpoint(before) == checkpoint(after))
+    #expect(
+      NSDictionary(dictionary: try #require(before["runtime"] as? [String: Any]))
+        == NSDictionary(dictionary: try #require(after["runtime"] as? [String: Any])))
+    try await source.shutdown()
+    try await target.shutdown()
+  }
+
+  @Test func savedEquipmentMayOccupySpaceVacatedByAMovedOrRemovedRock() async throws {
+    let source = try await freshEditingSurface()
+    let initial = try await source.editorSnapshot()
+    let rock = try #require(initial.objects.first { $0.id == "base-rock" })
+    let remaining = initial.objects.filter { $0.id != rock.id }
+    let cleared = try await source.applyPresetObjects(
+      expectedRevision: initial.revision, objects: remaining)
+    var equipment = cleared.equipmentObjects
+    let filterIndex = try #require(equipment.firstIndex { $0.id == "equipment/filter" })
+    equipment[filterIndex].positionCm.x = rock.positionCm.x
+    equipment[filterIndex].positionCm.z = rock.positionCm.z
+    let edited = try await source.applyEquipmentObjects(
+      expectedRevision: cleared.revision, objects: equipment)
+    let saved = try await source.exportTank(id: "vacated-test", name: "Vacated")
+    let target = IdleScreenAquariumWebSurface()
+    try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let reopened = try await target.restoreTank(from: saved)
+    #expect(reopened.equipmentObjects == edited.equipmentObjects)
+    expectSamePoses(reopened.objects, cleared.objects)
+    #expect(!reopened.objects.contains { $0.id == rock.id })
+    try await source.shutdown()
+    try await target.shutdown()
+  }
+
+  @Test func aRestoredLayoutWithACollidingBaselineObjectStaysRejected() async throws {
+    let source = try await freshEditingSurface()
+    let start = try await source.editorSnapshot()
+    let plant = try #require(start.objects.first { $0.id == "base-plant-0" })
+    let initial = try await source.applyPresetObjects(
+      expectedRevision: start.revision, objects: [plant])
+    var equipment = initial.equipmentObjects
+    let filterIndex = try #require(equipment.firstIndex { $0.id == "equipment/filter" })
+    equipment[filterIndex].positionCm.x = -15
+    equipment[filterIndex].positionCm.z = 8
+    _ = try await source.applyEquipmentObjects(
+      expectedRevision: initial.revision, objects: equipment)
+    let saved = try await source.exportTank(id: "collide-test", name: "Collide")
+    var envelope = try #require(JSONSerialization.jsonObject(with: saved) as? [String: Any])
+    var tank = try #require(envelope["tank"] as? [String: Any])
+    var document = try #require(tank["document"] as? [String: Any])
+    var layout = try #require(document["layout"] as? [String: Any])
+    var objects = try #require(layout["objects"] as? [[String: Any]])
+    let plantIndex = try #require(objects.firstIndex { $0["id"] as? String == "base-plant-0" })
+    var position = try #require(objects[plantIndex]["positionCm"] as? [String: Any])
+    position["x"] = -15
+    position["z"] = 8
+    objects[plantIndex]["positionCm"] = position
+    layout["objects"] = objects
+    document["layout"] = layout
+    tank["document"] = document
+    envelope["tank"] = tank
+    let tampered = try JSONSerialization.data(withJSONObject: envelope)
+    let target = IdleScreenAquariumWebSurface()
+    try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    await #expect(throws: (any Error).self) { try await target.restoreTank(from: tampered) }
+    try await source.shutdown()
+    try await target.shutdown()
+  }
+
   @Test func liveEquipmentPreservesBiologyAndReleasesRejectedAndReplacedResources() async throws {
     let result = try await runPresetFixture(
       "equipment-live-check",
@@ -684,6 +785,28 @@ struct AquariumRuntimeBundleTests {
         return 'clicked';
       })()
       """)
+  }
+
+  private func expectSamePoses(
+    _ actual: [IdleScreenAquariumWebSurface.PresetObject],
+    _ expected: [IdleScreenAquariumWebSurface.PresetObject]
+  ) {
+    #expect(actual.map(\.id) == expected.map(\.id))
+    for (a, e) in zip(actual, expected) {
+      #expect(a.assetId == e.assetId)
+      #expect(abs(a.positionCm.x - e.positionCm.x) < 1e-9)
+      #expect(abs(a.positionCm.y - e.positionCm.y) < 1e-9)
+      #expect(abs(a.positionCm.z - e.positionCm.z) < 1e-9)
+      #expect(abs(a.rotationY - e.rotationY) < 1e-9)
+    }
+  }
+
+  private func freshEditingSurface() async throws -> IdleScreenAquariumWebSurface {
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    _ = try await surface.beginEditing()
+    return surface
   }
 
   private func tankScript(_ surface: IdleScreenAquariumWebSurface, _ script: String) async throws
