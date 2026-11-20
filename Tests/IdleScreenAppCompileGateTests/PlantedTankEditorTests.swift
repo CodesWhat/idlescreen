@@ -326,6 +326,48 @@ struct PlantedTankEditorTests {
     try await second.surface.shutdown()
   }
 
+  @Test func aSavedTankReopensWithAPlantOnTheFilterSpotItUsedToOccupy() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenPlantedTankStore(fileURL: directory.appendingPathComponent("tank.json"))
+    let first = IdleScreenPlantedTankEditor(store: store)
+    await first.activate()
+    let originalFilter = try #require(
+      first.snapshot?.equipmentObjects.first { $0.id == "equipment/filter" })
+    let keptPlant = try #require(first.snapshot?.objects.first { $0.id == "base-plant-0" })
+    for stale in first.snapshot?.objects ?? [] where stale.id != keptPlant.id {
+      first.selectedID = stale.id
+      await first.removeSelected()
+    }
+    var filter = originalFilter
+    filter.positionCm.x = -15
+    filter.positionCm.z = 8
+    await first.update(filter)
+    #expect(first.errorMessage == nil)
+    var plant = keptPlant
+    plant.positionCm.x = originalFilter.positionCm.x
+    plant.positionCm.z = originalFilter.positionCm.z
+    await first.update(plant)
+    #expect(first.errorMessage == nil)
+    await first.save()
+    #expect(first.savedAt != nil)
+    await first.deactivate()
+    let second = IdleScreenPlantedTankEditor(store: store)
+    await second.activate()
+    #expect(second.errorMessage == nil)
+    let reopenedFilter = try #require(
+      second.snapshot?.equipmentObjects.first { $0.id == filter.id })
+    #expect(abs(reopenedFilter.positionCm.x - filter.positionCm.x) < 1e-9)
+    #expect(abs(reopenedFilter.positionCm.z - filter.positionCm.z) < 1e-9)
+    let reopenedPlant = try #require(second.snapshot?.objects.first { $0.id == plant.id })
+    #expect(abs(reopenedPlant.positionCm.x - plant.positionCm.x) < 1e-9)
+    #expect(abs(reopenedPlant.positionCm.z - plant.positionCm.z) < 1e-9)
+    #expect(!second.canUndo)
+    await second.deactivate()
+    try await first.surface.shutdown()
+    try await second.surface.shutdown()
+  }
+
   @Test func anUnreadableCheckpointIsPreservedAndSavingStaysDisabled() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

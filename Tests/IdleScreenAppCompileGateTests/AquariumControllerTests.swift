@@ -208,4 +208,98 @@ struct AquariumControllerTests {
     #expect(controller.errorMessage != nil)
     #expect(!controller.canUndo)
   }
+
+  private nonisolated static let fixedNow = Date(timeIntervalSince1970: 1_800_000_000)
+
+  private final class StepClock {
+    var now: Date
+    init(_ now: Date) { self.now = now }
+  }
+
+  private static func encoded(_ library: IdleScreenAquariumLibrary) throws -> Data {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    return try encoder.encode(library)
+  }
+
+  private static func unreadable(_ kind: String) throws -> Data {
+    guard kind == "future" else { return Data("invalid save".utf8) }
+    var future = IdleScreenAquariumLibrary.starter
+    future.schemaVersion = 99
+    return try encoded(future)
+  }
+
+  private func expectBlocked(
+    _ controller: IdleScreenAquariumController, url: URL, bytes: Data,
+    library: IdleScreenAquariumLibrary, history: (undo: Bool, redo: Bool)
+  ) throws {
+    var executed = false
+    #expect(!controller.perform { _ in executed = true })
+    #expect(!executed)
+    controller.newTank()
+    controller.editTank(recordLayout: true) { _ in executed = true }
+    controller.advance()
+    controller.undoLayout()
+    controller.redoLayout()
+    #expect(!executed)
+    #expect(!controller.isWritable)
+    #expect(controller.errorMessage != nil)
+    #expect(controller.library == library)
+    #expect(controller.canUndo == history.undo && controller.canRedo == history.redo)
+    #expect(try Data(contentsOf: url) == bytes)
+    #expect(!FileManager.default.fileExists(atPath: url.appendingPathExtension("lock").path))
+  }
+
+  @Test(arguments: ["malformed", "future"])
+  func anUnreadableSaveAtLaunchBlocksEveryWriteUntilItIsRepaired(kind: String) throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let url = directory.appending(path: "aquariums.json")
+    let bytes = try Self.unreadable(kind)
+    try bytes.write(to: url)
+    let controller = IdleScreenAquariumController(fileURL: url, clock: { Self.fixedNow })
+    try expectBlocked(
+      controller, url: url, bytes: bytes, library: .starter, history: (false, false))
+    var repaired = IdleScreenAquariumLibrary.starter
+    repaired.balance += 5
+    try Self.encoded(repaired).write(to: url)
+    controller.reload()
+    #expect(controller.isWritable)
+    #expect(controller.errorMessage == nil)
+    #expect(controller.library.balance == repaired.balance)
+    #expect(controller.perform { $0.balance += 1 })
+    #expect(try IdleScreenAquariumStore(fileURL: url).read()?.balance == repaired.balance + 1)
+  }
+
+  @Test(arguments: ["malformed", "future"])
+  func anUnreadableSaveDuringReloadKeepsThePopulatedControllerAndItsHistory(kind: String) throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appending(path: "aquariums.json")
+    let clock = StepClock(Self.fixedNow)
+    let controller = IdleScreenAquariumController(fileURL: url, clock: { clock.now })
+    controller.editTank(recordLayout: true) { $0.substrate = .creamSand }
+    controller.editTank(recordLayout: true) { $0.substrate = .riverGravel }
+    controller.undoLayout()
+    #expect(controller.canUndo && controller.canRedo)
+    let populated = controller.library
+    let bytes = try Self.unreadable(kind)
+    try bytes.write(to: url)
+    try? FileManager.default.removeItem(at: url.appendingPathExtension("lock"))
+    clock.now = clock.now.addingTimeInterval(120)
+    controller.reload()
+    try expectBlocked(
+      controller, url: url, bytes: bytes, library: populated, history: (true, true))
+    var repaired = populated
+    repaired.balance += 7
+    try Self.encoded(repaired).write(to: url)
+    controller.reload()
+    #expect(controller.isWritable)
+    #expect(controller.errorMessage == nil)
+    #expect(controller.library.balance == repaired.balance)
+    #expect(!controller.canUndo && !controller.canRedo)
+    #expect(controller.perform { $0.balance += 1 })
+    #expect(try IdleScreenAquariumStore(fileURL: url).read()?.balance == repaired.balance + 1)
+  }
 }

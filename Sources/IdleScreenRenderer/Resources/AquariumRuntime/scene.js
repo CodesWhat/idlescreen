@@ -1691,6 +1691,19 @@ function exportTank(identity){
  const foodIds=new Set(ecology.food.map(f=>f.id)),food=pellets.filter(p=>foodIds.has(p.food.id)).map(p=>({id:p.food.id,position:p.o.position.toArray(),velocity:p.velocity.toArray(),quaternion:p.o.quaternion.toArray(),visible:p.o.visible,delay:p.delay,lastT:p.lastT,settled:p.settled,landedOn:p.o.userData.landedOn??null}));
  return AquariumRuntimeCheckpoint.normalize({schemaVersion:1,tank,runtime:{clock,ecologyRate,conditionLevel,conditionEpoch,conditionStart,feedStarted,feedSequence,automaticFeedCount,manualFeedCount,lastFeedReason,nextFeedDue,actors,food}},tankEnvelope);
 }
+function validateRestoredBaseline(defaults){
+ captureBaselineCollisions();
+ const original=new Map(defaults.map(record=>[record.id,record]));
+ for(const record of presetAssemblies.snapshot()){
+  if(JSON.stringify(record)===JSON.stringify(original.get(record.id)))continue;
+  const group=world.getObjectByName('preset-'+record.id);
+  if(Math.abs(record.positionCm.y-group.userData.presetAnchorY*cmPerUnit)>1e-7)throw new Error('Preset objects must retain their supported height');
+  const obstacles=[...baselineCollisionMeshes.filter(mesh=>mesh.userData.presetOwner!==record.id),...designerRuntime.validSolids];
+  const status=designerRuntime.inspectObject(group,{solids:obstacles,placement:['base-wood','base-rock'].includes(record.id)?'buried-hardscape':'transform'});if(!status.valid)throw new Error(status.reason);
+ }
+ designerRuntime.setEnvironment({solids:baselineCollisionMeshes,mountSolids:baselineCollisionMeshes.filter(mesh=>mesh.userData.hardscape&&!mesh.userData.equipmentSolid)});
+ recaptureDesignerCollisions();rebuildSurfaceNavigation(false);buildBreedingSupports();presetRevision++;
+}
 function restoreTankJSON(text){
  if(enabled||clock!==0||ecology.seconds!==0||feedSequence!==0||designerActive)throw new Error('Tank restoration requires a fresh paused runtime');
  const saved=AquariumRuntimeCheckpoint.importJSON(text,tankEnvelope),configuration=saved.tank.configuration,document=saved.tank.document;
@@ -1706,8 +1719,9 @@ function restoreTankJSON(text){
  mode='desktop';designerActive=true;designerLayout={schemaVersion:1,units:'cm',name:document.layout.name,base:{setup:sceneStyle},instances:[]};
  restoringTank=true;try{build();resize();}finally{restoringTank=false;}
  const base=document.layout.objects.filter(o=>o.id.startsWith('base-')),added=document.layout.objects.filter(o=>!o.id.startsWith('base-'));
- const baseResult=applyPresetObjects({expectedRevision:presetRevision,objects:base});if(baseResult.error)throw new Error(baseResult.error);
+ const defaultBase=presetAssemblies.snapshot();presetAssemblies.apply(base);captureBaselineCollisions();
  if(configuration.schemaVersion===2&&configuration.equipment){const eq=equipmentObjects().map(item=>({...item,positionCm:configuration.equipment[equipmentDefinitions[item.id].slot],rotationY:0}));const result=applyEquipmentObjects({expectedRevision:presetRevision,objects:eq});if(result.error)throw new Error(result.error);}
+ validateRestoredBaseline(defaultBase);
  const placement=applyDesigner({layout:{...designerLayout,instances:added}});if(placement.error||placement.status.some(s=>!s.valid))throw new Error(placement.error||'Saved specimen placement is invalid');
  ecology=restored.ecology;breeding=restored.breeding;water=restored.water;accountedDissolved=restored.accountedDissolved;
  clock=r.clock;lastSimulation=clock;ecologyRate=r.ecologyRate;feedStarted=r.feedStarted;feedSequence=r.feedSequence;automaticFeedCount=r.automaticFeedCount;manualFeedCount=r.manualFeedCount;lastFeedReason=r.lastFeedReason;nextFeedDue=r.nextFeedDue;
