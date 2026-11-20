@@ -11,6 +11,20 @@ import Observation
 final class IdleScreenAppModel {
   static let shared = IdleScreenAppModel()
 
+  /// What one background health pass produces: the reports left after
+  /// retention and the identifiers of those that belong to a running process.
+  struct ProcessHealthSnapshot: Sendable {
+    let reports: [IdleScreenProcessHealth]
+    let liveReportIdentifiers: Set<String>
+
+    init(reports: [IdleScreenProcessHealth], liveReportIdentifiers: Set<String>) {
+      self.reports = reports
+      self.liveReportIdentifiers = liveReportIdentifiers
+    }
+  }
+
+  typealias ProcessHealthLoader = @Sendable (URL) throws -> ProcessHealthSnapshot
+
   struct AgentIntegrationDependencies: Sendable {
     let sharedPaths: IdleScreenSharedPaths?
     let appGroupIdentifier: String?
@@ -24,6 +38,7 @@ final class IdleScreenAppModel {
         IdleScreenAgentSignalStore,
         Date
       ) throws -> IdleScreenAgentSignalInbox
+    let loadProcessHealth: ProcessHealthLoader
 
     init(
       sharedPaths: IdleScreenSharedPaths?,
@@ -37,7 +52,9 @@ final class IdleScreenAppModel {
         @escaping @Sendable (
           IdleScreenAgentSignalStore,
           Date
-        ) throws -> IdleScreenAgentSignalInbox
+        ) throws -> IdleScreenAgentSignalInbox,
+      loadProcessHealth: @escaping ProcessHealthLoader = IdleScreenAppModel
+        .loadProcessHealthSnapshot
     ) {
       self.sharedPaths = sharedPaths
       self.appGroupIdentifier = appGroupIdentifier
@@ -47,6 +64,7 @@ final class IdleScreenAppModel {
       self.agentControlExecutableURL = agentControlExecutableURL
       self.clock = clock
       self.loadAgentSignals = loadAgentSignals
+      self.loadProcessHealth = loadProcessHealth
     }
   }
 
@@ -110,6 +128,12 @@ final class IdleScreenAppModel {
       IdleScreenAgentSignalStore,
       Date
     ) throws -> IdleScreenAgentSignalInbox
+  private let processHealthLoader: ProcessHealthLoader
+  private var processHealthRequest: UInt64 = 0
+  private var processHealthAppliedRequest: UInt64 = 0
+  private var processHealthRefreshInFlight = false
+  private var processHealthRefreshPending = false
+  private var processHealthLiveIdentifiers: Set<String> = []
   private var refreshGeneration: UInt64 = 0
   private var agentSignalMonitor: IdleScreenAgentSignalMonitor?
   private var agentSignalRefreshGeneration: UInt64 = 0
@@ -140,6 +164,9 @@ final class IdleScreenAppModel {
       }
     }
   }
+  /// Set when the saved configuration could not be read at launch. Unlike `lastError` it survives unrelated status updates, and
+  /// while it is set nothing may overwrite the unreadable file on disk.
+  private(set) var configurationLoadFailure: String?
   var activeAgentSignal: IdleScreenAgentSignal?
   /// The strongest live signal per provider, which drive the scene's sprites.
   var activeAgentSignals: [IdleScreenAgentSignal] = []
@@ -186,6 +213,7 @@ final class IdleScreenAppModel {
       resolvedAgentControlExecutableURL = dependencies.agentControlExecutableURL
       clock = dependencies.clock
       agentSignalLoader = dependencies.loadAgentSignals
+      processHealthLoader = dependencies.loadProcessHealth
     } else {
       appGroupIdentifier =
         bundle.object(
@@ -210,6 +238,7 @@ final class IdleScreenAppModel {
         path: "Contents/Helpers/idlescreenctl"
       )
       clock = { Date() }
+      processHealthLoader = Self.loadProcessHealthSnapshot
       agentSignalLoader = { store, date in
         try store.read(at: date)
       }
@@ -229,6 +258,7 @@ final class IdleScreenAppModel {
           ?? .default
       } catch {
         configuration = .default
+        configurationLoadFailure = error.localizedDescription
         lastError = error.localizedDescription
         shouldPersistInitialConfiguration = false
       }
@@ -269,30 +299,49 @@ final class IdleScreenAppModel {
   }
 
   var extensionHealth: IdleScreenProcessHealth? {
-    let liveReportIdentifiers = Set(
-      processHealth.compactMap { report -> String? in
-        isProcessReportLive(report) ? report.reportIdentifier : nil
-      })
-    return IdleScreenHealthSelection.preferredReport(
+    IdleScreenHealthSelection.preferredReport(
       for: .screenSaverExtension,
       in: processHealth,
-      liveReportIdentifiers: liveReportIdentifiers
+      liveReportIdentifiers: processHealthLiveIdentifiers
     )
   }
 
+  /// Liveness as of the last completed health pass. Classification runs off
+  /// the main actor, so views only look the answer up.
   func isProcessReportLive(_ report: IdleScreenProcessHealth) -> Bool {
+    processHealthLiveIdentifiers.contains(report.reportIdentifier)
+  }
+
+  nonisolated static func isProcessReportRunning(_ report: IdleScreenProcessHealth) -> Bool {
     guard let processIdentifier = report.processIdentifier else { return false }
     let processExists = Darwin.kill(processIdentifier, 0) == 0 || errno == EPERM
     guard processExists,
-      let executablePath = Self.executablePath(for: processIdentifier),
+      let executablePath = executablePath(for: processIdentifier),
       report.process.matchesExecutablePath(executablePath),
-      let processStartedAt = Self.processStartDate(for: processIdentifier),
+      let processStartedAt = processStartDate(for: processIdentifier),
       report.couldBelongToProcess(startedAt: processStartedAt)
     else {
       return false
     }
     return report.isLive(
       activeProcessIdentifiers: [processIdentifier]
+    )
+  }
+
+  /// Reads, classifies and prunes the health directory. Runs off the main actor.
+  nonisolated static func loadProcessHealthSnapshot(
+    directoryURL: URL
+  ) throws -> ProcessHealthSnapshot {
+    let store = IdleScreenHealthStore(directoryURL: directoryURL)
+    let live = Set(
+      try store.readAll().compactMap { report -> String? in
+        isProcessReportRunning(report) ? report.reportIdentifier : nil
+      })
+    let retained = try store.enforceRetention(protecting: live).retained
+    let retainedIdentifiers = Set(retained.map(\.reportIdentifier))
+    return ProcessHealthSnapshot(
+      reports: retained,
+      liveReportIdentifiers: live.intersection(retainedIdentifiers)
     )
   }
 
@@ -1040,6 +1089,11 @@ final class IdleScreenAppModel {
   }
 
   private func commitConfiguration() {
+    if let configurationLoadFailure {
+      lastError = configurationLoadFailure
+      publishAppHealth()
+      return
+    }
     configuration.schemaVersion = IdleScreenConfiguration.currentSchemaVersion
     configuration.revision &+= 1
     configuration.modifiedAt = clock()
@@ -1058,7 +1112,7 @@ final class IdleScreenAppModel {
   }
 
   private func persistConfigurationIfNeeded(overwritingExisting: Bool = false) {
-    guard let sharedPaths else { return }
+    guard let sharedPaths, configurationLoadFailure == nil else { return }
     let store = IdleScreenConfigurationStore(fileURL: sharedPaths.configurationURL)
     do {
       let existingConfiguration = try store.read()
@@ -1102,16 +1156,55 @@ final class IdleScreenAppModel {
     readProcessHealth()
   }
 
+  private enum ProcessHealthOutcome: Sendable {
+    case loaded(ProcessHealthSnapshot)
+    case failed(String)
+  }
+
+  /// Overlapping calls coalesce into at most one follow-up pass, and only a
+  /// completed pass newer than the last one applied is published.
   private func readProcessHealth() {
     guard let sharedPaths else {
       processHealth = []
+      processHealthLiveIdentifiers = []
       return
     }
-    do {
-      processHealth = try IdleScreenHealthStore(directoryURL: sharedPaths.healthDirectoryURL)
-        .readAll()
-    } catch {
-      lastError = error.localizedDescription
+    guard !processHealthRefreshInFlight else {
+      processHealthRefreshPending = true
+      return
+    }
+    processHealthRefreshInFlight = true
+    processHealthRefreshPending = false
+    processHealthRequest &+= 1
+    let request = processHealthRequest
+    let directoryURL = sharedPaths.healthDirectoryURL
+    let loader = processHealthLoader
+    Task {
+      let outcome = await Task.detached { () -> ProcessHealthOutcome in
+        do {
+          return .loaded(try loader(directoryURL))
+        } catch {
+          return .failed(error.localizedDescription)
+        }
+      }.value
+      applyProcessHealth(outcome, request: request)
+    }
+  }
+
+  private func applyProcessHealth(_ outcome: ProcessHealthOutcome, request: UInt64) {
+    processHealthRefreshInFlight = false
+    if request > processHealthAppliedRequest {
+      processHealthAppliedRequest = request
+      switch outcome {
+      case .loaded(let snapshot):
+        processHealth = snapshot.reports
+        processHealthLiveIdentifiers = snapshot.liveReportIdentifiers
+      case .failed(let message):
+        lastError = message
+      }
+    }
+    if processHealthRefreshPending {
+      readProcessHealth()
     }
   }
 
@@ -1195,7 +1288,7 @@ final class IdleScreenAppModel {
     return false
   }
 
-  private static func executablePath(for processIdentifier: Int32) -> String? {
+  nonisolated private static func executablePath(for processIdentifier: Int32) -> String? {
     var pathBuffer = [CChar](repeating: 0, count: 4096)
     let pathLength = Darwin.proc_pidpath(
       processIdentifier,
@@ -1212,7 +1305,7 @@ final class IdleScreenAppModel {
     return String(decoding: pathBytes, as: UTF8.self)
   }
 
-  private static func processStartDate(for processIdentifier: Int32) -> Date? {
+  nonisolated private static func processStartDate(for processIdentifier: Int32) -> Date? {
     var processInfo = proc_bsdinfo()
     let expectedSize = Int32(MemoryLayout<proc_bsdinfo>.size)
     let actualSize = Darwin.proc_pidinfo(

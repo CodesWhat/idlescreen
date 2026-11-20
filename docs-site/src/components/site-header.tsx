@@ -9,7 +9,7 @@ export function SiteHeader() {
       <div className="wrap">
         <a className="brand" href="/" aria-label={`${SITE_CONFIG.name} home`}>
           {/* biome-ignore lint/performance/noImgElement: basePath makes next/image prepend /docs to root-relative src. */}
-          <img src="/assets/logo.png" alt="" width={32} height={32} />
+          <img src="/assets/logo-64.png" alt="" width={32} height={32} />
           <span>{SITE_CONFIG.name}</span>
         </a>
         <nav className="nav" aria-label="Main">

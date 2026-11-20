@@ -9,12 +9,19 @@ log_path="$artifact_root/xcodebuild.log"
 
 /bin/mkdir -p "$artifact_root"
 
+# CI sets this on push to collect coverage from the same run.
+coverage_args=()
+if [[ -n "${IDLESCREEN_COVERAGE_RESULT_BUNDLE:-}" ]]; then
+  coverage_args=(-enableCodeCoverage YES -resultBundlePath "$IDLESCREEN_COVERAGE_RESULT_BUNDLE")
+fi
+
 set +e
 xcodebuild test \
   -project "$project" \
   -scheme IdleScreenAppCompileGate \
   -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath "$artifact_root/DerivedData" \
+  ${coverage_args[@]+"${coverage_args[@]}"} \
   CODE_SIGNING_ALLOWED=NO \
   SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
   2>&1 | /usr/bin/tee "$log_path"

@@ -1,3 +1,4 @@
+import { gunzipSync } from 'node:zlib';
 import { expect, test as base } from '@playwright/test';
 
 // Same guard as site.spec.mjs: every test fails on page errors, console errors (CSP violations
@@ -175,4 +176,85 @@ test.describe('phone', () => {
     await expect(page).toHaveURL(/\/docs\/camera$/);
     await expect(drawer).toBeHidden();
   });
+});
+
+test.describe('docs analytics', () => {
+  test('sends nothing to PostHog from a non-production host', async ({ page }) => {
+    const requests = [];
+    page.on('request', request => requests.push(request.url()));
+    await page.goto('/docs/studio');
+    await page.getByRole('link', { name: 'Getting started' }).first().click();
+    await expect(page).toHaveURL(/\/docs\/getting-started$/);
+    await page.waitForLoadState('networkidle');
+    expect(requests.filter(url => new URL(url).hostname === 'e.codeswhat.com')).toEqual([]);
+    expect(requests.filter(url => url.includes('/assets/vendor/'))).toEqual([]);
+  });
+});
+
+// Chromium (playwright.config.mjs host-resolver-rules) maps the production hostname to the local server, so the loader sees
+// location.hostname === "idlescreen.codeswhat.com" and really starts. PostHog's network
+// calls are stubbed; nothing leaves the machine.
+test.describe('docs analytics on the production hostname', () => {
+  const port = Number(process.env.IDLESCREEN_E2E_PORT ?? 4792);
+  const origin = `http://idlescreen.codeswhat.com:${port}`;
+  test.skip(({ browserName }) => browserName !== 'chromium', 'host-resolver-rules is Chromium only');
+  // PostHog drops events from user agents that look like bots, which includes HeadlessChrome.
+  test.use({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36' });
+
+  async function capturePostHog(page) {
+    const events = [];
+    // The SDK's bot filter also checks navigator.webdriver and the UA client hints.
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => false });
+      Object.defineProperty(Navigator.prototype, 'userAgentData', { get: () => undefined });
+    });
+    await page.route('https://e.codeswhat.com/**', async route => {
+      const request = route.request();
+      const buffer = request.postDataBuffer();
+      if (buffer) {
+        const text = buffer.length > 2 && buffer[0] === 0x1f && buffer[1] === 0x8b ? gunzipSync(buffer).toString('utf8') : buffer.toString('utf8');
+        const body = text.startsWith('data=') ? Buffer.from(decodeURIComponent(text.slice(5)), 'base64').toString('utf8') : text;
+        try {
+          const parsed = JSON.parse(body);
+          events.push(...(Array.isArray(parsed) ? parsed : parsed.batch ?? [parsed]));
+        } catch { /* config or non-event calls */ }
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '{"status":1}' });
+    });
+    return events;
+  }
+
+  test('reports a docs pageview, then one per client-side route change, all on the allowlist', async ({ page }) => {
+    const events = await capturePostHog(page);
+    await page.goto(`${origin}/docs/studio?utm_source=news&secret=1#h`);
+    await expect.poll(() => events.filter(event => event.event === '$pageview').length).toBe(1);
+    await page.getByRole('link', { name: 'Getting started' }).first().click();
+    await expect(page).toHaveURL(/\/docs\/getting-started$/);
+    await expect.poll(() => events.filter(event => event.event === '$pageview').length).toBe(2);
+    await page.goBack();
+    await expect.poll(() => events.filter(event => event.event === '$pageview').length).toBe(3);
+    const views = events.filter(event => event.event === '$pageview');
+    expect(views.map(event => event.properties.path)).toEqual(['/docs/studio', '/docs/getting-started', '/docs/studio']);
+    for (const event of events) {
+      expect(event.properties.site).toBe('idlescreen');
+      expect(event.properties.surface).toBe('docs');
+      expect(event.properties.$cookieless_mode).toBe(true);
+      expect(event.properties.$process_person_profile).toBe(false);
+      expect(JSON.stringify(event)).not.toMatch(/secret|\?utm|#h/);
+    }
+    expect(await page.evaluate(() => document.cookie)).toBe('');
+  });
+
+  for (const signal of ['doNotTrack', 'globalPrivacyControl']) {
+    test(`${signal} loads no SDK and sends nothing`, async ({ page }) => {
+      const events = await capturePostHog(page);
+      const requests = [];
+      page.on('request', request => requests.push(request.url()));
+      await page.addInitScript(name => Object.defineProperty(Navigator.prototype, name, { get: () => (name === 'doNotTrack' ? '1' : true) }), signal);
+      await page.goto(`${origin}/docs/studio`);
+      await page.waitForLoadState('networkidle');
+      expect(events).toEqual([]);
+      expect(requests.filter(url => url.includes('/assets/vendor/') || new URL(url).hostname === 'e.codeswhat.com')).toEqual([]);
+    });
+  }
 });

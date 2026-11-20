@@ -92,8 +92,13 @@ registered_extension_paths() {
 }
 
 paths_refer_to_same_file() {
+  local first_path
+  local second_path
+
   [[ -n "$1" && -n "$2" ]] || return 1
-  [[ "$(/bin/realpath "$1")" == "$(/bin/realpath "$2")" ]]
+  first_path="$(/bin/realpath "$1" 2>/dev/null)" || return 1
+  second_path="$(/bin/realpath "$2" 2>/dev/null)" || return 1
+  [[ "$first_path" == "$second_path" ]]
 }
 
 wait_for_selected_extension_path() {

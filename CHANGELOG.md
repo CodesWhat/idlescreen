@@ -12,6 +12,10 @@ All notable changes to idlescreen are documented here. The project follows
   saved layouts), run it on the desktop or in a window, and it honors reduced
   motion.
 
+### Changed
+
+- IdleScreen now supports Apple silicon Macs only.
+
 ### Fixed
 
 - Remove failed C8 plan output entries after poisoning so a retry can use the
@@ -20,6 +24,9 @@ All notable changes to idlescreen are documented here. The project follows
   three-renderer submission benchmark.
 - Correct the shipped 0.3.0 roadmap, current app install paths and private
   security-reporting guidance.
+- Correct the procedural pattern count to 19 (Topograph was missing), add the
+  current release to the README, refresh the project status record, and document
+  how the camera frame mailbox is stored and cleared.
 
 ## [0.3.0] - 2026-11-04
 

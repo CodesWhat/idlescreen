@@ -65,7 +65,7 @@ public enum IdleScreenAgentPresentationPolicy {
     }
     let style = configuration.stateVisuals.style(for: signal.state)
     guard style != .hidden else { return nil }
-    let providerName = signal.provider == .codex ? "Codex" : "Claude"
+    let providerName = signal.provider.displayName
     let title =
       signal.title
       ?? defaultTitle(
