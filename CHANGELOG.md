@@ -17,9 +17,23 @@ All notable changes to idlescreen are documented here. The project follows
 ### Changed
 
 - IdleScreen now supports Apple silicon Macs only.
+- The desktop aquarium caps itself at 30 fps on battery and reuses unchanged
+  layers between frames, so it costs less to run.
+- Camera sampling reads frames in place instead of copying each one whole.
 
 ### Fixed
 
+- Toggling Low Power Mode no longer crashes the app while the aquarium runs.
+- A malformed or newer configuration.json is no longer overwritten by the first
+  Studio edit.
+- Hooks installed from an app that was later moved are now found and removed,
+  and a symlinked `~/.claude/settings.json` or `~/.codex/hooks.json` is written
+  through instead of being replaced.
+- Clear all repairs an unreadable agent inbox, agent sprites come back after a
+  failed inbox read, and a second permission request in the same Codex turn is
+  no longer dropped.
+- Health reports are capped instead of accumulating forever.
+- Saved tanks reopen with their saved layout.
 - Remove failed C8 plan output entries after poisoning so a retry can use the
   same path, while retaining inode ownership checks and refusal errors.
 - Distinguish renderer failures from allowed GPU back-pressure in the
