@@ -82,7 +82,7 @@ final class IdleScreenMenuBarGlyph {
   private var inputs: IdleScreenMenuBarState.Inputs {
     IdleScreenMenuBarState.Inputs(
       needsSetup: needsSetup,
-      needsAttention: model.activeAgentSignal?.state == .needsAttention,
+      needsAttention: model.agentIntegration.activeAgentSignal?.state == .needsAttention,
       cameraStreaming: cameraClient.isPreviewLeaseAttached
         && cameraClient.frameReadiness == .ready
         && cameraClient.previewFrameDescriptor != nil,

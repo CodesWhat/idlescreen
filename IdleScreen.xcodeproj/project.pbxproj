@@ -227,6 +227,7 @@
 		5B9823873C2DE2062A3CEDCF /* ScreenSaverCompatibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27BFE01A558112871659082 /* ScreenSaverCompatibilityTests.swift */; };
 		5C5BB910E2F802427F9A7F57 /* CameraClientBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8799E86AB97E3F9B26E4C6D5 /* CameraClientBootstrap.swift */; };
 		5CB90CF84F88CC80B010586A /* IdleScreenCompanionCameraClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B4912DD2A54657439C579B /* IdleScreenCompanionCameraClient.swift */; };
+		5D27F6A34437503EFAA5CABD /* AgentIntegrationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 989FB068B6D31EA6C965F52B /* AgentIntegrationController.swift */; };
 		5D3F6BFB4048EDDB3E348284 /* CameraFrameMailboxWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBA00CAB82431F9AD3959E18 /* CameraFrameMailboxWriter.swift */; };
 		5D4302AC0B1FF351E3E6829F /* DisplaySceneCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4492351994BE823F4EBFD07A /* DisplaySceneCoordinatorTests.swift */; };
 		5DDEBE6B8ECA03E64EB16105 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEA410F56388DB9323F62460 /* AppKit.framework */; };
@@ -298,6 +299,7 @@
 		7C3C7914820472E5C7E5C735 /* StatusSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41512FA32EC16F8A7C30399C /* StatusSummaryTests.swift */; };
 		7C52D6DA537082D2C3FA298F /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 229F7EDF5A9548AF91DD4D9D /* QuartzCore.framework */; };
 		7C53591934DA8A5D026A33D6 /* CoreVideo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7EE85391BE8A694AB764F34B /* CoreVideo.framework */; };
+		7C8DBBDD4176513550682424 /* AgentIntegrationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 989FB068B6D31EA6C965F52B /* AgentIntegrationController.swift */; };
 		7D594F1BD65FF83643A8AEA4 /* CommandRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FCC2B799F65F747F9B369DC /* CommandRunner.swift */; };
 		7DC4E47ECB73A02436516A18 /* IdleScreenPerformance.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 39ACDF561B9DC1DBE755E3A3 /* IdleScreenPerformance.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		7E2462AD49D2C43283F3B91E /* IdleScreenSyntheticHostedGateViewControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20B1D8A37D46F3AB286C574C /* IdleScreenSyntheticHostedGateViewControllerTests.swift */; };
@@ -468,6 +470,7 @@
 		C82D685D3633DF6C7C06E676 /* HookAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2799AA4AE474794C103BCB /* HookAdapterTests.swift */; };
 		C85F898A3861C98BF25477A6 /* IdleScreenMenuBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC9AEB64E61C99DCDD266C61 /* IdleScreenMenuBar.swift */; };
 		C8973E3719336F70B3328396 /* IdleScreenWorkbenchHostingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6249E84EBE6D7A64D1467D8 /* IdleScreenWorkbenchHostingController.swift */; };
+		C9D99A6B26BD00C518612061 /* AgentIntegrationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 989FB068B6D31EA6C965F52B /* AgentIntegrationController.swift */; };
 		CA1B963357B99975EA251FE3 /* IdleScreenSaverViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C91BC794A861F83CD7A318C /* IdleScreenSaverViewTests.swift */; };
 		CACC8529A21927FB3D73FEFD /* IdleScreenCameraAgent.app in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 311266CB86AA52796FCD79AA /* IdleScreenCameraAgent.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CB479C27D10078029FB85C7D /* IdleScreenCamera.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9068229D1CD3299655B7C94 /* IdleScreenCamera.framework */; };
@@ -1652,6 +1655,7 @@
 		9521BB58A24E9BEF82B1692A /* IdleScreenDisplay.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IdleScreenDisplay.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		9616675F71A77952F695B8F1 /* IdleScreenAquariumRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleScreenAquariumRuntime.swift; sourceTree = "<group>"; };
 		98630BAEAE7347003FEC06D6 /* DesignComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignComponents.swift; sourceTree = "<group>"; };
+		989FB068B6D31EA6C965F52B /* AgentIntegrationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentIntegrationController.swift; sourceTree = "<group>"; };
 		992BC35B510FF1F05D8ECB19 /* DisplaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaysView.swift; sourceTree = "<group>"; };
 		9A2D17D514BC8D73A8E6DA75 /* AquariumLayoutPresetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumLayoutPresetTests.swift; sourceTree = "<group>"; };
 		9EC03DD9B5AA8903A73F97BD /* AquariumSimulationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumSimulationTests.swift; sourceTree = "<group>"; };
@@ -2712,6 +2716,7 @@
 		D600B68539E3CD94ADE33BC3 /* IdleScreenApp */ = {
 			isa = PBXGroup;
 			children = (
+				989FB068B6D31EA6C965F52B /* AgentIntegrationController.swift */,
 				77884D0BEB599468423795F7 /* AquariumController.swift */,
 				76C24BD87B246D2C847DD7D6 /* AquariumPresentationHost.swift */,
 				C4E42407C43182FF81F48AA3 /* AquariumView.swift */,
@@ -3971,6 +3976,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C9D99A6B26BD00C518612061 /* AgentIntegrationController.swift in Sources */,
 				583066BDDF2CD8EA1994EA2B /* AquariumController.swift in Sources */,
 				81B2D7D98370D862F5E651AB /* AquariumPresentationHost.swift in Sources */,
 				BFC8B363319ED647A8F4BFA9 /* AquariumProductBridge.swift in Sources */,
@@ -4100,6 +4106,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5D27F6A34437503EFAA5CABD /* AgentIntegrationController.swift in Sources */,
 				2F63EE01FFB8E0C19844EBBE /* AquariumController.swift in Sources */,
 				9713645FE4D5CD5D31CB79EB /* AquariumPresentationHost.swift in Sources */,
 				BB617DFDA49DBA063056AC2F /* AquariumProductBridge.swift in Sources */,
@@ -4197,6 +4204,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7C8DBBDD4176513550682424 /* AgentIntegrationController.swift in Sources */,
 				87FD7021258CFB97A21455F5 /* AquariumController.swift in Sources */,
 				A9C8172CD73F5550577DCF94 /* AquariumControllerTests.swift in Sources */,
 				24831BB188A16DA3A9A6EB59 /* AquariumPresentationHost.swift in Sources */,

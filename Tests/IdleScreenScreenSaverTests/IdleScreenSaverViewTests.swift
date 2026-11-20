@@ -348,6 +348,45 @@ struct IdleScreenSaverViewTests {
     #expect(view.isAccessibilityElement())
   }
 
+  @Test("a transient inbox failure clears sprites and they return at the next scheduled poll")
+  func agentSpritesRecoverAfterTransientFailure() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let fileURL = root.appending(path: "AgentSignals/inbox-v1.json")
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    _ = try store.apply(.set(try agentSignal(.codex, .needsAttention, at: now)), at: now)
+    let healthy = try Data(contentsOf: fileURL)
+    var configuration = IdleScreenConfiguration.default
+    configuration.agentIntegration.codexEnabled = true
+    var clock = now
+    let view = try #require(
+      IdleScreenSaverView(
+        frame: NSRect(x: 0, y: 0, width: 640, height: 360),
+        isPreview: false,
+        cameraClient: nil,
+        configuration: configuration,
+        agentSignalStore: store,
+        agentClock: { clock }
+      ))
+    view.startAnimation()
+    view.animateOneFrame()
+    #expect(view.rendererConfiguration.agentSprites.count == 1)
+
+    try Data("not json".utf8).write(to: fileURL)
+    clock = now.addingTimeInterval(5)
+    view.animateOneFrame()
+    #expect(view.rendererConfiguration.agentSprites.isEmpty)
+
+    try healthy.write(to: fileURL)
+    clock = now.addingTimeInterval(10)
+    view.animateOneFrame()
+    #expect(view.rendererConfiguration.agentSprites.count == 1)
+    #expect(view.agentOverlayPresentation?.provider == .codex)
+    view.stopAnimation()
+  }
+
   @Test("sprites obey the presentation policy gates")
   func agentSpritesObeyPolicy() throws {
     let root = FileManager.default.temporaryDirectory
