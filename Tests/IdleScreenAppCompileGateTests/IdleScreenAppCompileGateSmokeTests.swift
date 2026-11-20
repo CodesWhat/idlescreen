@@ -287,9 +287,9 @@ struct IdleScreenAppCompileGateSmokeTests {
     try Data("{broken".utf8).write(to: inboxURL)
     #expect(throws: (any Error).self) { try fixture.store.read(at: now) }
 
-    model.clearAgentSignals(at: now.addingTimeInterval(1))
+    model.agentIntegration.clearAgentSignals(at: now.addingTimeInterval(1))
 
-    #expect(model.agentIntegrationStatus == "All agent signals cleared.")
+    #expect(model.agentIntegration.status == "All agent signals cleared.")
     let repaired = try fixture.store.read(at: now.addingTimeInterval(2))
     #expect(repaired.signals.isEmpty)
   }
