@@ -301,6 +301,11 @@ targets:
     platform: macOS
     sources:
       - path: Sources/IdleScreenRenderer
+        excludes:
+          - Resources
+      - path: Sources/IdleScreenRenderer/Resources/AquariumRuntime
+        type: folder
+        buildPhase: resources
       - path: Products/IdleScreenApp/Resources/Fonts/DepartureMono-Regular.otf
         buildPhase: resources
     settings:
@@ -315,6 +320,8 @@ targets:
         APPLICATION_EXTENSION_API_ONLY: YES
         MTL_FAST_MATH: NO
         MTL_TREAT_WARNINGS_AS_ERRORS: YES
+    dependencies:
+      - sdk: WebKit.framework
 
   IdleScreenCoreTests:
     type: bundle.unit-test
@@ -338,6 +345,11 @@ targets:
     platform: macOS
     sources:
       - path: Tests/IdleScreenRendererTests
+        excludes:
+          - Resources
+      - path: Tests/IdleScreenRendererTests/Resources/WebSurfaceProof
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: IdleScreenRendererTests
@@ -886,6 +898,7 @@ targets:
     sources:
       - path: Products/IdleScreenScreenSaver
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
     info:
       path: Products/IdleScreenScreenSaver/Info.plist
       properties:
@@ -963,6 +976,7 @@ targets:
       - path: Products/IdleScreenScreenSaver/IdleScreenSaverCameraClient.swift
       - path: Products/IdleScreenScreenSaver/Private/IdleScreenSaverHostActivity.m
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
       - path: Support/IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateViewController.swift
       - path: Tests/IdleScreenScreenSaverTests
     settings:
@@ -997,6 +1011,7 @@ targets:
         excludes:
           - Info.plist
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
     info:
       path: Support/IdleScreenSyntheticHostedGateExtension/Info.plist
       properties:
@@ -1085,6 +1100,7 @@ targets:
         excludes:
           - Info.plist
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
     info:
       path: Support/IdleScreenSyntheticHostedGateExtension/Info.plist
       properties:
@@ -1191,6 +1207,7 @@ targets:
         buildPhase: resources
       - path: Tests/IdleScreenAppCompileGateTests
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
     settings:
       base:
         PRODUCT_NAME: IdleScreenAppCompileGateTests
@@ -1221,6 +1238,7 @@ targets:
         buildPhase: resources
       - path: design/icon/AppIcon.icon
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
       - path: THIRD_PARTY_NOTICES.md
         buildPhase: resources
       - path: Sources/IdleScreenCameraAgent/LaunchAgents
@@ -1319,6 +1337,7 @@ targets:
         buildPhase: resources
       - path: design/icon/AppIcon.icon
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
       - path: Sources/IdleScreenCameraAgent/LaunchAgents
         buildPhase:
           copyFiles:

@@ -12,7 +12,9 @@ enum IdleScreenPreviewWindowGeometry {
     proposed: CGSize, current: CGSize, previewAspectRatio: CGFloat
   ) -> CGSize {
     normalizedContentSize(
-      current: validSize(proposed) ? proposed : current,
+      current: CGSize(
+        width: validLength(proposed.width) ? proposed.width : current.width,
+        height: validLength(proposed.height) ? proposed.height : current.height),
       previewAspectRatio: previewAspectRatio
     )
   }
@@ -20,8 +22,10 @@ enum IdleScreenPreviewWindowGeometry {
   static func normalizedContentSize(
     current: CGSize, previewAspectRatio: CGFloat, availableSize: CGSize? = nil
   ) -> CGSize {
-    let proposed = validSize(current) ? current : absoluteMinimumContentSize
     let minimum = absoluteMinimumContentSize
+    let proposed = CGSize(
+      width: validLength(current.width) ? current.width : minimum.width,
+      height: validLength(current.height) ? current.height : minimum.height)
     let normalized = CGSize(
       width: max(minimum.width, proposed.width), height: max(minimum.height, proposed.height))
     guard let availableSize, validSize(availableSize) else { return normalized }
@@ -34,6 +38,10 @@ enum IdleScreenPreviewWindowGeometry {
     guard validSize(availableSize), aspectRatio.isFinite, aspectRatio > 0 else { return .zero }
     let width = min(availableSize.width, availableSize.height * aspectRatio)
     return CGSize(width: width, height: width / aspectRatio)
+  }
+
+  private static func validLength(_ value: CGFloat) -> Bool {
+    value.isFinite && value > 0
   }
 
   private static func validSize(_ value: CGSize) -> Bool {

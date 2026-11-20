@@ -26,6 +26,7 @@ extension IdleScreenCreativePattern {
     case .terrain: "Rolling contours"
     case .rainOnGlass: "Wet refraction"
     case .aurora: "Soft ribbons"
+    case .aquarium: "A quiet pixel aquarium"
     case .pixelMaterials: "Sand and water worlds"
     }
   }
@@ -72,6 +73,8 @@ extension IdleScreenCreativePattern {
       [Color(red: 0.05, green: 0.16, blue: 0.32), Color(red: 0.22, green: 0.53, blue: 0.72)]
     case .aurora:
       [Color(red: 0.04, green: 0.23, blue: 0.26), Color(red: 0.38, green: 0.68, blue: 0.71)]
+    case .aquarium:
+      [Color(red: 0.04, green: 0.14, blue: 0.22), Color(red: 0.72, green: 0.10, blue: 0.20)]
     case .pixelMaterials:
       [Color(red: 0.08, green: 0.34, blue: 0.56), Color(red: 0.92, green: 0.56, blue: 0.18)]
     }

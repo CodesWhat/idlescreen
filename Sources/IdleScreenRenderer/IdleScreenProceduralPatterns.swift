@@ -247,6 +247,8 @@ public enum IdleScreenProceduralPatterns {
 
   private static func tierFramesPerSecond(_ pattern: String) -> Int {
     switch pattern {
+    case "aquarium":
+      return 60
     case "terrain", "topograph":
       return 12
     case "perlin", "plasma", "aurora", "starfield", "voronoi", "metaballs",

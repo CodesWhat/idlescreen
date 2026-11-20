@@ -266,8 +266,7 @@ enum AgentSpriteLayout {
   }
 
   /// Two legs, 2 columns wide; one lifted per run frame.
-  private static func legs(_ x: Double, _ y: Double, _ frame: Int) -> Bool {
-    let top = -12.0
+  private static func legs(_ x: Double, _ y: Double, _ frame: Int, top: Double = -12) -> Bool {
     let left = frame != 1 ? 0.0 : -6.0
     let right = frame != 0 ? 0.0 : -6.0
     return rect(x, y, -20, top, -12, left) || rect(x, y, 12, top, 20, right)
@@ -288,7 +287,7 @@ enum AgentSpriteLayout {
   ) -> Int {
     switch kind {
     case .claude:
-      if legs(x, y, frame) && y > -22 { return 1 }
+      if legs(x, y, frame, top: -32) { return 1 }
       let cx = 0.0
       let cy = -42.0
       if rect(x, y, -8, -48, -4, -36) || rect(x, y, 4, -48, 8, -36) { return 2 }

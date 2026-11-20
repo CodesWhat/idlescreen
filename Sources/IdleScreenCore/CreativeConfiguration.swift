@@ -29,6 +29,7 @@ public enum IdleScreenCreativePattern: String, Codable, CaseIterable,
   case rainOnGlass
   case aurora
   case pixelMaterials
+  case aquarium
 
   public var id: String { rawValue }
 
@@ -54,6 +55,7 @@ public enum IdleScreenCreativePattern: String, Codable, CaseIterable,
     case .terrain: return "Terrain"
     case .rainOnGlass: return "Rain on Glass"
     case .aurora: return "Aurora"
+    case .aquarium: return "Shrimp Tank"
     case .pixelMaterials: return "Pixel Materials"
     }
   }
@@ -80,6 +82,7 @@ public enum IdleScreenCreativePattern: String, Codable, CaseIterable,
     case .terrain: return "mountain.2"
     case .rainOnGlass: return "cloud.heavyrain"
     case .aurora: return "light.ribbon"
+    case .aquarium: return "fish"
     case .pixelMaterials: return "drop.triangle"
     }
   }
