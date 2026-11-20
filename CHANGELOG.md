@@ -5,6 +5,8 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-20
+
 ### Added
 
 - Add the Aquarium pattern, a planted pixel-art tank with shrimp, fish and crabs.
@@ -186,7 +188,8 @@ Initial public release.
 - Private planning, raw evidence, design exports, and legacy recovery material
   are no longer part of the public source tree.
 
-[Unreleased]: https://github.com/CodesWhat/idlescreen/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/CodesWhat/idlescreen/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/CodesWhat/idlescreen/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/CodesWhat/idlescreen/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/CodesWhat/idlescreen/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/CodesWhat/idlescreen/compare/v0.1.1...v0.1.2

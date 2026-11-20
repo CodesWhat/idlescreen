@@ -1,12 +1,21 @@
 # IdleScreen roadmap
 
-Last updated: November 18, 2026
+Last updated: November 20, 2026
 
 IdleScreen 0.1 is a released public product. The companion app, modern
 screen-saver extension, Metal renderer, camera agent, multi-display planner,
 Pixel Materials, Saved Looks, and optional local agent signals are implemented.
 This roadmap tracks the current release and the compatibility work that remains
 useful after it ships.
+
+## v0.4.0
+
+Status: in progress. The last GA is `v0.3.0` (build 66, November 5, 2026). This
+release is prepared as `0.4.0` build 67.
+
+- Add the Aquarium pattern, a planted pixel-art tank with shrimp, fish and
+  crabs, with native tank editing and saved layouts.
+- Support Apple silicon Macs only.
 
 ## v0.3.0
 
