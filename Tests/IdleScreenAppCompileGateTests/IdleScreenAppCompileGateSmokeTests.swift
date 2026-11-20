@@ -273,6 +273,28 @@ struct IdleScreenAppCompileGateSmokeTests {
   }
 
   @MainActor
+  @Test("Clear repairs a malformed agent inbox and reports success")
+  func clearRepairsMalformedInbox() async throws {
+    let now = Date(timeIntervalSince1970: 1_786_296_350)
+    let fixture = try AgentModelFixture(now: now)
+    defer { fixture.removeScratchDirectory() }
+    let model = fixture.model
+    let inboxURL = fixture.store.fileURL
+    try FileManager.default.createDirectory(
+      at: inboxURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+    try Data("{broken".utf8).write(to: inboxURL)
+    #expect(throws: (any Error).self) { try fixture.store.read(at: now) }
+
+    model.clearAgentSignals(at: now.addingTimeInterval(1))
+
+    #expect(model.agentIntegrationStatus == "All agent signals cleared.")
+    let repaired = try fixture.store.read(at: now.addingTimeInterval(2))
+    #expect(repaired.signals.isEmpty)
+  }
+
+  @MainActor
   @Test("a failed background inbox load retries on the next polling tick")
   func agentSignalRefreshRetries() async throws {
     let now = Date(timeIntervalSince1970: 1_786_296_400)
