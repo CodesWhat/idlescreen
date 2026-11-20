@@ -118,4 +118,13 @@ public struct IdleScreenAgentSignalMonitor: Sendable {
       ignoredEventCounts: inbox.ignoredEventCounts
     )
   }
+
+  /// Forgets what was last published so the next good read republishes even
+  /// when it matches it. Keeps the polling deadline.
+  public mutating func discardComparisonState() {
+    hasPolled = false
+    lastSignal = nil
+    lastSignals = []
+    lastRevision = 0
+  }
 }

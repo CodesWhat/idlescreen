@@ -22,7 +22,7 @@ struct IntegrationsView: View {
         ) { EmptyView() }
         ScrollView {
           VStack(alignment: .leading, spacing: 22) {
-            if let status = model.agentIntegrationStatus {
+            if let status = model.agentIntegration.status {
               DesignNotice(kind: Self.statusKind(status), text: status)
             }
             preview
@@ -46,8 +46,8 @@ struct IntegrationsView: View {
       }
     }
     .onAppear {
-      model.refreshAgentHookInstallationStatus()
-      model.refreshAgentSignals()
+      model.agentIntegration.refreshAgentHookInstallationStatus()
+      model.agentIntegration.refreshAgentSignals()
     }
   }
 
@@ -84,7 +84,7 @@ struct IntegrationsView: View {
     let enabled = model.configuration.agentIntegration.isEnabled(for: provider)
     let installed =
       provider == .codex
-      ? model.codexHooksInstalled : model.claudeHooksInstalled
+      ? model.agentIntegration.codexHooksInstalled : model.agentIntegration.claudeHooksInstalled
     return DesignSection(eyebrow: name) {
       DesignRow(
         title: "Show \(name) status",
@@ -102,14 +102,14 @@ struct IntegrationsView: View {
         )
         if installed {
           Button("Uninstall hooks") {
-            model.uninstallAgentHooks(for: provider)
+            model.agentIntegration.uninstallAgentHooks(for: provider)
           }
           .buttonStyle(.designDestructive)
           .accessibilityLabel("Uninstall hooks")
           .accessibilityHint("Removes IdleScreen's \(name) hooks")
         } else {
           Button("Install hooks") {
-            model.installAgentHooks(for: provider)
+            model.agentIntegration.installAgentHooks(for: provider)
           }
           .buttonStyle(.designPrimary)
           .accessibilityLabel("Install hooks")
@@ -121,7 +121,7 @@ struct IntegrationsView: View {
         title: "Send a test",
         detail: "Send a sample \(name) status to check the setup."
       ) {
-        Button("Send test") { model.testAgentSignal(for: provider) }
+        Button("Send test") { model.agentIntegration.testAgentSignal(for: provider) }
           .buttonStyle(.designSecondary)
           .accessibilityLabel("Send test")
           .accessibilityHint("Sends a sample \(name) status")
@@ -244,11 +244,11 @@ struct IntegrationsView: View {
       }
       DesignRow(title: "Ignored events") {
         DesignValueText(
-          "Codex \(model.agentIgnoredEventCounts[.codex, default: 0]) · "
-            + "Claude \(model.agentIgnoredEventCounts[.claude, default: 0])"
+          "Codex \(model.agentIntegration.agentIgnoredEventCounts[.codex, default: 0]) · "
+            + "Claude \(model.agentIntegration.agentIgnoredEventCounts[.claude, default: 0])"
         )
       }
-      if let status = model.agentIntegrationStatus {
+      if let status = model.agentIntegration.status {
         DesignRow(title: "Last result") {
           DesignValueText(status)
         }
@@ -263,7 +263,7 @@ struct IntegrationsView: View {
       hookConfigRow(.claude)
       DesignRow(title: "Clear signals", detail: "Remove every active agent status.") {
         Button("Clear all signals") {
-          model.clearAgentSignals()
+          model.agentIntegration.clearAgentSignals()
         }
         .buttonStyle(.designDestructive)
         .accessibilityLabel("Clear all signals")
@@ -290,7 +290,7 @@ struct IntegrationsView: View {
     if isExpanded {
       VStack(alignment: .leading, spacing: 8) {
         ScrollView(.horizontal) {
-          Text(model.previewAgentHookConfiguration(for: provider))
+          Text(model.agentIntegration.previewAgentHookConfiguration(for: provider))
             .font(DesignFont.mono(DesignFont.caption))
             .foregroundStyle(DesignPalette.ink)
             .textSelection(.enabled)
@@ -313,7 +313,7 @@ struct IntegrationsView: View {
   }
 
   private var activeSignalSummary: String {
-    guard let signal = model.activeAgentSignal else { return "No active signal" }
+    guard let signal = model.agentIntegration.activeAgentSignal else { return "No active signal" }
     return "\(signal.provider.displayName) \(stateSentence(signal.state)). "
       + "Clears at \(signal.expiresAt.formatted(date: .omitted, time: .shortened))."
   }
@@ -342,7 +342,7 @@ struct IntegrationsView: View {
   /// The shared renderer draws the same sprites the saver does. Real signals
   /// win; otherwise a Claude run and a Codex request stand in as a sample.
   private func previewConfiguration(at date: Date) -> IdleScreenRendererConfiguration {
-    let live = model.agentPresentations(at: date)
+    let live = model.agentIntegration.agentPresentations(at: date)
     var configuration = model.configuration.rendererConfiguration(
       for: nil,
       agentPresentations: live.isEmpty ? samplePresentations : live,

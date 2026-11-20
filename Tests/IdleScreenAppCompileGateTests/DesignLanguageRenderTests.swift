@@ -88,7 +88,7 @@ struct DesignLanguageRenderTests {
     let size = NSSize(width: Self.width, height: Page.integrations.collapsedHeight)
     let plain = try harness.render(
       page: .integrations, dark: false, detailsExpanded: false, size: size)
-    harness.model.agentIntegrationStatus = "Hook installation failed: permission denied"
+    harness.model.agentIntegration.status = "Hook installation failed: permission denied"
     let failed = try harness.render(
       page: .integrations, dark: false, detailsExpanded: false, size: size)
     #expect(Self.differingFraction(plain, failed) > 0.005)
