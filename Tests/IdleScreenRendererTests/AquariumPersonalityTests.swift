@@ -277,6 +277,14 @@ struct AquariumPersonalityTests {
     }
     print("aquarium pose step: \(perFrame) ms/frame for 32 animals")
     #expect(checksum > 0)
-    #expect(perFrame < 0.8)
+    // The 0.8 ms budget is for optimized builds. Unoptimized Debug code on a
+    // shared CI runner runs several times slower, so it only has to stay well
+    // inside one 60 fps frame (16.7 ms).
+    #if DEBUG
+      let budget = 4.0
+    #else
+      let budget = 0.8
+    #endif
+    #expect(perFrame < budget)
   }
 }
