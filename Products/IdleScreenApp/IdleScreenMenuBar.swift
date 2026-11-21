@@ -20,6 +20,14 @@ struct IdleScreenMenuBar: View {
       (NSApp.delegate as? IdleScreenAppDelegate)?.showStudio()
     }
 
+    Button("Aquarium Window…") { IdleScreenAquariumPresentationHost.shared.showWindowed() }
+    Button(
+      IdleScreenAquariumController.shared.library.desktopEnabled
+        ? "Stop Aquarium Desktop" : "Start Aquarium Desktop"
+    ) {
+      IdleScreenAquariumPresentationHost.shared.toggleDesktop()
+    }
+
     Button("Screen Saver Settings…") {
       model.openScreenSaverSettings()
     }

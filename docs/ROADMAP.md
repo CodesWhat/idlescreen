@@ -1,6 +1,6 @@
 # IdleScreen roadmap
 
-Last updated: November 3, 2026
+Last updated: November 20, 2026
 
 IdleScreen 0.1 is a released public product. The companion app, modern
 screen-saver extension, Metal renderer, camera agent, multi-display planner,
@@ -8,10 +8,22 @@ Pixel Materials, Saved Looks, and optional local agent signals are implemented.
 This roadmap tracks the current release and the compatibility work that remains
 useful after it ships.
 
+## v0.4.0
+
+Status: in progress. The last GA is `v0.3.0` (build 66, November 5, 2026). This
+release is prepared as `0.4.0` build 67.
+
+- Add the Aquarium pattern, a planted pixel-art tank with shrimp, fish and
+  crabs, with native tank editing and saved layouts.
+- Support Apple silicon Macs only.
+
 ## v0.3.0
 
-Status: in progress. The last GA is `v0.2.0` (build 65, November 3, 2026). This
-release is prepared as `0.3.0` build 66.
+Status: released as `0.3.0` build 66 on November 5, 2026.
+The signed tag identifies `c7095365badf5cfbc3e3b6a05f777110bde517b2`.
+The DMG, immutable candidate manifest and SPDX SBOM are published in the
+[GitHub release](https://github.com/CodesWhat/idlescreen/releases/tag/v0.3.0);
+the manifest-derived cask landed in CodesWhat/homebrew-tap#30.
 
 - Frame the saver on a horizon with a Cobalt default palette, a sprite lattice,
   Departure Mono glyphs, per-seed variation, aspect handling and a crossfade.
@@ -58,7 +70,7 @@ was not verified on a device instead.
 
 - One native companion containing the extension, renderer framework, camera
   agent, and local integration command
-- 18 procedural patterns plus live camera glyph rendering
+- 19 procedural patterns (including Topograph) plus live camera glyph rendering
 - Panorama, Per Display, and Focus Display scene planning
 - Deterministic Pixel Materials sand and water scenes
 - Saved Looks, camera selection, mirroring, and native Studio controls
@@ -77,8 +89,7 @@ useful coverage and product work:
   each row out of the README's not-verified list.
 - Repeat the full mixed-scale multi-display, hot-plug, Spaces, and sleep/wake
   matrix on additional physical Mac configurations.
-- Smoke-test the next macOS beta and Intel hardware while universal support is
-  advertised.
+- Smoke-test the next macOS beta on Apple silicon hardware.
 - Move signed-release construction and artifact attestations into GitHub Actions
   after Apple signing and notary credentials have an approved enrollment path.
 - Consider the optional custom-pet importer only with explicit user-owned art

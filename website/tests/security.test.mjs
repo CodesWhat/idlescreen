@@ -26,7 +26,7 @@ test('vercel.json serves security.txt as text/plain', () => {
   assert.match(headerFor('/.well-known/security.txt', 'Content-Type'), /^text\/plain/);
 });
 
-test('CSP is strict: self-only scripts and styles, no inline, only the two image hosts added', () => {
+test('CSP is strict: self-only scripts and styles, no inline, only the two image hosts and the analytics proxy added', () => {
   const csp = headerFor('/((?!docs$|docs/).*)', 'Content-Security-Policy');
   const directives = Object.fromEntries(csp.split(';').map(part => {
     const [name, ...values] = part.trim().split(/\s+/);
@@ -37,6 +37,8 @@ test('CSP is strict: self-only scripts and styles, no inline, only the two image
   assert.deepEqual(directives['default-src'], ["'self'"]);
   assert.deepEqual(directives['frame-ancestors'], ["'none'"]);
   assert.deepEqual(directives['img-src'], ["'self'", 'https://api.star-history.com', 'https://codecov.io']);
+  // The one network addition: the cookieless PostHog proxy. Scripts stay self-only.
+  assert.deepEqual(directives['connect-src'], ["'self'", 'https://e.codeswhat.com']);
   assert.doesNotMatch(csp, /unsafe-/);
 });
 
@@ -63,7 +65,8 @@ test('the /docs CSP leaves script-src to each page\'s own hashed meta and still 
   assert.deepEqual(directives['frame-ancestors'], ["'none'"]);
   assert.deepEqual(directives['object-src'], ["'none'"]);
   assert.deepEqual(directives['img-src'], ["'self'", 'data:']);
-  assert.deepEqual(directives['connect-src'], ["'self'"]);
+  // Analytics: the docs app reports to the same PostHog proxy as the landing page, and nowhere else.
+  assert.deepEqual(directives['connect-src'], ["'self'", 'https://e.codeswhat.com']);
 });
 
 test('the site-wide CSP rule does not also match /docs, where the two policies would collide', () => {

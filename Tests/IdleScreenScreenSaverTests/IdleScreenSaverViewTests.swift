@@ -75,6 +75,70 @@ struct IdleScreenSaverViewTests {
     #expect(view.diagnosticState.lifecycle == .animating)
   }
 
+  @Test("saver views join and leave the shared aquarium scene clock with their animation")
+  func aquariumClockRegistration() throws {
+    let clock = IdleScreenAquariumSceneClock()
+    let views = try (0..<2).map { _ in
+      let view = try #require(
+        IdleScreenSaverView(
+          frame: NSRect(x: 0, y: 0, width: 640, height: 360),
+          isPreview: false
+        )
+      )
+      view.aquariumSceneClock = clock
+      return view
+    }
+    views.forEach { $0.startAnimation() }
+    #expect(clock.consumerCount == 2)
+    views[0].stopAnimation()
+    #expect(clock.consumerCount == 1)
+    views[1].stopAnimation()
+    #expect(clock.consumerCount == 0)
+  }
+
+  @Test("aquarium persistence is read once for every display and never for other patterns")
+  func aquariumSnapshotIsSharedAndGatedByPattern() throws {
+    final class Reads: @unchecked Sendable {
+      let lock = NSLock()
+      var count = 0
+    }
+    let reads = Reads()
+    let monitor = IdleScreenAquariumSnapshotMonitor(
+      observe: { _ in
+        .present(
+          .init(device: 1, inode: 7, size: 10, modifiedSeconds: 1, modifiedNanoseconds: 1))
+      },
+      read: { _ in
+        reads.lock.withLock { reads.count += 1 }
+        return .starter
+      })
+    func makeView(_ pattern: IdleScreenCreativePattern) throws -> IdleScreenSaverView {
+      var configuration = IdleScreenConfiguration.default
+      configuration.creative.pattern = pattern
+      let view = try #require(
+        IdleScreenSaverView(
+          frame: NSRect(x: 0, y: 0, width: 640, height: 360),
+          isPreview: false,
+          cameraClient: nil,
+          configuration: configuration
+        ))
+      view.aquariumSnapshotMonitor = monitor
+      view.aquariumStoreURL = { URL(fileURLWithPath: "/tmp/idlescreen-view-aquariums.json") }
+      return view
+    }
+    let plain = try makeView(.plasma)
+    plain.startAnimation()
+    for _ in 0..<5 { plain.animateOneFrame() }
+    #expect(reads.count == 0)
+    plain.stopAnimation()
+
+    let displays = try (0..<3).map { _ in try makeView(.aquarium) }
+    displays.forEach { $0.startAnimation() }
+    for _ in 0..<5 { displays.forEach { $0.animateOneFrame() } }
+    #expect(reads.count == 1)
+    displays.forEach { $0.stopAnimation() }
+  }
+
   @Test("initialization produces a visible attached preview frame")
   func initialPreviewFrame() throws {
     let view = try #require(
@@ -346,6 +410,45 @@ struct IdleScreenSaverViewTests {
     #expect(sprites.allSatisfy { $0.startedAt == now })
     #expect(view.agentOverlayPresentation?.provider == .codex)
     #expect(view.isAccessibilityElement())
+  }
+
+  @Test("a transient inbox failure clears sprites and they return at the next scheduled poll")
+  func agentSpritesRecoverAfterTransientFailure() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let fileURL = root.appending(path: "AgentSignals/inbox-v1.json")
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    _ = try store.apply(.set(try agentSignal(.codex, .needsAttention, at: now)), at: now)
+    let healthy = try Data(contentsOf: fileURL)
+    var configuration = IdleScreenConfiguration.default
+    configuration.agentIntegration.codexEnabled = true
+    var clock = now
+    let view = try #require(
+      IdleScreenSaverView(
+        frame: NSRect(x: 0, y: 0, width: 640, height: 360),
+        isPreview: false,
+        cameraClient: nil,
+        configuration: configuration,
+        agentSignalStore: store,
+        agentClock: { clock }
+      ))
+    view.startAnimation()
+    view.animateOneFrame()
+    #expect(view.rendererConfiguration.agentSprites.count == 1)
+
+    try Data("not json".utf8).write(to: fileURL)
+    clock = now.addingTimeInterval(5)
+    view.animateOneFrame()
+    #expect(view.rendererConfiguration.agentSprites.isEmpty)
+
+    try healthy.write(to: fileURL)
+    clock = now.addingTimeInterval(10)
+    view.animateOneFrame()
+    #expect(view.rendererConfiguration.agentSprites.count == 1)
+    #expect(view.agentOverlayPresentation?.provider == .codex)
+    view.stopAnimation()
   }
 
   @Test("sprites obey the presentation policy gates")

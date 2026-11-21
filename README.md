@@ -35,6 +35,9 @@ companion Studio. The companion controls the look, the embedded extension
 renders it, and a separately signed camera agent owns the complete camera
 lifecycle.
 
+Current release: [v0.3.0](https://github.com/CodesWhat/idlescreen/releases/tag/v0.3.0)
+(November 5, 2026).
+
 ## Contents
 
 - [Quick Start](#quick-start)
@@ -71,7 +74,7 @@ that copy and installs the new one.
 
 ## Not verified on a device
 
-Not verified on a device for 0.3.0:
+Not verified on a device for 0.4.0:
 
 - Sleep and wake.
 - Reboot and login.
@@ -83,11 +86,11 @@ Not verified on a device for 0.3.0:
 - Multiple screen saver views, displays, Spaces and users at once.
 - Helper and extension crash recovery.
 - A long soak run.
-- Intel Macs.
 - Mixed-scale multi-display hot-plug beyond the maintainer's own setup.
 
 These paths have automated or fixture coverage only. If one of them breaks for
-you, please open an issue.
+you, please open an issue. Report security or privacy concerns through the
+[security policy](SECURITY.md) using private reporting.
 
 ## Recent Updates
 
@@ -95,13 +98,10 @@ The companion keeps the preview large, with compact scene controls and a visible
 library. More opens the full inspector. Scene, Displays, Agents and Settings
 share top navigation; Command-1 through Command-4 switches between them.
 
-Version 0.3.0 adds optional horizon framing with a Cobalt default palette, a
-sprite lattice and Departure Mono glyphs, and adds a Topograph scene and agent
-status sprites driven by a one-signal-per-agent feed. Studio now shows real
-saver thumbnails and a plain status pill, and setup fills the window in two
-columns. The app now installs at `/Applications/IdleScreen.app`; `brew upgrade
---cask idlescreen` removes the old `idlescreen.app` copy first. See the
-[changelog](CHANGELOG.md) for the complete release notes.
+Version 0.4.0 adds the Aquarium pattern, a planted pixel-art tank with shrimp,
+fish and crabs. You can edit the tank natively, run it on the desktop or in a
+window, and it honors reduced motion. IdleScreen now supports Apple silicon
+Macs only. See the [changelog](CHANGELOG.md) for the complete release notes.
 
 ## Screenshot
 
@@ -119,7 +119,7 @@ so ownership and teardown remain inspectable.
 
 ## Features
 
-- 19 Metal-rendered modes, including 18 procedural patterns and live camera
+- 19 procedural patterns, including Topograph, plus the Aquarium, Pixel Materials and live camera
 - Pixel Materials sand and water simulations with deterministic scene state
 - Panorama, Per Display, and Focus Display multi-screen layouts
 - Saved Looks and native controls for color, scale, contrast, motion, terrain,
@@ -127,7 +127,7 @@ so ownership and teardown remain inspectable.
 - Automatic camera fallback and recovery after permission or device changes
 - Optional expiring Codex and Claude status overlays with no prompt,
   transcript, command, or response ingestion
-- Universal Apple silicon and Intel build for macOS 26 Tahoe or newer
+- Apple silicon build (M1 or later) for macOS 26 Tahoe or newer
 
 Camera frames stay inside the local App Group mailbox. They are not sent over
 the network, written to logs, or retained as test evidence. Capture stops after

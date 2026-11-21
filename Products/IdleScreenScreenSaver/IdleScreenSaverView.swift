@@ -224,6 +224,15 @@ final class IdleScreenSaverView: ScreenSaverView {
   private let injectedDisplayHostFrame: DisplayTopology.Rect?
   private var displayResolutionWorkItem: DispatchWorkItem?
   private var sharedPaths: IdleScreenSharedPaths?
+  private var aquariumPoller = IdleScreenAquariumSnapshotPoller()
+  private var aquariumSnapshot: IdleScreenAquariumLibrary? { aquariumPoller.snapshot }
+  /// Shared by every saver view so one change is decoded once per process.
+  var aquariumSnapshotMonitor = IdleScreenAquariumSnapshotMonitor.shared
+  var aquariumStoreURL: () -> URL = { IdleScreenAquariumProduct.storeURL() }
+  private var aquariumPresentationCache = IdleScreenAquariumPresentationCache()
+  /// Shared by every saver view in the process so displays sample one instant.
+  var aquariumSceneClock = IdleScreenAquariumSceneClock.shared
+  private var aquariumClockToken: UUID?
   private var configurationMonitor: IdleScreenConfigurationMonitor?
   private var agentSignalMonitor: IdleScreenAgentSignalMonitor?
   private var activeAgentSignal: IdleScreenAgentSignal?
@@ -435,6 +444,7 @@ final class IdleScreenSaverView: ScreenSaverView {
     if lifecycle.phase == .detached {
       lifecycle.apply(.attach)
     }
+    aquariumClockToken = aquariumClockToken ?? aquariumSceneClock.register()
     refreshConfiguration(at: CACurrentMediaTime())
     refreshAgentSignal(at: agentClock())
     refreshGlobalHostActivity(
@@ -455,6 +465,10 @@ final class IdleScreenSaverView: ScreenSaverView {
     lifecycle.apply(.stopAnimating)
     detachCameraIfNeeded()
     shutdownRenderer()
+    if let token = aquariumClockToken {
+      aquariumSceneClock.unregister(token)
+      aquariumClockToken = nil
+    }
     animationStartedAt = nil
     publishHealth()
     super.stopAnimation()
@@ -611,8 +625,10 @@ final class IdleScreenSaverView: ScreenSaverView {
   private func attachDisplayCoordinationIfNeeded() {
     guard let displayCoordinator, displayHostToken == nil else { return }
     displayHostToken = displayCoordinator.attach(
-      settings: configuration.display,
-      configurationRevision: configuration.revision
+      settings: IdleScreenAquariumProduct.displaySettings(
+        configuration: configuration, library: aquariumSnapshot),
+      configurationRevision: IdleScreenAquariumProduct.presentationRevision(
+        configuration: configuration, library: aquariumSnapshot)
     )
     resolvePersistentDisplayIdentity(
       frame: injectedDisplayHostFrame
@@ -736,13 +752,20 @@ final class IdleScreenSaverView: ScreenSaverView {
     )
     if let renderer {
       renderer.update(configuration: frameConfiguration)
-      renderer.update(mode: rendererMode(hasCameraFrame: cameraSample != nil))
+      let frameMode = rendererMode(hasCameraFrame: cameraSample != nil)
+      renderer.update(mode: frameMode)
       if let rendererFrame = cameraSample?.rendererFrame {
         renderer.submit(cameraFrame: rendererFrame)
       } else {
         renderer.clearCameraFrame()
       }
-      if renderer.draw(at: elapsed) {
+      // Aquarium tanks read the process-shared tick, not this view's own Date.
+      let sceneDate =
+        frameConfiguration.patternRawValue == "aquarium"
+        ? aquariumSceneClock.sample().date : Date()
+      let sceneElapsed = IdleScreenAquariumProduct.sceneElapsed(
+        configuration: frameConfiguration, mode: frameMode, sessionElapsed: elapsed, at: sceneDate)
+      if renderer.draw(at: sceneElapsed) {
         hasSubmittedRendererFrame = true
       }
     }
@@ -822,11 +845,16 @@ final class IdleScreenSaverView: ScreenSaverView {
         applyingTemporaryLookFrom: IdleScreenAgentPresentationPolicy.signal(
           behind: agentSpritePresentations.first, in: activeAgentSignals)
       )
+    let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    let aquariumSettings = aquariumPresentationCache.settings(
+      for: presentedConfiguration, assignment: displayAssignment,
+      library: aquariumSnapshot, reduceMotion: reduceMotion)
     return IdleScreenRendererConfigurationBridge.configuration(
       for: presentedConfiguration,
       assignment: displayAssignment,
+      preparedAquariumSettings: aquariumSettings,
       agentPresentations: agentSpritePresentations,
-      reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+      reduceMotion: reduceMotion
     )
   }
 
@@ -1015,27 +1043,56 @@ final class IdleScreenSaverView: ScreenSaverView {
   }
 
   private func refreshConfiguration(at monotonicTime: TimeInterval) {
-    guard configurationMonitor != nil else { return }
-    do {
-      guard let updated = try configurationMonitor?.readChange(at: monotonicTime) else {
-        return
+    // Normal configuration first: whether the saved aquarium is read at all
+    // depends on what the active configuration shows.
+    var updatedConfiguration: IdleScreenConfiguration?
+    if configurationMonitor != nil {
+      do {
+        updatedConfiguration = try configurationMonitor?.readChange(at: monotonicTime)
+      } catch {
+        viewLogger.error(
+          "Unable to read configuration: \(error.localizedDescription, privacy: .public)")
       }
+    }
+    if let updated = updatedConfiguration {
       if updated.source != configuration.source {
         detachCameraIfNeeded()
         cameraDiagnosticPolicy = IdleScreenSaverCameraDiagnosticPolicy()
       }
       configuration = updated
-      _ = displayCoordinator?.update(
-        settings: updated.display,
-        configurationRevision: updated.revision
-      )
-      updateTypography()
-      publishHealth()
-      viewLogger.info("Configuration loaded revision=\(updated.revision, privacy: .public)")
-    } catch {
-      viewLogger.error(
-        "Unable to read configuration: \(error.localizedDescription, privacy: .public)")
     }
+    // Entering an aquarium loads the latest snapshot now; the poller then
+    // holds to its interval. The display plan updates once for both changes.
+    let snapshotChanged = pollAquariumSnapshot(at: monotonicTime)
+    guard let updated = updatedConfiguration else {
+      if snapshotChanged { updateDisplayPlan() }
+      return
+    }
+    updateDisplayPlan()
+    updateTypography()
+    publishHealth()
+    viewLogger.info("Configuration loaded revision=\(updated.revision, privacy: .public)")
+  }
+
+  private func pollAquariumSnapshot(at monotonicTime: TimeInterval) -> Bool {
+    guard
+      let outcome = aquariumPoller.poll(
+        at: monotonicTime, needed: configuration.creative.pattern == .aquarium,
+        url: aquariumStoreURL(), monitor: aquariumSnapshotMonitor)
+    else { return false }
+    if let error = outcome.error {
+      viewLogger.error(
+        "Unable to read aquarium snapshot: \(error.localizedDescription, privacy: .public)")
+    }
+    return outcome.revisionChanged
+  }
+
+  private func updateDisplayPlan() {
+    _ = displayCoordinator?.update(
+      settings: IdleScreenAquariumProduct.displaySettings(
+        configuration: configuration, library: aquariumSnapshot),
+      configurationRevision: IdleScreenAquariumProduct.presentationRevision(
+        configuration: configuration, library: aquariumSnapshot))
   }
 
   private func refreshAgentSignal(at date: Date) {
@@ -1071,6 +1128,7 @@ final class IdleScreenSaverView: ScreenSaverView {
         } : []
       applyAgentSprites(presentations)
     } catch {
+      agentSignalMonitor = monitor
       activeAgentSignal = nil
       activeAgentSignals = []
       applyAgentSprites([])

@@ -81,6 +81,12 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
           <main id="main-content">{children}</main>
           <Footer />
         </RootProvider>
+        {/*
+         * Cookieless analytics, shared with the marketing page: the same module and contract
+         * (website/dist/analytics.mjs), served same-origin so script-src 'self' covers it.
+         * It starts only on the production hostname. Next exports a plain script tag as is.
+         */}
+        <script type="module" src="/analytics.mjs" async />
       </body>
     </html>
   );

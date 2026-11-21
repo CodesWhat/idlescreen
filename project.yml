@@ -9,6 +9,8 @@ options:
 settings:
   SWIFT_VERSION: "6.0"
   SWIFT_STRICT_CONCURRENCY: complete
+  ARCHS: arm64
+  EXCLUDED_ARCHS: x86_64
   IDLESCREEN_CAMERA_AGENT_TEAM_IDENTIFIER: 3524374A2S
 
 schemes:
@@ -299,6 +301,11 @@ targets:
     platform: macOS
     sources:
       - path: Sources/IdleScreenRenderer
+        excludes:
+          - Resources
+      - path: Sources/IdleScreenRenderer/Resources/AquariumRuntime
+        type: folder
+        buildPhase: resources
       - path: Products/IdleScreenApp/Resources/Fonts/DepartureMono-Regular.otf
         buildPhase: resources
     settings:
@@ -313,6 +320,8 @@ targets:
         APPLICATION_EXTENSION_API_ONLY: YES
         MTL_FAST_MATH: NO
         MTL_TREAT_WARNINGS_AS_ERRORS: YES
+    dependencies:
+      - sdk: WebKit.framework
 
   IdleScreenCoreTests:
     type: bundle.unit-test
@@ -336,6 +345,11 @@ targets:
     platform: macOS
     sources:
       - path: Tests/IdleScreenRendererTests
+        excludes:
+          - Resources
+      - path: Tests/IdleScreenRendererTests/Resources/WebSurfaceProof
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: IdleScreenRendererTests
@@ -501,8 +515,8 @@ targets:
         CFBundleDisplayName: IdleScreen
         CFBundleExecutable: IdleScreenCameraAgent
         CFBundlePackageType: APPL
-        CFBundleVersion: "66"
-        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "67"
+        CFBundleShortVersionString: "0.4.0"
         LSBackgroundOnly: true
         LSUIElement: true
         NSCameraUsageDescription: "IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable."
@@ -568,8 +582,8 @@ targets:
         CFBundleDisplayName: IdleScreen
         CFBundleExecutable: IdleScreenCameraAgent
         CFBundlePackageType: APPL
-        CFBundleVersion: "66"
-        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "67"
+        CFBundleShortVersionString: "0.4.0"
         LSBackgroundOnly: true
         LSUIElement: true
         NSCameraUsageDescription: "IdleScreen uses the camera only for camera-based screen saver effects you explicitly enable."
@@ -884,6 +898,7 @@ targets:
     sources:
       - path: Products/IdleScreenScreenSaver
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
     info:
       path: Products/IdleScreenScreenSaver/Info.plist
       properties:
@@ -919,8 +934,8 @@ targets:
         ENABLE_APP_SANDBOX: YES
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
-        CURRENT_PROJECT_VERSION: "66"
-        MARKETING_VERSION: "0.3.0"
+        CURRENT_PROJECT_VERSION: "67"
+        MARKETING_VERSION: "0.4.0"
         CODE_SIGN_ENTITLEMENTS: Products/IdleScreenScreenSaver/IdleScreenScreenSaver.entitlements
         SWIFT_OBJC_BRIDGING_HEADER: Products/IdleScreenScreenSaver/Private/ScreenSaverPrivate.h
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../../../Frameworks"
@@ -961,6 +976,7 @@ targets:
       - path: Products/IdleScreenScreenSaver/IdleScreenSaverCameraClient.swift
       - path: Products/IdleScreenScreenSaver/Private/IdleScreenSaverHostActivity.m
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
       - path: Support/IdleScreenSyntheticHostedGateExtension/IdleScreenSyntheticHostedGateViewController.swift
       - path: Tests/IdleScreenScreenSaverTests
     settings:
@@ -995,6 +1011,7 @@ targets:
         excludes:
           - Info.plist
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
     info:
       path: Support/IdleScreenSyntheticHostedGateExtension/Info.plist
       properties:
@@ -1083,6 +1100,7 @@ targets:
         excludes:
           - Info.plist
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
     info:
       path: Support/IdleScreenSyntheticHostedGateExtension/Info.plist
       properties:
@@ -1189,6 +1207,7 @@ targets:
         buildPhase: resources
       - path: Tests/IdleScreenAppCompileGateTests
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
     settings:
       base:
         PRODUCT_NAME: IdleScreenAppCompileGateTests
@@ -1219,6 +1238,7 @@ targets:
         buildPhase: resources
       - path: design/icon/AppIcon.icon
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
       - path: THIRD_PARTY_NOTICES.md
         buildPhase: resources
       - path: Sources/IdleScreenCameraAgent/LaunchAgents
@@ -1233,8 +1253,8 @@ targets:
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         CFBundleName: IdleScreen
         CFBundleExecutable: IdleScreen
-        CFBundleShortVersionString: "0.3.0"
-        CFBundleVersion: "66"
+        CFBundleShortVersionString: "0.4.0"
+        CFBundleVersion: "67"
         IdleScreenAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)
@@ -1317,6 +1337,7 @@ targets:
         buildPhase: resources
       - path: design/icon/AppIcon.icon
       - path: Sources/IdleScreenProduct/RendererConfigurationBridge.swift
+      - path: Sources/IdleScreenProduct/AquariumProductBridge.swift
       - path: Sources/IdleScreenCameraAgent/LaunchAgents
         buildPhase:
           copyFiles:
@@ -1330,8 +1351,8 @@ targets:
         CFBundleName: IdleScreen
         CFBundleExecutable: IdleScreen
         CFBundlePackageType: APPL
-        CFBundleShortVersionString: "0.3.0"
-        CFBundleVersion: "66"
+        CFBundleShortVersionString: "0.4.0"
+        CFBundleVersion: "67"
         IdleScreenAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentAppGroupIdentifier: $(IDLESCREEN_APP_GROUP_IDENTIFIER)
         IdleScreenCameraAgentMachServiceName: $(IDLESCREEN_CAMERA_AGENT_MACH_SERVICE_NAME)

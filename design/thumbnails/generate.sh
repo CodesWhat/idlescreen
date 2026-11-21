@@ -27,7 +27,7 @@ trap 'rm -rf "$raw" "$staging"' EXIT
 # thumbnails (SaverTileArt.mosaicPatterns), so it needs no image of its own.
 patterns="$(sed -n '/^public enum IdleScreenCreativePattern/,/^}/p' \
   "$repo/Sources/IdleScreenCore/CreativeConfiguration.swift" |
-  sed -nE 's/^    case ([A-Za-z]+)$/\1/p' | grep -vx 'autoCycle' || true)"
+  sed -nE 's/^[[:space:]]+case ([A-Za-z]+)$/\1/p' | grep -vx 'autoCycle' || true)"
 expected="$(printf '%s\n' "$patterns" | grep -c . || true)"
 actual="$(find "$raw" -maxdepth 1 -name '*.png' | wc -l | tr -d ' ')"
 if [ "$expected" -eq 0 ] || [ "$actual" -ne "$expected" ]; then

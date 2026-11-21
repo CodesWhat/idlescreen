@@ -379,6 +379,65 @@ struct AgentSignalInboxTests {
     #expect(recovered == prior)
   }
 
+  @Test("a mutation backs up the prior valid bytes exactly and persists the new inbox")
+  func mutationBacksUpPriorValidBytes() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    _ = try store.apply(
+      .set(try signal(eventID: "turn-1", state: .working, createdAt: now)),
+      at: now
+    )
+    let priorBytes = try Data(contentsOf: fileURL)
+
+    let updated = try store.apply(
+      .set(
+        try signal(
+          eventID: "turn-2",
+          state: .done,
+          createdAt: now.addingTimeInterval(1)
+        )),
+      at: now.addingTimeInterval(1)
+    )
+
+    #expect(try Data(contentsOf: fileURL.appendingPathExtension("previous")) == priorBytes)
+    #expect(try store.read(at: now.addingTimeInterval(1)) == updated)
+  }
+
+  @Test("a malformed primary is never copied over the previous snapshot")
+  func malformedPrimaryIsNotBackedUp() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let previousURL = fileURL.appendingPathExtension("previous")
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    _ = try store.apply(
+      .set(try signal(eventID: "turn-1", state: .working, createdAt: now)),
+      at: now
+    )
+    _ = try store.apply(
+      .set(
+        try signal(
+          eventID: "turn-2",
+          state: .done,
+          createdAt: now.addingTimeInterval(1)
+        )),
+      at: now.addingTimeInterval(1)
+    )
+    let previousBytes = try Data(contentsOf: previousURL)
+    try Data("{broken".utf8).write(to: fileURL, options: .atomic)
+
+    _ = try store.apply(.clearAll, at: now.addingTimeInterval(2))
+
+    #expect(try Data(contentsOf: previousURL) == previousBytes)
+    #expect(try store.read(at: now.addingTimeInterval(2)).signals.isEmpty)
+  }
+
   @Test("fallback recovery emits one redacted reason")
   func reportsRedactedFallback() throws {
     let root = FileManager.default.temporaryDirectory
@@ -665,6 +724,345 @@ struct AgentSignalInboxTests {
     #expect(throws: IdleScreenAgentSignalStore.StoreError.payloadTooLarge) {
       try IdleScreenAgentSignalStore(fileURL: fileURL).read(at: Date())
     }
+  }
+
+  private func unreadableInboxStore(
+    backup: Bool,
+    corruption: Data = Data("{broken".utf8)
+  ) throws -> (store: IdleScreenAgentSignalStore, fileURL: URL, root: URL, now: Date) {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    _ = try store.apply(
+      .set(try signal(eventID: "turn-1", state: .working, createdAt: now)), at: now)
+    if backup {
+      _ = try store.apply(
+        .set(try signal(eventID: "turn-2", state: .done, createdAt: now)), at: now)
+      try corruption.write(to: fileURL.appendingPathExtension("previous"))
+    }
+    try corruption.write(to: fileURL)
+    if !backup {
+      try? FileManager.default.removeItem(at: fileURL.appendingPathExtension("previous"))
+    }
+    return (store, fileURL, root, now)
+  }
+
+  private func expectClearAllRepairs(
+    _ fixture: (store: IdleScreenAgentSignalStore, fileURL: URL, root: URL, now: Date),
+    ordinaryFailure: (any Error) -> Bool
+  ) throws {
+    let store = fixture.store
+    let later = fixture.now.addingTimeInterval(1)
+    let ordinary = try signal(eventID: "turn-3", state: .working, createdAt: later)
+    do {
+      _ = try store.apply(.set(ordinary), at: later)
+      Issue.record("an ordinary mutation must fail closed on an unreadable inbox")
+    } catch {
+      #expect(ordinaryFailure(error))
+    }
+    #expect(throws: (any Error).self) {
+      _ = try store.apply(.recordIgnored(provider: .codex), at: later)
+    }
+
+    let cleared = try store.apply(.clearAll, at: later)
+
+    #expect(cleared.signals.isEmpty)
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    let persisted = try decoder.decode(
+      IdleScreenAgentSignalInbox.self,
+      from: Data(contentsOf: fixture.fileURL)
+    )
+    #expect(persisted.signals.isEmpty)
+    #expect(persisted.schemaVersion == IdleScreenAgentSignalInbox.currentSchemaVersion)
+    let afterwards = try store.apply(.set(ordinary), at: later)
+    #expect(afterwards.signals.count == 1)
+  }
+
+  @Test("clear-all repairs a malformed primary with no backup")
+  func clearAllRepairsMalformedPrimary() throws {
+    let fixture = try unreadableInboxStore(backup: false)
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    try expectClearAllRepairs(fixture) { $0 is DecodingError }
+  }
+
+  @Test("clear-all repairs a malformed primary and malformed backup")
+  func clearAllRepairsMalformedPrimaryAndBackup() throws {
+    let fixture = try unreadableInboxStore(backup: true)
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    try expectClearAllRepairs(fixture) { $0 is DecodingError }
+  }
+
+  @Test("clear-all repairs an unsupported schema inbox")
+  func clearAllRepairsUnsupportedSchema() throws {
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let future = try encoder.encode(IdleScreenAgentSignalInbox(schemaVersion: 99))
+    let fixture = try unreadableInboxStore(backup: false, corruption: future)
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    try expectClearAllRepairs(fixture) {
+      ($0 as? IdleScreenAgentSignalStore.StoreError) == .unsupportedSchema(99)
+    }
+  }
+
+  @Test("clear-all repairs an oversized inbox")
+  func clearAllRepairsOversizedInbox() throws {
+    let oversized = Data(
+      repeating: 0x20,
+      count: IdleScreenAgentSignalStore.maximumInboxByteCount + 1
+    )
+    let fixture = try unreadableInboxStore(backup: false, corruption: oversized)
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    try expectClearAllRepairs(fixture) {
+      ($0 as? IdleScreenAgentSignalStore.StoreError) == .payloadTooLarge
+    }
+  }
+
+  @Test("clear-all on a malformed primary with a valid backup recovers from the backup")
+  func clearAllWithValidBackupIsUnchanged() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let prior = try store.apply(
+      .set(try signal(eventID: "turn-1", state: .working, createdAt: now)), at: now)
+    _ = try store.apply(
+      .set(try signal(eventID: "turn-2", state: .done, createdAt: now)), at: now)
+    try Data("{broken".utf8).write(to: fileURL)
+
+    let cleared = try store.apply(.clearAll, at: now.addingTimeInterval(1))
+
+    #expect(cleared.signals.isEmpty)
+    #expect(cleared.revision == prior.revision + 1)
+    #expect(cleared.recentEvents == prior.recentEvents)
+  }
+
+  @Test("clear-all keeps a primary read failure when the backup is also malformed")
+  func clearAllKeepsPrimaryReadFailure() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer {
+      try? FileManager.default.setAttributes(
+        [.posixPermissions: 0o600], ofItemAtPath: root.appending(path: "inbox-v1.json").path)
+      try? FileManager.default.removeItem(at: root)
+    }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let store = IdleScreenAgentSignalStore(fileURL: fileURL)
+    _ = try store.apply(
+      .set(try signal(eventID: "turn-1", state: .working, createdAt: now)), at: now)
+    try Data("{broken".utf8).write(to: fileURL.appendingPathExtension("previous"))
+    try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: fileURL.path)
+
+    #expect(throws: (any Error).self) {
+      _ = try store.apply(.clearAll, at: now.addingTimeInterval(1))
+    }
+    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
+    let persisted = try store.read(at: now.addingTimeInterval(1))
+    #expect(persisted.signals.count == 1)
+  }
+
+  @Test("clear-all still propagates filesystem and coordination failures")
+  func clearAllPropagatesOperationalFailures() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    try FileManager.default.createDirectory(at: fileURL, withIntermediateDirectories: true)
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+
+    #expect(throws: (any Error).self) {
+      _ = try IdleScreenAgentSignalStore(fileURL: fileURL).apply(.clearAll, at: now)
+    }
+    var isDirectory: ObjCBool = false
+    #expect(FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory))
+    #expect(isDirectory.boolValue)
+
+    let clock = TestMonotonicClock(now: 1_000_000_000)
+    let locked = IdleScreenAgentSignalStore(
+      fileURL: root.appending(path: "other/inbox-v1.json"),
+      clock: clock,
+      processLock: TestProcessLock(clock: clock, availableAt: nil)
+    )
+    #expect(throws: IdleScreenAgentSignalStore.StoreError.coordinationTimedOut) {
+      _ = try locked.apply(.clearAll, at: now)
+    }
+  }
+
+  private func capacitySignal(
+    provider: IdleScreenAgentProvider,
+    session: String,
+    eventID: String? = nil,
+    state: IdleScreenAgentSignalState = .working,
+    createdAt: Date
+  ) throws -> IdleScreenAgentSignal {
+    try IdleScreenAgentSignal.validated(
+      provider: provider,
+      sessionID: session,
+      eventID: eventID ?? "event-\(session)",
+      state: state,
+      title: nil,
+      message: nil,
+      temporaryLookID: nil,
+      priority: 0,
+      createdAt: createdAt,
+      expiresAt: createdAt.addingTimeInterval(120),
+      acknowledgedAt: nil,
+      nonce: "nonce-\(eventID ?? session)",
+      validatedAt: createdAt
+    )
+  }
+
+  private func fullInbox(
+    provider: IdleScreenAgentProvider = .codex,
+    sessionPrefix: String = "session",
+    createdAt: (Int) -> Date
+  ) throws -> (store: IdleScreenAgentSignalStore, root: URL) {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    let store = IdleScreenAgentSignalStore(fileURL: root.appending(path: "inbox-v1.json"))
+    for index in 0..<IdleScreenAgentSignalStore.maximumSignalCount {
+      let created = createdAt(index)
+      _ = try store.apply(
+        .set(
+          try capacitySignal(
+            provider: provider,
+            session: "\(sessionPrefix)-\(String(format: "%02d", index))",
+            createdAt: created
+          )),
+        at: created
+      )
+    }
+    return (store, root)
+  }
+
+  @Test("a lexically earlier provider survives a full inbox of another provider")
+  func newSignalSurvivesAcrossProviders() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { now.addingTimeInterval(Double($0) / 100) }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let at = now.addingTimeInterval(1)
+    let incoming = try capacitySignal(
+      provider: .claude, session: "claude-session", state: .needsAttention, createdAt: at)
+
+    let inbox = try store.apply(.set(incoming), at: at)
+
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+    #expect(inbox.signals.contains(incoming))
+    #expect(!inbox.signals.contains { $0.sessionID == "session-00" })
+    #expect(
+      inbox.recentEvents.filter { $0.eventID == incoming.eventID }.count == 1)
+    #expect(
+      inbox.signals
+        == inbox.signals.sorted { lhs, rhs in
+          "\(lhs.provider.rawValue):\(lhs.sessionID)" < "\(rhs.provider.rawValue):\(rhs.sessionID)"
+        })
+  }
+
+  @Test("a lexically earlier session survives a full inbox of its own provider")
+  func newSignalSurvivesWithinProvider() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { now.addingTimeInterval(Double($0) / 100) }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let at = now.addingTimeInterval(1)
+    let incoming = try capacitySignal(provider: .codex, session: "a-first", createdAt: at)
+
+    let inbox = try store.apply(.set(incoming), at: at)
+
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+    #expect(inbox.signals.first == incoming)
+    #expect(!inbox.signals.contains { $0.sessionID == "session-00" })
+  }
+
+  @Test("eviction removes the oldest signal by creation time")
+  func evictsOldestByCreation() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    // Session 10 is the oldest even though session 00 sorts first.
+    let (store, root) = try fullInbox { index in
+      now.addingTimeInterval(index == 10 ? -5 : Double(index) / 100)
+    }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let at = now.addingTimeInterval(1)
+
+    let inbox = try store.apply(
+      .set(try capacitySignal(provider: .claude, session: "new", createdAt: at)), at: at)
+
+    #expect(!inbox.signals.contains { $0.sessionID == "session-10" })
+    #expect(inbox.signals.contains { $0.sessionID == "session-00" })
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+  }
+
+  @Test("equal creation times evict deterministically by signal order")
+  func evictsTiesDeterministically() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { _ in now }
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let inbox = try store.apply(
+      .set(try capacitySignal(provider: .claude, session: "new", createdAt: now)), at: now)
+
+    #expect(!inbox.signals.contains { $0.sessionID == "session-00" })
+    #expect(inbox.signals.contains { $0.sessionID == "session-01" })
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+  }
+
+  @Test("eviction removes only the selected entry when a persisted inbox has duplicate keys")
+  func evictionKeepsNewerDuplicate() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { now.addingTimeInterval(Double($0) / 100) }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    var object = try #require(
+      JSONSerialization.jsonObject(with: Data(contentsOf: fileURL)) as? [String: Any])
+    var signals = try #require(object["signals"] as? [[String: Any]])
+    // The newest entry becomes a duplicate of the oldest (session-00).
+    signals[signals.count - 1]["sessionID"] = "session-00"
+    signals[signals.count - 1]["eventID"] = "event-dup"
+    object["signals"] = signals
+    try JSONSerialization.data(withJSONObject: object).write(to: fileURL)
+    let at = now.addingTimeInterval(1)
+
+    let inbox = try store.apply(
+      .set(try capacitySignal(provider: .claude, session: "new", createdAt: at)), at: at)
+
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+    #expect(inbox.signals.filter { $0.sessionID == "session-00" }.map(\.eventID) == ["event-dup"])
+  }
+
+  @Test("replacing an existing session at capacity evicts nothing")
+  func replacingAtCapacityEvictsNothing() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { now.addingTimeInterval(Double($0) / 100) }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let before = try store.read(at: now.addingTimeInterval(1))
+    let at = now.addingTimeInterval(1)
+    let replacement = try capacitySignal(
+      provider: .codex, session: "session-30", eventID: "turn-new", state: .done, createdAt: at)
+
+    let inbox = try store.apply(.set(replacement), at: at)
+
+    #expect(inbox.signals.count == IdleScreenAgentSignalStore.maximumSignalCount)
+    #expect(inbox.signals.contains(replacement))
+    #expect(
+      Set(inbox.signals.map(\.sessionID)) == Set(before.signals.map(\.sessionID)))
+  }
+
+  @Test("replaying an event at capacity changes nothing")
+  func replayAtCapacityIsUnchanged() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let (store, root) = try fullInbox { now.addingTimeInterval(Double($0) / 100) }
+    defer { try? FileManager.default.removeItem(at: root) }
+    let at = now.addingTimeInterval(1)
+    let incoming = try capacitySignal(provider: .claude, session: "claude-session", createdAt: at)
+    let first = try store.apply(.set(incoming), at: at)
+
+    let replay = try store.apply(.set(incoming), at: at.addingTimeInterval(1))
+
+    #expect(replay == first)
   }
 
   private func signal(

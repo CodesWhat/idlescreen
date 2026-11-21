@@ -166,9 +166,17 @@
   font-weight: 500;
 }
 /* The site header carries the brand, so the sidebar's own title and collapse button are hidden. */
-#nd-sidebar .subnav-label,
 #nd-sidebar button[aria-label="Collapse Sidebar"] {
   display: none;
+}
+/* Visually hidden, not display:none: the title link needs a name for screen readers. */
+#nd-sidebar .subnav-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 #nd-subnav {
   background: var(--is-bg);
@@ -237,6 +245,9 @@
   font-weight: 400;
 }
 figure.shiki {
+  /* The dark code surface in both modes, so the github-dark token colours keep their contrast. */
+  background: #141923;
+  color: #eef1f8;
   border: 1px solid var(--is-line);
   border-radius: 8px;
   box-shadow: none;
@@ -286,6 +297,9 @@ footer {
 .fgrid a {
   color: var(--is-accent-text);
   text-underline-offset: 3px;
+}
+.fnote a {
+  text-decoration: underline;
 }
 .fnote {
   margin: 10px 0 0;

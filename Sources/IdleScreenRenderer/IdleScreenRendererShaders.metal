@@ -9,6 +9,7 @@ struct IdleScreenCharacterVertexOut {
     float4 position [[position]];
     float2 textureCoordinate;
     float brightness;
+    float solid;
     float4 foreground;
 };
 
@@ -778,7 +779,7 @@ vertex IdleScreenCharacterVertexOut idleScreenCharacterVertex(
     const IdleScreenCharacterInstance instance = instances[instanceID];
     const float4 gridBrightnessGlyph = instance.gridBrightnessGlyph;
     const float2 quadVertex = vertices[vertexID];
-    const uint glyphIndex = uint(gridBrightnessGlyph.w + 0.5);
+    const uint glyphIndex = uint(max(0.0f, gridBrightnessGlyph.w) + 0.5);
     const float4 glyphRect = glyphRects[glyphIndex];
 
     const float2 gridPosition = gridBrightnessGlyph.xy + quadVertex;
@@ -789,6 +790,7 @@ vertex IdleScreenCharacterVertexOut idleScreenCharacterVertex(
     output.position = float4(ndcX, ndcY, 0, 1);
     output.textureCoordinate = glyphRect.xy + quadVertex * glyphRect.zw;
     output.brightness = gridBrightnessGlyph.z;
+    output.solid = gridBrightnessGlyph.w < 0 ? 1.0 : 0.0;
     output.foreground = instance.foreground;
     return output;
 }
@@ -798,6 +800,10 @@ fragment float4 idleScreenCharacterFragment(
     texture2d<float> atlas [[texture(0)]]
 ) {
     constexpr sampler atlasSampler(filter::linear, address::clamp_to_edge);
+    if (input.solid > 0.5) {
+        const float halo = input.brightness < 0.0 ? 0.10 : 1.0;
+        return float4(input.foreground.rgb * halo, 1.0);
+    }
     const float alpha = atlas.sample(atlasSampler, input.textureCoordinate).a;
     // Gamma lifts mid-tones; the floors keep a dim glyph legible. A cell at
     // zero brightness stays invisible (dimmed displays), so the floors fade
@@ -849,4 +855,33 @@ fragment float4 idleScreenSpriteFragment(
     IdleScreenSpriteVertexOut input [[stage_in]]
 ) {
     return input.color;
+}
+
+struct IdleScreenAquariumUniforms {
+    uint2 gridSize;
+    uint2 worldSize;
+    float4 viewport;
+    float4 contentRect;
+    float brightness;
+};
+
+kernel void idleScreenAquariumInstances(
+    device const float4 *pixels [[buffer(0)]],
+    device IdleScreenCharacterInstance *instances [[buffer(1)]],
+    constant IdleScreenAquariumUniforms &uniforms [[buffer(2)]],
+    uint2 position [[thread_position_in_grid]]
+) {
+    if (any(position >= uniforms.gridSize)) { return; }
+    const float2 local = (float2(position) + 0.5) / float2(uniforms.gridSize);
+    const float2 scene = float2(uniforms.viewport.x, 1.0 - uniforms.viewport.y - uniforms.viewport.w)
+        + local * uniforms.viewport.zw;
+    const float2 source = (scene - uniforms.contentRect.xy) / uniforms.contentRect.zw;
+    float3 color = float3(0.035, 0.12, 0.19);
+    if (all(source >= 0.0) && all(source < 1.0)) {
+        const uint2 cell = min(uniforms.worldSize - 1, uint2(source * float2(uniforms.worldSize)));
+        color = pixels[cell.y * uniforms.worldSize.x + cell.x].rgb;
+    }
+    const uint index = position.y * uniforms.gridSize.x + position.x;
+    instances[index].gridBrightnessGlyph = float4(float2(position), 1.0, -1.0);
+    instances[index].foreground = float4(color * uniforms.brightness, 1.0);
 }

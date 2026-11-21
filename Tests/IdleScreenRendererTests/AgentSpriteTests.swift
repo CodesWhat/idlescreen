@@ -20,6 +20,28 @@ struct AgentSpritePoseTests {
       reduceMotion: reduceMotion, metrics: metrics)
   }
 
+  @Test("Claude walking feet stay connected to the body in both gait frames")
+  func claudeWalkingLegsStayAttached() throws {
+    for frame in 0...1 {
+      var pose = AgentSpritePose(kind: .claude, x: 60)
+      pose.frame = frame
+      let pixels = AgentSpriteLayout.shapePixels(pose, scale: 1).fill
+      let first = try #require(pixels.first)
+      var visited: Set<AgentSpriteLayout.Pixel> = [first]
+      var pending = [first]
+      while let pixel = pending.popLast() {
+        for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+          let neighbor = AgentSpriteLayout.Pixel(column: pixel.column + dx, level: pixel.level + dy)
+          if pixels.contains(neighbor), visited.insert(neighbor).inserted {
+            pending.append(neighbor)
+          }
+        }
+      }
+      #expect(visited.count == pixels.count, "Detached Claude leg in gait frame \(frame)")
+      #expect(pixels.contains { $0.level == 0 })
+    }
+  }
+
   @Test("the renderer configuration is neutral by default and capped at two sprites")
   func neutralDefault() {
     #expect(IdleScreenRendererConfiguration.default.agentSprites.isEmpty)

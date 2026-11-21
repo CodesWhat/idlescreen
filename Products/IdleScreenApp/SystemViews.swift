@@ -719,7 +719,7 @@ extension StatusInputs {
       cameraHasFault: StatusCameraFault.hasFault(
         snapshot: cameraClient.readinessSnapshot, bootstrap: cameraClient.bootstrapStatus,
         control: cameraClient.controlReachability),
-      codexHooksInstalled: model.codexHooksInstalled,
-      claudeHooksInstalled: model.claudeHooksInstalled)
+      codexHooksInstalled: model.agentIntegration.codexHooksInstalled,
+      claudeHooksInstalled: model.agentIntegration.claudeHooksInstalled)
   }
 }

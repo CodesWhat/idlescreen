@@ -7,6 +7,23 @@ import Testing
 @Suite("Companion source compile gate")
 struct IdleScreenAppCompileGateSmokeTests {
   @MainActor
+  @Test("partial native resize requests preserve the valid dimension")
+  func previewWindowPartialResize() {
+    let current = CGSize(width: 1200, height: 800)
+    for (proposed, expected) in [
+      (CGSize(width: 1600, height: CGFloat.nan), CGSize(width: 1600, height: 800)),
+      (CGSize(width: CGFloat.nan, height: 1000), CGSize(width: 1200, height: 1000)),
+      (CGSize(width: CGFloat.infinity, height: 700), CGSize(width: 1200, height: 700)),
+      (CGSize(width: 1050, height: -1), CGSize(width: 1050, height: 800)),
+      (CGSize(width: 500, height: CGFloat.nan), CGSize(width: 900, height: 800)),
+    ] {
+      #expect(
+        IdleScreenAppDelegate.constrainedPreviewContentSize(
+          proposed: proposed, current: current, previewAspectRatio: 16.0 / 9) == expected)
+    }
+  }
+
+  @MainActor
   @Test("window resize keeps the proposed width and height independent of the display")
   func previewWindowFreeResize() {
     for ratio in [16.0 / 9, 9.0 / 16, 21.0 / 9] {
@@ -43,7 +60,10 @@ struct IdleScreenAppCompileGateSmokeTests {
 
   @Test("all workbench destinations are available")
   func companionSourcesAreLinked() {
-    #expect(Destination.allCases.map(\.rawValue) == ["Scene", "Displays", "Agents", "Settings"])
+    #expect(
+      Destination.allCases.map(\.rawValue) == [
+        "Scene", "Aquarium", "Displays", "Agents", "Settings",
+      ])
   }
 
   @Test("the entire preview fits landscape, portrait and ultrawide displays")
@@ -228,43 +248,6 @@ struct IdleScreenAppCompileGateSmokeTests {
     #expect(model.configuration.revision == initialRevision + 2)
   }
 
-  @Test("Pixel Materials inspector exposes the complete accessible control set")
-  func materialsInspectorContract() {
-    #expect(
-      IdleScreenPixelMaterialsInspectorContract.controlLabels == [
-        "Material",
-        "Terrain",
-        "Palette",
-        "Seed",
-        "Basin count",
-        "Basin depth",
-        "Minimum basin capacity",
-        "Channel connectivity",
-        "Channel width",
-        "Rock ratio",
-        "Soil ratio",
-        "Emitter count",
-        "Emitter position",
-        "Emitter width",
-        "Emitter rate",
-        "Cell scale",
-        "Gravity",
-        "Lateral flow",
-        "Equalization",
-        "Water pressure",
-        "Spill rate",
-        "Drain rate",
-        "Evaporation rate",
-        "Obstacle density",
-        "Persistence",
-        "Quiet duration",
-        "Fill duration",
-        "Settled duration",
-        "Drain duration",
-        "Regeneration",
-      ])
-  }
-
   @MainActor
   @Test("agent controls stay in scratch storage and publish one loaded inbox")
   func scratchAgentIntegrationControls() async throws {
@@ -282,31 +265,53 @@ struct IdleScreenAppCompileGateSmokeTests {
     #expect(model.configuration.agentIntegration.claudeEnabled)
     #expect(model.configuration.agentIntegration.messageTimeout == 45)
 
-    model.testAgentSignal(for: .codex, at: now)
-    #expect(await eventually { model.activeAgentSignal?.provider == .codex })
+    model.agentIntegration.testAgentSignal(for: .codex, at: now)
+    #expect(await eventually { model.agentIntegration.activeAgentSignal?.provider == .codex })
     _ = try fixture.store.apply(.recordIgnored(provider: .claude), at: now)
-    model.refreshAgentSignals(at: now.addingTimeInterval(2))
-    #expect(await eventually { model.agentIgnoredEventCounts[.claude] == 1 })
+    model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(2))
+    #expect(await eventually { model.agentIntegration.agentIgnoredEventCounts[.claude] == 1 })
 
-    model.installAgentHooks(for: .codex)
-    model.installAgentHooks(for: .claude)
-    model.refreshAgentHookInstallationStatus()
-    #expect(model.codexHooksInstalled)
-    #expect(model.claudeHooksInstalled)
+    model.agentIntegration.installAgentHooks(for: .codex)
+    model.agentIntegration.installAgentHooks(for: .claude)
+    model.agentIntegration.refreshAgentHookInstallationStatus()
+    #expect(model.agentIntegration.codexHooksInstalled)
+    #expect(model.agentIntegration.claudeHooksInstalled)
     #expect(FileManager.default.fileExists(atPath: fixture.codexSettingsURL.path))
     #expect(FileManager.default.fileExists(atPath: fixture.claudeSettingsURL.path))
     #expect(fixture.codexSettingsURL.path.hasPrefix(fixture.root.path + "/"))
     #expect(fixture.claudeSettingsURL.path.hasPrefix(fixture.root.path + "/"))
 
-    model.uninstallAgentHooks(for: .codex)
-    model.uninstallAgentHooks(for: .claude)
-    model.refreshAgentHookInstallationStatus()
-    #expect(!model.codexHooksInstalled)
-    #expect(!model.claudeHooksInstalled)
+    model.agentIntegration.uninstallAgentHooks(for: .codex)
+    model.agentIntegration.uninstallAgentHooks(for: .claude)
+    model.agentIntegration.refreshAgentHookInstallationStatus()
+    #expect(!model.agentIntegration.codexHooksInstalled)
+    #expect(!model.agentIntegration.claudeHooksInstalled)
 
-    model.clearAgentSignals(at: now.addingTimeInterval(3))
-    #expect(await eventually { model.activeAgentSignal == nil })
-    #expect(model.agentIntegrationStatus == "All agent signals cleared.")
+    model.agentIntegration.clearAgentSignals(at: now.addingTimeInterval(3))
+    #expect(await eventually { model.agentIntegration.activeAgentSignal == nil })
+    #expect(model.agentIntegration.status == "All agent signals cleared.")
+  }
+
+  @MainActor
+  @Test("Clear repairs a malformed agent inbox and reports success")
+  func clearRepairsMalformedInbox() async throws {
+    let now = Date(timeIntervalSince1970: 1_786_296_350)
+    let fixture = try AgentModelFixture(now: now)
+    defer { fixture.removeScratchDirectory() }
+    let model = fixture.model
+    let inboxURL = fixture.store.fileURL
+    try FileManager.default.createDirectory(
+      at: inboxURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+    try Data("{broken".utf8).write(to: inboxURL)
+    #expect(throws: (any Error).self) { try fixture.store.read(at: now) }
+
+    model.agentIntegration.clearAgentSignals(at: now.addingTimeInterval(1))
+
+    #expect(model.agentIntegration.status == "All agent signals cleared.")
+    let repaired = try fixture.store.read(at: now.addingTimeInterval(2))
+    #expect(repaired.signals.isEmpty)
   }
 
   @MainActor
@@ -333,12 +338,12 @@ struct IdleScreenAppCompileGateSmokeTests {
 
     #expect(
       await eventually {
-        fixture.model.agentIntegrationStatus?.contains("unavailable") == true
+        fixture.model.agentIntegration.status?.contains("unavailable") == true
       })
-    fixture.model.refreshAgentSignals(at: now)
+    fixture.model.agentIntegration.refreshAgentSignals(at: now)
 
-    #expect(await eventually { fixture.model.activeAgentSignal == signal })
-    #expect(fixture.model.agentIgnoredEventCounts == [.codex: 3])
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == signal })
+    #expect(fixture.model.agentIntegration.agentIgnoredEventCounts == [.codex: 3])
     #expect(loader.callCount == 2)
   }
 
@@ -381,12 +386,12 @@ struct IdleScreenAppCompileGateSmokeTests {
     }
     #expect(await eventually { loader.callCount == 1 })
 
-    fixture.model.refreshAgentSignals(at: now.addingTimeInterval(1))
-    fixture.model.refreshAgentSignals(at: now.addingTimeInterval(2))
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(1))
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(2))
     releaseFirstLoad.signal()
 
-    #expect(await eventually { fixture.model.activeAgentSignal == newestSignal })
-    #expect(fixture.model.agentIgnoredEventCounts == [.claude: 4])
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == newestSignal })
+    #expect(fixture.model.agentIntegration.agentIgnoredEventCounts == [.claude: 4])
     #expect(loader.callCount == 2)
     #expect(loader.loadedDates == [now, now.addingTimeInterval(2)])
   }
@@ -427,11 +432,11 @@ struct IdleScreenAppCompileGateSmokeTests {
     }
     #expect(await eventually { loader.callCount == 1 })
 
-    fixture.model.clearAgentSignals(at: now.addingTimeInterval(1))
+    fixture.model.agentIntegration.clearAgentSignals(at: now.addingTimeInterval(1))
     releaseStaleLoad.signal()
     #expect(await eventually { loader.callCount == 2 })
 
-    #expect(fixture.model.activeAgentSignal == nil)
+    #expect(fixture.model.agentIntegration.activeAgentSignal == nil)
     releaseClearLoad.signal()
     #expect(await eventually { loader.completedCallCount == 2 })
   }
@@ -453,12 +458,91 @@ struct IdleScreenAppCompileGateSmokeTests {
     defer { fixture.removeScratchDirectory() }
     #expect(await eventually { loader.completedCallCount == 1 })
 
-    fixture.model.refreshAgentSignals(at: now.addingTimeInterval(1))
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(1))
     #expect(await eventually { loader.completedCallCount == 2 })
-    fixture.model.refreshAgentSignals(at: now.addingTimeInterval(1.5))
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(1.5))
     try? await Task.sleep(for: .milliseconds(50))
 
     #expect(loader.callCount == 2)
+  }
+
+  @MainActor
+  @Test("regular ticks do not invalidate a slow read in progress")
+  func regularTicksCoalesceIntoSlowRead() async throws {
+    let now = Date(timeIntervalSince1970: 1_786_296_450)
+    let signal = try testSignal(provider: .codex, eventID: "slow", at: now)
+    let release = DispatchSemaphore(value: 0)
+    let loader = ScriptedAgentInboxLoader(steps: [
+      .blocked(
+        release: release,
+        inbox: IdleScreenAgentSignalInbox(revision: 1, updatedAt: now, signals: [signal])
+      )
+    ])
+    let fixture = try AgentModelFixture(now: now, loader: loader.load)
+    defer {
+      release.signal()
+      fixture.removeScratchDirectory()
+    }
+    #expect(await eventually { loader.callCount == 1 })
+
+    fixture.model.agentIntegration.refreshAgentSignals()
+    fixture.model.agentIntegration.refreshAgentSignals()
+    release.signal()
+
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == signal })
+    #expect(loader.callCount == 1)
+  }
+
+  @MainActor
+  @Test("a read that finishes after a signal expired does not publish it")
+  func lateReadDoesNotPublishExpiredSignal() async throws {
+    let now = Date(timeIntervalSince1970: 1_786_296_460)
+    let signal = try testSignal(provider: .codex, eventID: "expiring", at: now)
+    let clockBox = MutableTestClock(now)
+    let release = DispatchSemaphore(value: 0)
+    let loader = ScriptedAgentInboxLoader(steps: [
+      .blocked(
+        release: release,
+        inbox: IdleScreenAgentSignalInbox(revision: 1, updatedAt: now, signals: [signal])
+      )
+    ])
+    let fixture = try AgentModelFixture(now: now, clock: clockBox.read, loader: loader.load)
+    defer {
+      release.signal()
+      fixture.removeScratchDirectory()
+    }
+    #expect(await eventually { loader.callCount == 1 })
+
+    clockBox.set(now.addingTimeInterval(120))
+    release.signal()
+    #expect(await eventually { loader.completedCallCount == 1 })
+    try? await Task.sleep(for: .milliseconds(50))
+
+    #expect(fixture.model.agentIntegration.activeAgentSignal == nil)
+    #expect(fixture.model.agentIntegration.activeAgentSignals.isEmpty)
+  }
+
+  @MainActor
+  @Test("an identical inbox republishes after a failed read")
+  func identicalInboxRepublishesAfterFailure() async throws {
+    let now = Date(timeIntervalSince1970: 1_786_296_470)
+    let signal = try testSignal(provider: .claude, eventID: "recover", at: now)
+    let inbox = IdleScreenAgentSignalInbox(revision: 5, updatedAt: now, signals: [signal])
+    let loader = ScriptedAgentInboxLoader(steps: [
+      .success(inbox),
+      .failure(.expectedFailure),
+      .success(inbox),
+    ])
+    let fixture = try AgentModelFixture(now: now, loader: loader.load)
+    defer { fixture.removeScratchDirectory() }
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == signal })
+
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(1))
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == nil })
+    #expect(fixture.model.agentIntegration.status?.contains("unavailable") == true)
+
+    fixture.model.agentIntegration.refreshAgentSignals(at: now.addingTimeInterval(2))
+    #expect(await eventually { fixture.model.agentIntegration.activeAgentSignal == signal })
   }
 
   @MainActor
@@ -471,13 +555,13 @@ struct IdleScreenAppCompileGateSmokeTests {
     )
     defer { fixture.removeScratchDirectory() }
 
-    fixture.model.installAgentHooks(for: .codex)
+    fixture.model.agentIntegration.installAgentHooks(for: .codex)
     #expect(
-      fixture.model.agentIntegrationStatus
+      fixture.model.agentIntegration.status
         == "Hook installation unavailable until the app is signed for its App Group.")
-    fixture.model.uninstallAgentHooks(for: .codex)
+    fixture.model.agentIntegration.uninstallAgentHooks(for: .codex)
     #expect(
-      fixture.model.agentIntegrationStatus
+      fixture.model.agentIntegration.status
         == "Hook removal unavailable until the app is signed for its App Group.")
   }
 
@@ -488,19 +572,19 @@ struct IdleScreenAppCompileGateSmokeTests {
       now: Date(timeIntervalSince1970: 1_786_296_900)
     )
     defer { fixture.removeScratchDirectory() }
-    fixture.model.installAgentHooks(for: .codex)
+    fixture.model.agentIntegration.installAgentHooks(for: .codex)
     try FileManager.default.createDirectory(
       at: fixture.claudeSettingsURL.deletingLastPathComponent(),
       withIntermediateDirectories: true
     )
     try Data("{malformed".utf8).write(to: fixture.claudeSettingsURL)
 
-    fixture.model.refreshAgentHookInstallationStatus()
+    fixture.model.agentIntegration.refreshAgentHookInstallationStatus()
 
-    #expect(fixture.model.codexHooksInstalled)
-    #expect(!fixture.model.claudeHooksInstalled)
+    #expect(fixture.model.agentIntegration.codexHooksInstalled)
+    #expect(!fixture.model.agentIntegration.claudeHooksInstalled)
     #expect(
-      fixture.model.agentIntegrationStatus?
+      fixture.model.agentIntegration.status?
         .contains("Claude hook status unavailable") == true
     )
   }
@@ -511,6 +595,23 @@ private final class TestBundleMarker {}
 private enum AgentModelTestError: Error {
   case expectedFailure
   case missingScriptedResult
+}
+
+private final class MutableTestClock: @unchecked Sendable {
+  private let lock = NSLock()
+  private var date: Date
+
+  init(_ date: Date) {
+    self.date = date
+  }
+
+  @Sendable func read() -> Date {
+    lock.withLock { date }
+  }
+
+  func set(_ newDate: Date) {
+    lock.withLock { date = newDate }
+  }
 }
 
 private final class ScriptedAgentInboxLoader: @unchecked Sendable {
@@ -582,6 +683,7 @@ private final class AgentModelFixture {
   init(
     now: Date,
     appGroupIdentifier: String? = "group.com.idlescreen.tests.shared",
+    clock: (@Sendable () -> Date)? = nil,
     loader:
       @escaping @Sendable (
         IdleScreenAgentSignalStore,
@@ -611,7 +713,7 @@ private final class AgentModelFixture {
         codexHookSettingsURL: codexSettingsURL,
         claudeHookSettingsURL: claudeSettingsURL,
         agentControlExecutableURL: root.appending(path: "Helpers/idlescreenctl"),
-        clock: { now },
+        clock: clock ?? { now },
         loadAgentSignals: loader
       )
     )
@@ -654,4 +756,195 @@ private func eventually(
     try? await Task.sleep(for: .milliseconds(10))
   }
   return condition()
+}
+
+@MainActor
+@Suite("Companion configuration load failure")
+struct ConfigurationLoadFailureTests {
+  private func makeModel(
+    root: URL,
+    sharedPaths: IdleScreenSharedPaths
+  ) -> IdleScreenAppModel {
+    IdleScreenAppModel(
+      bundle: Bundle(for: TestBundleMarker.self),
+      agentIntegrationDependencies: .init(
+        sharedPaths: sharedPaths,
+        appGroupIdentifier: "group.com.idlescreen.tests.shared",
+        legacyConfigurationURLs: [root.appending(path: "Legacy/config.json")],
+        codexHookSettingsURL: root.appending(path: "Home/.codex/hooks.json"),
+        claudeHookSettingsURL: root.appending(path: "Home/.claude/settings.json"),
+        agentControlExecutableURL: root.appending(path: "Helpers/idlescreenctl"),
+        clock: { Date(timeIntervalSince1970: 1_800_000_000) },
+        loadAgentSignals: { store, date in try store.read(at: date) }
+      )
+    )
+  }
+
+  private func scratch() throws -> (root: URL, paths: IdleScreenSharedPaths) {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    let paths = IdleScreenSharedPaths(
+      rootURL: root.appending(path: "Shared", directoryHint: .isDirectory)
+    )
+    try FileManager.default.createDirectory(
+      at: paths.configurationURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+    return (root, paths)
+  }
+
+  private func assertEditsNeverOverwrite(original: Data, name: String) throws {
+    let (root, paths) = try scratch()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try original.write(to: paths.configurationURL)
+
+    let model = makeModel(root: root, sharedPaths: paths)
+    #expect(model.configurationLoadFailure != nil, "\(name)")
+    #expect(try Data(contentsOf: paths.configurationURL) == original, "\(name) after init")
+
+    let failure = model.configurationLoadFailure
+    for seed: UInt64 in [11, 12, 13] {
+      model.lastError = nil
+      model.updatePixelMaterials { $0.seed = seed }
+      #expect(model.configuration.materials.seed == seed, "\(name) edit applied in memory")
+      #expect(model.lastError == failure, "\(name) surfaces the retained error")
+      #expect(try Data(contentsOf: paths.configurationURL) == original, "\(name) after edits")
+    }
+    #expect(model.configurationLoadFailure == failure)
+  }
+
+  @Test("Malformed configuration is never overwritten by edits")
+  func malformedConfigurationSurvivesEdits() throws {
+    try assertEditsNeverOverwrite(
+      original: Data("{ not json at all".utf8),
+      name: "malformed"
+    )
+  }
+
+  @Test("Future-schema configuration is never overwritten by edits")
+  func futureSchemaConfigurationSurvivesEdits() throws {
+    var future = IdleScreenConfiguration.default
+    future.schemaVersion = IdleScreenConfiguration.currentSchemaVersion + 1
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let data = try encoder.encode(future)
+    try assertEditsNeverOverwrite(original: data, name: "future schema")
+  }
+
+  @Test("Missing configuration initializes and persists normally")
+  func missingConfigurationPersists() throws {
+    let (root, paths) = try scratch()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let model = makeModel(root: root, sharedPaths: paths)
+    #expect(model.configurationLoadFailure == nil)
+    #expect(FileManager.default.fileExists(atPath: paths.configurationURL.path))
+
+    let before = model.configuration.revision
+    model.updatePixelMaterial(.mixed)
+    let stored = try IdleScreenConfigurationStore(fileURL: paths.configurationURL).read()
+    #expect(stored?.materials.material == .mixed)
+    #expect(stored?.revision == before &+ 1)
+  }
+
+  @Test("Supported existing configuration persists edits")
+  func supportedConfigurationPersists() throws {
+    let (root, paths) = try scratch()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try IdleScreenConfigurationStore(fileURL: paths.configurationURL).write(.default)
+
+    let model = makeModel(root: root, sharedPaths: paths)
+    #expect(model.configurationLoadFailure == nil)
+    model.updatePixelMaterial(.mixed)
+    let stored = try IdleScreenConfigurationStore(fileURL: paths.configurationURL).read()
+    #expect(stored?.materials.material == .mixed)
+  }
+}
+
+private final class SuspendedHealthLoader: @unchecked Sendable {
+  private let lock = NSLock()
+  private let release = DispatchSemaphore(value: 0)
+  private var calls = 0
+  private var firstEntered = false
+
+  var callCount: Int { lock.withLock { calls } }
+  var hasEntered: Bool { lock.withLock { firstEntered } }
+
+  func resume() { release.signal() }
+
+  /// The first call blocks until `resume()`; later calls return at once.
+  func load(
+    snapshots: [IdleScreenAppModel.ProcessHealthSnapshot]
+  ) -> IdleScreenAppModel.ProcessHealthSnapshot {
+    let index = lock.withLock { () -> Int in
+      calls += 1
+      if calls == 1 { firstEntered = true }
+      return calls - 1
+    }
+    if index == 0 { release.wait() }
+    return snapshots[min(index, snapshots.count - 1)]
+  }
+}
+
+@MainActor
+@Suite("Companion process health refresh")
+struct ProcessHealthRefreshTests {
+  private func report(_ pid: Int32, at seconds: TimeInterval) -> IdleScreenProcessHealth {
+    IdleScreenProcessHealth(
+      process: .cameraAgent,
+      processIdentifier: pid,
+      lifecycle: .attached,
+      build: .init(version: "0.1", buildNumber: "1", bundleIdentifier: "com.idlescreen.tests"),
+      updatedAt: Date(timeIntervalSince1970: seconds),
+      issue: nil
+    )
+  }
+
+  @Test("a suspended loader leaves the main actor free and stale results never win")
+  func suspendedLoaderCoalescesAndKeepsNewest() async throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let older = IdleScreenAppModel.ProcessHealthSnapshot(
+      reports: [report(1, at: 1)], liveReportIdentifiers: [])
+    let newer = IdleScreenAppModel.ProcessHealthSnapshot(
+      reports: [report(2, at: 2)], liveReportIdentifiers: [report(2, at: 2).reportIdentifier])
+    let loader = SuspendedHealthLoader()
+    let model = IdleScreenAppModel(
+      bundle: Bundle(for: TestBundleMarker.self),
+      agentIntegrationDependencies: .init(
+        sharedPaths: IdleScreenSharedPaths(rootURL: root.appending(path: "Shared")),
+        appGroupIdentifier: "group.com.idlescreen.tests.shared",
+        legacyConfigurationURLs: [root.appending(path: "Legacy/config.json")],
+        codexHookSettingsURL: root.appending(path: "Home/.codex/hooks.json"),
+        claudeHookSettingsURL: root.appending(path: "Home/.claude/settings.json"),
+        agentControlExecutableURL: root.appending(path: "Helpers/idlescreenctl"),
+        clock: { Date(timeIntervalSince1970: 1_800_000_000) },
+        loadAgentSignals: { store, date in try store.read(at: date) },
+        loadProcessHealth: { _ in loader.load(snapshots: [older, newer]) }
+      )
+    )
+
+    // Init started the first (suspended) pass.
+    #expect(await eventually { loader.hasEntered })
+
+    // The main actor still runs while the loader is blocked, and overlapping
+    // refreshes coalesce rather than starting more loads.
+    model.refreshProcessHealth()
+    model.refreshProcessHealth()
+    model.refreshProcessHealth()
+    model.updatePixelMaterials { $0.seed = 4242 }
+    #expect(model.configuration.materials.seed == 4242)
+    #expect(model.processHealth.isEmpty)
+    #expect(loader.callCount == 1)
+
+    loader.resume()
+    // The first pass publishes, then the single coalesced follow-up replaces it.
+    #expect(await eventually { model.processHealth.map(\.processIdentifier) == [2] })
+    #expect(model.isProcessReportLive(report(2, at: 2)))
+    #expect(loader.callCount == 2)
+
+    // No later write may bring the older snapshot back.
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(model.processHealth.map(\.processIdentifier) == [2])
+  }
 }

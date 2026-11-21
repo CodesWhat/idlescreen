@@ -128,6 +128,7 @@ trap '/bin/rm -f "${temporary_output:?}"' EXIT
   echo '  end'
   echo
   echo '  depends_on macos: :tahoe'
+  echo '  depends_on arch: :arm64'
   echo
   echo '  app "IdleScreen.app"'
   echo

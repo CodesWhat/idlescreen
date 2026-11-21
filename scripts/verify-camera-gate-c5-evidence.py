@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence
 
 import camera_gate_app_paths
+import camera_gate_evidence_common
 import verify_camera_gate_a1_log as gate_a
 
 
@@ -104,38 +105,7 @@ MANIFEST_FIELDS = (
     "final_active_lease_count",
 )
 
-C3_FIELDS = (
-    "schema",
-    "verification_mode",
-    "archive_tree_sha256",
-    "team_identifier",
-    "app_group",
-    "mach_service",
-    "camera_usage_description_sha256",
-    "launch_agent_sha256",
-    "signer_certificate_sha256",
-    "app_bundle_identifier",
-    "app_cdhash",
-    "app_designated_requirement_sha256",
-    "app_entitlements_sha256",
-    "app_profile_sha256",
-    "app_profile_uuid",
-    "app_profile_expiration",
-    "extension_bundle_identifier",
-    "extension_cdhash",
-    "extension_designated_requirement_sha256",
-    "extension_entitlements_sha256",
-    "extension_profile_sha256",
-    "extension_profile_uuid",
-    "extension_profile_expiration",
-    "helper_bundle_identifier",
-    "helper_cdhash",
-    "helper_designated_requirement_sha256",
-    "helper_entitlements_sha256",
-    "helper_profile_sha256",
-    "helper_profile_uuid",
-    "helper_profile_expiration",
-)
+C3_FIELDS = camera_gate_evidence_common.C3_FIELDS
 
 C4_TRANSACTION_FIELDS = (
     "format",
@@ -377,40 +347,12 @@ def parse_timestamp(value: str, label: str) -> float:
 
 
 def validate_c3(path: Path) -> Dict[str, str]:
-    values = parse_kv(path, C3_FIELDS, "C3 provenance manifest")
-    require_equal(
-        values,
-        {
-            "schema": "IdleScreenReleaseArchiveProvenance/v1",
-            "verification_mode": "release",
-            "team_identifier": TEAM,
-            "app_group": APP_GROUP,
-            "mach_service": MACH_SERVICE,
-            "app_bundle_identifier": APP_ID,
-            "helper_bundle_identifier": HELPER_ID,
-            "extension_bundle_identifier": EXTENSION_ID,
-        },
-        "C3 provenance manifest",
-    )
-    for key in (
-        "archive_tree_sha256",
-        "camera_usage_description_sha256",
-        "launch_agent_sha256",
-        "signer_certificate_sha256",
-        "app_designated_requirement_sha256",
-        "app_entitlements_sha256",
-        "app_profile_sha256",
-        "extension_designated_requirement_sha256",
-        "extension_entitlements_sha256",
-        "extension_profile_sha256",
-        "helper_designated_requirement_sha256",
-        "helper_entitlements_sha256",
-        "helper_profile_sha256",
-    ):
-        require_sha(values[key], f"C3 {key}")
-    for key in ("app_cdhash", "helper_cdhash", "extension_cdhash"):
-        values[key] = require_cdhash(values[key], f"C3 {key}")
-    return values
+    try:
+        return camera_gate_evidence_common.parse_c3_manifest(
+            path, "C3 provenance manifest"
+        )
+    except camera_gate_evidence_common.C3ProvenanceError as error:
+        fail(str(error))
 
 
 def validate_c4_restoration(

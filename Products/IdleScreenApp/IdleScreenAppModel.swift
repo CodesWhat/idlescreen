@@ -11,6 +11,20 @@ import Observation
 final class IdleScreenAppModel {
   static let shared = IdleScreenAppModel()
 
+  /// What one background health pass produces: the reports left after
+  /// retention and the identifiers of those that belong to a running process.
+  struct ProcessHealthSnapshot: Sendable {
+    let reports: [IdleScreenProcessHealth]
+    let liveReportIdentifiers: Set<String>
+
+    init(reports: [IdleScreenProcessHealth], liveReportIdentifiers: Set<String>) {
+      self.reports = reports
+      self.liveReportIdentifiers = liveReportIdentifiers
+    }
+  }
+
+  typealias ProcessHealthLoader = @Sendable (URL) throws -> ProcessHealthSnapshot
+
   struct AgentIntegrationDependencies: Sendable {
     let sharedPaths: IdleScreenSharedPaths?
     let appGroupIdentifier: String?
@@ -24,6 +38,7 @@ final class IdleScreenAppModel {
         IdleScreenAgentSignalStore,
         Date
       ) throws -> IdleScreenAgentSignalInbox
+    let loadProcessHealth: ProcessHealthLoader
 
     init(
       sharedPaths: IdleScreenSharedPaths?,
@@ -37,7 +52,9 @@ final class IdleScreenAppModel {
         @escaping @Sendable (
           IdleScreenAgentSignalStore,
           Date
-        ) throws -> IdleScreenAgentSignalInbox
+        ) throws -> IdleScreenAgentSignalInbox,
+      loadProcessHealth: @escaping ProcessHealthLoader = IdleScreenAppModel
+        .loadProcessHealthSnapshot
     ) {
       self.sharedPaths = sharedPaths
       self.appGroupIdentifier = appGroupIdentifier
@@ -47,6 +64,7 @@ final class IdleScreenAppModel {
       self.agentControlExecutableURL = agentControlExecutableURL
       self.clock = clock
       self.loadAgentSignals = loadAgentSignals
+      self.loadProcessHealth = loadProcessHealth
     }
   }
 
@@ -79,19 +97,6 @@ final class IdleScreenAppModel {
     case failure(String)
   }
 
-  private struct AgentSignalRefreshRequest: Sendable {
-    let generation: UInt64
-    let date: Date
-  }
-
-  private enum AgentSignalLoadOutcome: Sendable {
-    case loaded(
-      request: AgentSignalRefreshRequest,
-      inbox: IdleScreenAgentSignalInbox
-    )
-    case failed(request: AgentSignalRefreshRequest, message: String)
-  }
-
   private static let logger = Logger(subsystem: "com.idlescreen.app", category: "AppModel")
 
   private let bundle: Bundle
@@ -100,21 +105,14 @@ final class IdleScreenAppModel {
   private let activationClient = ScreenSaverActivationClient()
   private let sharedPaths: IdleScreenSharedPaths?
   private let legacyConfigurationURLs: [URL]
-  private let codexHookSettingsURL: URL
-  private let claudeHookSettingsURL: URL
-  private let resolvedAgentControlExecutableURL: URL
   private let clock: @Sendable () -> Date
-  private let agentSignalStore: IdleScreenAgentSignalStore?
-  private let agentSignalLoader:
-    @Sendable (
-      IdleScreenAgentSignalStore,
-      Date
-    ) throws -> IdleScreenAgentSignalInbox
+  private let processHealthLoader: ProcessHealthLoader
+  private var processHealthRequest: UInt64 = 0
+  private var processHealthAppliedRequest: UInt64 = 0
+  private var processHealthRefreshInFlight = false
+  private var processHealthRefreshPending = false
+  private var processHealthLiveIdentifiers: Set<String> = []
   private var refreshGeneration: UInt64 = 0
-  private var agentSignalMonitor: IdleScreenAgentSignalMonitor?
-  private var agentSignalRefreshGeneration: UInt64 = 0
-  private var agentSignalRefreshInFlight = false
-  private var pendingAgentSignalRefresh: AgentSignalRefreshRequest?
 
   let embeddedExtensionURL: URL?
   let embeddedExtensionBundleIdentifier: String?
@@ -140,13 +138,11 @@ final class IdleScreenAppModel {
       }
     }
   }
-  var activeAgentSignal: IdleScreenAgentSignal?
-  /// The strongest live signal per provider, which drive the scene's sprites.
-  var activeAgentSignals: [IdleScreenAgentSignal] = []
-  var agentIgnoredEventCounts: [IdleScreenAgentProvider: UInt64] = [:]
-  var codexHooksInstalled = false
-  var claudeHooksInstalled = false
-  var agentIntegrationStatus: String?
+  /// Set when the saved configuration could not be read at launch. Unlike `lastError` it survives unrelated status updates, and
+  /// while it is set nothing may overwrite the unreadable file on disk.
+  private(set) var configurationLoadFailure: String?
+  /// Agent signals, hook install state and the Integrations status line.
+  let agentIntegration: AgentIntegrationController
 
   init(
     bundle: Bundle = .main,
@@ -177,15 +173,24 @@ final class IdleScreenAppModel {
       extensionAt: extensionURL ?? URL(fileURLWithPath: "/missing/IdleScreenScreenSaver.appex")
     )
 
+    let codexHookSettingsURL: URL
+    let claudeHookSettingsURL: URL
+    let agentControlExecutableURL: URL
+    let agentSignalLoader:
+      @Sendable (
+        IdleScreenAgentSignalStore,
+        Date
+      ) throws -> IdleScreenAgentSignalInbox
     if let dependencies = agentIntegrationDependencies {
       appGroupIdentifier = dependencies.appGroupIdentifier
       sharedPaths = dependencies.sharedPaths
       legacyConfigurationURLs = dependencies.legacyConfigurationURLs
       codexHookSettingsURL = dependencies.codexHookSettingsURL
       claudeHookSettingsURL = dependencies.claudeHookSettingsURL
-      resolvedAgentControlExecutableURL = dependencies.agentControlExecutableURL
+      agentControlExecutableURL = dependencies.agentControlExecutableURL
       clock = dependencies.clock
       agentSignalLoader = dependencies.loadAgentSignals
+      processHealthLoader = dependencies.loadProcessHealth
     } else {
       appGroupIdentifier =
         bundle.object(
@@ -206,17 +211,27 @@ final class IdleScreenAppModel {
       let home = FileManager.default.homeDirectoryForCurrentUser
       codexHookSettingsURL = home.appending(path: ".codex/hooks.json")
       claudeHookSettingsURL = home.appending(path: ".claude/settings.json")
-      resolvedAgentControlExecutableURL = bundle.bundleURL.appending(
+      agentControlExecutableURL = bundle.bundleURL.appending(
         path: "Contents/Helpers/idlescreenctl"
       )
       clock = { Date() }
+      processHealthLoader = Self.loadProcessHealthSnapshot
       agentSignalLoader = { store, date in
         try store.read(at: date)
       }
     }
-    agentSignalStore = sharedPaths.map {
+    let agentSignalStore = sharedPaths.map {
       IdleScreenAgentSignalStore(fileURL: $0.agentSignalsInboxURL)
     }
+    agentIntegration = AgentIntegrationController(
+      appGroupIdentifier: appGroupIdentifier,
+      agentSignalStore: agentSignalStore,
+      codexHookSettingsURL: codexHookSettingsURL,
+      claudeHookSettingsURL: claudeHookSettingsURL,
+      agentControlExecutableURL: agentControlExecutableURL,
+      clock: clock,
+      loadAgentSignals: agentSignalLoader
+    )
     var shouldPersistInitialConfiguration = true
     if let sharedPaths {
       do {
@@ -229,6 +244,7 @@ final class IdleScreenAppModel {
           ?? .default
       } catch {
         configuration = .default
+        configurationLoadFailure = error.localizedDescription
         lastError = error.localizedDescription
         shouldPersistInitialConfiguration = false
       }
@@ -245,14 +261,12 @@ final class IdleScreenAppModel {
       configuration.modifiedAt = clock()
     }
 
+    agentIntegration.configurationProvider = { [unowned self] in self.configuration }
+
     if shouldPersistInitialConfiguration {
       persistConfigurationIfNeeded(overwritingExisting: repairedPersistedConfiguration)
     }
-    if agentSignalStore != nil {
-      agentSignalMonitor = IdleScreenAgentSignalMonitor()
-      refreshAgentSignals()
-    }
-    refreshAgentHookInstallationStatus()
+    agentIntegration.start()
     publishAppHealth()
     refresh()
   }
@@ -269,30 +283,49 @@ final class IdleScreenAppModel {
   }
 
   var extensionHealth: IdleScreenProcessHealth? {
-    let liveReportIdentifiers = Set(
-      processHealth.compactMap { report -> String? in
-        isProcessReportLive(report) ? report.reportIdentifier : nil
-      })
-    return IdleScreenHealthSelection.preferredReport(
+    IdleScreenHealthSelection.preferredReport(
       for: .screenSaverExtension,
       in: processHealth,
-      liveReportIdentifiers: liveReportIdentifiers
+      liveReportIdentifiers: processHealthLiveIdentifiers
     )
   }
 
+  /// Liveness as of the last completed health pass. Classification runs off
+  /// the main actor, so views only look the answer up.
   func isProcessReportLive(_ report: IdleScreenProcessHealth) -> Bool {
+    processHealthLiveIdentifiers.contains(report.reportIdentifier)
+  }
+
+  nonisolated static func isProcessReportRunning(_ report: IdleScreenProcessHealth) -> Bool {
     guard let processIdentifier = report.processIdentifier else { return false }
     let processExists = Darwin.kill(processIdentifier, 0) == 0 || errno == EPERM
     guard processExists,
-      let executablePath = Self.executablePath(for: processIdentifier),
+      let executablePath = executablePath(for: processIdentifier),
       report.process.matchesExecutablePath(executablePath),
-      let processStartedAt = Self.processStartDate(for: processIdentifier),
+      let processStartedAt = processStartDate(for: processIdentifier),
       report.couldBelongToProcess(startedAt: processStartedAt)
     else {
       return false
     }
     return report.isLive(
       activeProcessIdentifiers: [processIdentifier]
+    )
+  }
+
+  /// Reads, classifies and prunes the health directory. Runs off the main actor.
+  nonisolated static func loadProcessHealthSnapshot(
+    directoryURL: URL
+  ) throws -> ProcessHealthSnapshot {
+    let store = IdleScreenHealthStore(directoryURL: directoryURL)
+    let live = Set(
+      try store.readAll().compactMap { report -> String? in
+        isProcessReportRunning(report) ? report.reportIdentifier : nil
+      })
+    let retained = try store.enforceRetention(protecting: live).retained
+    let retainedIdentifiers = Set(retained.map(\.reportIdentifier))
+    return ProcessHealthSnapshot(
+      reports: retained,
+      liveReportIdentifiers: live.intersection(retainedIdentifiers)
     )
   }
 
@@ -641,287 +674,7 @@ final class IdleScreenAppModel {
     guard normalized != configuration.agentIntegration else { return }
     configuration.agentIntegration = normalized
     commitConfiguration()
-    refreshAgentSignals()
-  }
-
-  func refreshAgentSignals(at date: Date? = nil) {
-    guard let monitor = agentSignalMonitor,
-      let agentSignalStore
-    else {
-      activeAgentSignal = nil
-      activeAgentSignals = []
-      agentIgnoredEventCounts = [:]
-      return
-    }
-    let date = date ?? clock()
-    guard monitor.canPoll(at: date) else { return }
-
-    agentSignalRefreshGeneration &+= 1
-    let request = AgentSignalRefreshRequest(
-      generation: agentSignalRefreshGeneration,
-      date: date
-    )
-    guard !agentSignalRefreshInFlight else {
-      pendingAgentSignalRefresh = request
-      return
-    }
-    beginAgentSignalRefresh(
-      request,
-      store: agentSignalStore
-    )
-  }
-
-  func agentPresentation(at date: Date? = nil) -> IdleScreenAgentOverlayPresentation? {
-    guard let activeAgentSignal else { return nil }
-    let date = date ?? clock()
-    let components = Calendar.current.dateComponents([.hour, .minute], from: date)
-    let minute = (components.hour ?? 0) * 60 + (components.minute ?? 0)
-    return IdleScreenAgentPresentationPolicy.presentation(
-      for: activeAgentSignal,
-      configuration: configuration.agentIntegration,
-      at: date,
-      minuteOfDay: minute
-    )
-  }
-
-  /// Presentations for every live agent, after the same policy gates the
-  /// saver applies. They become sprites in the preview scene.
-  func agentPresentations(at date: Date? = nil) -> [IdleScreenAgentOverlayPresentation] {
-    let date = date ?? clock()
-    let components = Calendar.current.dateComponents([.hour, .minute], from: date)
-    let minute = (components.hour ?? 0) * 60 + (components.minute ?? 0)
-    return activeAgentSignals.compactMap {
-      IdleScreenAgentPresentationPolicy.presentation(
-        for: $0,
-        configuration: configuration.agentIntegration,
-        at: date,
-        minuteOfDay: minute
-      )
-    }
-  }
-
-  func configurationApplyingActiveAgentSignal(
-    at date: Date? = nil
-  ) -> IdleScreenConfiguration {
-    let first = agentPresentations(at: date).first
-    guard first != nil else { return configuration }
-    return IdleScreenAgentPresentationPolicy.configuration(
-      configuration,
-      applyingTemporaryLookFrom: IdleScreenAgentPresentationPolicy.signal(
-        behind: first, in: activeAgentSignals)
-    )
-  }
-
-  func previewAgentHookConfiguration(for provider: IdleScreenAgentProvider) -> String {
-    guard let appGroupIdentifier else { return "Signed App Group access is unavailable." }
-    do {
-      return try IdleScreenAgentHookConfigurationManager.preview(
-        provider: provider,
-        executableURL: agentControlExecutableURL,
-        appGroupIdentifier: appGroupIdentifier
-      )
-    } catch {
-      return "Unable to prepare hook preview: \(error.localizedDescription)"
-    }
-  }
-
-  func installAgentHooks(for provider: IdleScreenAgentProvider) {
-    guard let manager = agentHookManager(for: provider) else {
-      agentIntegrationStatus =
-        "Hook installation unavailable until the app is signed for its App Group."
-      return
-    }
-    do {
-      try manager.install()
-      agentIntegrationStatus =
-        provider == .codex
-        ? "Codex hooks installed. Review and trust them with /hooks in Codex."
-        : "Claude hooks installed."
-      refreshAgentHookInstallationStatus()
-    } catch {
-      agentIntegrationStatus = "Hook installation failed: \(error.localizedDescription)"
-    }
-  }
-
-  func uninstallAgentHooks(for provider: IdleScreenAgentProvider) {
-    guard let manager = agentHookManager(for: provider) else {
-      agentIntegrationStatus = "Hook removal unavailable until the app is signed for its App Group."
-      return
-    }
-    do {
-      try manager.uninstall()
-      agentIntegrationStatus =
-        provider == .codex
-        ? "Codex hooks removed."
-        : "Claude hooks removed."
-      refreshAgentHookInstallationStatus()
-    } catch {
-      agentIntegrationStatus = "Hook removal failed: \(error.localizedDescription)"
-    }
-  }
-
-  func refreshAgentHookInstallationStatus() {
-    var failures: [String] = []
-    do {
-      codexHooksInstalled = try agentHookManager(for: .codex)?.isInstalled() ?? false
-    } catch {
-      codexHooksInstalled = false
-      failures.append("Codex hook status unavailable: \(error.localizedDescription)")
-    }
-    do {
-      claudeHooksInstalled = try agentHookManager(for: .claude)?.isInstalled() ?? false
-    } catch {
-      claudeHooksInstalled = false
-      failures.append("Claude hook status unavailable: \(error.localizedDescription)")
-    }
-    if !failures.isEmpty {
-      agentIntegrationStatus = failures.joined(separator: " ")
-    } else if agentIntegrationStatus?.contains("hook status unavailable:") == true {
-      agentIntegrationStatus = nil
-    }
-  }
-
-  func testAgentSignal(for provider: IdleScreenAgentProvider, at date: Date? = nil) {
-    guard configuration.agentIntegration.isEnabled(for: provider),
-      let agentSignalStore
-    else {
-      agentIntegrationStatus = "Enable this provider before sending a test."
-      return
-    }
-    let date = date ?? clock()
-    resetAgentSignalMonitor()
-    do {
-      let nonce = UUID().uuidString.lowercased()
-      let signal = try IdleScreenAgentSignal.validated(
-        provider: provider,
-        sessionID: "idlescreen-test",
-        eventID: "test-\(nonce)",
-        state: .needsAttention,
-        title: provider == .codex ? "Codex needs attention" : "Claude needs attention",
-        message: "This is an IdleScreen integration test.",
-        temporaryLookID: nil,
-        priority: 50,
-        createdAt: date,
-        expiresAt: date.addingTimeInterval(
-          configuration.agentIntegration.messageTimeout
-        ),
-        acknowledgedAt: nil,
-        nonce: nonce,
-        validatedAt: date
-      )
-      _ = try agentSignalStore.apply(.set(signal), at: date)
-      refreshAgentSignals(at: date)
-      agentIntegrationStatus = "Test signal sent."
-    } catch {
-      agentIntegrationStatus = "Test signal failed: \(error.localizedDescription)"
-    }
-  }
-
-  func clearAgentSignals(at date: Date? = nil) {
-    guard let agentSignalStore else { return }
-    let date = date ?? clock()
-    resetAgentSignalMonitor()
-    do {
-      _ = try agentSignalStore.apply(.clearAll, at: date)
-      activeAgentSignal = nil
-      activeAgentSignals = []
-      refreshAgentSignals(at: date)
-      agentIntegrationStatus = "All agent signals cleared."
-    } catch {
-      agentIntegrationStatus = "Clear failed: \(error.localizedDescription)"
-    }
-  }
-
-  private var agentControlExecutableURL: URL {
-    resolvedAgentControlExecutableURL
-  }
-
-  private func agentHookManager(
-    for provider: IdleScreenAgentProvider
-  ) -> IdleScreenAgentHookConfigurationManager? {
-    guard let appGroupIdentifier else { return nil }
-    let settingsURL =
-      switch provider {
-      case .codex: codexHookSettingsURL
-      case .claude: claudeHookSettingsURL
-      }
-    return IdleScreenAgentHookConfigurationManager(
-      provider: provider,
-      settingsURL: settingsURL,
-      executableURL: agentControlExecutableURL,
-      appGroupIdentifier: appGroupIdentifier
-    )
-  }
-
-  private func beginAgentSignalRefresh(
-    _ request: AgentSignalRefreshRequest,
-    store: IdleScreenAgentSignalStore
-  ) {
-    agentSignalRefreshInFlight = true
-    let loader = agentSignalLoader
-    Task {
-      let outcome = await Task.detached {
-        do {
-          return AgentSignalLoadOutcome.loaded(
-            request: request,
-            inbox: try loader(store, request.date)
-          )
-        } catch {
-          return AgentSignalLoadOutcome.failed(
-            request: request,
-            message: error.localizedDescription
-          )
-        }
-      }.value
-      finishAgentSignalRefresh(outcome)
-    }
-  }
-
-  private func finishAgentSignalRefresh(_ outcome: AgentSignalLoadOutcome) {
-    let request =
-      switch outcome {
-      case .loaded(let request, _), .failed(let request, _): request
-      }
-    agentSignalRefreshInFlight = false
-
-    if request.generation == agentSignalRefreshGeneration {
-      switch outcome {
-      case .loaded(_, let inbox):
-        if var monitor = agentSignalMonitor {
-          let change = monitor.consume(inbox, at: request.date)
-          agentSignalMonitor = monitor
-          if let change {
-            activeAgentSignal = change.signal
-            activeAgentSignals = change.signals
-            agentIgnoredEventCounts = change.ignoredEventCounts
-          }
-        }
-        if agentIntegrationStatus?.hasPrefix(
-          "Agent signal inbox unavailable:"
-        ) == true {
-          agentIntegrationStatus = nil
-        }
-      case .failed(_, let message):
-        activeAgentSignal = nil
-        activeAgentSignals = []
-        agentIntegrationStatus = "Agent signal inbox unavailable: \(message)"
-      }
-    }
-
-    guard let pending = pendingAgentSignalRefresh,
-      let agentSignalStore
-    else { return }
-    pendingAgentSignalRefresh = nil
-    beginAgentSignalRefresh(pending, store: agentSignalStore)
-  }
-
-  private func resetAgentSignalMonitor() {
-    agentSignalRefreshGeneration &+= 1
-    pendingAgentSignalRefresh = nil
-    agentSignalMonitor =
-      agentSignalStore == nil
-      ? nil
-      : IdleScreenAgentSignalMonitor()
+    agentIntegration.refreshAgentSignals()
   }
 
   func resetPixelMaterials() {
@@ -1040,6 +793,11 @@ final class IdleScreenAppModel {
   }
 
   private func commitConfiguration() {
+    if let configurationLoadFailure {
+      lastError = configurationLoadFailure
+      publishAppHealth()
+      return
+    }
     configuration.schemaVersion = IdleScreenConfiguration.currentSchemaVersion
     configuration.revision &+= 1
     configuration.modifiedAt = clock()
@@ -1058,7 +816,7 @@ final class IdleScreenAppModel {
   }
 
   private func persistConfigurationIfNeeded(overwritingExisting: Bool = false) {
-    guard let sharedPaths else { return }
+    guard let sharedPaths, configurationLoadFailure == nil else { return }
     let store = IdleScreenConfigurationStore(fileURL: sharedPaths.configurationURL)
     do {
       let existingConfiguration = try store.read()
@@ -1102,16 +860,55 @@ final class IdleScreenAppModel {
     readProcessHealth()
   }
 
+  private enum ProcessHealthOutcome: Sendable {
+    case loaded(ProcessHealthSnapshot)
+    case failed(String)
+  }
+
+  /// Overlapping calls coalesce into at most one follow-up pass, and only a
+  /// completed pass newer than the last one applied is published.
   private func readProcessHealth() {
     guard let sharedPaths else {
       processHealth = []
+      processHealthLiveIdentifiers = []
       return
     }
-    do {
-      processHealth = try IdleScreenHealthStore(directoryURL: sharedPaths.healthDirectoryURL)
-        .readAll()
-    } catch {
-      lastError = error.localizedDescription
+    guard !processHealthRefreshInFlight else {
+      processHealthRefreshPending = true
+      return
+    }
+    processHealthRefreshInFlight = true
+    processHealthRefreshPending = false
+    processHealthRequest &+= 1
+    let request = processHealthRequest
+    let directoryURL = sharedPaths.healthDirectoryURL
+    let loader = processHealthLoader
+    Task {
+      let outcome = await Task.detached { () -> ProcessHealthOutcome in
+        do {
+          return .loaded(try loader(directoryURL))
+        } catch {
+          return .failed(error.localizedDescription)
+        }
+      }.value
+      applyProcessHealth(outcome, request: request)
+    }
+  }
+
+  private func applyProcessHealth(_ outcome: ProcessHealthOutcome, request: UInt64) {
+    processHealthRefreshInFlight = false
+    if request > processHealthAppliedRequest {
+      processHealthAppliedRequest = request
+      switch outcome {
+      case .loaded(let snapshot):
+        processHealth = snapshot.reports
+        processHealthLiveIdentifiers = snapshot.liveReportIdentifiers
+      case .failed(let message):
+        lastError = message
+      }
+    }
+    if processHealthRefreshPending {
+      readProcessHealth()
     }
   }
 
@@ -1195,7 +992,7 @@ final class IdleScreenAppModel {
     return false
   }
 
-  private static func executablePath(for processIdentifier: Int32) -> String? {
+  nonisolated private static func executablePath(for processIdentifier: Int32) -> String? {
     var pathBuffer = [CChar](repeating: 0, count: 4096)
     let pathLength = Darwin.proc_pidpath(
       processIdentifier,
@@ -1212,7 +1009,7 @@ final class IdleScreenAppModel {
     return String(decoding: pathBytes, as: UTF8.self)
   }
 
-  private static func processStartDate(for processIdentifier: Int32) -> Date? {
+  nonisolated private static func processStartDate(for processIdentifier: Int32) -> Date? {
     var processInfo = proc_bsdinfo()
     let expectedSize = Int32(MemoryLayout<proc_bsdinfo>.size)
     let actualSize = Darwin.proc_pidinfo(
