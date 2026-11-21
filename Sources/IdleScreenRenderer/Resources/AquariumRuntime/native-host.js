@@ -5,6 +5,7 @@
   scene.setMode("saver");
   scene.setConditionMode("ecosystem");
   scene.setMotion(false);
+  let disposed = false;
   const editorSnapshot = () => ({
     revision: scene.state.presetRevision,
     objects: scene.state.presetObjects,
@@ -15,6 +16,7 @@
   addEventListener("message", event => {
     if (event.source !== window || event.data?.type !== "aquarium-designer-pick"
       || scene.state.mode !== "desktop" || !scene.designer.active) return;
+    if (disposed) return;
     const pick = event.data;
     window.webkit?.messageHandlers?.idleScreenEditor?.postMessage(JSON.stringify({
       revision: pick.revision, tool: pick.tool, toolGeneration: pick.toolGeneration,
@@ -62,6 +64,20 @@
       const result = scene.applyDesigner({layout: scene.designer.layout, requestId: request.generation, selectionScope: "all",
         tool: request.tool, selectedId: request.selectedId, assetId: request.assetId});
       return result.error ? {revision: scene.state.presetRevision, error: result.error} : editorSnapshot();
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      try { scene.setMotion(false); } catch (_) {}
+      for (const canvas of document.querySelectorAll("canvas")) {
+        try {
+          const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+          gl?.getExtension("WEBGL_lose_context")?.loseContext();
+        } catch (_) {}
+        canvas.remove();
+      }
+      window.aquariumStudy = undefined;
+      window.idleScreenScene = undefined;
     },
     setAnimating(active) {
       if (typeof active !== "boolean") throw new TypeError("Animation state must be a boolean");

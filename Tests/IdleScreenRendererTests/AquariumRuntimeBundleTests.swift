@@ -13,6 +13,7 @@ struct AquariumRuntimeBundleTests {
     let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
     #expect(resource.path.contains("IdleScreenRenderer.framework/"))
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     surface.view.configuration.userContentController.addUserScript(
       WKUserScript(
@@ -65,6 +66,7 @@ struct AquariumRuntimeBundleTests {
   @Test func anUnattachedHiddenDocumentDoesNotAdvanceLife() async throws {
     let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     surface.view.configuration.userContentController.addUserScript(
       WKUserScript(
@@ -121,6 +123,7 @@ struct AquariumRuntimeBundleTests {
     let source = try String(contentsOf: fixture, encoding: .utf8)
     let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     try await surface.load(sceneURL: resource)
     let script = source + "\nJSON.stringify(runAquariumCollisionCheck(THREE, AquariumCollisions));"
     let json: String = try await withCheckedThrowingContinuation { continuation in
@@ -157,6 +160,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func placedAssetsAreRevisionFencedAndRejectedWithoutChangingLife() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
@@ -200,6 +204,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func movingAPresetCannotBuryAnAddedPlant() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
@@ -224,6 +229,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func nativePointerToolsReportRealBedHitsWithoutEditingTheLayout() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
@@ -308,6 +314,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func nativeCanvasCanPickAndMovePresetRockWhileLegacySelectionStaysAddedOnly() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
@@ -359,6 +366,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func liveEquipmentMovesPersistAndOldConfigurationsKeepDefaultHardware() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
@@ -385,6 +393,7 @@ struct AquariumRuntimeBundleTests {
       try await surface.applyEquipmentObjects(expectedRevision: cleared.revision, objects: moved)
     }
     let restored = IdleScreenAquariumWebSurface()
+    defer { restored.releaseResources() }
     try await restored.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let reopened = try await restored.restoreTank(from: stable)
     #expect(reopened.equipmentObjects == moved)
@@ -397,6 +406,7 @@ struct AquariumRuntimeBundleTests {
     tank["configuration"] = config
     legacy["tank"] = tank
     let old = IdleScreenAquariumWebSurface()
+    defer { old.releaseResources() }
     try await old.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let oldState = try await old.restoreTank(from: JSONSerialization.data(withJSONObject: legacy))
     #expect(oldState.equipmentObjects == initial.equipmentObjects)
@@ -407,6 +417,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func aTankWhoseBaselineAndEquipmentSwappedPlacesRestoresAsOneLayout() async throws {
     let source = try await freshEditingSurface()
+    defer { source.releaseResources() }
     let start = try await source.editorSnapshot()
     let filter = try #require(start.equipmentObjects.first { $0.id == "equipment/filter" })
     let plant = try #require(start.objects.first { $0.id == "base-plant-0" })
@@ -427,6 +438,7 @@ struct AquariumRuntimeBundleTests {
     #expect(edited.equipmentObjects == equipment)
     let saved = try await source.exportTank(id: "swap-test", name: "Swap")
     let target = IdleScreenAquariumWebSurface()
+    defer { target.releaseResources() }
     try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let reopened = try await target.restoreTank(from: saved)
     #expect(reopened.equipmentObjects == edited.equipmentObjects)
@@ -449,6 +461,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func savedEquipmentMayOccupySpaceVacatedByAMovedOrRemovedRock() async throws {
     let source = try await freshEditingSurface()
+    defer { source.releaseResources() }
     let initial = try await source.editorSnapshot()
     let rock = try #require(initial.objects.first { $0.id == "base-rock" })
     let remaining = initial.objects.filter { $0.id != rock.id }
@@ -462,6 +475,7 @@ struct AquariumRuntimeBundleTests {
       expectedRevision: cleared.revision, objects: equipment)
     let saved = try await source.exportTank(id: "vacated-test", name: "Vacated")
     let target = IdleScreenAquariumWebSurface()
+    defer { target.releaseResources() }
     try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let reopened = try await target.restoreTank(from: saved)
     #expect(reopened.equipmentObjects == edited.equipmentObjects)
@@ -473,6 +487,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func aRestoredLayoutWithACollidingBaselineObjectStaysRejected() async throws {
     let source = try await freshEditingSurface()
+    defer { source.releaseResources() }
     let start = try await source.editorSnapshot()
     let plant = try #require(start.objects.first { $0.id == "base-plant-0" })
     let initial = try await source.applyPresetObjects(
@@ -500,6 +515,7 @@ struct AquariumRuntimeBundleTests {
     envelope["tank"] = tank
     let tampered = try JSONSerialization.data(withJSONObject: envelope)
     let target = IdleScreenAquariumWebSurface()
+    defer { target.releaseResources() }
     try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     await #expect(throws: (any Error).self) { try await target.restoreTank(from: tampered) }
     try await source.shutdown()
@@ -517,6 +533,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func equipmentCanBePickedAndMovedThroughTheNativeCanvasBridge() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
@@ -548,6 +565,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func equipmentIdentitiesDoNotShadowExistingSavedObjectNames() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
     let empty = try await surface.applyPresetObjects(
@@ -565,6 +583,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func nativeEditorBridgeMovesObjectsAndRecoversFromRejectedEdits() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     surface.view.configuration.userContentController.addUserScript(
       WKUserScript(
@@ -620,6 +639,7 @@ struct AquariumRuntimeBundleTests {
   @Test(arguments: ["basic", "lush", "waterfall"])
   func fullTankCheckpointRestoresLifeFoodAndLayoutInAFreshRuntime(setup: String) async throws {
     let source = IdleScreenAquariumWebSurface()
+    defer { source.releaseResources() }
     source.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     source.view.configuration.userContentController.addUserScript(
       WKUserScript(
@@ -655,6 +675,7 @@ struct AquariumRuntimeBundleTests {
     let savedValue = try #require(
       JSONSerialization.jsonObject(with: Data(saved.utf8)) as? [String: Any])
     let target = IdleScreenAquariumWebSurface()
+    defer { target.releaseResources() }
     target.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     target.view.configuration.userContentController.addUserScript(
       WKUserScript(
@@ -734,6 +755,7 @@ struct AquariumRuntimeBundleTests {
 
   @Test func decomposedCorpsesDoNotLeaveUnsavableVisualBindings() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     surface.view.configuration.userContentController.addUserScript(
       WKUserScript(
@@ -803,10 +825,15 @@ struct AquariumRuntimeBundleTests {
 
   private func freshEditingSurface() async throws -> IdleScreenAquariumWebSurface {
     let surface = IdleScreenAquariumWebSurface()
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    _ = try await surface.beginEditing()
-    return surface
+    do {
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      _ = try await surface.beginEditing()
+      return surface
+    } catch {
+      surface.releaseResources()
+      throw error
+    }
   }
 
   private func tankScript(_ surface: IdleScreenAquariumWebSurface, _ script: String) async throws
@@ -831,6 +858,7 @@ struct AquariumRuntimeBundleTests {
         forResource: name, withExtension: "js", subdirectory: "WebSurfaceProof"))
     let source = try String(contentsOf: fixture, encoding: .utf8)
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let script = source + "\nJSON.stringify(" + invocation + ");"
@@ -848,6 +876,46 @@ struct AquariumRuntimeBundleTests {
     let result = try JSONDecoder().decode([String: Int].self, from: Data(json.utf8))
     try await surface.shutdown()
     return result
+  }
+
+  @Test func repeatedLoadAndTeardownNeverExhaustsWebGLContexts() async throws {
+    let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
+    for iteration in 1...24 {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 320, height: 180)
+      try await surface.load(sceneURL: resource)
+      let kind = try await surface.view.evaluateJavaScript("typeof window.idleScreenScene")
+      #expect(kind as? String == "object", "load \(iteration) has no live scene")
+      try await surface.shutdown()
+      #expect(surface.state == .stopped)
+    }
+  }
+
+  @Test func loadReportsWebGLUnavailableDescriptively() async throws {
+    let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
+    let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
+    surface.view.frame = NSRect(x: 0, y: 0, width: 320, height: 180)
+    surface.view.configuration.userContentController.addUserScript(
+      WKUserScript(
+        source: """
+          (() => {
+            const original = HTMLCanvasElement.prototype.getContext;
+            HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+              return /webgl/i.test(String(type)) ? null : original.call(this, type, ...rest);
+            };
+          })();
+          """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    do {
+      try await surface.load(sceneURL: resource)
+      Issue.record("load succeeded without WebGL")
+    } catch let error as IdleScreenAquariumWebSurface.SurfaceError {
+      let message = error.localizedDescription
+      #expect(message.contains("aquarium runtime did not start: WebGL unavailable"))
+      #expect(message.contains("could not start"))
+    }
+    #expect(surface.state == .failed)
   }
 
   private func snapshot(_ surface: IdleScreenAquariumWebSurface, frames: Int = 0) async throws
