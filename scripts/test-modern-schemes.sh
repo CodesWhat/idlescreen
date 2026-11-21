@@ -117,7 +117,10 @@ run_scheme() {
   flag="$log.stalled"
   mkdir -p "$derived"
 
-  "$xcodebuild_bin" test -quiet \
+  # No -quiet: it silences the log for the whole test phase, so the stall
+  # watchdog cannot tell a slow suite (IdleScreenRenderer runs ~85s on fast
+  # hardware, several times that on a CI runner) from a hung one.
+  "$xcodebuild_bin" test \
     -project "$project_root/IdleScreen.xcodeproj" \
     -scheme "$scheme" \
     -destination 'platform=macOS' \
