@@ -12,10 +12,20 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     case stopped
   }
 
-  public enum SurfaceError: Error {
+  public enum SurfaceError: Error, LocalizedError {
     case invalidLocalResource
     case invalidState
     case stopped
+    case runtimeUnavailable(String)
+
+    public var errorDescription: String? {
+      switch self {
+      case .invalidLocalResource: "The aquarium resource is not a readable local file."
+      case .invalidState: "The aquarium surface is in the wrong state for this request."
+      case .stopped: "The aquarium surface was stopped."
+      case .runtimeUnavailable(let detail): "aquarium runtime did not start: \(detail)"
+      }
+    }
   }
 
   public struct PositionCm: Codable, Equatable, Sendable {
@@ -131,6 +141,7 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
   public private(set) var state = State.unloaded
   private var resourceDirectory: URL?
   private var loading: CheckedContinuation<Void, any Error>?
+  private var released = false
 
   public override init() {
     let configuration = WKWebViewConfiguration()
@@ -161,6 +172,8 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
           finishLoading(.failure(SurfaceError.invalidLocalResource))
         }
       }
+      guard state == .loading else { throw SurfaceError.stopped }
+      try await requireRuntime()
       guard state == .loading else { throw SurfaceError.stopped }
       try await command("window.idleScreenScene.setAnimating(false)")
       guard state == .loading else { throw SurfaceError.stopped }
@@ -296,18 +309,57 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     let wasRunning = state == .running
     state = .stopped
     finishLoading(.failure(SurfaceError.stopped))
-    defer {
-      view.stopLoading()
-      view.navigationDelegate = nil
-      view.configuration.userContentController.removeScriptMessageHandler(
-        forName: "idleScreenEditor")
-      onEditorPick = nil
-      view.loadHTMLString("", baseURL: nil)
-      resourceDirectory = nil
-    }
+    defer { releaseResources() }
     if wasRunning {
       try await command("window.idleScreenScene.setAnimating(false)")
     }
+    try? await command(Self.disposeScript)
+  }
+
+  private static let disposeScript = "window.idleScreenScene?.dispose?.()"
+
+  /// Synchronous, idempotent teardown that frees the WebGL context and the web view's content.
+  /// `shutdown()` calls it; tests also call it from `defer` so a failed test cannot leak a context.
+  public func releaseResources() {
+    if released { return }
+    released = true
+    if state != .stopped { state = .stopped }
+    finishLoading(.failure(SurfaceError.stopped))
+    view.evaluateJavaScript(Self.disposeScript, completionHandler: nil)
+    view.stopLoading()
+    view.navigationDelegate = nil
+    view.configuration.userContentController.removeScriptMessageHandler(
+      forName: "idleScreenEditor")
+    onEditorPick = nil
+    view.removeFromSuperview()
+    view.loadHTMLString("", baseURL: nil)
+    resourceDirectory = nil
+  }
+
+  private func requireRuntime() async throws {
+    let script = """
+      (() => {
+        if (window.idleScreenScene) return '';
+        const e = document.getElementById('error');
+        if (e && getComputedStyle(e).display !== 'none') return 'webgl:' + (e.textContent || '').trim();
+        return 'init';
+      })()
+      """
+    let failure: String = try await withCheckedThrowingContinuation { continuation in
+      view.evaluateJavaScript(script) { value, error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else {
+          continuation.resume(returning: value as? String ?? "init")
+        }
+      }
+    }
+    if failure.isEmpty { return }
+    if failure.hasPrefix("webgl:") {
+      throw SurfaceError.runtimeUnavailable(
+        "WebGL unavailable: \(failure.dropFirst("webgl:".count))")
+    }
+    throw SurfaceError.runtimeUnavailable("scene did not initialize")
   }
 
   public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
