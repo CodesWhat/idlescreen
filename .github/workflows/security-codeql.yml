@@ -257,23 +257,23 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           set -uo pipefail
-          # Newest Swift analysis id on a ref, or on any ref when none is given.
-          latest() {
+          # Swift analyses on a ref (or on any ref when none is given), one
+          # "created_at id" line each.
+          analyses() {
             local ref="${1:-}" query="tool_name=CodeQL&per_page=100"
             [[ -n "$ref" ]] && query="$query&ref=refs/heads/$ref"
             gh api --paginate "repos/$REPO/code-scanning/analyses?$query" \
               --jq '.[] | select(.category == "/language:swift") | "\(.created_at) \(.id)"' \
-              2> /dev/null | sort | awk 'END { print $2 }'
+              2> /dev/null
           }
-          id=""
-          source=""
-          for ref in "$BASE_REF" main ""; do
-            id="$(latest "$ref" || true)"
-            if [[ -n "$id" ]]; then
-              source="${ref:-any ref}"
-              break
-            fi
-          done
+          # Newest of the base ref and main, so a stale base analysis doesn't
+          # win over a fresh main one. Any ref is the last fallback.
+          id="$({ analyses "$BASE_REF" || true; analyses main || true; } | sort | awk 'END { print $2 }')"
+          source="$BASE_REF or main"
+          if [[ -z "$id" ]]; then
+            id="$({ analyses "" || true; } | sort | awk 'END { print $2 }')"
+            source="any ref"
+          fi
           if [[ -z "$id" ]]; then
             echo "::warning::No Swift CodeQL analysis exists yet to reuse. Run this workflow on main (workflow_dispatch) to create one."
             echo "found=false" >> "$GITHUB_OUTPUT"
