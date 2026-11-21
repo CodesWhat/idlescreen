@@ -27,9 +27,10 @@ nonisolated(unsafe) private let hookState: UnsafeMutablePointer<HookState> = {
 }()
 
 private let countAllocation: MallocLogger = { type, arg1, size, newSize, result, skip in
-  // The hook is process-wide; every other thread leaves immediately.
-  guard UInt(bitPattern: pthread_self()) == hookState.pointee.measuredThread else { return }
+  // Forward every thread's event so an existing observer still sees them all.
   hookState.pointee.previous?(type, arg1, size, newSize, result, skip)
+  // Only the measured thread counts.
+  guard UInt(bitPattern: pthread_self()) == hookState.pointee.measuredThread else { return }
   // stack_logging_type_alloc is bit 1; a realloc sets alloc and dealloc.
   guard type & 2 != 0 else { return }
   hookState.pointee.count += 1
