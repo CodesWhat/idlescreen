@@ -5,22 +5,36 @@ import Testing
 @testable import IdleScreenRenderer
 
 private typealias MallocLogger = @convention(c) (UInt32, UInt, UInt, UInt, UInt, UInt32) -> Void
-nonisolated(unsafe) private var allocationCount = 0
-nonisolated(unsafe) private var allocationBytes = 0
 nonisolated(unsafe) private var benchmarkSink: UInt64 = 0
-/// Mach port of the thread being measured, and the observer that was installed
-/// before ours. Both are written before the hook goes in.
-nonisolated(unsafe) private var measuredThread: UInt32 = 0
-nonisolated(unsafe) private var previousLogger: MallocLogger?
+
+/// State the malloc hook reads. The hook runs on every thread in the process, so
+/// it must not touch Swift globals: in Debug each access goes through dynamic
+/// exclusivity checking, which isn't safe inside malloc on arbitrary threads.
+/// It lives in raw memory instead and is allocated before the hook goes in.
+private struct HookState {
+  /// Bit pattern of the pthread being measured; 0 when none.
+  var measuredThread: UInt = 0
+  /// The observer that was installed before ours.
+  var previous: MallocLogger?
+  var count = 0
+  var bytes = 0
+}
+
+nonisolated(unsafe) private let hookState: UnsafeMutablePointer<HookState> = {
+  let state = UnsafeMutablePointer<HookState>.allocate(capacity: 1)
+  state.initialize(to: HookState())
+  return state
+}()
 
 private let countAllocation: MallocLogger = { type, arg1, size, newSize, result, skip in
-  previousLogger?(type, arg1, size, newSize, result, skip)
-  // The hook is process-wide; only the measured thread may touch the counters.
-  guard pthread_mach_thread_np(pthread_self()) == measuredThread else { return }
+  // Forward every thread's event so an existing observer still sees them all.
+  hookState.pointee.previous?(type, arg1, size, newSize, result, skip)
+  // Only the measured thread counts.
+  guard UInt(bitPattern: pthread_self()) == hookState.pointee.measuredThread else { return }
   // stack_logging_type_alloc is bit 1; a realloc sets alloc and dealloc.
   guard type & 2 != 0 else { return }
-  allocationCount += 1
-  allocationBytes += Int(type & 4 != 0 ? newSize : size)
+  hookState.pointee.count += 1
+  hookState.pointee.bytes += Int(type & 4 != 0 ? newSize : size)
 }
 
 /// Full-frame cost with 12 decorations and 32 mixed animals. It records
@@ -62,19 +76,22 @@ struct AquariumFrameBenchmarkTests {
     if let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "malloc_logger") {
       hook = symbol.assumingMemoryBound(to: MallocLogger?.self)
     }
-    allocationCount = 0
-    allocationBytes = 0
-    measuredThread = pthread_mach_thread_np(pthread_self())
+    let state = hookState
+    let logger = countAllocation
+    state.pointee.count = 0
+    state.pointee.bytes = 0
     let previous = hook?.pointee
-    previousLogger = previous
-    hook?.pointee = countAllocation
+    state.pointee.previous = previous
+    state.pointee.measuredThread = UInt(bitPattern: pthread_self())
+    hook?.pointee = logger
     let start = cpuSeconds()
     for index in 0..<iterations { benchmarkSink &+= body(index + 2) }
     let elapsed = cpuSeconds() - start
     hook?.pointee = previous
+    state.pointee.measuredThread = 0
     return .init(
       cpuMilliseconds: elapsed * 1000 / Double(iterations),
-      allocations: allocationCount / iterations, bytes: allocationBytes / iterations)
+      allocations: state.pointee.count / iterations, bytes: state.pointee.bytes / iterations)
   }
 
   private static func digest(_ pixels: [SIMD4<Float>]) -> UInt64 {

@@ -10,6 +10,7 @@ import WebKit
 struct AquariumWebSurfaceTests {
   @Test func bundledSceneLoadsPausedAndRunsOnlyOneAnimationLoop() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     let resource = try #require(
       Bundle(for: FixtureBundle.self).url(
         forResource: "index", withExtension: "html", subdirectory: "WebSurfaceProof"))
@@ -53,6 +54,7 @@ struct AquariumWebSurfaceTests {
 
   @Test func rejectedResourcesNeverStartNavigation() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     let remote = try #require(URL(string: "https://example.invalid/scene.html"))
     await #expect(throws: IdleScreenAquariumWebSurface.SurfaceError.self) {
       try await surface.load(sceneURL: remote)
@@ -67,6 +69,7 @@ struct AquariumWebSurfaceTests {
 
   @Test func sceneCommandFailureDoesNotClaimItIsRunning() async throws {
     let surface = IdleScreenAquariumWebSurface()
+    defer { surface.releaseResources() }
     let resource = try #require(
       Bundle(for: FixtureBundle.self).url(
         forResource: "index", withExtension: "html", subdirectory: "WebSurfaceProof"))
