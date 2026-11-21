@@ -880,7 +880,9 @@ struct AquariumRuntimeBundleTests {
 
   @Test func repeatedLoadAndTeardownNeverExhaustsWebGLContexts() async throws {
     let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
-    for iteration in 1...24 {
+    // CI ran out of WebGL contexts from the seventh load when they leaked, so
+    // twelve loads catch a regression and fit the suite's per-test time limit.
+    for iteration in 1...12 {
       let surface = IdleScreenAquariumWebSurface()
       defer { surface.releaseResources() }
       surface.view.frame = NSRect(x: 0, y: 0, width: 320, height: 180)
