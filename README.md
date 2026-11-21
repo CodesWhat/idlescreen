@@ -74,7 +74,7 @@ that copy and installs the new one.
 
 ## Not verified on a device
 
-Not verified on a device for 0.3.0:
+Not verified on a device for 0.4.0:
 
 - Sleep and wake.
 - Reboot and login.
@@ -86,7 +86,6 @@ Not verified on a device for 0.3.0:
 - Multiple screen saver views, displays, Spaces and users at once.
 - Helper and extension crash recovery.
 - A long soak run.
-- Intel Macs.
 - Mixed-scale multi-display hot-plug beyond the maintainer's own setup.
 
 These paths have automated or fixture coverage only. If one of them breaks for
@@ -99,13 +98,10 @@ The companion keeps the preview large, with compact scene controls and a visible
 library. More opens the full inspector. Scene, Displays, Agents and Settings
 share top navigation; Command-1 through Command-4 switches between them.
 
-Version 0.3.0 adds optional horizon framing with a Cobalt default palette, a
-sprite lattice and Departure Mono glyphs, and adds a Topograph scene and agent
-status sprites driven by a one-signal-per-agent feed. Studio now shows real
-saver thumbnails and a plain status pill, and setup fills the window in two
-columns. The app now installs at `/Applications/IdleScreen.app`; `brew upgrade
---cask idlescreen` removes the old `idlescreen.app` copy first. See the
-[changelog](CHANGELOG.md) for the complete release notes.
+Version 0.4.0 adds the Aquarium pattern, a planted pixel-art tank with shrimp,
+fish and crabs. You can edit the tank natively, run it on the desktop or in a
+window, and it honors reduced motion. IdleScreen now supports Apple silicon
+Macs only. See the [changelog](CHANGELOG.md) for the complete release notes.
 
 ## Screenshot
 
@@ -123,7 +119,7 @@ so ownership and teardown remain inspectable.
 
 ## Features
 
-- 19 procedural patterns, including Topograph, plus Pixel Materials and live camera
+- 19 procedural patterns, including Topograph, plus the Aquarium, Pixel Materials and live camera
 - Pixel Materials sand and water simulations with deterministic scene state
 - Panorama, Per Display, and Focus Display multi-screen layouts
 - Saved Looks and native controls for color, scale, contrast, motion, terrain,
