@@ -40,47 +40,62 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Detect Swift-relevant changes
+      - name: Decide whether to scan Swift
         id: filter
         env:
           EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BASE_REF: ${{ github.base_ref }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
         run: |
           set -uo pipefail
-          swift=false
-          case "$EVENT_NAME" in
-            schedule | workflow_dispatch)
-              swift=true
-              ;;
-            pull_request)
-              if files="$(git diff --no-renames --name-only -z "$BASE_SHA...$HEAD_SHA" | tr '\0' '\n')"; then
-                :
-              else
-                swift=true
+          # Real macOS scans: promotion PRs into main, pushes to main, the
+          # weekly schedule and manual runs. PRs into dev/** and pushes to
+          # dev/** take the cheap path. Anything unexpected scans.
+          # Reads NUL-separated paths on stdin. Never prints a path.
+          relevant() {
+            local f
+            local pattern='(\.(swift|metal)$)|((^|/)(Package\.swift|Package\.resolved)$)|(^project\.yml$)|(^(Sources|Products|Tests|IdleScreen\.xcodeproj)/)|(^\.github/workflows/security-codeql\.yml$)'
+            shopt -s nocasematch
+            while IFS= read -r -d '' f; do
+              if [[ "$f" =~ $pattern ]]; then
+                return 0
               fi
+            done
+            return 1
+          }
+          swift=true
+          range=""
+          case "$EVENT_NAME" in
+            schedule | workflow_dispatch) ;;
+            pull_request)
+              case "$BASE_REF" in
+                dev/*) swift=false ;;
+                main) range="$BASE_SHA...$HEAD_SHA" ;;
+              esac
               ;;
             push)
-              if [[ "$BEFORE_SHA" =~ ^0+$ ]]; then
-                swift=true
-              elif files="$(git diff --no-renames --name-only -z "$BEFORE_SHA..$HEAD_SHA" | tr '\0' '\n')"; then
-                :
-              else
-                swift=true
-              fi
-              ;;
-            *)
-              swift=true
+              case "$REF" in
+                refs/heads/dev/*) swift=false ;;
+                refs/heads/main)
+                  if [[ ! "$BEFORE_SHA" =~ ^0+$ ]]; then
+                    range="$BEFORE_SHA..$HEAD_SHA"
+                  fi
+                  ;;
+              esac
               ;;
           esac
-          if [[ "$swift" != true ]] && grep -Eq \
-            -e '\.(swift|metal)$' \
-            -e '^(project\.yml|Package\.swift|Package\.resolved)$' \
-            -e '(^|/)(Package\.swift|Package\.resolved)$' \
-            -e '^(Sources|Products|Tests|IdleScreen\.xcodeproj)/' \
-            -e '^\.github/workflows/security-codeql\.yml$' <<<"$files"; then
-            swift=true
+          if [[ -n "$range" ]]; then
+            paths="$RUNNER_TEMP/changed-paths.z"
+            if git diff --no-renames --name-only -z "$range" > "$paths" 2> /dev/null; then
+              if relevant < "$paths"; then
+                swift=true
+              else
+                swift=false
+              fi
+            fi
           fi
           echo "swift=$swift" >> "$GITHUB_OUTPUT"
           echo "Swift analysis needed: $swift"
@@ -145,11 +160,12 @@ jobs:
       actions: read
       contents: read
       security-events: write
-    runs-on: ${{ needs.changes.outputs.swift == 'true' && 'macos-26' || 'ubuntu-24.04' }}
+    # Only an explicit 'false' takes the cheap runner. Anything else scans.
+    runs-on: ${{ needs.changes.outputs.swift == 'false' && 'ubuntu-24.04' || 'macos-26' }}
 
     steps:
       - name: Harden runner
-        if: needs.changes.outputs.swift == 'true'
+        if: needs.changes.outputs.swift != 'false'
         uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
@@ -164,32 +180,45 @@ jobs:
             uploads.github.com:443
 
       - name: Checkout
-        if: needs.changes.outputs.swift == 'true'
+        if: needs.changes.outputs.swift != 'false'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      # Traced Swift builds can't use Xcode 27, so pin Xcode 26 explicitly.
+      - name: Select Xcode 26
+        if: needs.changes.outputs.swift != 'false'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apps=(/Applications/Xcode_26*.app)
+          xcode="$(printf '%s\n' "${apps[@]}" | grep -vi beta | sort -V | tail -n 1)"
+          [[ -n "$xcode" ]] || { echo "::error::No Xcode 26 on this runner"; exit 1; }
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          [[ "$(xcodebuild -version | head -n 1)" == Xcode\ 26.* ]]
+
       - name: Install XcodeGen
-        if: needs.changes.outputs.swift == 'true'
+        if: needs.changes.outputs.swift != 'false'
         run: |
           arch -arm64 /opt/homebrew/bin/brew install xcodegen
           [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
 
       - name: Initialize CodeQL
-        if: needs.changes.outputs.swift == 'true'
+        if: needs.changes.outputs.swift != 'false'
         uses: github/codeql-action/init@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
         with:
           languages: swift
           build-mode: manual
 
       - name: Generate Xcode project
-        if: needs.changes.outputs.swift == 'true'
+        if: needs.changes.outputs.swift != 'false'
         run: |
           xcodegen generate
           git diff --exit-code -- IdleScreen.xcodeproj
 
       - name: Build Swift manually
-        if: needs.changes.outputs.swift == 'true'
+        if: needs.changes.outputs.swift != 'false'
         run: |
           xcodebuild build -quiet \
             -project IdleScreen.xcodeproj \
@@ -202,13 +231,15 @@ jobs:
             EXCLUDED_SOURCE_FILE_NAMES='*.metal'
 
       - name: Analyze
-        if: needs.changes.outputs.swift == 'true'
+        if: needs.changes.outputs.swift != 'false'
         uses: github/codeql-action/analyze@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
         with:
           category: "/language:swift"
 
+      # Cheap path, pull requests only. The code_scanning ruleset wants a
+      # /language:swift analysis on every PR, so reuse an existing one.
       - name: Harden runner (reuse)
-        if: needs.changes.outputs.swift != 'true' && github.event_name == 'pull_request'
+        if: needs.changes.outputs.swift == 'false' && github.event_name == 'pull_request'
         uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           egress-policy: block
@@ -218,27 +249,48 @@ jobs:
             uploads.github.com:443
 
       - name: Fetch base Swift analysis
-        if: needs.changes.outputs.swift != 'true' && github.event_name == 'pull_request'
+        id: reuse
+        if: needs.changes.outputs.swift == 'false' && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           BASE_REF: ${{ github.base_ref }}
         run: |
-          set -euo pipefail
-          id="$(gh api --paginate "repos/$REPO/code-scanning/analyses?ref=refs/heads/$BASE_REF&tool_name=CodeQL&per_page=100" \
-            --jq '.[] | select(.category == "/language:swift") | "\(.created_at) \(.id)"' \
-            | sort | awk 'END { print $2 }')"
+          set -uo pipefail
+          # Swift analyses on a ref (or on any ref when none is given), one
+          # "created_at id" line each.
+          analyses() {
+            local ref="${1:-}" query="tool_name=CodeQL&per_page=100"
+            [[ -n "$ref" ]] && query="$query&ref=refs/heads/$ref"
+            gh api --paginate "repos/$REPO/code-scanning/analyses?$query" \
+              --jq '.[] | select(.category == "/language:swift") | "\(.created_at) \(.id)"' \
+              2> /dev/null
+          }
+          # Newest of the base ref and main, so a stale base analysis doesn't
+          # win over a fresh main one. Any ref is the last fallback.
+          id="$({ analyses "$BASE_REF" || true; analyses main || true; } | sort | awk 'END { print $2 }')"
+          source="$BASE_REF or main"
           if [[ -z "$id" ]]; then
-            echo "::error::No Swift CodeQL analysis found on $BASE_REF. Run this workflow on $BASE_REF (workflow_dispatch) so a Swift baseline exists."
-            exit 1
+            id="$({ analyses "" || true; } | sort | awk 'END { print $2 }')"
+            source="any ref"
           fi
-          echo "Reusing base Swift analysis $id from $BASE_REF"
-          gh api -H 'Accept: application/sarif+json' "repos/$REPO/code-scanning/analyses/$id" > "$RUNNER_TEMP/swift-base-raw.sarif"
+          if [[ -z "$id" ]]; then
+            echo "::warning::No Swift CodeQL analysis exists yet to reuse. Run this workflow on main (workflow_dispatch) to create one."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Reusing Swift analysis $id from $source"
+          if ! gh api -H 'Accept: application/sarif+json' "repos/$REPO/code-scanning/analyses/$id" > "$RUNNER_TEMP/swift-base-raw.sarif"; then
+            echo "::warning::Could not download Swift analysis $id."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           # Drop automationDetails so the category input alone sets the analysis id.
           jq 'del(.runs[].automationDetails)' "$RUNNER_TEMP/swift-base-raw.sarif" > "$RUNNER_TEMP/swift-base.sarif"
+          echo "found=true" >> "$GITHUB_OUTPUT"
 
       - name: Upload base Swift analysis
-        if: needs.changes.outputs.swift != 'true' && github.event_name == 'pull_request'
+        if: steps.reuse.outputs.found == 'true'
         uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
         with:
           sarif_file: ${{ runner.temp }}/swift-base.sarif
