@@ -12,6 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/CodesWhat/idlescreen/releases/latest"><strong>Download for Mac</strong></a>
+  · <a href="https://idlescreen.codeswhat.com">Website</a>
   · <a href="docs/BUILDING.md">Documentation</a>
   · <a href="https://github.com/CodesWhat/idlescreen">GitHub</a>
 </p>
