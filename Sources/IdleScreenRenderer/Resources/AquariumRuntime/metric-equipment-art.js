@@ -211,7 +211,8 @@
       marker(dryGroup, 'co2-bubble-counter', C(5.1, 32.8, 3.5));
     });
     marker(dryGroup, 'co2-tube-outlet', gasStart); marker(dryGroup, 'co2-power-exit', solenoidPower);
-    part('co2-power-adapter', () => box(black, 3.4, 2, 5.4, [cx, counterY + u(1), backZ + u(3)]));
+    const adapterBlocked = cz - u(5.55) < backZ + u(6.2), adapterX = adapterBlocked ? cx - u(5.55 + 1.7 + .5) : cx;
+    part('co2-power-adapter', () => box(black, 3.4, 2, 5.4, [adapterX, counterY + u(1), backZ + u(3)]));
 
     const intakeX = u(placementsCm.intake.x), returnX = u(placementsCm.return.x), gasX = u(placementsCm.diffuser.x+.65);
     const innerZ = backZ + u(2.2), outerZ = backZ - u(2), rearInner = backZ + u(.6);

@@ -82,6 +82,31 @@ struct AquariumRuntimeBundleTests {
     try await surface.shutdown()
   }
 
+  @Test func co2PowerAdapterClearsAMovedCylinder() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let result =
+      try await surface.view.evaluateJavaScript(
+        """
+        (()=>{
+          const options={stripPlug:{filter:[9,1,-6],co2:[-9,1,-6]}},factory=AquariumMetricEquipmentArt;
+          const clear=art=>{
+            const p=art.dryGroup.userData.parts,a=p['co2-power-adapter'].bounds,c=p['cylinder-chart-envelope'].bounds;
+            return [0,1,2].some(k=>a.max[k]<=c.min[k]||a.min[k]>=c.max[k]);
+          };
+          const base=factory.create(THREE,options);
+          if(!clear(base))throw new Error('Default adapter intersects the cylinder');
+          base.dispose();
+          const moved=factory.create(THREE,{...options,placementsCm:{co2:{z:-12}}});
+          if(!clear(moved))throw new Error('Adapter intersects a moved cylinder');
+          moved.dispose();
+          return 'ok';
+        })()
+        """) as? String
+    #expect(result == "ok")
+    try await surface.shutdown()
+  }
+
   @Test func automaticRoomSettingsEncodeAnExplicitNullManualLevel() async throws {
     var settings = IdleScreenAquariumWebSurface.TankSettings(
       light: .init(preset: "warm", count: 1, output: 0.6, spread: "focused"),
@@ -979,6 +1004,41 @@ struct AquariumRuntimeBundleTests {
     #expect(continued.scene.ecology.animals.map(\.id) == paused.scene.ecology.animals.map(\.id))
     try await source.shutdown()
     try await target.shutdown()
+  }
+
+  @Test func retainedRebuildCapturesTheSwimmingFishCurrentFacing() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.configuration.userContentController.addUserScript(
+      WKUserScript(
+        source: Self.frameClock(emulatingVisibleDocument: true),
+        injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    _ = try await surface.beginEditing()
+    try await surface.resume()
+    let result = try await tankScript(
+      surface,
+      """
+      (() => {
+        const facings = () => Object.fromEntries(aquariumStudy.exportTank({id:'facing',name:'Facing'})
+          .runtime.actors.filter(a => a.kind === 'fish' && !a.surface).map(a => [a.id, a.facing]));
+        const before = facings();
+        for (let i = 0; i < 400; i++) window.aquariumFrameProof.advance();
+        const after = facings();
+        const ids = Object.keys(before);
+        return JSON.stringify({
+          fish: ids.length,
+          turned: ids.filter(id => after[id] !== before[id]).length,
+          unturned: ids.filter(id => after[id] === before[id]).length
+        });
+      })()
+      """)
+    let checks = try #require(
+      JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any])
+    #expect((checks["fish"] as? Int ?? 0) > 0)
+    #expect(
+      (checks["turned"] as? Int ?? 0) > 0,
+      "exported facing never followed a swimming fish turn: \(result)")
+    try await surface.shutdown()
   }
 
   @Test func invalidCheckpointArtAndBindingsAreRejectedBeforeAnySceneMutation() async throws {
