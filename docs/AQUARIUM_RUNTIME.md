@@ -61,3 +61,88 @@ surface. Attached plants align with their support face; moving a support in a
 way that invalidates a mounted plant is rejected. Parent-following mounts remain
 open. See [equipment editing](AQUARIUM_EQUIPMENT.md) and
 [checkpoint persistence](AQUARIUM_CHECKPOINTS.md) for their current limits.
+
+## Finished animal inventory
+
+`AquariumTankConfiguration.stockCatalog` is the shared immutable inventory for
+supported individual animals. Stable `kind/variant` identities cover the 11 fish
+variants, 21 shrimp variants, Otocinclus, assassin and nerite snails already
+supported by the runtime. The native editor snapshot exposes the same entries.
+The mixed-color `skittles` tank preset is not an individual animal, and
+review-only forms are excluded. This registry does not define pricing or an economy.
+
+The scene inventory derives living fish, shrimp and snail counts from retained
+ecology records. Its legacy `*Species` fields count modeled species groups,
+not color variants. Death removes an animal from these living counts while its
+remains stay in the ecosystem. The `red-white` catalog item retains its original
+`display-pattern` identity and is labeled Red / White Display Shrimp.
+
+## Adding supported animals
+
+The planted-tank animal picker adds one supported adult with a new stable stock
+identity. The editor exports its paused current tank and restores that checkpoint
+into an isolated candidate. Only that candidate receives `stageStockAddition`;
+callers must discard it on failure, as with a failed checkpoint restoration.
+The candidate is validated and revision-checked on disk before it replaces the
+current surface. Existing animals, feeding state, water and simulation clocks
+are preserved. Purchased adults are not marked as offspring.
+
+The renderer chooses a bounded placement clear of conservative hardscape bounds
+and existing bodies, using the selected form's metric anatomy. Floor animals
+start grounded; glass cleaners use the front pane's attachment transform.
+Population checks retain reserved brood slots as well as the 80-actor rendering
+limit. `breeding.synchronizeRoster` updates the retained parents without
+advancing time or starting a conception. Animal history is independent from layout undo.
+
+## Living animal removal
+
+The planted-tank inspector lists the retained animals. Removing a living animal
+prepares a normalized replacement checkpoint without mutating the live scene.
+Food motion, chemistry, feeding history, remaining actors and existing deposits
+are preserved. A carried brood leaves with its mother; already deposited eggs
+remain in the tank. Dead animals are excluded from this action.
+
+The native editor pauses its current surface, restores the replacement into a
+separate paused surface, and writes it through the existing store revision check
+before swapping views. A restore or stale-save failure keeps the current surface
+and file intact. The replacement remains paused if the workspace hides during
+the operation. Layout history remains separate from animal removal. Pricing remains unfinished.
+
+## Selective animal history model
+
+`AquariumRuntimeCheckpoint.removeStock` returns a replacement checkpoint and a
+per-animal JSON archive. `restoreStock` applies that archive to a current
+checkpoint. Archives contain only the individual's life and visual binding,
+related parent/offspring records, carried brood and owned removal events. They
+are limited to 64 KiB of UTF-8. The existing `removingAnimal` API retains its
+checkpoint-only return value.
+
+Restoration retains current water, food, other lives, deposits and global random
+state and serials. The archived individual is paused outside the simulation;
+its absolute life, brood and visual timers shift to the current clocks. Only
+its own cancellation/removal effects are compensated. Deposited eggs remain in
+the current tank. Duplicate identities, changed capacity, malformed archives
+and a mismatched tank fail without mutating the input checkpoint.
+
+The native animal picker exposes independent undo/redo, with at most 100
+per-session inverse records. New stock edits clear redo; reopening a saved tank
+clears animal history. Layout history remains separate. Every inverse uses a
+paused candidate, the current store revision and the same commit-before-swap
+ordering as stock edits. A failed restore or save keeps the current surface and
+history. Later death or consumed capacity can reject an inverse; history never
+silently resurrects a dead addition or deletes newer animals to make space.
+
+Returned individuals keep a clear existing pose when possible. Otherwise the
+candidate finds a safe pose using metric capsule bounds against conservative
+hardscape bounds and existing bodies. Glass returns retain their front, left,
+right or back pane. Only that individual's pose and related breeding positions
+change. Native visual acceptance and signed-host checks remain separate gates.
+
+## Isolated native QA
+
+A Debug QA bundle with an identifier under `com.idlescreen.aquarium-qa.` can
+provide an absolute private legacy-tank path in `IdleScreenAquariumQAStorePath`.
+The planted-tank checkpoint uses the same directory. Normal app bundles ignore
+this profile, and Release builds do not read it. This lets native automation
+launch the actual app executable without a command-line wrapper. The existing
+Debug `--aquarium-store-path` argument takes precedence.

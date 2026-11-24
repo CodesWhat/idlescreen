@@ -6,13 +6,25 @@
   scene.setConditionMode("ecosystem");
   scene.setMotion(false);
   let disposed = false;
-  const editorSnapshot = () => ({
-    revision: scene.state.presetRevision,
-    objects: scene.state.presetObjects,
-    placedObjects: scene.designer.layout?.instances || [],
-    catalog: AquariumDesignerModel.catalog,
-    equipmentObjects: scene.equipment.objects
+  let stockRevision=0;
+  const stockAnimals=state=>state.ecology.animals.map(({id,kind,species,variant,alive})=>({id,kind,species,variant,alive}));
+  addEventListener('aquarium-stock-change',event=>{
+    if(disposed||scene.state.mode!=='desktop'||!scene.designer.active)return;
+    window.webkit?.messageHandlers?.idleScreenStock?.postMessage(JSON.stringify({revision:++stockRevision,animals:event.detail}));
   });
+  const editorSnapshot = () => {
+    const state=scene.state;
+    return {
+      revision:state.presetRevision,stockRevision,
+      settings:((c)=>({light:c.light,room:c.room,surface:c.surface,pump:c.pump,rasterHeight:c.rasterHeight}))(AquariumTankConfiguration.capture(state)),
+      objects:state.presetObjects,
+      placedObjects:scene.designer.layout?.instances||[],
+      catalog:AquariumDesignerModel.catalog,
+      stockCatalog:AquariumTankConfiguration.stockCatalog,
+      equipmentObjects:scene.equipment.objects,
+      animals:stockAnimals(state)
+    };
+  };
   addEventListener("message", event => {
     if (event.source !== window || event.data?.type !== "aquarium-designer-pick"
       || scene.state.mode !== "desktop" || !scene.designer.active) return;
@@ -25,7 +37,13 @@
   });
   window.idleScreenScene = Object.freeze({
     editorSnapshot,
+    prepareSettings(request) { try { return scene.prepareSettings(request.settings,{id:request.id,name:request.name}); } catch(error) { return {error:error.message}; } },
     exportTank(identity) { return scene.exportTank(identity); },
+    addStock(request) { try { scene.addStock(request); return editorSnapshot(); } catch(error) { return {revision:scene.state.presetRevision,error:error.message}; } },
+    reconcileStockPose(id) { try { scene.reconcileStockPose(id); return editorSnapshot(); } catch(error) { return {revision:scene.state.presetRevision,error:error.message}; } },
+    prepareStockRemovalHistory(request) { try { return scene.prepareStockRemovalHistory(request.animalID,{id:request.id,name:request.name}); } catch(error) { return {error:error.message}; } },
+    prepareStockRestoration(request) { try { return scene.prepareStockRestoration(request.archive,{id:request.id,name:request.name}); } catch(error) { return {error:error.message}; } },
+    prepareStockRemoval(request) { return scene.prepareStockRemoval(request.animalID,{id:request.id,name:request.name}); },
     restoreTankJSON(text) {
       try { scene.restoreTankJSON(text); return editorSnapshot(); }
       catch (error) { return { revision: scene.state.presetRevision, error: error.message }; }

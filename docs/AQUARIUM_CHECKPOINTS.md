@@ -31,6 +31,11 @@ Behavioral movement targets and temporary navigation paths are rebuilt. This
 format preserves the biological models and visible state; it does not promise
 identical future movement trajectories after reopening.
 
+Changing a scene asset rebuilds its render resources while retaining the current
+animal roster, biological models and food bindings. An empty saved population
+stays empty. Active pellets keep their identities, positions, velocities and
+release delays. Camera refreshes retain the inverted pose of a dead fish.
+
 ## Editing plants and hardscape
 
 The native workbench exposes the 15 specimens in the runtime's designer

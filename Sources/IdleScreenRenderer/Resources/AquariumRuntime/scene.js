@@ -376,7 +376,7 @@ function animal(kind,x,y,z,_legacyScale=1,phase=0,facing=1,species='assassin',op
  const fishChoice=options.fish||assets.fish,color=options.color??(kind==='shrimp'?(assets.shrimp==='skittles'?['red','yellow','blue','orange'][phase%4]:assets.shrimp):null),grazer=species==='otocinclus';
  const selectedSpecies=grazer?'otocinclus':kind==='fish'?fishChoice.split('-')[0]:kind==='shrimp'?(color==='amano'?'amano':color==='crystal-black'||AquariumPatternShrimpV2.descriptors[color]?.biologicalGroup==='caridina-bee'?'bee':'cherry'):species;
  const life=ecology.addAnimal({id:options.id||((grazer?'otocinclus':kind)+'-'+phase),kind,species:selectedSpecies,surface:grazer||species==='nerite'?'glass':kind==='fish'?'free':'floor',position:{x,y,z}});
- life.position={x,y,z};life.species=selectedSpecies;life.variant=kind==='fish'?fishChoice:color;life.sex=options.sex||life.sex||(Math.round(phase*101)%2?'male':'female');life.maturity=options.maturity??life.maturity??1;life.isOffspring=!!options.id;
+ life.position={x,y,z};life.species=selectedSpecies;life.variant=kind==='fish'?fishChoice:color;life.sex=options.sex||life.sex||(Math.round(phase*101)%2?'male':'female');life.maturity=options.maturity??life.maturity??1;life.isOffspring=options.isOffspring??!!options.id;
  const stage=selectedSpecies==='guppy'&&life.sex==='female'&&(!options.stage||options.stage==='adult')?'female':options.stage||'adult';
  const frames=grazer?animalFrames.otocinclus:kind==='snail'?(species==='nerite'?animalFrames.nerite:animalFrames.snail):cachedStageFrames(kind,kind==='shrimp'?color:fishChoice,stage);
  const art=frames[0],geometry=animalPlane(art),m=rememberMaterial(new THREE.MeshBasicMaterial({map:art.tex,alphaTest:kind==='snail'?.5:.02,transparent:kind!=='snail',depthWrite:kind==='snail'||kind==='fish',side:THREE.DoubleSide}));
@@ -390,7 +390,7 @@ function animal(kind,x,y,z,_legacyScale=1,phase=0,facing=1,species='assassin',op
  if(kind==='shrimp'){entry.contact=contact(x,z,1,1,.19);shrimps.push(entry);}else if(kind==='snail'){if(species!=='nerite')entry.contact=contact(x,z,1,1,.15);snails.push(entry);}else fish.push(entry);
  placeAnimal(entry);const mouth=animalPoint(entry,'mouth');life.position={x:mouth.x,y:mouth.y,z:mouth.z};return entry;
 }
-function clearWorld(){releaseEquipment();clearDesignerPlacement();presetAssemblies=null;botanicalArt=null;physicalParts=[];breedingSupports=[];stageFrameCache=new Map();manzanitaArt=null;variedPlants=[];surfaceStudy=null;lushPlants=null;premiumEquipment=null;hangOnFilter=null;carpetArt=null;mossFormation=null;surfaceNavigation=null;navigationSites=[];leafContacts=new Map();flowField=null;chromeFinish=null;co2Mist=[];nextReturnRipple=clock;if(roomArt){roomArt.group.removeFromParent();for(const resource of [...roomArt.geometries,...roomArt.materials,...roomArt.maps])resource.dispose();roomArt=null;}for(const p of pellets)ecology.retireFood(p.food.id);ecologyVisuals=null;world.traverse(object=>{if(object.isInstancedMesh)object.dispose();});world.clear();for(const g of new Set(geometries))g.dispose();for(const m of new Set(mats))m.dispose();for(const m of new Set(maps))m.dispose();geometries=[];mats=[];maps=[];fish=[];shrimps=[];snails=[];bubbles=[];plants=[];lightPools=[];lampEmitters=[];pellets=[];foodJar=null;sideWater=[];waterCondition=null;collisionWorld=null;lastSimulation=clock;pelletMaterial=null;pelletGeometry=null;random=makeRandom(8401);}
+function clearWorld(retireFood=true){releaseEquipment();clearDesignerPlacement();presetAssemblies=null;botanicalArt=null;physicalParts=[];breedingSupports=[];stageFrameCache=new Map();manzanitaArt=null;variedPlants=[];surfaceStudy=null;lushPlants=null;premiumEquipment=null;hangOnFilter=null;carpetArt=null;mossFormation=null;surfaceNavigation=null;navigationSites=[];leafContacts=new Map();flowField=null;chromeFinish=null;co2Mist=[];nextReturnRipple=clock;if(roomArt){roomArt.group.removeFromParent();for(const resource of [...roomArt.geometries,...roomArt.materials,...roomArt.maps])resource.dispose();roomArt=null;}if(retireFood)for(const p of pellets)ecology.retireFood(p.food.id);ecologyVisuals=null;world.traverse(object=>{if(object.isInstancedMesh)object.dispose();});world.clear();for(const g of new Set(geometries))g.dispose();for(const m of new Set(mats))m.dispose();for(const m of new Set(maps))m.dispose();geometries=[];mats=[];maps=[];fish=[];shrimps=[];snails=[];bubbles=[];plants=[];lightPools=[];lampEmitters=[];pellets=[];foodJar=null;sideWater=[];waterCondition=null;collisionWorld=null;lastSimulation=clock;pelletMaterial=null;pelletGeometry=null;random=makeRandom(8401);}
 function makeBackdrop(){
  const geometry=new THREE.PlaneGeometry(tankHalf*2,waterLevel,24,16);
  const count=geometry.attributes.position.count;
@@ -845,8 +845,9 @@ function rebuildSurfaceNavigation(rehome=false){
   const leaves=navigationSites.filter(s=>leafContacts.has(s.id));for(let i=0;rehome&&i<Math.min(3,leaves.length);i++){const shrimp=shrimps[4+i];shrimp.o.position.copy(leaves[Math.floor(i*leaves.length/3)].position);shrimp.surfaceMotion.position.copy(shrimp.o.position);shrimp.life.position={x:shrimp.o.position.x,y:shrimp.o.position.y,z:shrimp.o.position.z};}
 }
 function build(){
+ const retained=!restoringTank&&world.children.length?captureRuntimeBindings():null;
  presetRevision++;
- clearWorld();
+ clearWorld(!retained);
  const woodMap=pixelMap(['#69503a','#795c3e','#916e47','#4c3d30','#a38354'],'wood',101);
  const rockMap=pixelMap(assets.rock==='river'?['#606463','#747a73','#8c9184','#505d5c','#a7ab96']:['#3e4547','#484f50','#353c3f','#505858','#5b6160'],'slate',84);
  const sideMap=pixelMap(['#30373a','#394144','#42494c','#2b3236','#515757'],'slate',84);
@@ -1057,7 +1058,8 @@ function build(){
  // Same authored pixel animals as A, anchored within the actual depth-buffered scene.
  animalFrames={shrimp:Object.fromEntries(['red','red-rili','red-white','yellow','blue','orange','amano','blue-dream','green-jade','yellow-goldenback','crystal-black','orange-rili'].map(color=>[color,spriteFrames('shrimp',color)])),fish:spriteFrames('fish',assets.fish),otocinclus:spriteFrames('otocinclus'),snail:spriteFrames('snail','assassin'),nerite:spriteFrames('snail','nerite')};
  const animalSpan=tankHalf*2-.6,animalFront=AquariumMetricScale.tank.frontBound-.005;
- if(!restoringTank){
+ if(retained)restoreAnimalBindings(retained.actors);
+ else if(!restoringTank){
  animal('shrimp',-animalSpan*.32,bedLevel+.12,3.5,1,0,1);animal('shrimp',-.6,bedLevel+.12,animalFront-.15,1,1,-1);animal('shrimp',animalSpan*.18,bedLevel+.12,2.3,1,2,1);animal('shrimp',animalSpan*.36,bedLevel+.12,3.7,1,3,-1);
  animal('snail',-animalSpan*.06,bedLevel+.12,3.2,1,0,1);animal('snail',animalSpan*.14,bedLevel+1.25,animalFront,1,1,1,'nerite');
  for(let i=0;i<8;i++)animal('fish',-animalSpan*.30+i*animalSpan*.085,3.6+(i%3)*.65,-1.4+(i%4)*1.2,1,i*.8,1);
@@ -1077,7 +1079,7 @@ function build(){
   o.name='filter-bubble';o.userData={radius,riseSpeed,phase:phases[i]};o.quaternion.copy(camera.quaternion);bubbles.push({o,i,radius,riseSpeed,phase:phases[i],x:filterOutlet.x,z:fz});
  }
 
- if(!restoringTank)for(const child of breeding.offspring)spawnYoung(child);
+ if(!restoringTank&&!retained)for(const child of breeding.offspring)spawnYoung(child);
  // Foreground plants enter from the monitor edges instead of enclosing a miniature tank.
  plant(-visibleWidth*.44,3.6,2.4,true,27);plant(visibleWidth*.44,3.7,1.9,true,31);plant(visibleWidth*.04,3.5,.65,false,43);
  if(sceneStyle!=='basic')for(const [i,[x,z,height]]of [[-.37,-1.45,6.9],[-.30,-1.25,5.6],[-.20,-1.65,6.6],[.12,-1.65,5.0],[.32,-1.35,6.8],[.39,-.95,5.8]].entries()){const g=plant(visibleWidth*x,z,height,false,701+i*19);g.name='tall-background-'+i;}
@@ -1154,14 +1156,14 @@ function build(){
   carpetArt=AquariumCarpetArt.create(THREE,{tankHalf:innerHalf,backZ:backBound,frontZ:frontBound,bedLevel,waterLevel,exclusions});world.add(carpetArt.group);for(const m of carpetArt.materials)rememberMaterial(m);geometries.push(...carpetArt.geometries);maps.push(...carpetArt.maps);
  }
  initializeDesignerPlacement();
- rebuildSurfaceNavigation(!restoringTank);
+ rebuildSurfaceNavigation(!restoringTank&&!retained);
  const currentSource=premiumEquipment?.returnPoint||hangOnFilter?.returnPoint||filterOutlet;flowField=AquariumFlowField.create({halfWidth:innerHalf,backZ:backBound,frontZ:frontBound,bedLevel,waterLevel,source:currentSource,direction:hangOnFilter?{x:0,y:0,z:1}:premiumEquipment?{x:1,y:0,z:.3}:{x:-1,y:0,z:0},output:pumpOutput});surfaceStudy.setFlowField(flowField);
- buildBreedingSupports();ecologyVisuals=makeEcologyVisuals();updateEcology(0);
+ buildBreedingSupports();ecologyVisuals=makeEcologyVisuals();if(retained){restoreFoodBindings(retained.food);drawEcologyDetails(0,[...fish,...shrimps,...snails],false);}else updateEcology(0);
  world.updateMatrixWorld(true);
  const boundsOf=o=>{const b=new THREE.Box3().setFromObject(o),d=b.getSize(new THREE.Vector3());return{width:+(d.x*cmPerUnit).toFixed(2),height:+(d.y*cmPerUnit).toFixed(2),depth:+(d.z*cmPerUnit).toFixed(2)};};
  physicalParts=world.children.filter(o=>o.name||o.userData.substratePlant||o.userData.solid||o.userData.hardscape).filter(o=>!o.userData.animalKind).map(o=>({part:o.name||'authored-hardscape-or-plant',dimensionsCm:boundsOf(o),basis:o.userData.physical?.definition||'rendered envelope; authored dimensions unless reference specified'}));
  physicalParts.push({part:'LED housing',dimensionsCm:{width:60,depth:14,height:1.8},measuredCm:housingBounds.toArray(),basis:'WRGB II Pro60 manufacturer housing dimensions; arms separately authored'},{part:'substrate grains',diameterMm:[2,4],basis:'selected aquarium gravel grade'},{part:'food pellet',diameterMm:3.09,basis:'authored 0.036-world radius'},{part:'CO2 mist',diameterMm:1.07,basis:'authored review-visible particle'},{part:'medaka egg',diameterMm:2.14,basis:'authored review-visible egg'});
- const moving=new Set([...fish,...shrimps,...snails].map(a=>a.o));for(const bubble of bubbles)moving.add(bubble.o);for(const bubble of co2Mist)moving.add(bubble.o);moving.add(ecologyVisuals.group);batchStatic(world,false,moving);
+ const moving=new Set([...fish,...shrimps,...snails].map(a=>a.o));for(const bubble of bubbles)moving.add(bubble.o);for(const bubble of co2Mist)moving.add(bubble.o);moving.add(ecologyVisuals.group);for(const p of pellets)moving.add(p.o);batchStatic(world,false,moving);
  roomArt=AquariumRoomArt.create(THREE,{tankHalf,frontZ,backZ:outerBack,wallGap:3});roomArt.group.name='aquarium-room';roomArt.setFinish(roomFinish);scene.add(roomArt.group);
  roomArt.group.add(metricBasic.dryGroup);roomArt.group.add(hookups.group);roomArt.geometries.push(...hookups.geometries);roomArt.materials.push(...hookups.materials);roomArt.maps.push(...hookups.maps);if(premiumEquipment)roomArt.group.add(premiumEquipment.dryGroup);if(hangOnFilter)roomArt.group.add(hangOnFilter.dryGroup);
 
@@ -1173,7 +1175,7 @@ function applyCamera(){
  camera.fov=matchedFov;camera.position.set(0,eyeHeight,eyeDepth);camera.lookAt(0,eyeHeight,0);camera.updateProjectionMatrix();
  camera.projectionMatrix.elements[9]=2*horizon-1;
  camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();camera.updateMatrixWorld();
- for(const a of [...fish,...shrimps,...snails]){if(a.surfaceMotion?.surface==='glass')orientGlassAnimal(a);else a.o.quaternion.copy(camera.quaternion);}
+ for(const a of [...fish,...shrimps,...snails]){if(a.surfaceMotion?.surface==='glass')orientGlassAnimal(a);else{a.o.quaternion.copy(camera.quaternion);if(!a.life.alive&&a.corpseId)a.o.rotateZ(Math.PI);}}
 }
 function setView(_next){view='front';applyCamera();render();}
 function resize(){
@@ -1660,6 +1662,12 @@ function updateEcology(elapsed){
  }
  drawEcologyDetails(elapsed,all,true);
 }
+var stockCount,stockDeaths,stockBirths;
+function notifyStockChange(){
+ if(stockCount===ecology.animals.length&&stockDeaths===ecology.stats.deaths&&stockBirths===breeding.stats.births)return;
+ stockCount=ecology.animals.length;stockDeaths=ecology.stats.deaths;stockBirths=breeding.stats.births;
+ dispatchEvent(new CustomEvent('aquarium-stock-change',{detail:ecology.animals.map(({id,kind,species,variant,alive})=>({id,kind,species,variant:variant??null,alive}))}));
+}
 function drawEcologyDetails(elapsed,all,advance){
  const v=ecologyVisuals;if(!v)return;let eggCount=0;for(const batch of breeding.eggs)for(let i=0;i<batch.count&&eggCount<80;i++){const o=v.dummy;o.position.set(batch.position.x+Math.sin(i*2.4)*.045,batch.position.y+(i%3)*.025,batch.position.z+Math.cos(i*2.4)*.035);o.rotation.set(0,0,0);o.scale.setScalar(1);o.updateMatrix();v.eggs.setMatrixAt(eggCount++,o.matrix);}v.eggs.count=eggCount;v.eggs.instanceMatrix.needsUpdate=true;let dirt=0,shell=0;
  for(const d of ecology.deposits){
@@ -1677,7 +1685,7 @@ function drawEcologyDetails(elapsed,all,advance){
  for(let i=0;i<ecology.patches.length;i++){
   const patch=ecology.patches[i],o=v.dummy;o.position.set(patch.position.x,patch.position.y,patch.position.z);o.rotation.set(i<10?-Math.PI/2:0,0,0);o.scale.setScalar(Math.sqrt(patch.amount));o.updateMatrix();v.algae.setMatrixAt(i,o.matrix);
  }
- v.algae.count=ecology.patches.length;v.algae.instanceMatrix.needsUpdate=true;if(advance)retireSpentYoung();
+ v.algae.count=ecology.patches.length;v.algae.instanceMatrix.needsUpdate=true;if(advance)retireSpentYoung();notifyStockChange();
 }
 
 const tankCheckpoints=AquariumEcosystemCheckpointV1.create({ecology:AquariumEcology,breeding:AquariumBreeding,water:AquariumWaterEcosystem});
@@ -1685,10 +1693,30 @@ const tankEnvelope=AquariumTankEnvelope.createCodec({checkpointCodec:tankCheckpo
  ...AquariumDesignerModel.catalog.map(({id,placement})=>({id,placement})),
  ...['classic-stem','anubias','vallisneria','alternanthera','pixel-driftwood','slate-rock','river-rock'].map(id=>({id,placement:'transform'}))
 ]});
+function captureRuntimeBindings(){
+ const actors=[...fish,...shrimps,...snails].map(a=>({id:a.life.id,kind:a.kind,phase:a.phase,facing:a.motion?a.motion.facing:a.facing,fishChoice:a.fishChoice,color:a.color??null,stage:a.stage,growthAgeDays:a.growthAgeDays??null,position:a.o.position.toArray(),quaternion:a.o.quaternion.toArray(),visible:a.o.visible,seenMolt:a.seenMolt,moltStarted:Number.isFinite(a.moltStarted)?a.moltStarted:null,corpseId:a.corpseId??null,surface:a.surfaceMotion?{kind:a.surfaceMotion.kind,surface:a.surfaceMotion.surface,pane:a.surfaceMotion.pane??null,position:a.surfaceMotion.position.toArray(),facing:a.surfaceMotion.facing}:null}));
+ const foodIds=new Set(ecology.food.map(f=>f.id)),food=pellets.filter(p=>foodIds.has(p.food.id)).map(p=>({id:p.food.id,position:p.o.position.toArray(),velocity:p.velocity.toArray(),quaternion:p.o.quaternion.toArray(),visible:p.o.visible,delay:p.delay,lastT:p.lastT,settled:p.settled,landedOn:p.o.userData.landedOn??null}));
+ return {actors,food};
+}
+function restoreAnimalBindings(actors){
+ for(const a of actors){
+  const life=ecology.animals.find(l=>l.id===a.id),original=JSON.parse(JSON.stringify(life));
+  const entry=animal(a.kind,...a.position,1,a.phase,a.facing,life.species,{id:a.id,sex:life.sex,maturity:life.maturity,fish:a.fishChoice,color:a.color,stage:a.stage,growthAgeDays:a.growthAgeDays??undefined,glassPane:a.surface?.pane??undefined});
+  Object.assign(entry.life,original);
+  if(a.surface){entry.surfaceMotion.position.fromArray(a.surface.position);entry.surfaceMotion.surface=a.surface.surface;entry.surfaceMotion.facing=a.surface.facing;
+   if(a.surface.pane){entry.surfaceMotion.pane=a.surface.pane;entry.surfaceMotion.glassHeading={along:0,up:0};entry.surfaceMotion.glassPerimeter=null;entry.surfaceMotion.glassTarget=null;setGlassPose(entry,a.surface.pane);}}
+  entry.o.position.fromArray(a.position);entry.o.quaternion.fromArray(a.quaternion);entry.o.visible=a.visible;entry.seenMolt=a.seenMolt;entry.moltStarted=a.moltStarted??-Infinity;if(a.corpseId)entry.corpseId=a.corpseId;
+  if(entry.motion)entry.motion.position.copy(animalPoint(entry,'bodyCenter'));
+  if(entry.contact)entry.contact.visible=entry.life.alive&&a.surface?.surface!=='glass';
+ }
+}
+function restoreFoodBindings(food){
+ if(food.length){pelletMaterial=material(0xc49a61);pelletGeometry=new THREE.OctahedronGeometry(.036,0);geometries.push(pelletGeometry);}
+ for(const p of food){const o=new THREE.Mesh(pelletGeometry,pelletMaterial);o.name='food-pellet';o.position.fromArray(p.position);o.quaternion.fromArray(p.quaternion);o.visible=p.visible;if(p.landedOn)o.userData.landedOn=p.landedOn;world.add(o);pellets.push({o,food:ecology.food.find(f=>f.id===p.id),velocity:new THREE.Vector3().fromArray(p.velocity),delay:p.delay,lastT:p.lastT,settled:p.settled});}
+}
 function exportTank(identity){
  const tank=tankEnvelope.capture({...identity,state:window.aquariumStudy.state,live:{ecology,breeding,water,accountedDissolved}});
- const actors=[...fish,...shrimps,...snails].map(a=>({id:a.life.id,kind:a.kind,phase:a.phase,facing:a.facing,fishChoice:a.fishChoice,color:a.color??null,stage:a.stage,growthAgeDays:a.growthAgeDays??null,position:a.o.position.toArray(),quaternion:a.o.quaternion.toArray(),visible:a.o.visible,seenMolt:a.seenMolt,moltStarted:Number.isFinite(a.moltStarted)?a.moltStarted:null,corpseId:a.corpseId??null,surface:a.surfaceMotion?{kind:a.surfaceMotion.kind,surface:a.surfaceMotion.surface,pane:a.surfaceMotion.pane??null,position:a.surfaceMotion.position.toArray(),facing:a.surfaceMotion.facing}:null}));
- const foodIds=new Set(ecology.food.map(f=>f.id)),food=pellets.filter(p=>foodIds.has(p.food.id)).map(p=>({id:p.food.id,position:p.o.position.toArray(),velocity:p.velocity.toArray(),quaternion:p.o.quaternion.toArray(),visible:p.o.visible,delay:p.delay,lastT:p.lastT,settled:p.settled,landedOn:p.o.userData.landedOn??null}));
+ const {actors,food}=captureRuntimeBindings();
  return AquariumRuntimeCheckpoint.normalize({schemaVersion:1,tank,runtime:{clock,ecologyRate,conditionLevel,conditionEpoch,conditionStart,feedStarted,feedSequence,automaticFeedCount,manualFeedCount,lastFeedReason,nextFeedDue,actors,food}},tankEnvelope);
 }
 function validateRestoredBaseline(defaults){
@@ -1704,6 +1732,60 @@ function validateRestoredBaseline(defaults){
  designerRuntime.setEnvironment({solids:baselineCollisionMeshes,mountSolids:baselineCollisionMeshes.filter(mesh=>mesh.userData.hardscape&&!mesh.userData.equipmentSolid)});
  recaptureDesignerCollisions();rebuildSurfaceNavigation(false);buildBreedingSupports();presetRevision++;
 }
+function placeStockAnimal(a,preferCurrent=false){
+ const others=[...fish,...shrimps,...snails].filter(other=>other!==a),blockers=collisionWorld.meshes.map(mesh=>mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld));
+ const glass=a.surfaceMotion?.surface==='glass',pane=a.surfaceMotion?.pane||'front',radius=a.surfaceMotion?a.metric.collision.crossSectionRadius:a.metric.collision.enclosingRadius;
+ const span=a.surfaceMotion?Math.max(0,a.metric.collision.halfLength-radius):0;
+ function clear(){
+  const axis=new THREE.Vector3(a.metric.collision.longAxis==='x'?Math.sign(a.o.scale.x):0,a.metric.collision.longAxis==='y'?1:0,0).applyQuaternion(a.o.quaternion);
+  const center=animalPoint(a,'bodyCenter'),start=center.clone().addScaledVector(axis,-span),end=center.clone().addScaledVector(axis,span);
+  for(const point of [start,end])if(point.y-radius<bedLevel-.005||point.y+radius>waterLevel+.005||!glass&&(Math.abs(point.x)+radius>innerHalf||point.z-radius<backBound||point.z+radius>frontBound))return false;
+  const skin=Math.max(.0001,radius-.002),direction=end.clone().sub(start),length=direction.length(),ray=length?new THREE.Ray(start,direction.normalize()):null;
+  for(const bounds of blockers){
+   if(!ray){if(bounds.intersectsSphere(new THREE.Sphere(center,skin)))return false;}
+   else{const expanded=bounds.clone().expandByScalar(skin),hit=new THREE.Vector3();if(expanded.containsPoint(start)||ray.intersectBox(expanded,hit)&&hit.distanceTo(start)<=length)return false;}
+  }
+  return !others.some(other=>other.o.visible&&center.distanceTo(animalPoint(other,'bodyCenter'))<a.metric.collision.enclosingRadius+other.metric.collision.enclosingRadius+.025);
+ }
+ placeAnimal(a);if(preferCurrent&&clear())return;
+ for(const level of glass?[.65,.4,.8,.25]:a.motion?[.65,.4,.8]:[0]){
+  for(let iz=0;iz<(glass?1:7);iz++)for(let ix=0;ix<9;ix++){
+   let x=(ix/8-.5)*innerHalf*1.6,z=backBound+(frontBound-backBound)*(.12+iz/6*.76);
+   if(glass){if(pane==='left'||pane==='right'){x=pane==='left'?-innerHalf:innerHalf;z=backBound+(frontBound-backBound)*(.12+ix/8*.76);}else z=pane==='back'?backBound:frontBound;}
+   const y=a.motion||glass?bedLevel+(waterLevel-bedLevel)*level:bedLevel+.12;
+   if(a.motion)a.motion.position.set(x,y,z);else a.surfaceMotion.position.set(x,y,z);placeAnimal(a);
+   if(clear())return;
+  }
+ }
+ throw new Error('No clear place is available for this animal');
+}
+function reconcileStockPose(id){
+ if(enabled||!designerActive||mode!=='desktop')throw new Error('Stock returns require an isolated paused editor');
+ const a=[...fish,...shrimps,...snails].find(a=>a.life.id===id&&a.life.alive);if(!a)throw new Error('Returned animal is not available');
+ placeStockAnimal(a,true);const mouth=animalPoint(a,'mouth');a.life.position={x:mouth.x,y:mouth.y,z:mouth.z};
+ const snapshot=breeding.snapshot();for(const record of [...snapshot.parents,...snapshot.offspring])if(record.id===id)record.position={...a.life.position};
+ for(const brood of snapshot.broods)if(brood.motherId===id&&brood.phase!=='deposited-eggs')brood.position={...a.life.position};
+ breeding=AquariumBreeding.create({snapshot});render();return{id};
+}
+function addStock(request){
+ if(enabled||!designerActive||mode!=='desktop')throw new Error('Stock additions require an isolated paused editor');
+ const asset=AquariumTankConfiguration.stockCatalog.find(a=>a.id===request?.assetID),id=request?.id;
+ if(!asset||typeof id!=='string'||!/^stock-[a-zA-Z0-9-]{1,64}$/.test(id))throw new Error('Choose a supported stock item and stable identity');
+ const all=[...fish,...shrimps,...snails],reserved=breeding.broods.reduce((n,b)=>n+b.count,0),population=new Set([...ecology.animals.filter(a=>a.alive).map(a=>a.id),...breeding.offspring.map(a=>a.id)]);
+ if(ecology.animals.some(a=>a.id===id))throw new Error('Stock identity is already in use');
+ if(all.length>=80||population.size+reserved>=Math.min(80,breeding.snapshot().maxAnimals))throw new Error('The tank has no unreserved animal capacity');
+ const phase=[...id].reduce((n,c)=>(Math.imul(n,31)+c.charCodeAt(0))>>>0,0)%100000;
+ const grazer=asset.variant==='otocinclus',species=asset.kind==='snail'?asset.variant:grazer?'otocinclus':'assassin';
+ const a=animal(asset.kind,0,bedLevel+.12,0,1,phase,1,species,{id,isOffspring:false,sex:phase%2?'male':'female',maturity:1,stage:'adult',fish:asset.kind==='fish'&&!grazer?asset.variant:assets.fish,color:asset.kind==='shrimp'?asset.variant:undefined,glassPane:'front'});
+ placeStockAnimal(a);
+ const mouth=animalPoint(a,'mouth');a.life.position={x:mouth.x,y:mouth.y,z:mouth.z};
+ const supports=breedingSupports.map(s=>{s.mesh.updateWorldMatrix(true,false);const p=new THREE.Vector3().fromBufferAttribute(s.mesh.geometry.attributes.position,s.index).applyMatrix4(s.mesh.matrixWorld);return{id:s.id,kind:'plant',position:{x:p.x,y:p.y,z:p.z}};});
+ breeding.synchronizeRoster(ecology.animals,{plantSupports:supports});notifyStockChange();render();return{id};
+}
+function prepareSettings(settings,identity){return{checkpointJSON:JSON.stringify(AquariumRuntimeCheckpoint.changingSettings(exportTank(identity),settings,tankEnvelope))};}
+function prepareStockRemovalHistory(id,identity){const change=AquariumRuntimeCheckpoint.removeStock(exportTank(identity),id,tankEnvelope);return{checkpointJSON:JSON.stringify(change.checkpoint),archive:change.archive};}
+function prepareStockRestoration(archive,identity){return{checkpointJSON:JSON.stringify(AquariumRuntimeCheckpoint.restoreStock(exportTank(identity),archive,tankEnvelope))};}
+function prepareStockRemoval(id,identity){return AquariumRuntimeCheckpoint.removingAnimal(exportTank(identity),id,tankEnvelope);}
 function restoreTankJSON(text){
  if(enabled||clock!==0||ecology.seconds!==0||feedSequence!==0||designerActive)throw new Error('Tank restoration requires a fresh paused runtime');
  const saved=AquariumRuntimeCheckpoint.importJSON(text,tankEnvelope),configuration=saved.tank.configuration,document=saved.tank.document;
@@ -1725,18 +1807,7 @@ function restoreTankJSON(text){
  const placement=applyDesigner({layout:{...designerLayout,instances:added}});if(placement.error||placement.status.some(s=>!s.valid))throw new Error(placement.error||'Saved specimen placement is invalid');
  ecology=restored.ecology;breeding=restored.breeding;water=restored.water;accountedDissolved=restored.accountedDissolved;
  clock=r.clock;lastSimulation=clock;ecologyRate=r.ecologyRate;feedStarted=r.feedStarted;feedSequence=r.feedSequence;automaticFeedCount=r.automaticFeedCount;manualFeedCount=r.manualFeedCount;lastFeedReason=r.lastFeedReason;nextFeedDue=r.nextFeedDue;
- for(const a of r.actors){
-  const life=ecology.animals.find(l=>l.id===a.id),original=JSON.parse(JSON.stringify(life));
-  const entry=animal(a.kind,...a.position,1,a.phase,a.facing,life.species,{id:a.id,sex:life.sex,maturity:life.maturity,fish:a.fishChoice,color:a.color,stage:a.stage,growthAgeDays:a.growthAgeDays??undefined,glassPane:a.surface?.pane??undefined});
-  Object.assign(entry.life,original);
-  if(a.surface){entry.surfaceMotion.position.fromArray(a.surface.position);entry.surfaceMotion.surface=a.surface.surface;entry.surfaceMotion.facing=a.surface.facing;
-   if(a.surface.pane){entry.surfaceMotion.pane=a.surface.pane;entry.surfaceMotion.glassHeading={along:0,up:0};entry.surfaceMotion.glassPerimeter=null;entry.surfaceMotion.glassTarget=null;setGlassPose(entry,a.surface.pane);}}
-  entry.o.position.fromArray(a.position);entry.o.quaternion.fromArray(a.quaternion);entry.o.visible=a.visible;entry.seenMolt=a.seenMolt;entry.moltStarted=a.moltStarted??-Infinity;if(a.corpseId)entry.corpseId=a.corpseId;
-  if(entry.motion)entry.motion.position.copy(animalPoint(entry,'bodyCenter'));
-  if(entry.contact)entry.contact.visible=entry.life.alive&&a.surface?.surface!=='glass';
- }
- if(r.food.length){pelletMaterial=material(0xc49a61);pelletGeometry=new THREE.OctahedronGeometry(.036,0);geometries.push(pelletGeometry);}
- for(const p of r.food){const o=new THREE.Mesh(pelletGeometry,pelletMaterial);o.name='food-pellet';o.position.fromArray(p.position);o.quaternion.fromArray(p.quaternion);o.visible=p.visible;if(p.landedOn)o.userData.landedOn=p.landedOn;world.add(o);pellets.push({o,food:ecology.food.find(f=>f.id===p.id),velocity:new THREE.Vector3().fromArray(p.velocity),delay:p.delay,lastT:p.lastT,settled:p.settled});}
+ restoreAnimalBindings(r.actors);restoreFoodBindings(r.food);
  drawEcologyDetails(0,[...fish,...shrimps,...snails],false);waterCondition.setLevel(conditionLevel);updateWaterTransmission();render();
  return {id:document.id,name:document.layout.name};
 }
@@ -1745,7 +1816,12 @@ addEventListener('message',e=>{if(e.source!==parent)return;const d=e.data;if(d?.
 document.getElementById('jar-target').addEventListener('click',event=>{event.stopPropagation();feed();});
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));document.getElementById('motion').addEventListener('click',()=>setMotion(!enabled));
 document.addEventListener('visibilitychange',()=>{if(handle)cancelAnimationFrame(handle);handle=0;last=0;if(enabled&&!document.hidden)handle=requestAnimationFrame(animate);});addEventListener('resize',resize);
+function stockInventory(){
+ const counts={fish:0,shrimp:0,snails:0},groups={fish:new Set(),shrimp:new Set(),snail:new Set()};
+ for(const a of ecology.animals){if(!a.alive)continue;counts[a.kind==='snail'?'snails':a.kind]++;groups[a.kind].add(a.species);}
+ return{...counts,fishSpecies:groups.fish.size,shrimpSpecies:groups.shrimp.size,snailSpecies:groups.snail.size};
+}
 function landmarks(){camera.updateMatrixWorld();const points={floorBack:[0,bedLevel,backBound],floorFront:[0,bedLevel,frontBound],bottomLeft:[-tankHalf,0,4.04],bottomRight:[tankHalf,0,4.04],frontTopLeft:[-tankHalf,8.4,4.04],frontTopRight:[tankHalf,8.4,4.04],rearTopLeft:[-tankHalf,8.4,outerBack],rearTopRight:[tankHalf,8.4,outerBack],lamp:[0,9.36,-.4],foodJarTop:[-visibleWidth*.29,10.35,-.4],surfaceBack:[0,waterLevel,backBound],surfaceFront:[0,waterLevel,frontBound],filterOutlet:[filterOutlet.x,filterOutlet.y,filterOutlet.z],woodTop:[-visibleWidth*.29-.35,6.4+bedLevel-.12,-.7]};return Object.fromEntries(Object.entries(points).map(([name,p])=>{const v=new THREE.Vector3(...p).project(camera);return[name,{x:Math.round((v.x*.5+.5)*1000)/10,y:Math.round((.5-v.y*.5)*1000)/10}];}));}
-window.aquariumStudy={exportTank,restoreTankJSON,applyPresetObjects,applyEquipmentObjects,get equipment(){return equipmentState();},applyPlacedObjects,maintainTank,applyDesigner,get designer(){return designerState();},setGlassPane,setPumpOutput,setSceneStyle,setSurfaceMode,setRoomFinish,setLightSpread,setLightOutput,setEcologyRate,previewLifeEvent,setAsset,setCondition,setConditionMode,setResolution,setView,setFraming,setLight,setRoomLight,setTankLightCount,setRoomMode,setMotion,setMode,feed,info:()=>window.aquariumStudy.state,get state(){return{presetRevision,equipment:equipmentState(),water:{...water.readings(),elapsedSeconds:water.snapshot().elapsedSeconds,volumeL:50,volumeBasis:'authored effective water volume estimate; excludes tank glass, substrate and hardscape',massBasis:'mg nitrogen; 4 mg-N per dissolved game waste unit'},presetObjects:presetAssemblies?.snapshot()||[],designer:designerState(),glass:{panes:['front','left','right','back'],attachments:[...fish,...shrimps,...snails].filter(a=>a.surfaceMotion?.surface==='glass').map(a=>({id:a.life.id,pane:a.surfaceMotion.pane,pose:a.frames[0].pose||'legacy'}))},projection:{kind:'perspective',worldSizeChangesWithDepth:false},botanical:{species:botanicalArt?.assets.map(a=>a.species)||[],omitted:botanicalArt?.omitted||[],contacts:botanicalArt?.grazeSites.length||0},physical:{cmPerUnit,tankCm:{width:60,depth:36,height:36,glass:.6,bed:5,water:34.5},scaleStatus:'metric-reference',parts:physicalParts},sceneStyle,current:{output:pumpOutput},breeding:{broods:breeding.broods.length,eggs:breeding.eggs.reduce((n,b)=>n+b.count,0),young:breeding.offspring.length,stats:breeding.stats},navigation:{...(surfaceNavigation?.stats||{nodes:0}),canopySites:navigationSites.filter(s=>s.id?.startsWith('canopy-')).length},rasterHeight,surface:{mode:surfaceMode,impacts:surfaceStudy?.group.children.filter(o=>o.visible).length||0},premium:{implemented:!!premiumEquipment,carpet:!!lushPlants,floaters:lushPlants?.floaters.length||0},room:{finish:roomFinish,implemented:!!roomArt},ecology:{seconds:ecology.seconds,rate:ecologyRate,stats:{...ecology.stats},animals:ecology.animals.map(a=>({id:a.id,species:a.species,state:a.state,alive:a.alive,hunger:a.hunger,health:a.health})),deposits:ecology.deposits.length},condition:{...waterCondition?.state,mode:conditionMode},assets:{...assets},inventory:{tank:1,gravel:1,rock:assets.decor==='none'?1:0,ornament:assets.decor!=='none'?1:0,driftwood:1,fixture:1,thermometer:1,plantSpecies:sceneStyle==='lush'?4:2,filter:1,shrimpSpecies:1,fishSpecies:2,snailSpecies:2},lighting:{depthSpread:lightSpread,output:lightOutput,shadows:renderer.shadowMap.enabled,shadowResolution:512,source:'Downward LED banks',roomLevel,roomMode,banks:tankLightCount,ambient:ambient.intensity,fill:fill.intensity,key:tankLights.reduce((sum,light)=>sum+light.intensity,0),shadowSources:tankLights.filter(light=>light.castShadow).length},direction:'B',view,framing,mode,preset,motion:enabled,clock,collisions:{solids:collisionWorld?.count||0,settled:pellets.filter(p=>p.settled).length,solidLandings:pellets.filter(p=>p.o.userData.landedOn==='solid').length},feeding:{automaticCount:automaticFeedCount,manualCount:manualFeedCount,lastReason:lastFeedReason,nextDue:nextFeedDue,sequence:feedSequence},renderer:'Actual pixel-textured 3D with shared A/B sprite billboards',renderedFrames,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,camera:{kind:'PerspectiveCamera',fov:camera.fov,position:[0,eyeHeight,eyeDepth],target:[0,eyeHeight,0],pitchDegrees:0,horizonPercent:horizon*100,aspect:camera.aspect},world:{width:worldWidth,floorY:bedLevel,floorBackZ:backBound,floorFrontZ:frontBound,waterY:waterLevel,waterBackZ:backBound,waterFrontZ:frontBound},landmarks:landmarks()};}};
+window.aquariumStudy={get detachedFoodCount(){return pellets.filter(p=>p.o.parent!==world).length;},exportTank,prepareSettings,addStock,reconcileStockPose,prepareStockRemovalHistory,prepareStockRestoration,prepareStockRemoval,restoreTankJSON,applyPresetObjects,applyEquipmentObjects,get equipment(){return equipmentState();},applyPlacedObjects,maintainTank,applyDesigner,get designer(){return designerState();},setGlassPane,setPumpOutput,setSceneStyle,setSurfaceMode,setRoomFinish,setLightSpread,setLightOutput,setEcologyRate,previewLifeEvent,setAsset,setCondition,setConditionMode,setResolution,setView,setFraming,setLight,setRoomLight,setTankLightCount,setRoomMode,setMotion,setMode,feed,info:()=>window.aquariumStudy.state,get state(){return{presetRevision,equipment:equipmentState(),water:{...water.readings(),elapsedSeconds:water.snapshot().elapsedSeconds,volumeL:50,volumeBasis:'authored effective water volume estimate; excludes tank glass, substrate and hardscape',massBasis:'mg nitrogen; 4 mg-N per dissolved game waste unit'},presetObjects:presetAssemblies?.snapshot()||[],designer:designerState(),glass:{panes:['front','left','right','back'],attachments:[...fish,...shrimps,...snails].filter(a=>a.surfaceMotion?.surface==='glass').map(a=>({id:a.life.id,pane:a.surfaceMotion.pane,pose:a.frames[0].pose||'legacy'}))},projection:{kind:'perspective',worldSizeChangesWithDepth:false},botanical:{species:botanicalArt?.assets.map(a=>a.species)||[],omitted:botanicalArt?.omitted||[],contacts:botanicalArt?.grazeSites.length||0},physical:{cmPerUnit,tankCm:{width:60,depth:36,height:36,glass:.6,bed:5,water:34.5},scaleStatus:'metric-reference',parts:physicalParts},sceneStyle,current:{output:pumpOutput},breeding:{broods:breeding.broods.length,eggs:breeding.eggs.reduce((n,b)=>n+b.count,0),young:breeding.offspring.length,stats:breeding.stats},navigation:{...(surfaceNavigation?.stats||{nodes:0}),canopySites:navigationSites.filter(s=>s.id?.startsWith('canopy-')).length},rasterHeight,surface:{mode:surfaceMode,impacts:surfaceStudy?.group.children.filter(o=>o.visible).length||0},premium:{implemented:!!premiumEquipment,carpet:!!lushPlants,floaters:lushPlants?.floaters.length||0},room:{finish:roomFinish,implemented:!!roomArt},ecology:{seconds:ecology.seconds,rate:ecologyRate,stats:{...ecology.stats},animals:ecology.animals.map(a=>({id:a.id,kind:a.kind,variant:a.variant??null,species:a.species,state:a.state,alive:a.alive,hunger:a.hunger,health:a.health})),deposits:ecology.deposits.length},condition:{...waterCondition?.state,mode:conditionMode},assets:{...assets},inventory:{tank:1,gravel:1,rock:assets.decor==='none'?1:0,ornament:assets.decor!=='none'?1:0,driftwood:1,fixture:1,thermometer:1,plantSpecies:sceneStyle==='lush'?4:2,filter:1,...stockInventory()},lighting:{depthSpread:lightSpread,output:lightOutput,shadows:renderer.shadowMap.enabled,shadowResolution:512,source:'Downward LED banks',roomLevel,roomMode,banks:tankLightCount,ambient:ambient.intensity,fill:fill.intensity,key:tankLights.reduce((sum,light)=>sum+light.intensity,0),shadowSources:tankLights.filter(light=>light.castShadow).length},direction:'B',view,framing,mode,preset,motion:enabled,clock,collisions:{solids:collisionWorld?.count||0,settled:pellets.filter(p=>p.settled).length,solidLandings:pellets.filter(p=>p.o.userData.landedOn==='solid').length},feeding:{automaticCount:automaticFeedCount,manualCount:manualFeedCount,lastReason:lastFeedReason,nextDue:nextFeedDue,sequence:feedSequence},renderer:'Actual pixel-textured 3D with shared A/B sprite billboards',renderedFrames,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,camera:{kind:'PerspectiveCamera',fov:camera.fov,position:[0,eyeHeight,eyeDepth],target:[0,eyeHeight,0],pitchDegrees:0,horizonPercent:horizon*100,aspect:camera.aspect},world:{width:worldWidth,floorY:bedLevel,floorBackZ:backBound,floorFrontZ:frontBound,waterY:waterLevel,waterBackZ:backBound,waterFrontZ:frontBound},landmarks:landmarks()};}};
 resize();setRoomMode('auto');setView('front');setMode('desktop');setMotion(enabled);parent.postMessage({type:'aquarium-ready',scene:'b',renderer:'Three.js WebGL'},'*');
 })();
