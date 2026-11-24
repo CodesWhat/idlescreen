@@ -56,6 +56,55 @@ struct AquariumRuntimeBundleTests {
     try await surface.shutdown()
   }
 
+  @Test func premiumDefaultsFitShallowTanksAndGasHoseFollowsRaisedDiffuser() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    let result =
+      try await surface.view.evaluateJavaScript(
+        """
+        (()=>{
+          const cm=36/8.4,options={stripPlug:{filter:[9,1,-6],co2:[-9,1,-6]}},factory=AquariumMetricEquipmentArt;
+          const shallow=factory.create(THREE,{...options,backZ:-7.5/cm,frontZ:7.5/cm});
+          if(!(shallow.placementsCm.canister.z+6.1<=7.5))throw new Error('Default canister exceeds a 15 cm deep tank');
+          shallow.dispose();
+          const deep=factory.create(THREE,options);
+          const rear=(-4.36-(-4.36+4.04)/2)*cm;
+          if(Math.abs(deep.placementsCm.canister.z-(rear+14))>1e-7)throw new Error('Default canister offset changed for the standard tank');
+          const lowered=deep.dryGroup.userData.routes.co2.wet.length;deep.dispose();
+          const raised=factory.create(THREE,{...options,placementsCm:{diffuser:{y:15}}}),wet=raised.dryGroup.userData.routes.co2.wet;
+          if(wet.length!==2)throw new Error('Gas hose doubles back over a raised diffuser inlet');
+          if(lowered!==3)throw new Error('Default gas hose lost its descending waypoint');
+          raised.dispose();
+          return 'ok';
+        })()
+        """) as? String
+    #expect(result == "ok")
+    try await surface.shutdown()
+  }
+
+  @Test func automaticRoomSettingsEncodeAnExplicitNullManualLevel() async throws {
+    var settings = IdleScreenAquariumWebSurface.TankSettings(
+      light: .init(preset: "warm", count: 1, output: 0.6, spread: "focused"),
+      room: .init(mode: "auto", finish: "concrete", manualLevel: nil),
+      surface: "lively", pump: 1.2, rasterHeight: 1080)
+    let object = try #require(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any])
+    let room = try #require(object["room"] as? [String: Any])
+    #expect(room["manualLevel"] is NSNull)
+    settings.room.manualLevel = 0.4
+    let manual = try #require(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any])
+    #expect((manual["room"] as? [String: Any])?["manualLevel"] as? Double == 0.4)
+
+    let surface = IdleScreenAquariumWebSurface()
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    _ = try await surface.beginEditing()
+    settings.room.manualLevel = nil
+    let checkpoint = try await surface.prepareSettings(settings, id: "auto-room", name: "Auto room")
+    #expect(!checkpoint.isEmpty)
+    try await surface.shutdown()
+  }
+
   @Test func presentationSettingsPreserveTheCurrentEcosystemCheckpoint() async throws {
     let surface = IdleScreenAquariumWebSurface()
     try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
@@ -907,6 +956,7 @@ struct AquariumRuntimeBundleTests {
               .map(key => ({id:a.id,key,before:a[key],after:b?.[key]}));
           })),
           hasFood: before.runtime.food.length > 0,
+          pelletsStayAttached: after.runtime.food.length > 0 && aquariumStudy.detachedFoodCount === 0,
           inventoryMatches: aquariumStudy.state.inventory.fish === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'fish' && a.alive).length
             && aquariumStudy.state.inventory.shrimp === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'shrimp' && a.alive).length
             && aquariumStudy.state.inventory.snails === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'snail' && a.alive).length,
@@ -918,6 +968,7 @@ struct AquariumRuntimeBundleTests {
     let checks = try #require(
       JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any])
     #expect(checks["hasFood"] as? Bool == true)
+    #expect(checks["pelletsStayAttached"] as? Bool == true)
     #expect(checks["inventoryMatches"] as? Bool == true)
     #expect(checks["sameLife"] as? Bool == true)
     #expect(checks["sameRuntime"] as? Bool == true, "\(String(describing: checks["differences"]))")

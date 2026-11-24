@@ -21,7 +21,7 @@
     }
     const half=tankHalf*cmPerUnit,centerZ=(backZ+frontZ)/2,rear=(backZ-centerZ)*cmPerUnit,front=(frontZ-centerZ)*cmPerUnit;
     const defaults={
-      canister:{x:half+11.1,y:0,z:rear+14,rotationY:0},
+      canister:{x:half+11.1,y:0,z:Math.min(rear+14,front-6.1-1e-9),rotationY:0},
       co2:{x:-half-8.5,y:0,z:front-8,rotationY:0},
       intake:{x:-half+4,y:rimY*cmPerUnit,z:rear,rotationY:0},
       return:{x:-half+10,y:rimY*cmPerUnit,z:rear,rotationY:0},
@@ -249,7 +249,7 @@
       [cylinderLaneX, counterY + u(34), cz + u(6.8)], [cylinderLaneX, counterY + u(20), cz + u(6.8)],
       [cylinderLaneX, counterY + u(1), backZ - u(8.7)], [gasX, counterY + u(1), backZ - u(8.7)],
       [gasX, rimY - u(5), backZ - u(1.3)], gasArch[0]], 1.5);
-    const gasDry = [...gasFlexible, ...gasArch.slice(1), [gasX, waterLevel, innerZ]], gasWet = [[gasX, waterLevel, innerZ], [gasX, u(13), innerZ], diffuserInlet];
+    const gasDry = [...gasFlexible, ...gasArch.slice(1), [gasX, waterLevel, innerZ]], gasWet = [[gasX, waterLevel, innerZ], ...(diffuserInlet[1] < u(13) ? [[gasX, u(13), innerZ]] : []), diffuserInlet];
     routes.co2 = { outerDiameterCm: .6, innerDiameterCm: .4, radius: u(.3), hosePart: 'co2-hose',
       startConnector: 'co2-tube-outlet', endConnector: 'diffuser-inlet', dry: gasDry, wet: gasWet };
     part('co2-hose', () => pipe(hose, gasDry, .6, .4)); part('co2-wet-hose', () => pipe(gasline, gasWet, .6, .4));

@@ -96,6 +96,16 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
       public var mode: String
       public var finish: String
       public var manualLevel: Double?
+
+      private enum CodingKeys: String, CodingKey { case mode, finish, manualLevel }
+
+      /// The scene configuration requires `manualLevel` to be present, with an explicit null in automatic mode.
+      public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(mode, forKey: .mode)
+        try container.encode(finish, forKey: .finish)
+        try container.encode(manualLevel, forKey: .manualLevel)
+      }
     }
     public var light: Light
     public var room: Room
