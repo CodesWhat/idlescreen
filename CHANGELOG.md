@@ -5,6 +5,12 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- Add the Scroller pattern, a demoscene-style text scroller in the 16 standard VGA
+  colours. It scrolls the time of day right to left on a sine wave with a rotating
+  per-letter palette, and Reduce Motion holds it still and centred.
+
 ## [0.4.0] - 2026-11-20
 
 ### Added
