@@ -1539,7 +1539,7 @@ function animate(stamp){
    const t=clock-feedStarted-p.delay;p.o.visible=t>=0&&t<22&&p.food.amount>.001;if(t<0||p.settled||!p.o.visible)continue;
    const elapsed=Math.min(.08,Math.max(0,t-p.lastT));p.lastT=t;p.velocity.y=Math.max(-1.7,p.velocity.y-elapsed*.16);
    const next=p.o.position.clone().addScaledVector(p.velocity,elapsed),contact=collisionWorld.moveSphere(p.o.position,next,.036);
-   p.o.position.copy(contact.position);if(contact.collided&&contact.kind!=='glass'){p.settled=true;p.o.userData.landedOn=contact.kind;}
+   p.o.position.copy(contact.position);if(contact.collided&&contact.kind!=='glass'){p.settled=true;p.o.userData.landedOn=contact.kind==='gravel'?'floor':contact.kind;}
    else p.o.rotation.z+=elapsed*.6;
   }
   for(const p of plants)if(p.sway!==false){const position=p.g.getWorldPosition(new THREE.Vector3()),flow=flowField?.sample(position.x,position.y+1,position.z,clock);p.g.rotation.z=-(flow?.x||0)*(flow?.strength||0)*(.035+.012*Math.sin(clock*.9+p.phase));p.g.rotation.x=(flow?.z||0)*(flow?.strength||0)*.035;}
