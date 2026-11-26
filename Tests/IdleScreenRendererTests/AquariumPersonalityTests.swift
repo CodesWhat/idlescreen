@@ -278,11 +278,17 @@ struct AquariumPersonalityTests {
     let navigation = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
     let frames = 600
     var checksum = 0.0
-    let clock = ContinuousClock()
-    // Best of three passes keeps scheduler noise out of the budget check.
+    // Thread CPU time, best of three passes: a loaded machine deschedules the
+    // thread, which inflates wall time but not the work the pose step does.
+    func threadCPUMilliseconds() -> Double {
+      var spec = timespec()
+      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &spec)
+      return Double(spec.tv_sec) * 1000 + Double(spec.tv_nsec) / 1e6
+    }
     var perFrame = Double.infinity
     for pass in 0..<3 {
-      let elapsed = clock.measure {
+      let start = threadCPUMilliseconds()
+      do {
         for frame in 0..<frames {
           for item in settings.inhabitants {
             checksum +=
@@ -293,8 +299,7 @@ struct AquariumPersonalityTests {
           }
         }
       }
-      let milliseconds =
-        Double(elapsed.components.seconds) * 1000 + Double(elapsed.components.attoseconds) / 1e15
+      let milliseconds = threadCPUMilliseconds() - start
       perFrame = min(perFrame, milliseconds / Double(frames))
     }
     print("aquarium pose step: \(perFrame) ms/frame for 32 animals")
