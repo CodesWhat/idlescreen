@@ -87,3 +87,54 @@ r1_manifest_value() {
   [[ -n "$value" && "$value" != *$'\n'* && "$value" != *$'\t'* ]] || return 1
   /usr/bin/printf '%s\n' "$value"
 }
+
+# Chooses notarytool credentials. Tries the Keychain profile first; only when
+# notarytool says the profile is missing does it fall back to the App Store
+# Connect API key from IDLESCREEN_ASC_KEY_PATH, IDLESCREEN_ASC_KEY_ID and
+# IDLESCREEN_ASC_ISSUER_ID. Sets r1_notary_auth to the credential arguments for
+# every later notarytool call. Secret values are never printed.
+# Usage: r1_resolve_notary_auth <profile> <scratch-dir> <notarytool command...>
+# Returns 0 on success, 1 when no credential works, 2 when the Keychain profile
+# exists but notarytool failed for another reason (no fallback in that case).
+r1_notary_auth=()
+r1_resolve_notary_auth() {
+  local profile="$1"
+  local scratch="$2"
+  shift 2
+  local history_out="$scratch/notary-history.json"
+  local history_err="$scratch/notary-history.err"
+  local key_path="${IDLESCREEN_ASC_KEY_PATH:-}"
+  local key_id="${IDLESCREEN_ASC_KEY_ID:-}"
+  local issuer_id="${IDLESCREEN_ASC_ISSUER_ID:-}"
+
+  r1_notary_auth=(--keychain-profile "$profile")
+  if "$@" history "${r1_notary_auth[@]}" --output-format json \
+    >"$history_out" 2>"$history_err"; then
+    return 0
+  fi
+  if ! /usr/bin/grep -Eiq 'no keychain password item|profile.*(not found|does not exist|missing)|could not find.*profile' "$history_err"; then
+    return 2
+  fi
+
+  echo "notarytool Keychain profile '$profile' is missing; trying the App Store Connect API key." >&2
+  if [[ -z "$key_path" || -z "$key_id" || -z "$issuer_id" ]]; then
+    echo "Neither credential is usable: the Keychain profile is missing and IDLESCREEN_ASC_KEY_PATH, IDLESCREEN_ASC_KEY_ID and IDLESCREEN_ASC_ISSUER_ID are not all set." >&2
+    return 1
+  fi
+  if [[ ! -f "$key_path" || -L "$key_path" || ! -r "$key_path" ]]; then
+    echo "Neither credential is usable: IDLESCREEN_ASC_KEY_PATH is not a readable regular file." >&2
+    return 1
+  fi
+  if [[ ! "$key_id" =~ ^[A-Za-z0-9]{10}$ ||
+    ! "$issuer_id" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
+    echo "Neither credential is usable: IDLESCREEN_ASC_KEY_ID or IDLESCREEN_ASC_ISSUER_ID is malformed." >&2
+    return 1
+  fi
+  r1_notary_auth=(--key "$key_path" --key-id "$key_id" --issuer "$issuer_id")
+  if "$@" history "${r1_notary_auth[@]}" --output-format json \
+    >"$history_out" 2>"$history_err"; then
+    return 0
+  fi
+  echo "Neither credential is usable: the App Store Connect API key was rejected by notarytool." >&2
+  return 1
+}
