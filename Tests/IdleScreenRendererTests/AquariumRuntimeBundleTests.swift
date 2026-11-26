@@ -11,7 +11,8 @@ import WebKit
 struct AquariumRuntimeBundleTests {
   @Test func premiumPlacementsKeepBodiesConnectionsAndGlassMountsTogether() async throws {
     let surface = IdleScreenAquariumWebSurface()
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let result =
       try await surface.view.evaluateJavaScript(
         """
@@ -58,7 +59,8 @@ struct AquariumRuntimeBundleTests {
 
   @Test func premiumDefaultsFitShallowTanksAndGasHoseFollowsRaisedDiffuser() async throws {
     let surface = IdleScreenAquariumWebSurface()
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let result =
       try await surface.view.evaluateJavaScript(
         """
@@ -84,7 +86,8 @@ struct AquariumRuntimeBundleTests {
 
   @Test func co2PowerAdapterClearsAMovedCylinder() async throws {
     let surface = IdleScreenAquariumWebSurface()
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let result =
       try await surface.view.evaluateJavaScript(
         """
@@ -122,7 +125,8 @@ struct AquariumRuntimeBundleTests {
     #expect((manual["room"] as? [String: Any])?["manualLevel"] as? Double == 0.4)
 
     let surface = IdleScreenAquariumWebSurface()
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     _ = try await surface.beginEditing()
     settings.room.manualLevel = nil
     let checkpoint = try await surface.prepareSettings(settings, id: "auto-room", name: "Auto room")
@@ -132,7 +136,8 @@ struct AquariumRuntimeBundleTests {
 
   @Test func presentationSettingsPreserveTheCurrentEcosystemCheckpoint() async throws {
     let surface = IdleScreenAquariumWebSurface()
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     _ = try await surface.beginEditing()
     let supported =
       try await surface.view.evaluateJavaScript(
@@ -165,7 +170,8 @@ struct AquariumRuntimeBundleTests {
 
   @Test func stockMessagesRejectMalformedAndStaleUpdatesAndFenceOldQueries() async throws {
     let surface = IdleScreenAquariumWebSurface()
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let original = try await surface.beginEditing()
     var updates: [IdleScreenAquariumWebSurface.StockUpdate] = []
     surface.onStockChange = { updates.append($0) }
@@ -221,7 +227,7 @@ struct AquariumRuntimeBundleTests {
         source: Self.frameClock(emulatingVisibleDocument: true), injectionTime: .atDocumentStart,
         forMainFrameOnly: true)
     )
-    try await surface.load(sceneURL: resource)
+    try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
     let initial = try await snapshot(surface)
     #expect(initial.revision == "160")
     #expect(!initial.documentHidden)
@@ -273,7 +279,7 @@ struct AquariumRuntimeBundleTests {
       WKUserScript(
         source: Self.frameClock(emulatingVisibleDocument: false), injectionTime: .atDocumentStart,
         forMainFrameOnly: true))
-    try await surface.load(sceneURL: resource)
+    try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
     let initial = try await snapshot(surface)
     #expect(initial.documentHidden)
     try await surface.resume()
@@ -325,7 +331,7 @@ struct AquariumRuntimeBundleTests {
     let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
     let surface = IdleScreenAquariumWebSurface()
     defer { surface.releaseResources() }
-    try await surface.load(sceneURL: resource)
+    try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
     let script = source + "\nJSON.stringify(runAquariumCollisionCheck(THREE, AquariumCollisions));"
     let json: String = try await withCheckedThrowingContinuation { continuation in
       surface.view.evaluateJavaScript(script) { value, error in
@@ -363,7 +369,8 @@ struct AquariumRuntimeBundleTests {
     let surface = IdleScreenAquariumWebSurface()
     defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
     #expect(initial.catalog.count == 15)
     #expect(initial.placedObjects.isEmpty)
@@ -407,7 +414,8 @@ struct AquariumRuntimeBundleTests {
     let surface = IdleScreenAquariumWebSurface()
     defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
     let rock = try #require(initial.objects.first { $0.id == "base-rock" })
     let plant = IdleScreenAquariumWebSurface.PresetObject(
@@ -432,7 +440,8 @@ struct AquariumRuntimeBundleTests {
     let surface = IdleScreenAquariumWebSurface()
     defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
     var received: IdleScreenAquariumWebSurface.EditorPick?
     var receivedCount = 0
@@ -517,7 +526,8 @@ struct AquariumRuntimeBundleTests {
     let surface = IdleScreenAquariumWebSurface()
     defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
     var rock = try #require(initial.objects.first { $0.id == "base-rock" })
     rock.positionCm.x = 0
@@ -569,7 +579,8 @@ struct AquariumRuntimeBundleTests {
     let surface = IdleScreenAquariumWebSurface()
     defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
     #expect(initial.equipmentObjects.count == 3)
     let cleared = try await surface.applyPresetObjects(
@@ -595,7 +606,8 @@ struct AquariumRuntimeBundleTests {
     }
     let restored = IdleScreenAquariumWebSurface()
     defer { restored.releaseResources() }
-    try await restored.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await restored.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let reopened = try await restored.restoreTank(from: stable)
     #expect(reopened.equipmentObjects == moved)
     var legacy = try #require(JSONSerialization.jsonObject(with: stable) as? [String: Any])
@@ -608,7 +620,8 @@ struct AquariumRuntimeBundleTests {
     legacy["tank"] = tank
     let old = IdleScreenAquariumWebSurface()
     defer { old.releaseResources() }
-    try await old.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await old.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let oldState = try await old.restoreTank(from: JSONSerialization.data(withJSONObject: legacy))
     #expect(oldState.equipmentObjects == initial.equipmentObjects)
     try await surface.shutdown()
@@ -640,7 +653,8 @@ struct AquariumRuntimeBundleTests {
     let saved = try await source.exportTank(id: "swap-test", name: "Swap")
     let target = IdleScreenAquariumWebSurface()
     defer { target.releaseResources() }
-    try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await target.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let reopened = try await target.restoreTank(from: saved)
     #expect(reopened.equipmentObjects == edited.equipmentObjects)
     expectSamePoses(reopened.objects, edited.objects)
@@ -677,7 +691,8 @@ struct AquariumRuntimeBundleTests {
     let saved = try await source.exportTank(id: "vacated-test", name: "Vacated")
     let target = IdleScreenAquariumWebSurface()
     defer { target.releaseResources() }
-    try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await target.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let reopened = try await target.restoreTank(from: saved)
     #expect(reopened.equipmentObjects == edited.equipmentObjects)
     expectSamePoses(reopened.objects, cleared.objects)
@@ -717,7 +732,8 @@ struct AquariumRuntimeBundleTests {
     let tampered = try JSONSerialization.data(withJSONObject: envelope)
     let target = IdleScreenAquariumWebSurface()
     defer { target.releaseResources() }
-    try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await target.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     await #expect(throws: (any Error).self) { try await target.restoreTank(from: tampered) }
     try await source.shutdown()
     try await target.shutdown()
@@ -736,7 +752,8 @@ struct AquariumRuntimeBundleTests {
     let surface = IdleScreenAquariumWebSurface()
     defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
     let cleared = try await surface.applyPresetObjects(
       expectedRevision: initial.revision, objects: [])
@@ -767,7 +784,8 @@ struct AquariumRuntimeBundleTests {
   @Test func equipmentIdentitiesDoNotShadowExistingSavedObjectNames() async throws {
     let surface = IdleScreenAquariumWebSurface()
     defer { surface.releaseResources() }
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let initial = try await surface.beginEditing()
     let empty = try await surface.applyPresetObjects(
       expectedRevision: initial.revision, objects: [])
@@ -790,7 +808,8 @@ struct AquariumRuntimeBundleTests {
       WKUserScript(
         source: Self.frameClock(emulatingVisibleDocument: false), injectionTime: .atDocumentStart,
         forMainFrameOnly: true))
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let before = try await snapshot(surface)
     let initial = try await surface.beginEditing()
     #expect(!initial.objects.isEmpty)
@@ -846,7 +865,8 @@ struct AquariumRuntimeBundleTests {
       WKUserScript(
         source: Self.frameClock(emulatingVisibleDocument: true),
         injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    try await source.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await source.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let setupJSON = String(decoding: try JSONEncoder().encode(setup), as: UTF8.self)
     _ = try await tankScript(
       source, "aquariumStudy.setSceneStyle(\(setupJSON)); JSON.stringify(true)")
@@ -882,7 +902,8 @@ struct AquariumRuntimeBundleTests {
       WKUserScript(
         source: Self.frameClock(emulatingVisibleDocument: true),
         injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await target.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     _ = try await target.restoreTank(from: savedData)
     let exported = try await tankScript(
       target, "JSON.stringify(aquariumStudy.exportTank({id:'tank-one',name:'Living tank'}))")
@@ -939,7 +960,8 @@ struct AquariumRuntimeBundleTests {
   @Test(arguments: [false, true])
   func rebuildingScenePreservesStoredStockAndFeeding(empty: Bool) async throws {
     let source = IdleScreenAquariumWebSurface()
-    try await source.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await source.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     _ = try await source.beginEditing()
     _ = try await tankScript(source, "aquariumStudy.feed({automatic:true}); JSON.stringify(true)")
     let saved = try await tankScript(
@@ -964,7 +986,8 @@ struct AquariumRuntimeBundleTests {
       WKUserScript(
         source: Self.frameClock(emulatingVisibleDocument: true),
         injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    try await target.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await target.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     _ = try await target.restoreTank(from: Data(saved.utf8))
     let result = try await tankScript(
       target,
@@ -1012,7 +1035,8 @@ struct AquariumRuntimeBundleTests {
       WKUserScript(
         source: Self.frameClock(emulatingVisibleDocument: true),
         injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     _ = try await surface.beginEditing()
     try await surface.resume()
     let result = try await tankScript(
@@ -1117,7 +1141,8 @@ struct AquariumRuntimeBundleTests {
       "stock-catalog", invocation: "runAquariumStockCatalog()")
     #expect(result["checks"] == 10)
     let surface = IdleScreenAquariumWebSurface()
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let snapshot = try await surface.beginEditing()
     #expect(snapshot.stockCatalog.count == 35)
     #expect(Set(snapshot.stockCatalog.map(\.id)).count == 35)
@@ -1150,7 +1175,8 @@ struct AquariumRuntimeBundleTests {
             }}});
           }});
           """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     _ = try await surface.beginEditing()
     _ = try await tankScript(
       surface,
@@ -1211,7 +1237,8 @@ struct AquariumRuntimeBundleTests {
     let surface = IdleScreenAquariumWebSurface()
     do {
       surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-      try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
       _ = try await surface.beginEditing()
       return surface
     } catch {
@@ -1244,7 +1271,8 @@ struct AquariumRuntimeBundleTests {
     let surface = IdleScreenAquariumWebSurface()
     defer { surface.releaseResources() }
     surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    try await surface.loadRetryingTransientWebGLFailure(
+      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
     let script = source + "\nJSON.stringify(" + invocation + ");"
     let json: String = try await withCheckedThrowingContinuation { continuation in
       surface.view.evaluateJavaScript(script) { value, error in
@@ -1270,7 +1298,7 @@ struct AquariumRuntimeBundleTests {
       let surface = IdleScreenAquariumWebSurface()
       defer { surface.releaseResources() }
       surface.view.frame = NSRect(x: 0, y: 0, width: 320, height: 180)
-      try await surface.load(sceneURL: resource)
+      try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
       let kind = try await surface.view.evaluateJavaScript("typeof window.idleScreenScene")
       #expect(kind as? String == "object", "load \(iteration) has no live scene")
       try await surface.shutdown()

@@ -14,7 +14,7 @@ struct AquariumWebSurfaceTests {
     let resource = try #require(
       Bundle(for: FixtureBundle.self).url(
         forResource: "index", withExtension: "html", subdirectory: "WebSurfaceProof"))
-    try await surface.load(sceneURL: resource)
+    try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
     #expect(surface.state == .paused)
     #expect(surface.view.url == resource)
 
@@ -73,7 +73,7 @@ struct AquariumWebSurfaceTests {
     let resource = try #require(
       Bundle(for: FixtureBundle.self).url(
         forResource: "index", withExtension: "html", subdirectory: "WebSurfaceProof"))
-    try await surface.load(sceneURL: resource)
+    try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
     let _: String = try await evaluate(
       "window.idleScreenScene = undefined; 'removed'", in: surface.view)
     await #expect(throws: (any Error).self) { try await surface.resume() }

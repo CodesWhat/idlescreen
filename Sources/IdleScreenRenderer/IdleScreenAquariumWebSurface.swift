@@ -237,6 +237,25 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     configuration.userContentController.add(handler, name: "idleScreenStock")
   }
 
+  /// Test seam for hosted runners whose GPU intermittently refuses a WebGL context. Retries a
+  /// failed load once, and only for the runtime-start failures `requireRuntime` reports, so a
+  /// deterministic regression still fails on the second attempt.
+  func loadRetryingTransientWebGLFailure(sceneURL: URL) async throws {
+    do {
+      try await load(sceneURL: sceneURL)
+    } catch SurfaceError.runtimeUnavailable(let detail)
+      where detail.hasPrefix("WebGL unavailable") || detail == "scene did not initialize"
+    {
+      guard state == .failed, !released else { throw SurfaceError.runtimeUnavailable(detail) }
+      print("IdleScreen test: transient runtime start failure (\(detail)); retrying load once")
+      try? await command(Self.disposeScript)
+      view.stopLoading()
+      try? await Task.sleep(for: .milliseconds(500))
+      state = .unloaded
+      try await load(sceneURL: sceneURL)
+    }
+  }
+
   public func load(sceneURL: URL) async throws {
     guard state == .unloaded else { throw SurfaceError.invalidState }
     guard sceneURL.isFileURL,
