@@ -1,0 +1,11 @@
+# The fixed 80% line-coverage floor is enforced from the same LCOV in
+# scripts/check_coverage_floor.py. These statuses mirror it on the Codecov side.
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 0%
+    patch:
+      default:
+        informational: true

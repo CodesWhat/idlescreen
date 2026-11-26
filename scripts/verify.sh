@@ -48,6 +48,7 @@ release_fixtures() {
   # Keep in step with "Run deterministic product fixtures" in ci-verify.yml;
   # test-repository-layout.sh fails when a scripts/test-* file is in neither.
   python3 ./scripts/test_xccov_to_lcov.py &&
+    ./scripts/test-coverage-floor.sh &&
     python3 ./scripts/test_performance_r1_report.py &&
     ./scripts/test-run-performance-r1.sh &&
     ./scripts/test-camera-gate-c8-soak-planner.py &&
