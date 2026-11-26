@@ -120,6 +120,7 @@ jobs:
           ./scripts/test-synthetic-gate-contracts.sh
           ./scripts/test-synthetic-gate-transaction.sh
           ./scripts/test-release-sbom-symlinks.sh
+          ./scripts/test-notary-credential-fallback.sh
 
       - name: Convert test-run coverage to LCOV
         if: github.event_name == 'push'

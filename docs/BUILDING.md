@@ -145,7 +145,8 @@ authority. A real run requires:
 - the exact Developer ID Application identity SHA-1;
 - separate Developer ID distribution profiles for the app, extension, and
   camera helper;
-- an existing `notarytool` Keychain profile; and
+- an existing `notarytool` Keychain profile (or the App Store Connect API key
+  fallback described below); and
 - `IDLESCREEN_ALLOW_REAL_DISTRIBUTION=YES`.
 
 The builder archives the app, verifies the development-signed provenance,
@@ -153,6 +154,24 @@ embeds release identity, signs nested code from the inside out, creates a UDZO
 DMG, submits it for notarization, staples it, mounts it read-only, and asks
 Gatekeeper to assess both the DMG and mounted app. It never creates or stores
 credentials and never signs code after notarization.
+
+### Notarization credential fallback
+
+The builder tries `--keychain-profile $IDLESCREEN_NOTARY_KEYCHAIN_PROFILE`
+first. If `notarytool` reports that the profile is missing (the
+`idlescreen-notary-2026` profile has vanished from the login Keychain before),
+it retries with the App Store Connect API key from these variables:
+
+- `IDLESCREEN_ASC_KEY_PATH`: absolute path to the `AuthKey_<id>.p8` file;
+- `IDLESCREEN_ASC_KEY_ID`: the 10-character key ID; and
+- `IDLESCREEN_ASC_ISSUER_ID`: the issuer UUID.
+
+All three must be set. The key is used for every later `notarytool` call in
+that run. Any other profile failure (network, revoked credentials) stops the
+run without falling back, and if neither credential works the run exits with a
+`BLOCKED` message. Secret values are never printed.
+`scripts/test-notary-credential-fallback.sh` covers the three cases with a stub
+`notarytool`.
 
 Replay a completed candidate with:
 

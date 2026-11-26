@@ -222,10 +222,14 @@ validate_profile_preflight \
   "$extension_profile" extension com.idlescreen.app.screensaver "$decoded_extension_profile"
 validate_profile_preflight "$helper_profile" helper com.idlescreen.camera-agent "$decoded_helper_profile"
 
+r1_notary_auth=()
+r1_resolve_notary_auth "$notary_profile" "$scratch_root" "${notary_command[@]}" && notary_auth_status=0 || notary_auth_status=$?
 notary_history="$scratch_root/notary-history.json"
-"${notary_command[@]}" history --keychain-profile "$notary_profile" --output-format json \
-  >"$notary_history" 2>/dev/null ||
-  blocked "the existing notarytool Keychain profile could not authenticate"
+case "$notary_auth_status" in
+  0) ;;
+  2) blocked "the existing notarytool Keychain profile could not authenticate" ;;
+  *) blocked "no notarytool credential is usable (Keychain profile missing, App Store Connect API key unavailable)" ;;
+esac
 /usr/bin/jq -e . "$notary_history" >/dev/null 2>&1 ||
   blocked "the existing notarytool Keychain profile returned malformed data"
 
@@ -404,13 +408,13 @@ dmg_path="$output_root/Distribution/idlescreen-$bundle_short_version-build$bundl
 submitted_dmg_sha="$(r1_sha256_file "$dmg_path")"
 
 notary_submit="$output_root/Evidence/notary-submit.json"
-"${notary_command[@]}" submit "$dmg_path" --keychain-profile "$notary_profile" \
+"${notary_command[@]}" submit "$dmg_path" "${r1_notary_auth[@]}" \
   --output-format json >"$notary_submit" || fail "notary submission failed"
 notary_submission_id="$(/usr/bin/jq -r '.id // empty' "$notary_submit")"
 [[ "$notary_submission_id" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]] ||
   fail "notary submission returned no valid identifier"
 notary_wait="$output_root/Evidence/notary-wait.json"
-"${notary_command[@]}" wait "$notary_submission_id" --keychain-profile "$notary_profile" \
+"${notary_command[@]}" wait "$notary_submission_id" "${r1_notary_auth[@]}" \
   --timeout 30m --output-format json >"$notary_wait" || fail "notary wait did not complete"
 wait_submission_id="$(/usr/bin/jq -r '.id // empty' "$notary_wait")"
 notary_status="$(/usr/bin/jq -r '.status // empty' "$notary_wait")"
@@ -420,7 +424,7 @@ normalized_notary_submission_id="$(/usr/bin/printf '%s' "$notary_submission_id" 
   fail "notary wait returned a different submission identifier"
 [[ "$notary_status" == Accepted ]] || fail "notary service did not accept the release DMG"
 notary_log="$output_root/Evidence/notary-log.json"
-"${notary_command[@]}" log "$notary_submission_id" --keychain-profile "$notary_profile" \
+"${notary_command[@]}" log "$notary_submission_id" "${r1_notary_auth[@]}" \
   "$notary_log" || fail "could not download the notarization log"
 /usr/bin/jq -e . "$notary_log" >/dev/null 2>&1 || fail "notarization log is malformed"
 log_submission_id="$(/usr/bin/jq -r '.jobId // empty' "$notary_log")"
