@@ -54,7 +54,7 @@ struct DemoScrollerTests {
   func fieldIsFlat() {
     let frame = Scroller.frame(columns: 192, rows: 108, time: 0, text: "")
     #expect(frame.indices.allSatisfy { $0 == Scroller.fieldIndex })
-    #expect(Scroller.fieldIndex == 8)
+    #expect(Scroller.fieldIndex == 7)
   }
 
   @Test("adjacent letters take different hues from the palette ring")
@@ -79,36 +79,52 @@ struct DemoScrollerTests {
     #expect(a != b)
   }
 
-  @Test("every letter pixel has a hard shadow pixel offset down and right in a darker colour")
+  @Test("every shadow pixel is hard black, one font pixel down and right of a letter pixel")
   func dropShadow() {
-    for (columns, rows, offset) in [(192, 108, 2), (96, 48, 1)] {
+    for (columns, rows) in [(192, 108), (96, 48)] {
+      let offset = Scroller.blockSize(rows: rows)
       let frame = Scroller.frame(
         columns: columns, rows: rows, time: 0, text: "HI", reduceMotion: true)
-      let hues = Set(Scroller.hueRing)
       var shadowCount = 0
       for row in 0..<rows {
-        for column in 0..<columns {
-          let value = frame.index(column: column, row: row)
-          guard !hues.contains(value), value != Scroller.fieldIndex else { continue }
+        for column in 0..<columns
+        where frame.index(column: column, row: row) == Scroller.shadowColor {
           shadowCount += 1
           let source = frame.index(column: column - offset, row: row - offset)
-          // A shadow pixel is the shadow of the letter pixel up and left of it.
-          #expect(hues.contains(source) || source == value)
-          if hues.contains(source) {
-            #expect(Scroller.shadowIndex(for: source) == value)
-          }
+          #expect(source != Scroller.fieldIndex && source != Scroller.shadowColor)
         }
       }
       #expect(shadowCount > 0)
     }
+    func sum(_ index: UInt8) -> Int {
+      Int(Scroller.palette[Int(index)].x) + Int(Scroller.palette[Int(index)].y)
+        + Int(Scroller.palette[Int(index)].z)
+    }
+    #expect(Scroller.shadowColor == 0)
+    #expect(sum(Scroller.shadowColor) < sum(Scroller.fieldIndex))
     for hue in Scroller.hueRing {
-      let shadow = Scroller.shadowIndex(for: hue)
-      let sum = { (index: UInt8) in
-        Int(Scroller.palette[Int(index)].x) + Int(Scroller.palette[Int(index)].y)
-          + Int(Scroller.palette[Int(index)].z)
+      #expect(sum(Scroller.highlightIndex(for: hue)) > sum(hue))
+      #expect(hue != Scroller.fieldIndex && hue != Scroller.shadowColor)
+    }
+  }
+
+  @Test("letters carry a bright bevel on their top-left edge")
+  func bevel() {
+    let frame = Scroller.frame(
+      columns: 192, rows: 108, time: 0, text: "HI", reduceMotion: true)
+    let highlights = Set(Scroller.hueRing.map(Scroller.highlightIndex(for:)))
+    let present = Set(frame.indices).intersection(highlights)
+    #expect(present.count == 2)
+    for row in 0..<108 {
+      for column in 0..<192 {
+        let value = frame.index(column: column, row: row)
+        guard highlights.contains(value) else { continue }
+        // A bevel pixel sits on the edge: the pixel above or left is not letter.
+        let above = frame.index(column: column, row: row - 1)
+        let left = frame.index(column: column - 1, row: row)
+        let isLetter = { (v: UInt8) in v != Scroller.fieldIndex && v != Scroller.shadowColor }
+        #expect(!isLetter(above) || !isLetter(left))
       }
-      #expect(sum(shadow) < sum(hue))
-      #expect(shadow != Scroller.fieldIndex)
     }
   }
 
@@ -131,7 +147,7 @@ struct DemoScrollerTests {
     }
     // Centred within a letter's shear and shadow allowance.
     #expect(abs((minX + maxX) / 2 - 96) <= 12)
-    #expect(minX > 0 && maxX < 191)
+    #expect(minX >= 0 && maxX <= 191)
   }
 
   @Test("motion changes the frame and the text scrolls right to left")
@@ -251,14 +267,14 @@ struct DemoScrollerTests {
     .init(name: "320x180-reduce", columns: 320, rows: 180, time: 9, text: "12:34", reduce: true),
   ]
   static let expected: [String: UInt64] = [
-    "192x108-t0": 0xce92_e71f_536c_7a8d,
-    "192x108-t2.5": 0x0368_5037_e596_cd89,
-    "192x108-t37.2": 0x6cb8_b101_0fa0_eea5,
-    "320x180-t0": 0x2f0b_33ce_b44a_6b7c,
-    "320x180-t11.1": 0x065b_b99a_b98e_cec5,
-    "96x48-t4": 0x6d37_f5f6_ee19_ebfd,
-    "192x108-reduce": 0x7ab8_5f4f_aa89_890d,
-    "320x180-reduce": 0xc6cf_ef45_00d7_fa36,
+    "192x108-t0": 0x6c9b_a537_89ce_ea9d,
+    "192x108-t2.5": 0xa1c1_c733_c3f9_9fd6,
+    "192x108-t37.2": 0x4706_f330_c0a7_1df9,
+    "320x180-t0": 0xe724_4367_06e7_46fd,
+    "320x180-t11.1": 0x600f_47bf_59a0_dd3f,
+    "96x48-t4": 0x7a92_ccf7_c428_cab1,
+    "192x108-reduce": 0x20b0_14aa_bf4d_12a9,
+    "320x180-reduce": 0x63c5_3667_d80b_6ea5,
   ]
 
   @Test func framesMatchTheCapturedGoldens() {

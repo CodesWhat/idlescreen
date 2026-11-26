@@ -124,7 +124,10 @@ struct SaverThumbnailCaptureTests {
         entry.name, glyph: 1, intensity: entry.intensity, speed: entry.speed,
         scale: entry.scale, trailing: entry.trailing)
       // A fixed phrase, since the default scrolls the time of day.
-      if entry.name == "demoScroller" { value.demoScrollerPhrase = "IDLE" }
+      if entry.name == "demoScroller" {
+        value.demoScrollerPhrase = "IDLE"
+        value.reduceMotion = true
+      }
       return Shot(
         name: entry.name, configuration: value, frames: 1, time: entry.time,
         exposure: entry.exposure)

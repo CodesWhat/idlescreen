@@ -3,12 +3,13 @@ import Foundation
 
 /// A demoscene-style text scroller on a strict 16-colour VGA palette.
 ///
-/// The scene is a raster of palette indices, never blended colours: sheared
-/// 5x7 bitmap letters, each in its own palette hue, a hard drop shadow in a
-/// darker palette colour, on a flat dark-grey field. Text scrolls right to
-/// left with every letter's baseline riding a sine wave, and the hues rotate
-/// through the palette in discrete steps. Reduce Motion holds the text still,
-/// centred, in its first colours.
+/// The scene is a raster of palette indices, never blended colours: heavy,
+/// sheared bitmap letters set tight into one logo block, each letter in its
+/// own palette hue with a one-pixel bright bevel on its top-left edge, and a
+/// hard near-black drop shadow, on a flat light-grey field. Text scrolls right
+/// to left with every letter's baseline riding a sine wave, and the hues
+/// rotate through the palette in discrete steps. Reduce Motion holds the text
+/// still, centred, in its first colours.
 ///
 /// The frame is a pure function of its arguments so the same inputs always
 /// give the same pixels. The renderer maps each index to one grid cell, so a
@@ -34,24 +35,19 @@ public enum IdleScreenDemoScroller {
     SIMD3(0xFF, 0xFF, 0xFF),  // 15 white
   ]
 
-  /// The flat field behind the text: dark grey.
-  public static let fieldIndex: UInt8 = 8
+  /// The flat field behind the text: light grey.
+  public static let fieldIndex: UInt8 = 7
+
+  /// The hard drop shadow: black.
+  public static let shadowColor: UInt8 = 0
 
   /// Letter hues in rotation order. Every letter takes the next entry, and the
   /// whole ring advances one entry per colour step.
-  public static let hueRing: [UInt8] = [12, 14, 10, 11, 9, 13, 15]
+  public static let hueRing: [UInt8] = [4, 2, 1, 5, 6, 3]
 
-  /// The darker palette colour that casts each hue's shadow.
-  public static func shadowIndex(for hue: UInt8) -> UInt8 {
-    switch hue {
-    case 9: return 1
-    case 10: return 2
-    case 11: return 3
-    case 12: return 4
-    case 13: return 5
-    case 14: return 6
-    default: return 0
-    }
+  /// The bright twin that bevels a hue's top-left edge.
+  public static func highlightIndex(for hue: UInt8) -> UInt8 {
+    hue >= 1 && hue <= 6 ? hue + 8 : 15
   }
 
   /// Scene rows the layout aims for. A display's pixel scale is its height
@@ -61,6 +57,13 @@ public enum IdleScreenDemoScroller {
   public static let maximumTextLength = 256
   /// Palette rotation steps per second at speed 1.
   public static let colorStepsPerSecond = 5.0
+  /// Letter height as a share of the scene height.
+  public static let textHeightShare = 0.40
+
+  /// Scene pixels per font pixel for a scene `rows` tall.
+  public static func blockSize(rows: Int) -> Int {
+    max(1, Int(Double(max(0, rows)) * textHeightShare / Double(BitmapFont.cellHeight)))
+  }
 
   /// The whole-number scale of one scene pixel, in points, for a scene of
   /// `sceneHeight` points. Never below 1.
@@ -122,20 +125,32 @@ public enum IdleScreenDemoScroller {
     }
     let time = reduceMotion ? 0 : (rawTime.isFinite ? max(0, rawTime) : 0)
 
-    // One font pixel is `block` scene pixels square.
-    let block = max(1, rows / 24)
-    let advance = (BitmapFont.width + 3) * block
+    // One font pixel is `block` scene pixels square. A still frame shrinks
+    // the type until the whole text fits across the scene.
+    var block = blockSize(rows: rows)
+    if reduceMotion {
+      // Letters, slant and shadow: the real extent of the text in font pixels.
+      let cells =
+        (characters.count - 1) * BitmapFont.advanceCells + BitmapFont.cellWidth
+        + BitmapFont.shearCells + 1
+      block = max(1, min(block, columns / cells))
+    }
+    let advance = BitmapFont.advanceCells * block
     let textWidth = characters.count * advance
-    let shadowOffset = block >= 3 ? 2 : 1
-    let amplitude = Double(rows) * 0.14
+    let shadowOffset = block
+    let bevel = max(1, block / 4)
+    let amplitude = Double(rows) * 0.12
     let waveLength = Double(columns) * 0.45
-    let baseline = (rows - BitmapFont.height * block) / 2
+    let baseline = (rows - BitmapFont.cellHeight * block) / 2
     let colorStep = Int((time * colorStepsPerSecond).rounded(.down))
 
     // Left edge of the first copy of the text.
     var origins: [Int] = []
     if reduceMotion {
-      origins = [(columns - textWidth) / 2]
+      let extent =
+        ((characters.count - 1) * BitmapFont.advanceCells + BitmapFont.cellWidth
+          + BitmapFont.shearCells + 1) * block
+      origins = [(columns - extent) / 2]
     } else {
       let period = textWidth + max(columns / 3, 4 * block)
       let speed = Double(columns) * 0.12
@@ -152,69 +167,115 @@ public enum IdleScreenDemoScroller {
     struct Placed {
       let x: Int
       let y: Int
-      let glyph: BitmapFont.Glyph
+      let mask: LetterMask
       let hue: UInt8
     }
+    var masks: [Character: LetterMask] = [:]
     var placed: [Placed] = []
     for origin in origins {
       for (position, character) in characters.enumerated() {
         let x = origin + position * advance
         // Skip letters wholly off screen, allowing for shear and shadow.
-        guard x + advance + 2 * block + shadowOffset > 0, x < columns else { continue }
+        guard x + advance + BitmapFont.shearCells * block + shadowOffset > 0, x < columns
+        else { continue }
         let wave =
           reduceMotion
           ? 0.0
-          : amplitude
-            * sin(
-              2 * Double.pi * Double(x) / waveLength + time * 2.4)
+          : amplitude * sin(2 * Double.pi * Double(x) / waveLength + time * 2.4)
+        let mask: LetterMask
+        if let cached = masks[character] {
+          mask = cached
+        } else {
+          mask = LetterMask(glyph: BitmapFont.glyph(for: character), block: block)
+          masks[character] = mask
+        }
         placed.append(
           Placed(
-            x: x, y: baseline + Int(wave.rounded()),
-            glyph: BitmapFont.glyph(for: character),
+            x: x, y: baseline + Int(wave.rounded()), mask: mask,
             hue: hueRing[(position + colorStep) % hueRing.count]))
       }
     }
 
-    func fill(
-      _ item: Placed, dx: Int, dy: Int, color: UInt8
-    ) {
-      for fontRow in 0..<BitmapFont.height {
-        let shear = (BitmapFont.height - fontRow) / 3 * block
-        for fontColumn in 0..<BitmapFont.width
-        where item.glyph.isSet(column: fontColumn, row: fontRow) {
-          let left = item.x + dx + shear + fontColumn * block
-          let top = item.y + dy + fontRow * block
-          let yStart = max(0, top)
-          let yEnd = min(rows, top + block)
-          let xStart = max(0, left)
-          let xEnd = min(columns, left + block)
-          guard yStart < yEnd, xStart < xEnd else { continue }
-          for y in yStart..<yEnd {
-            for x in xStart..<xEnd {
-              indices[y * columns + x] = color
-            }
-          }
+    func paint(_ item: Placed, dx: Int, dy: Int, color: (Int, Int) -> UInt8?) {
+      let mask = item.mask
+      for ly in 0..<mask.height {
+        let y = item.y + dy + ly
+        guard (0..<rows).contains(y) else { continue }
+        for lx in 0..<mask.width where mask.isSet(lx, ly) {
+          let x = item.x + dx + lx
+          guard (0..<columns).contains(x), let value = color(lx, ly) else { continue }
+          indices[y * columns + x] = value
         }
       }
     }
     // Every shadow first, so one letter's shadow never covers another letter.
     for item in placed {
-      fill(item, dx: shadowOffset, dy: shadowOffset, color: shadowIndex(for: item.hue))
+      paint(item, dx: shadowOffset, dy: shadowOffset) { _, _ in shadowColor }
     }
     for item in placed {
-      fill(item, dx: 0, dy: 0, color: item.hue)
+      let mask = item.mask
+      let highlight = highlightIndex(for: item.hue)
+      paint(item, dx: 0, dy: 0) { lx, ly in
+        mask.isSet(lx - bevel, ly) && mask.isSet(lx, ly - bevel) ? item.hue : highlight
+      }
     }
     return Frame(columns: columns, rows: rows, indices: indices)
+  }
+
+  /// One letter's solid pixels at a given block size, sheared.
+  struct LetterMask {
+    let width: Int
+    let height: Int
+    private let bits: [Bool]
+
+    init(glyph: BitmapFont.Glyph, block: Int) {
+      width = (BitmapFont.cellWidth + BitmapFont.shearCells) * block
+      height = BitmapFont.cellHeight * block
+      var bits = [Bool](repeating: false, count: width * height)
+      for cellRow in 0..<BitmapFont.cellHeight {
+        let shear = BitmapFont.shear(row: cellRow)
+        for cellColumn in 0..<BitmapFont.cellWidth
+        where glyph.isBold(column: cellColumn, row: cellRow) {
+          for y in (cellRow * block)..<((cellRow + 1) * block) {
+            for x in ((cellColumn + shear) * block)..<((cellColumn + shear + 1) * block) {
+              bits[y * width + x] = true
+            }
+          }
+        }
+      }
+      self.bits = bits
+    }
+
+    func isSet(_ x: Int, _ y: Int) -> Bool {
+      guard (0..<width).contains(x), (0..<height).contains(y) else { return false }
+      return bits[y * width + x]
+    }
   }
 
   /// An original 5x7 bitmap face for A-Z, 0-9 and `: . ! -`.
   enum BitmapFont {
     static let width = 5
     static let height = 7
+    /// The face is drawn heavy: every lit pixel also fills the pixel to its
+    /// right and below, so strokes are two font pixels thick.
+    static let cellWidth = width + 1
+    static let cellHeight = height + 1
+    /// One font pixel of space between letters.
+    static let advanceCells = cellWidth + 1
+    /// The slant: a row's shift is one font pixel per two rows from the base.
+    static let shearCells = (cellHeight - 1) / 2
+    static func shear(row: Int) -> Int { (cellHeight - 1 - row) / 2 }
 
     struct Glyph {
       /// Seven rows, five bits each, most significant bit leftmost.
       let rows: [UInt8]
+
+      /// The heavy form: a cell is lit when any of the four pixels up and to
+      /// its left is lit.
+      func isBold(column: Int, row: Int) -> Bool {
+        isSet(column: column, row: row) || isSet(column: column - 1, row: row)
+          || isSet(column: column, row: row - 1) || isSet(column: column - 1, row: row - 1)
+      }
 
       func isSet(column: Int, row: Int) -> Bool {
         guard (0..<BitmapFont.width).contains(column),
