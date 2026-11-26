@@ -36,3 +36,11 @@ Their upstream projects are [Instrument Serif](https://github.com/Instrument/ins
 and [Instrument Sans](https://github.com/Instrument/instrument-sans). Both use
 the SIL Open Font License 1.1; the app bundles the corresponding OFL notices.
 See `THIRD_PARTY_NOTICES.md` for the other bundled font sources.
+
+## Scroller bitmap font
+
+The Scroller pattern draws its letters from a 5x7 bitmap face defined in code,
+`Sources/IdleScreenRenderer/IdleScreenDemoScroller.swift`. It covers A-Z, 0-9
+and `: . ! -`. The glyphs were drawn for this repository, copy no existing
+font, logo or site name, and are distributed under the repository's MIT
+License. Its colours are the 16 standard VGA/CGA palette values.

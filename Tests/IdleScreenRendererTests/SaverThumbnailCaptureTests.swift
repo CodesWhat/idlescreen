@@ -85,6 +85,7 @@ struct SaverThumbnailCaptureTests {
       ("rainOnGlass", 1, 1, 11, 1, 1, 20),
       ("aurora", 1, 1, 11, 0.5, 1, 1),
       ("aquarium", 1, 1, 20, 1, 1, 1),
+      ("demoScroller", 1, 1, 1, 1, 1, 1),
     ]
 
   @MainActor
@@ -118,13 +119,15 @@ struct SaverThumbnailCaptureTests {
       return value
     }
 
-    var shots = Self.procedural.map {
-      Shot(
-        name: $0.name,
-        configuration: configuration(
-          $0.name, glyph: 1, intensity: $0.intensity, speed: $0.speed,
-          scale: $0.scale, trailing: $0.trailing),
-        frames: 1, time: $0.time, exposure: $0.exposure)
+    var shots = Self.procedural.map { entry -> Shot in
+      var value = configuration(
+        entry.name, glyph: 1, intensity: entry.intensity, speed: entry.speed,
+        scale: entry.scale, trailing: entry.trailing)
+      // A fixed phrase, since the default scrolls the time of day.
+      if entry.name == "demoScroller" { value.demoScrollerPhrase = "IDLE" }
+      return Shot(
+        name: entry.name, configuration: value, frames: 1, time: entry.time,
+        exposure: entry.exposure)
     }
     // Sand and water together on terraces, captured mid-flow (frame 480 at 30 fps).
     let sandAndWater = IdleScreenPixelMaterialsRendererSettings(
