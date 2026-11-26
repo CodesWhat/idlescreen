@@ -769,11 +769,13 @@ struct PlantedTankEditorTests {
   }
 
   @Test func theCompileGateWorkspaceCannotWriteTheUsersDevelopmentTank() async throws {
-    let editor = IdleScreenPlantedTankEditor.shared
+    let editor = IdleScreenPlantedTankEditor.makeWorkspaceEditor()
+    #expect(editor !== IdleScreenPlantedTankEditor.shared)
     await editor.activate()
     #expect(editor.snapshot != nil)
     #expect(!editor.canSave)
     await editor.deactivate()
+    try await editor.surface.shutdown()
   }
 
   @Test func reloadingAChangedCheckpointUsesAFreshSurfaceAndKeepsTheOldTankOnFailure() async throws
