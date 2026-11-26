@@ -152,6 +152,11 @@ struct SetupSession: Equatable {
     autoSkipEvaluated = true
   }
 
+  /// The user acted in the setup flow (registered, opened Screen Saver settings, answered the camera). A flow they are working
+  /// through is a first run, so the upgrade judgement is spent: a later fresh status that finds the required steps done, as it
+  /// will after a failed first refresh and a manual finish, must not finish setup and skip the camera step and the done card.
+  mutating func engage() { autoSkipEvaluated = true }
+
   mutating func apply(_ decision: SetupGateDecision) {
     if decision.evaluatesAutoSkip { autoSkipEvaluated = true }
   }
