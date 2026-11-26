@@ -1041,6 +1041,34 @@ struct AquariumRuntimeBundleTests {
     try await surface.shutdown()
   }
 
+  @Test func exportTankSucceedsAfterALongSimulatedRun() async throws {
+    let surface = IdleScreenAquariumWebSurface()
+    surface.view.configuration.userContentController.addUserScript(
+      WKUserScript(
+        source: Self.frameClock(emulatingVisibleDocument: true),
+        injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+    _ = try await surface.beginEditing()
+    try await surface.resume()
+    let result = try await tankScript(
+      surface,
+      """
+      (() => {
+        for (let i = 0; i < 3000; i++) window.aquariumFrameProof.advance();
+        try {
+          const tank = aquariumStudy.exportTank({id:'long',name:'Long'});
+          return JSON.stringify({ok: true, actors: tank.runtime.actors.length});
+        } catch (error) {
+          return JSON.stringify({ok: false, error: String(error.message)});
+        }
+      })()
+      """)
+    let checks = try #require(
+      JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any])
+    #expect(checks["ok"] as? Bool == true, "export failed after 3000 frames: \(result)")
+    try await surface.shutdown()
+  }
+
   @Test func invalidCheckpointArtAndBindingsAreRejectedBeforeAnySceneMutation() async throws {
     let result = try await runPresetFixture(
       "checkpoint-validation", invocation: "runAquariumCheckpointValidation(aquariumStudy)")
