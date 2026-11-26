@@ -102,7 +102,8 @@ enum IdleScreenRendererConfigurationBridge {
               worldAspect: bounds.map { $0.width / $0.height })
             settings.reduceMotion = reduceMotion
             return settings
-          } : nil
+          } : nil,
+      reduceMotion: reduceMotion
     )
   }
 

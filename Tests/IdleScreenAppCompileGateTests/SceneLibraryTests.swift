@@ -36,6 +36,7 @@ struct SceneLibraryTests {
     #expect(IdleScreenSceneLibrary.moreGlyphs.contains(.pattern(.autoCycle)))
     #expect(!IdleScreenSceneLibrary.moreGlyphs.contains(.pattern(.aquarium)))
     #expect(!IdleScreenSceneLibrary.moreGlyphs.contains(.pattern(.pixelMaterials)))
+    #expect(IdleScreenSceneLibrary.moreGlyphs.contains(.pattern(.demoScroller)))
   }
 
   @Test(
@@ -64,7 +65,7 @@ struct SceneLibraryTests {
       "autoCycle", "topograph", "perlin", "plasma", "sweep", "matrixRain", "rainbowCycle",
       "fireEffect", "ripple", "voronoi", "warp", "staticNoise", "pulse", "dvdBounce",
       "metaballs", "starfield", "spiral", "terrain", "rainOnGlass", "aurora",
-      "pixelMaterials", "aquarium",
+      "pixelMaterials", "aquarium", "demoScroller",
     ]
     #expect(IdleScreenCreativePattern.allCases.map(\.rawValue) == expectedIDs)
     for rawID in expectedIDs {

@@ -135,6 +135,19 @@ struct IdleScreenAppCompileGateSmokeTests {
     #expect(IdleScreenConfiguration.default.creative.framing == .none)
   }
 
+  @Test("the Scroller maps to the renderer and carries Reduce Motion")
+  func demoScrollerRendererMapping() {
+    var configuration = IdleScreenConfiguration.default
+    configuration.creative.pattern = .demoScroller
+    #expect(configuration.rendererConfiguration.patternRawValue == "demoScroller")
+    #expect(configuration.rendererConfiguration.reduceMotion == false)
+    #expect(configuration.rendererConfiguration.demoScrollerPhrase == nil)
+    #expect(
+      configuration.rendererConfiguration(for: nil, reduceMotion: true).reduceMotion == true)
+    #expect(IdleScreenCreativePattern.demoScroller.displayName == "Scroller")
+    #expect(!IdleScreenCreativePattern.patterns.contains(.demoScroller))
+  }
+
   @Test("shared Pixel Materials configuration maps every product input")
   func pixelMaterialsRendererMapping() {
     var configuration = IdleScreenConfiguration.default

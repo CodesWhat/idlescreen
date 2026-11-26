@@ -30,6 +30,7 @@ public enum IdleScreenCreativePattern: String, Codable, CaseIterable,
   case aurora
   case pixelMaterials
   case aquarium
+  case demoScroller
 
   public var id: String { rawValue }
 
@@ -57,6 +58,7 @@ public enum IdleScreenCreativePattern: String, Codable, CaseIterable,
     case .aurora: return "Aurora"
     case .aquarium: return "Shrimp Tank"
     case .pixelMaterials: return "Pixel Materials"
+    case .demoScroller: return "Scroller"
     }
   }
 
@@ -84,10 +86,13 @@ public enum IdleScreenCreativePattern: String, Codable, CaseIterable,
     case .aurora: return "light.ribbon"
     case .aquarium: return "fish"
     case .pixelMaterials: return "drop.triangle"
+    case .demoScroller: return "textformat"
     }
   }
 
   /// Concrete patterns in the stable order used by the legacy renderer.
+  /// The Scroller is drawn as a pixel raster, so like the Aquarium it is not
+  /// part of Auto Cycle.
   public static let patterns: [Self] = [
     .perlin,
     .plasma,

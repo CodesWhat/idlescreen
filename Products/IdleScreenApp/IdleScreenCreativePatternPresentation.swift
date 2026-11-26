@@ -28,6 +28,7 @@ extension IdleScreenCreativePattern {
     case .aurora: "Soft ribbons"
     case .aquarium: "A quiet pixel aquarium"
     case .pixelMaterials: "Sand and water worlds"
+    case .demoScroller: "16-colour text scroller"
     }
   }
 
@@ -77,6 +78,8 @@ extension IdleScreenCreativePattern {
       [Color(red: 0.04, green: 0.14, blue: 0.22), Color(red: 0.72, green: 0.10, blue: 0.20)]
     case .pixelMaterials:
       [Color(red: 0.08, green: 0.34, blue: 0.56), Color(red: 0.92, green: 0.56, blue: 0.18)]
+    case .demoScroller:
+      [Color(red: 0.33, green: 0.33, blue: 0.33), Color(red: 1.00, green: 0.33, blue: 1.00)]
     }
   }
 }
