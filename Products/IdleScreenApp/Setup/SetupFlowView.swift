@@ -70,10 +70,22 @@ struct SetupFlowView: View {
           statusMessage: model.saverActionStatus,
           errorMessage: model.lastError.map(UserFacingIssue.message(for:)),
           actions: SetupFlowActions(
-            register: { model.registerExtension() },
-            openScreenSaverSettings: { model.openScreenSaverSettings() },
-            allowCamera: { cameraClient.performSetupCameraAction() },
-            skipCamera: { navigation.setupSession.skipCamera() },
+            register: {
+              navigation.setupSession.engage()
+              model.registerExtension()
+            },
+            openScreenSaverSettings: {
+              navigation.setupSession.engage()
+              model.openScreenSaverSettings()
+            },
+            allowCamera: {
+              navigation.setupSession.engage()
+              cameraClient.performSetupCameraAction()
+            },
+            skipCamera: {
+              navigation.setupSession.engage()
+              navigation.setupSession.skipCamera()
+            },
             openStudio: onFinish,
             later: onLater
           )
