@@ -155,6 +155,7 @@
 		369774D07E3B520EBA6FF5B7 /* DesignComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98630BAEAE7347003FEC06D6 /* DesignComponents.swift */; };
 		3712A4DBBF240CD0F293AC37 /* PerformanceRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADA9AFB2C68F60C6D570A79 /* PerformanceRecorder.swift */; };
 		3763A7C8B3ACC0087E84D33F /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEA410F56388DB9323F62460 /* AppKit.framework */; };
+		376A5CBC707EF89D35DD021C /* AquariumLibraryRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE8F8AFA3714EC271D0972D /* AquariumLibraryRulesTests.swift */; };
 		377DA57CF7BEDBDBC498D034 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEA410F56388DB9323F62460 /* AppKit.framework */; };
 		379C7725B7075FBF71B2067D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 766E5AFDD0799BD8DDC251E9 /* Assets.xcassets */; };
 		380B7B83B46FA56154F0574F /* CameraCardGuidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D786C3D728D99A294F921FD /* CameraCardGuidance.swift */; };
@@ -1507,6 +1508,7 @@
 		0DC713DC4152BF0045729888 /* CameraAgentControlClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentControlClientTests.swift; sourceTree = "<group>"; };
 		0F7DF63BF6EEBCBC24BC4C92 /* CameraAgentStateMachineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentStateMachineTests.swift; sourceTree = "<group>"; };
 		0FC91852518A33A8988F7FE5 /* IdleScreenRenderer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IdleScreenRenderer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		0FE8F8AFA3714EC271D0972D /* AquariumLibraryRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumLibraryRulesTests.swift; sourceTree = "<group>"; };
 		10663171F471C4743B25D465 /* IdleScreenRendererShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = IdleScreenRendererShaders.metal; sourceTree = "<group>"; };
 		1085707753B02EE26DB7FF8B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		129754538BF75A155D606A4E /* PlantedTankStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlantedTankStore.swift; sourceTree = "<group>"; };
@@ -2315,6 +2317,7 @@
 				D1AB7EA2571C45D3D7DEDFAE /* AgentSpriteSignalTests.swift */,
 				F157C1C0001C5ADCA55581F4 /* AnimationContractTests.swift */,
 				9A2D17D514BC8D73A8E6DA75 /* AquariumLayoutPresetTests.swift */,
+				0FE8F8AFA3714EC271D0972D /* AquariumLibraryRulesTests.swift */,
 				6A18E334A3990768F7D1F2E3 /* AquariumLibraryTests.swift */,
 				9EC03DD9B5AA8903A73F97BD /* AquariumSimulationTests.swift */,
 				3B1A036B863968EB00C19E13 /* AquariumSnapshotMonitorTests.swift */,
@@ -3879,6 +3882,7 @@
 				FE4F91E27E42F3C30F3DCD3E /* AgentSpriteSignalTests.swift in Sources */,
 				81070AA94262F1745942E8E8 /* AnimationContractTests.swift in Sources */,
 				66499F1A17FDD16AF8ED2E12 /* AquariumLayoutPresetTests.swift in Sources */,
+				376A5CBC707EF89D35DD021C /* AquariumLibraryRulesTests.swift in Sources */,
 				7FD9F7B2524AF056EDC74F11 /* AquariumLibraryTests.swift in Sources */,
 				923F9284F820FC75DB85F668 /* AquariumSimulationTests.swift in Sources */,
 				06D4B87CCAB477FD24FF24A1 /* AquariumSnapshotMonitorTests.swift in Sources */,
