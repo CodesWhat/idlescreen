@@ -138,8 +138,6 @@ jobs:
           python3 ./scripts/xccov_to_lcov.py \
             --source-root "$GITHUB_WORKSPACE" \
             --output "$coverage_root/coverage.lcov" "$coverage_root"/*.json
-          python3 ./scripts/check_coverage_floor.py --floor 80.0 \
-            "$coverage_root/coverage.lcov"
 
       - name: Upload coverage report for the coverage job
         if: github.event_name == 'push'
@@ -149,6 +147,12 @@ jobs:
           path: ${{ runner.temp }}/idlescreen-coverage/coverage.lcov
           if-no-files-found: error
           retention-days: 1
+
+      - name: Enforce the 80% line-coverage floor
+        if: github.event_name == 'push'
+        run: |
+          python3 ./scripts/check_coverage_floor.py --floor 80.0 \
+            "$RUNNER_TEMP/idlescreen-coverage/coverage.lcov"
 
       - name: Build canonical companion product
         run: |
