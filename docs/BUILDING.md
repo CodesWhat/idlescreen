@@ -197,6 +197,28 @@ Attach that file to the matching GitHub release under exactly the name
 download URL is derived from it, so a release whose SBOM is attached under any
 other name reads as having no SBOM at all.
 
+### Provenance attestations
+
+Publishing the GitHub release triggers `.github/workflows/release-attest.yml`.
+It downloads the DMG, `IdleScreenR1ReleaseCandidateV1.txt` and the SPDX SBOM,
+checks the DMG SHA-256 against the manifest's `stapled_dmg_sha256`, and then
+attaches GitHub build provenance attestations to all three plus an SBOM
+attestation for the DMG. It never signs, modifies or re-uploads anything and
+holds no secrets or Apple credentials. To backfill or retry a release, dispatch
+it from the tag:
+
+```sh
+gh workflow run release-attest.yml --ref v0.4.0 -f tag=v0.4.0
+```
+
+Verify a downloaded DMG with:
+
+```sh
+gh attestation verify idlescreen-0.4.0-build67.dmg --repo CodesWhat/idlescreen
+gh attestation verify idlescreen-0.4.0-build67.dmg --repo CodesWhat/idlescreen \
+  --predicate-type https://spdx.dev/Document/v2.3
+```
+
 Ordinary changes target the protected `dev/v0.1` branch. `main` advances only
 through a reviewed promotion pull request and must immediately receive the GA
 tag so `git describe --exact-match origin/main` succeeds.
