@@ -116,6 +116,28 @@ struct AquariumPersonalityTests {
     }
   }
 
+  @Test func grazingAtALiftedStopRestsOnThePhysicalSurface() {
+    let settings = scene([("rock", 0.4), ("castle", 0.52)])
+    let navigation = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
+    let liftedStops = navigation.grazingAnchors.indices.filter { navigation.liftedAnchors[$0] }
+    #expect(!liftedStops.isEmpty)
+    var checked = 0
+    for identity in UInt64(1)...40 {
+      let item = IdleScreenAquariumRenderInhabitant(identity: identity, species: "cherryShrimp")
+      for tick in 0..<4_000 {
+        let pose = IdleScreenAquarium.savedAnimal(
+          item, at: Double(tick) / 10, seed: 42, settings: settings, navigation: navigation)
+        guard pose.activity == .grazing,
+          liftedStops.contains(where: { abs(navigation.grazingAnchors[$0].x - pose.x) < 12 })
+        else { continue }
+        checked += 1
+        let ground = navigation.surface(at: pose.x, radius: 8)
+        #expect(abs(pose.y - 2 * pose.scale - ground) <= 1.5, "x\(pose.x) y\(pose.y)")
+      }
+    }
+    #expect(checked > 0)
+  }
+
   @Test func grazingCreepMovesAlongTheSurfaceWithoutHopping() {
     let settings = scene([("rock", 0.18), ("driftwood", 0.5), ("slate", 0.82)])
     let navigation = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
