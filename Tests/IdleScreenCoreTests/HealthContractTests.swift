@@ -460,12 +460,74 @@ struct HealthContractTests {
     // pid 1 is the oldest and selected for removal; it is rewritten first.
     let refreshed = retentionReport(.cameraAgent, pid: 1, at: 99)
     let result = try store.enforceRetention(
-      protecting: [],
+      classifyingLive: { _ in [] },
       historicalLimitPerProcess: 4,
       beforeRemoving: { _ in try? store.write(refreshed) }
     )
 
     #expect(result.removedReportIdentifiers.isEmpty)
     #expect(try store.readAll().contains(refreshed))
+  }
+
+  @Test("a report published between inspection and removal is kept")
+  func reportPublishedAfterInspectionSurvives() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory, lockTimeout: 0.05)
+    for pid in 1...3 {
+      try store.write(retentionReport(.cameraAgent, pid: Int32(pid), at: Double(pid)))
+    }
+    let fresh = retentionReport(.cameraAgent, pid: 50, at: 99)
+    let rewritten = retentionReport(.cameraAgent, pid: 1, at: 100)
+    let result = try store.enforceRetention(
+      classifyingLive: { _ in
+        // Published after the inspection the classifier and pruner share.
+        try? store.write(fresh)
+        return []
+      },
+      historicalLimitPerProcess: 0,
+      beforeRemoving: { url in
+        if url.lastPathComponent == "cameraAgent-1.json" { try? store.write(rewritten) }
+      }
+    )
+
+    let kept = try store.readAll()
+    #expect(kept.contains(fresh))
+    #expect(kept.contains(rewritten))
+    #expect(!result.removedReportIdentifiers.contains("cameraAgent-1"))
+    #expect(!result.removedReportIdentifiers.contains("cameraAgent-50"))
+  }
+
+  @Test("retention skips pruning when the directory lock is held")
+  func retentionSkipsWhenLockHeld() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory, lockTimeout: 0.05)
+    for pid in 1...4 {
+      try store.write(retentionReport(.companionApp, pid: Int32(pid), at: Double(pid)))
+    }
+    let descriptor = open(directory.path, O_RDONLY)
+    #expect(descriptor >= 0)
+    #expect(flock(descriptor, LOCK_EX | LOCK_NB) == 0)
+
+    let result = try store.enforceRetention(
+      classifyingLive: { _ in ["companionApp-4"] },
+      historicalLimitPerProcess: 0
+    )
+    // A write still publishes while the lock is contended.
+    let late = retentionReport(.companionApp, pid: 9, at: 9)
+    try store.write(late)
+    flock(descriptor, LOCK_UN)
+    close(descriptor)
+
+    #expect(result.skippedPruning)
+    #expect(result.removedReportIdentifiers.isEmpty)
+    #expect(result.retained.count == 4)
+    #expect(result.liveReportIdentifiers == ["companionApp-4"])
+    #expect(try store.readAll().count == 5)
+
+    let after = try store.enforceRetention(historicalLimitPerProcess: 0)
+    #expect(!after.skippedPruning)
+    #expect(after.retained.isEmpty)
   }
 }
