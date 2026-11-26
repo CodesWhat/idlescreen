@@ -123,9 +123,29 @@ public struct IdleScreenHealthStore: Sendable {
   }
 
   public let directoryURL: URL
+  /// How long a writer or retention waits for the directory lock before
+  /// degrading: writers publish anyway, retention skips this round.
+  public let lockTimeout: TimeInterval
 
-  public init(directoryURL: URL) {
+  public init(directoryURL: URL, lockTimeout: TimeInterval = 0.25) {
     self.directoryURL = directoryURL
+    self.lockTimeout = max(0, lockTimeout)
+  }
+
+  /// Takes an exclusive `flock` on the health directory, polling without
+  /// blocking until `lockTimeout` passes. Returns nil when the lock could not
+  /// be taken, so callers can degrade instead of stalling the screen saver.
+  private func withDirectoryLock<T>(_ body: () throws -> T) rethrows -> T? {
+    let descriptor = open(directoryURL.path, O_RDONLY)
+    guard descriptor >= 0 else { return nil }
+    defer { close(descriptor) }
+    let deadline = Date().addingTimeInterval(lockTimeout)
+    while flock(descriptor, LOCK_EX | LOCK_NB) != 0 {
+      guard errno == EWOULDBLOCK || errno == EINTR, Date() < deadline else { return nil }
+      usleep(5_000)
+    }
+    defer { flock(descriptor, LOCK_UN) }
+    return try body()
   }
 
   public func write(_ report: IdleScreenProcessHealth) throws {
@@ -136,23 +156,32 @@ public struct IdleScreenHealthStore: Sendable {
     let encoder = JSONEncoder()
     encoder.dateEncodingStrategy = .iso8601
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-    try encoder.encode(report).write(
-      to: directoryURL.appending(path: report.reportIdentifier + ".json"),
-      options: .atomic
-    )
-    if report.processIdentifier != nil {
-      try? FileManager.default.removeItem(
-        at: directoryURL.appending(path: report.process.rawValue + ".json")
+    let data = try encoder.encode(report)
+    let publish = {
+      try data.write(
+        to: directoryURL.appending(path: report.reportIdentifier + ".json"),
+        options: .atomic
       )
-    }
-    if let processIdentifier = report.processIdentifier,
-      report.instanceIdentifier != nil
-    {
-      try? FileManager.default.removeItem(
-        at: directoryURL.appending(
-          path: "\(report.process.rawValue)-\(processIdentifier).json"
+      if report.processIdentifier != nil {
+        try? FileManager.default.removeItem(
+          at: directoryURL.appending(path: report.process.rawValue + ".json")
         )
-      )
+      }
+      if let processIdentifier = report.processIdentifier,
+        report.instanceIdentifier != nil
+      {
+        try? FileManager.default.removeItem(
+          at: directoryURL.appending(
+            path: "\(report.process.rawValue)-\(processIdentifier).json"
+          )
+        )
+      }
+    }
+    // A report must always publish; if the lock is contended past the
+    // timeout the write goes ahead unlocked, and retention's byte compare
+    // still protects it.
+    if try withDirectoryLock(publish) == nil {
+      try publish()
     }
   }
 
@@ -167,6 +196,12 @@ public struct IdleScreenHealthStore: Sendable {
     /// Every readable report still on disk after pruning, ordered by filename.
     public var retained: [IdleScreenProcessHealth]
     public var removedReportIdentifiers: [String]
+    /// Identifiers the classifier reported live from the same inspection
+    /// retention used. Empty when `enforceRetention(protecting:)` is used.
+    public var liveReportIdentifiers: Set<String> = []
+    /// True when the directory lock could not be taken in time, so nothing
+    /// was pruned this round.
+    public var skippedPruning = false
   }
 
   /// Removes the oldest historical reports so each process kind keeps at most
@@ -183,7 +218,24 @@ public struct IdleScreenHealthStore: Sendable {
     historicalLimitPerProcess: Int = historicalReportLimit
   ) throws -> RetentionResult {
     try enforceRetention(
-      protecting: protectedReportIdentifiers,
+      classifyingLive: { _ in protectedReportIdentifiers },
+      historicalLimitPerProcess: historicalLimitPerProcess,
+      beforeRemoving: { _ in }
+    )
+  }
+
+  /// Classifies and prunes from one inspection taken under the directory
+  /// lock, so a report published between the two steps can't read as
+  /// non-live. `classifyLive` receives every readable report and returns the
+  /// identifiers to protect. If the lock isn't available in time, nothing is
+  /// pruned and `skippedPruning` is set.
+  @discardableResult
+  public func enforceRetention(
+    classifyingLive classifyLive: ([IdleScreenProcessHealth]) -> Set<String>,
+    historicalLimitPerProcess: Int = historicalReportLimit
+  ) throws -> RetentionResult {
+    try enforceRetention(
+      classifyingLive: classifyLive,
       historicalLimitPerProcess: historicalLimitPerProcess,
       beforeRemoving: { _ in }
     )
@@ -192,12 +244,41 @@ public struct IdleScreenHealthStore: Sendable {
   /// `beforeRemoving` runs after a file is chosen for removal and before it
   /// is re-verified, which lets tests rewrite it at exactly that moment.
   func enforceRetention(
-    protecting protectedReportIdentifiers: Set<String>,
+    classifyingLive classifyLive: ([IdleScreenProcessHealth]) -> Set<String>,
     historicalLimitPerProcess: Int,
     beforeRemoving: (URL) -> Void
   ) throws -> RetentionResult {
+    guard FileManager.default.fileExists(atPath: directoryURL.path) else {
+      return RetentionResult(retained: [], removedReportIdentifiers: [])
+    }
+    let locked = try withDirectoryLock {
+      prune(
+        entries: try inspectReports(),
+        classifyLive: classifyLive,
+        historicalLimitPerProcess: historicalLimitPerProcess,
+        beforeRemoving: beforeRemoving
+      )
+    }
+    if let locked { return locked }
+    let entries = try inspectReports()
+    var result = RetentionResult(
+      retained: entries.map(\.report),
+      removedReportIdentifiers: []
+    )
+    result.liveReportIdentifiers = classifyLive(result.retained)
+    result.skippedPruning = true
+    return result
+  }
+
+  private func prune(
+    entries inspected: [InspectedReport],
+    classifyLive: ([IdleScreenProcessHealth]) -> Set<String>,
+    historicalLimitPerProcess: Int,
+    beforeRemoving: (URL) -> Void
+  ) -> RetentionResult {
     let limit = max(0, historicalLimitPerProcess)
-    var entries = try inspectReports()
+    var entries = inspected
+    let protectedReportIdentifiers = classifyLive(entries.map(\.report))
     var removed: [String] = []
 
     for process in IdleScreenProcessKind.allCases {
@@ -228,10 +309,12 @@ public struct IdleScreenHealthStore: Sendable {
         entries.removeAll { $0.url == entry.url }
       }
     }
-    return RetentionResult(
+    var result = RetentionResult(
       retained: entries.map(\.report),
       removedReportIdentifiers: removed
     )
+    result.liveReportIdentifiers = protectedReportIdentifiers
+    return result
   }
 
   private struct InspectedReport {

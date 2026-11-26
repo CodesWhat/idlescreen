@@ -317,11 +317,14 @@ final class IdleScreenAppModel {
     directoryURL: URL
   ) throws -> ProcessHealthSnapshot {
     let store = IdleScreenHealthStore(directoryURL: directoryURL)
-    let live = Set(
-      try store.readAll().compactMap { report -> String? in
-        isProcessReportRunning(report) ? report.reportIdentifier : nil
-      })
-    let retained = try store.enforceRetention(protecting: live).retained
+    let result = try store.enforceRetention(classifyingLive: { reports in
+      Set(
+        reports.compactMap { report -> String? in
+          isProcessReportRunning(report) ? report.reportIdentifier : nil
+        })
+    })
+    let retained = result.retained
+    let live = result.liveReportIdentifiers
     let retainedIdentifiers = Set(retained.map(\.reportIdentifier))
     return ProcessHealthSnapshot(
       reports: retained,
