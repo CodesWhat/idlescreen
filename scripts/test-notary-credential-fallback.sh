@@ -41,6 +41,7 @@ valid_key_id=TESTKEY123
 valid_issuer=11111111-2222-3333-4444-555555555555
 
 failures=0
+: >"$scratch_root/all-stderr"
 check() {
   local name="$1" expected_rc="$2" expected_auth="$3" rc=0
   shift 3
@@ -48,38 +49,39 @@ check() {
   r1_resolve_notary_auth idlescreen-test "$scratch_root" "$stub_bin/notarytool" 2>"$scratch_root/stderr" || rc=$?
   if [[ "$rc" != "$expected_rc" || "${r1_notary_auth[*]}" != "$expected_auth" ]]; then
     echo "FAIL: $name (rc=$rc auth='${r1_notary_auth[*]}')" >&2
-    failures=$((failures + 1))
-    return
+    cat "$scratch_root/stderr" >>"$scratch_root/all-stderr"
+    return 1
   fi
+  cat "$scratch_root/stderr" >>"$scratch_root/all-stderr"
   echo "PASS: $name"
 }
 
 export IDLESCREEN_ASC_KEY_PATH="$key_file" IDLESCREEN_ASC_KEY_ID="$valid_key_id" IDLESCREEN_ASC_ISSUER_ID="$valid_issuer"
 
-STUB_PROFILE=ok STUB_KEY=ok check "profile ok uses the keychain profile" 0 "--keychain-profile idlescreen-test"
+STUB_PROFILE=ok STUB_KEY=ok check "profile ok uses the keychain profile" 0 "--keychain-profile idlescreen-test" || failures=$((failures + 1))
 grep -q -- '--key ' "$STUB_LOG" && { echo "FAIL: key tried despite working profile" >&2; failures=$((failures + 1)); }
 
-STUB_PROFILE=missing STUB_KEY=ok check "profile missing falls back to the API key" 0 "--key $key_file --key-id $valid_key_id --issuer $valid_issuer"
+STUB_PROFILE=missing STUB_KEY=ok check "profile missing falls back to the API key" 0 "--key $key_file --key-id $valid_key_id --issuer $valid_issuer" || failures=$((failures + 1))
 
-STUB_PROFILE=broken STUB_KEY=ok check "non-missing profile failure does not fall back" 2 "--keychain-profile idlescreen-test"
+STUB_PROFILE=broken STUB_KEY=ok check "non-missing profile failure does not fall back" 2 "--keychain-profile idlescreen-test" || failures=$((failures + 1))
 
-STUB_PROFILE=missing STUB_KEY=bad check "profile missing and key rejected fails" 1 "--key $key_file --key-id $valid_key_id --issuer $valid_issuer"
+STUB_PROFILE=missing STUB_KEY=bad check "profile missing and key rejected fails" 1 "--key $key_file --key-id $valid_key_id --issuer $valid_issuer" || failures=$((failures + 1))
 grep -q 'Neither credential is usable' "$scratch_root/stderr" || { echo "FAIL: no clear error for rejected key" >&2; failures=$((failures + 1)); }
 
 (
   unset IDLESCREEN_ASC_KEY_PATH IDLESCREEN_ASC_KEY_ID IDLESCREEN_ASC_ISSUER_ID
-  STUB_PROFILE=missing STUB_KEY=ok check "profile missing and no key configured fails" 1 "--keychain-profile idlescreen-test"
+  STUB_PROFILE=missing STUB_KEY=ok check "profile missing and no key configured fails" 1 "--keychain-profile idlescreen-test" || exit 1
   grep -q 'IDLESCREEN_ASC_KEY_PATH' "$scratch_root/stderr" || { echo "FAIL: error does not name the env vars" >&2; exit 1; }
 ) || failures=$((failures + 1))
 
 (
   export IDLESCREEN_ASC_KEY_PATH="$scratch_root/missing.p8"
-  STUB_PROFILE=missing STUB_KEY=ok check "profile missing and key file absent fails" 1 "--keychain-profile idlescreen-test"
+  STUB_PROFILE=missing STUB_KEY=ok check "profile missing and key file absent fails" 1 "--keychain-profile idlescreen-test" || exit 1
 ) || failures=$((failures + 1))
 
 # Secrets must never be echoed on stderr.
 for secret in "$valid_key_id" "$valid_issuer" "$key_file"; do
-  if grep -Fq "$secret" "$scratch_root/stderr"; then
+  if grep -Fq "$secret" "$scratch_root/all-stderr"; then
     echo "FAIL: stderr leaked a credential value" >&2
     failures=$((failures + 1))
   fi
