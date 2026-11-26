@@ -36,8 +36,8 @@ companion Studio. The companion controls the look, the embedded extension
 renders it, and a separately signed camera agent owns the complete camera
 lifecycle.
 
-Current release: [v0.3.0](https://github.com/CodesWhat/idlescreen/releases/tag/v0.3.0)
-(November 5, 2026).
+Current release: [v0.4.0](https://github.com/CodesWhat/idlescreen/releases/tag/v0.4.0)
+(build 67, November 21, 2026). Apple silicon only, macOS 26 or later.
 
 ## Contents
 
@@ -131,8 +131,11 @@ so ownership and teardown remain inspectable.
 - Apple silicon build (M1 or later) for macOS 26 Tahoe or newer
 
 Camera frames stay inside the local App Group mailbox. They are not sent over
-the network, written to logs, or retained as test evidence. Capture stops after
-the last valid consumer lease ends.
+the network, written to logs, or retained as test evidence. The mailbox is one
+fixed-size file (`camera-frames-v1.mailbox`, about 25 MB, mode 0600) holding at
+most the three newest frames. Capture stops after the last valid consumer lease
+ends, and the agent then zeroes the header and every slot. The emptied file
+stays in the container and is reused on the next start.
 
 ## Supported Integrations
 
@@ -182,11 +185,16 @@ changing product topology, camera lifecycle, signing, or release tooling.
 
 ## CodesWhat Ecosystem
 
+- [dilated](https://dilated.app) keeps your Mac awake from the menu bar.
+- [mouthtype](https://mouthtype.app) is local dictation for Mac.
 - [drydock](https://github.com/CodesWhat/drydock) manages containerized app
   updates.
 - [sockguard](https://github.com/CodesWhat/sockguard) protects Docker sockets.
 - [portwing](https://github.com/CodesWhat/portwing) exposes local services
   through secure tunnels.
+
+[CodesWhat](https://codeswhat.com): small, sharp tools from one developer and
+a lot of agents.
 
 idlescreen is available under the [MIT License](LICENSE). Third-party notices
 are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
