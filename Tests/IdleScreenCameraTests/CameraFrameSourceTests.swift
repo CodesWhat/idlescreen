@@ -10,7 +10,7 @@ struct CameraFrameSourceTests {
     try withTemporaryContainer { containerURL in
       let clock = FrameSourceTestClock(now: 50_000)
       let mapping = ScriptedFrameSourceMapping([
-        .frame(descriptor(epoch: 7, sequence: 1, timestamp: 0.001), [1, 2, 3, 4])
+        .frame(descriptor(epoch: 7, sequence: 1, timestamp: 49_999.9), [1, 2, 3, 4])
       ])
       let factory = ScriptedFrameSourceMappingFactory(mappings: [mapping])
       let source = try CameraFrameSource(
@@ -46,6 +46,67 @@ struct CameraFrameSourceTests {
         factory.requestedURLs == [
           containerURL.appendingPathComponent("camera-frames-v1.mailbox")
         ])
+    }
+  }
+
+  @Test("a first read older than the age limit is rejected and a fresh one is accepted")
+  func firstReadAgeCheck() throws {
+    try withTemporaryContainer { containerURL in
+      let clock = FrameSourceTestClock(now: 100)
+      let mapping = ScriptedFrameSourceMapping([
+        .frame(descriptor(epoch: 5, sequence: 9, timestamp: 98), [1]),
+        .frame(descriptor(epoch: 5, sequence: 9, timestamp: 98), [1]),
+        .frame(descriptor(epoch: 5, sequence: 10, timestamp: 100.05), [2]),
+      ])
+      let source = try CameraFrameSource(
+        appGroupContainerURL: containerURL,
+        clock: clock,
+        mappingFactory: ScriptedFrameSourceMappingFactory(mappings: [mapping])
+      )
+      source.receive(available(epoch: 5))
+
+      // Written two seconds ago and never read: stale on arrival.
+      #expect(
+        source.withFrame { _, _ in () }.unavailableReason
+          == .staleFrame(epoch: 5, sequence: 9))
+      #expect(source.availability == .unavailable(.staleFrame(epoch: 5, sequence: 9)))
+      #expect(
+        source.withFrame { _, _ in () }.unavailableReason
+          == .staleFrame(epoch: 5, sequence: 9))
+
+      clock.now = 100.1
+      guard
+        case .frame(let frame, let value) = source.withFrame({ _, pixels in
+          pixels[0]
+        })
+      else {
+        Issue.record("Expected a fresh frame to be accepted after a stale first read")
+        return
+      }
+      #expect(frame.sequence == 10)
+      #expect(value == 2)
+    }
+  }
+
+  @Test("a fresh first read inside the age limit is accepted")
+  func freshFirstReadAccepted() throws {
+    try withTemporaryContainer { containerURL in
+      let clock = FrameSourceTestClock(now: 100)
+      let mapping = ScriptedFrameSourceMapping([
+        .frame(descriptor(epoch: 5, sequence: 1, timestamp: 99.5), [3])
+      ])
+      let source = try CameraFrameSource(
+        appGroupContainerURL: containerURL,
+        clock: clock,
+        mappingFactory: ScriptedFrameSourceMappingFactory(mappings: [mapping])
+      )
+      source.receive(available(epoch: 5))
+
+      guard case .frame(let frame, _) = source.withFrame({ _, _ in () }) else {
+        Issue.record("Expected a 0.5 second old first frame to be accepted")
+        return
+      }
+      #expect(frame.sequence == 1)
     }
   }
 
@@ -657,7 +718,9 @@ struct CameraFrameSourceTests {
   private func descriptor(
     epoch: UInt64,
     sequence: UInt64,
-    timestamp: TimeInterval = 0.001
+    // Producer stamps are system uptime; the default sits ahead of every test
+    // clock so only tests about first-read age need to pick a real instant.
+    timestamp: TimeInterval = 1_000_000
   ) -> IdleScreenCameraFrameDescriptor {
     IdleScreenCameraFrameDescriptor(
       protocolVersion: IdleScreenCameraFrameDescriptor.currentProtocolVersion,
