@@ -680,6 +680,7 @@ targets:
       - path: Tests/IdleScreenCameraAgentTests/CameraAgentProcessRuntimeTests.swift
       - path: Tests/IdleScreenCameraAgentTests/CameraDeviceInventoryTests.swift
       - path: Tests/IdleScreenCameraAgentTests/CameraAgentDiagnosticsTests.swift
+      - path: Tests/IdleScreenCameraAgentTests/CameraAgentSystemSourcesTests.swift
     settings:
       base:
         PRODUCT_NAME: IdleScreenCameraAgentTests

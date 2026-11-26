@@ -363,6 +363,7 @@
 		966C1869BD320DB690E5AF03 /* SetupProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D5030F4B167508C24A25314 /* SetupProgress.swift */; };
 		969D5499F10758AFE24B2276 /* IdleScreenCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36B2E35EB7EC8E7688BC3B4B /* IdleScreenCore.framework */; };
 		9713645FE4D5CD5D31CB79EB /* AquariumPresentationHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76C24BD87B246D2C847DD7D6 /* AquariumPresentationHost.swift */; };
+		978558E174E0010AB1F13C45 /* CameraAgentSystemSourcesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85A8C7F822271CE02D6C9C5D /* CameraAgentSystemSourcesTests.swift */; };
 		97F9CD778D46348F9B18F76C /* IdleScreenSystem.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61F132022B69FDCF99049744 /* IdleScreenSystem.framework */; };
 		98117C1ADAB5B4E3CA9BE804 /* AquariumSceneClockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1DE4DF60817712078439E5D /* AquariumSceneClockTests.swift */; };
 		981DF9CC67922AFE2E7CF094 /* ConfigurationContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 735B888947F53A37C743118D /* ConfigurationContractTests.swift */; };
@@ -1652,6 +1653,7 @@
 		802DC4553E0162FDC96FF4AF /* GlyphToneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphToneTests.swift; sourceTree = "<group>"; };
 		81165C0F8ADE820C9AD3C48A /* AquariumTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AquariumTests.swift; sourceTree = "<group>"; };
 		859F1411CDD66BC3F13DE199 /* PlantedTankEditorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlantedTankEditorTests.swift; sourceTree = "<group>"; };
+		85A8C7F822271CE02D6C9C5D /* CameraAgentSystemSourcesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAgentSystemSourcesTests.swift; sourceTree = "<group>"; };
 		8726E194B125DD3AF34BD7E6 /* IdleScreenDeveloperID.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IdleScreenDeveloperID.entitlements; sourceTree = "<group>"; };
 		8799E86AB97E3F9B26E4C6D5 /* CameraClientBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraClientBootstrap.swift; sourceTree = "<group>"; };
 		88ED5845CBBA9520E6C75B3E /* ScreenSaverActivation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenSaverActivation.swift; sourceTree = "<group>"; };
@@ -2483,6 +2485,7 @@
 				D225441C0BA1F58798F9CA86 /* CameraAgentProcessRuntimeTests.swift */,
 				513A99507011112E62CAAC8F /* CameraAgentRuntimeDriverTests.swift */,
 				74FA58450AD1EE3367E25C2D /* CameraAgentServiceTests.swift */,
+				85A8C7F822271CE02D6C9C5D /* CameraAgentSystemSourcesTests.swift */,
 				54F055C5DB3435FAE3A2A8A7 /* CameraAgentXPCListenerTests.swift */,
 				16B3B50017BBB9244229D485 /* CameraCaptureSessionControllerTests.swift */,
 				66AE902FC6507D6365AA007A /* CameraDeviceInventoryTests.swift */,
@@ -4369,6 +4372,7 @@
 				7B0A275594A94BD0C21CC69A /* CameraAgentProcessRuntimeTests.swift in Sources */,
 				7B35AAC179F57806DAFE563B /* CameraAgentRuntimeDriverTests.swift in Sources */,
 				709F540EFF6C396059FE3CD1 /* CameraAgentServiceTests.swift in Sources */,
+				978558E174E0010AB1F13C45 /* CameraAgentSystemSourcesTests.swift in Sources */,
 				F79B15392527FE743BBF59FA /* CameraAgentXPCListenerTests.swift in Sources */,
 				5705CF8032671A4F9E4AEB15 /* CameraCaptureSessionControllerTests.swift in Sources */,
 				AA60794FDA8B8D0704AE5323 /* CameraDeviceInventoryTests.swift in Sources */,
