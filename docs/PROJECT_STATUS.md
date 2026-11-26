@@ -1,6 +1,6 @@
 # Project status and house audit
 
-Full house audit: August 29, 2026. Release record and branch state updated November 18, 2026.
+Full house audit: August 29, 2026. Release record updated November 26, 2026.
 Controls below retain that audit scope unless a newer release record is stated.
 
 ## Classification
@@ -14,7 +14,7 @@ pipeline, or web runtime.
 
 | Control | Expected state | Current state | Verdict |
 | --- | --- | --- | --- |
-| Default branch | `main` is the latest GA tag | `main` matches the v0.3.0 GA tag at `c7095365`. `dev/v0.1` is five commits ahead of `main` and `main` has one commit `dev/v0.1` lacks, the v0.3.0 promotion merge | Pass |
+| Default branch | `main` is the latest GA tag | `main` matches the v0.4.0 GA tag at `4eeb36c0` | Pass |
 | Development line | One active protected `dev/vX.Y` branch | `dev/v0.1` requires PRs, two approvals, current-head approval, the six stable checks, and CodeQL, with no bypass actors | Pass |
 | Release tags | `v*` tags cannot be deleted, updated, or force-pushed | Active tag ruleset, no bypass actors | Pass |
 | Main protection | PRs, two approvals, code owners, current head approval, required checks, CodeQL | Active no-bypass ruleset requires the six stable PR contexts proven by the representative review | Pass |
@@ -26,7 +26,7 @@ pipeline, or web runtime.
 | Public security | Private reporting, secret scanning, push protection, Dependabot | Enabled live; no open CodeQL alerts. Two open Dependabot alerts (medium, both GHSA-mfr8-8qww-v76h on `next` in `docs-site`, patched in 16.4.5). `dev/v0.1` already has `next` 16.4.6 from #54, so they stay open until that reaches `main`. Three open Scorecard code-scanning alerts on `main`: CIIBestPracticesID, FuzzingID and TokenPermissionsID | Follow-up |
 | Review automation | CodeRabbit on dev PRs; Greptile only by label | CodeRabbit reviewed and rechecked the corrected head; the label-gated Greptile path was exercised, but bot silence was not counted as review evidence | Pass |
 | README | Product shape, live badges, install path, community routing | Product shape adopted; Scorecard and Codecov badges require their first default-branch run | Verify after release |
-| Release engineering | Clean immutable candidate, Developer ID, notarization, Gatekeeper, manifest-derived cask | The clean development source, signing identity, and all three Developer ID profiles pass the builder preflight; the team-scoped App Store Connect API key authenticates against submission history, the stale Apple ID notary profile has been removed so one working credential remains, and the Developer ID Application certificate is valid through 2027-02-01 | v0.3.0 build 66 published; exact downloaded asset digests rechecked |
+| Release engineering | Clean immutable candidate, Developer ID, notarization, Gatekeeper, manifest-derived cask | The clean development source, signing identity, and all three Developer ID profiles pass the builder preflight; the team-scoped App Store Connect API key authenticates against submission history, the stale Apple ID notary profile has been removed so one working credential remains, and the Developer ID Application certificate is valid through 2027-02-01 | v0.4.0 build 67 published November 21, 2026; v0.3.0 build 66 asset digests were rechecked |
 | Build provenance | SBOM and workflow identity for shipped artifacts | A manifest-bound SPDX 2.3 SBOM is generated for the shipped DMG; GitHub Actions migration would require moving Apple signing and notary credentials | Local SBOM passes; Actions attestation tracked |
 | Repository metadata | Public product description, topics, Discussions, detected MIT license | Description, topics, Discussions, and MIT license detection are live | Pass |
 
@@ -40,9 +40,14 @@ and the [roadmap](ROADMAP.md) for the user-facing scope.
 
 ## Current release exit
 
-The latest release is v0.3.0 build 66, published November 5, 2026, from
-`c7095365badf5cfbc3e3b6a05f777110bde517b2` after promotion PR #44 and
-provenance/appearance PR #46. The signed GA tag and `main` identify that commit.
+The latest release is
+[v0.4.0](https://github.com/CodesWhat/idlescreen/releases/tag/v0.4.0) build 67,
+published November 21, 2026 (Apple silicon only, macOS 26 or later), from
+`4eeb36c0340d7a4c9d028131adf2d4e0c630017e`. It ships the DMG,
+`IdleScreenR1ReleaseCandidateV1.txt` and an SPDX SBOM. This page's digest
+records below are for the previous release, v0.3.0 build 66, published
+November 5, 2026, from `c7095365badf5cfbc3e3b6a05f777110bde517b2` after promotion PR #44 and
+provenance/appearance PR #46. The signed v0.3.0 GA tag identifies that commit.
 
 The published release contains the DMG, `IdleScreenR1ReleaseCandidateV1.txt` and
 SPDX SBOM. Downloaded asset digests match the GitHub release records:
