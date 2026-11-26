@@ -6,14 +6,20 @@ import Observation
 @Observable
 final class IdleScreenPlantedTankEditor {
   typealias Object = IdleScreenAquariumWebSurface.PresetObject
-  #if IDLESCREEN_APP_COMPILE_GATE
-    static let shared = IdleScreenPlantedTankEditor()
-  #else
-    static let shared = IdleScreenPlantedTankEditor(
-      store: IdleScreenPlantedTankStore(
-        fileURL: IdleScreenAquariumProduct.storeURL().deletingLastPathComponent()
-          .appendingPathComponent("planted-tank-v1.json")))
-  #endif
+  static let shared = makeWorkspaceEditor()
+
+  /// Builds the editor the app's workspace uses. Tests call this for their own instance
+  /// instead of sharing `shared`, which other tests and views also activate.
+  static func makeWorkspaceEditor() -> IdleScreenPlantedTankEditor {
+    #if IDLESCREEN_APP_COMPILE_GATE
+      return IdleScreenPlantedTankEditor()
+    #else
+      return IdleScreenPlantedTankEditor(
+        store: IdleScreenPlantedTankStore(
+          fileURL: IdleScreenAquariumProduct.storeURL().deletingLastPathComponent()
+            .appendingPathComponent("planted-tank-v1.json")))
+    #endif
+  }
   private(set) var surface = IdleScreenAquariumWebSurface()
   private(set) var snapshot: IdleScreenAquariumWebSurface.EditorSnapshot?
   private(set) var errorMessage: String?

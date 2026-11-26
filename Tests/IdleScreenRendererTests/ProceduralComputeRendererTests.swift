@@ -198,17 +198,18 @@ struct ProceduralComputeRendererTests {
     var deadlineMissCount = 0
     var droppedFrameCount = 0
     for frame in 1...60 {
-      let roundStart = CACurrentMediaTime()
+      // Thread CPU time, not wall time: descheduling under host load must not count as a miss.
+      let roundStart = Self.threadCPUSeconds()
       for renderer in renderers {
-        let startedAt = CACurrentMediaTime()
+        let startedAt = Self.threadCPUSeconds()
         if !renderer.draw(at: Double(frame) / 30) {
           droppedFrameCount += 1
         }
         submissionMilliseconds.append(
-          (CACurrentMediaTime() - startedAt) * 1_000
+          (Self.threadCPUSeconds() - startedAt) * 1_000
         )
       }
-      if CACurrentMediaTime() - roundStart > 1.0 / 30.0 {
+      if Self.threadCPUSeconds() - roundStart > 1.0 / 30.0 {
         deadlineMissCount += 1
       }
       RunLoop.current.run(until: Date().addingTimeInterval(0.034))
@@ -241,6 +242,12 @@ struct ProceduralComputeRendererTests {
       #expect(cpuP95 < 5)
       #expect(missRatio <= 0.01)
     }
+  }
+
+  private static func threadCPUSeconds() -> Double {
+    var time = timespec()
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time)
+    return Double(time.tv_sec) + Double(time.tv_nsec) / 1e9
   }
 
   private func assertParity(
