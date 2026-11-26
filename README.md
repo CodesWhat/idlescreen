@@ -26,6 +26,7 @@
   <a href="https://github.com/CodesWhat/idlescreen/actions/workflows/ci-verify.yml"><img src="https://github.com/CodesWhat/idlescreen/actions/workflows/ci-verify.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="https://securityscorecards.dev/viewer/?uri=github.com/CodesWhat/idlescreen"><img src="https://api.scorecard.dev/projects/github.com/CodesWhat/idlescreen/badge" alt="OpenSSF Scorecard"></a>
   <a href="https://codecov.io/gh/CodesWhat/idlescreen"><img src="https://codecov.io/gh/CodesWhat/idlescreen/graph/badge.svg" alt="Coverage"></a>
+  <a href="https://qlty.sh/gh/CodesWhat/projects/idlescreen"><img src="https://qlty.sh/gh/CodesWhat/projects/idlescreen/maintainability.svg" alt="Maintainability"></a>
   <br>
   <a href="https://github.com/CodesWhat/idlescreen/releases"><img src="https://img.shields.io/github/downloads/CodesWhat/idlescreen/total?logo=github&logoColor=white&label=downloads" alt="Release downloads"></a>
   <a href="https://github.com/sponsors/scttbnsn"><img src="https://img.shields.io/github/sponsors/scttbnsn?logo=githubsponsors&label=sponsor" alt="Sponsor CodesWhat"></a>
