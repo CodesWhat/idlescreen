@@ -85,6 +85,7 @@ jobs:
           IDLESCREEN_COVERAGE_RESULT_BUNDLE: ${{ github.event_name == 'push' && format('{0}/idlescreen-test-results/IdleScreenAppCompileGate.xcresult', runner.temp) || '' }}
         run: |
           python3 ./scripts/test_xccov_to_lcov.py
+          ./scripts/test-coverage-floor.sh
           python3 ./scripts/test_performance_r1_report.py
           ./scripts/test-run-performance-r1.sh
           ./scripts/test-camera-gate-c8-soak-planner.py
@@ -137,6 +138,8 @@ jobs:
           python3 ./scripts/xccov_to_lcov.py \
             --source-root "$GITHUB_WORKSPACE" \
             --output "$coverage_root/coverage.lcov" "$coverage_root"/*.json
+          python3 ./scripts/check_coverage_floor.py --floor 80.0 \
+            "$coverage_root/coverage.lcov"
 
       - name: Upload coverage report for the coverage job
         if: github.event_name == 'push'
