@@ -30,6 +30,7 @@ public enum IdleScreenCreativePattern: String, Codable, CaseIterable,
   case aurora
   case pixelMaterials
   case aquarium
+  case demoScroller
 
   public var id: String { rawValue }
 
@@ -57,6 +58,7 @@ public enum IdleScreenCreativePattern: String, Codable, CaseIterable,
     case .aurora: return "Aurora"
     case .aquarium: return "Shrimp Tank"
     case .pixelMaterials: return "Pixel Materials"
+    case .demoScroller: return "Scroller"
     }
   }
 
@@ -84,10 +86,13 @@ public enum IdleScreenCreativePattern: String, Codable, CaseIterable,
     case .aurora: return "light.ribbon"
     case .aquarium: return "fish"
     case .pixelMaterials: return "drop.triangle"
+    case .demoScroller: return "textformat"
     }
   }
 
   /// Concrete patterns in the stable order used by the legacy renderer.
+  /// The Scroller is drawn as a pixel raster, so like the Aquarium it is not
+  /// part of Auto Cycle.
   public static let patterns: [Self] = [
     .perlin,
     .plasma,
@@ -162,6 +167,8 @@ public struct IdleScreenCreativeSettings: Codable, Equatable, Sendable {
   public var rainbowAmplitude: Double
   public var fireDecay: Double
   public var qualityLevel: Double
+  /// Text the Scroller shows; nil shows the time. Always held in sanitised form.
+  public var scrollerPhrase: String?
 
   public init(
     speed: Double = defaultSpeed,
@@ -172,7 +179,8 @@ public struct IdleScreenCreativeSettings: Codable, Equatable, Sendable {
     matrixTrailLength: Double = defaultMatrixTrailLength,
     rainbowAmplitude: Double = defaultRainbowAmplitude,
     fireDecay: Double = defaultFireDecay,
-    qualityLevel: Double = defaultQualityLevel
+    qualityLevel: Double = defaultQualityLevel,
+    scrollerPhrase: String? = nil
   ) {
     self.speed = Self.normalized(
       speed,
@@ -211,6 +219,27 @@ public struct IdleScreenCreativeSettings: Codable, Equatable, Sendable {
       qualityLevel,
       default: Self.defaultQualityLevel
     )
+    self.scrollerPhrase = Self.sanitizedScrollerPhrase(scrollerPhrase)
+  }
+
+  public static let maximumScrollerPhraseLength = 32
+
+  private static let scrollerGlyphs = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 :.!-")
+
+  /// Keeps only glyphs the Scroller's bitmap font draws (A-Z, 0-9, space and
+  /// `: . ! -`), uppercased, capped at 32 characters.
+  public static func filteredScrollerText(_ value: String) -> String {
+    String(
+      value.uppercased().filter { scrollerGlyphs.contains($0) }
+        .prefix(maximumScrollerPhraseLength))
+  }
+
+  /// The stored form: filtered, and nil when nothing visible is left so the
+  /// Scroller falls back to the time.
+  public static func sanitizedScrollerPhrase(_ value: String?) -> String? {
+    guard let value else { return nil }
+    let result = filteredScrollerText(value)
+    return result.allSatisfy { $0 == " " } ? nil : result
   }
 
   public static let `default` = Self()
@@ -226,7 +255,8 @@ public struct IdleScreenCreativeSettings: Codable, Equatable, Sendable {
       matrixTrailLength: matrixTrailLength,
       rainbowAmplitude: rainbowAmplitude,
       fireDecay: fireDecay,
-      qualityLevel: qualityLevel
+      qualityLevel: qualityLevel,
+      scrollerPhrase: scrollerPhrase
     )
   }
 
@@ -247,6 +277,7 @@ public struct IdleScreenCreativeSettings: Codable, Equatable, Sendable {
     case rainbowAmplitude
     case fireDecay
     case qualityLevel
+    case scrollerPhrase
   }
 
   public init(from decoder: Decoder) throws {
@@ -277,7 +308,11 @@ public struct IdleScreenCreativeSettings: Codable, Equatable, Sendable {
       qualityLevel: try values.decodeIfPresent(
         Double.self,
         forKey: .qualityLevel
-      ) ?? Self.defaultQualityLevel
+      ) ?? Self.defaultQualityLevel,
+      scrollerPhrase: try values.decodeIfPresent(
+        String.self,
+        forKey: .scrollerPhrase
+      )
     )
   }
 

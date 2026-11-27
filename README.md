@@ -121,7 +121,7 @@ so ownership and teardown remain inspectable.
 
 ## Features
 
-- 19 procedural patterns, including Topograph, plus the Aquarium, Pixel Materials and live camera
+- 20 procedural patterns, including Topograph and the 16-colour Scroller, plus the Aquarium, Pixel Materials and live camera
 - Pixel Materials sand and water simulations with deterministic scene state
 - Panorama, Per Display, and Focus Display multi-screen layouts
 - Saved Looks and native controls for color, scale, contrast, motion, terrain,

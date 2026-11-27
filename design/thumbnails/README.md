@@ -26,6 +26,7 @@ The tiles show at about 180 x 100 pt, so each one is a deliberately coarse, brig
   grid: ripple and pulse read as rings, sweep and rainbow as diagonal bands, metaballs as blobs, spiral as arms, and so on.
 - Starfield and Rain on Glass are sparse movers that a single frame cannot show, so the table's `exposure` column
   composites that many frames 0.25 s apart by per-pixel max, which turns the moving points into streaks.
+- Scroller draws the fixed phrase "IDLE", held still and centred (Reduce Motion), since its default text is the time of day.
 - Pixel Materials is sand only on terraces with three wide emitters, captured at frame 480 (16 s at 30 fps).
 
 To pick a pattern's timestamp, run the sweep:

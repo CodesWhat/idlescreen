@@ -646,6 +646,10 @@ final class IdleScreenAppModel {
     updateCreativeSettings { $0.fireDecay = decay }
   }
 
+  func updateCreativeScrollerPhrase(_ phrase: String?) {
+    updateCreativeSettings { $0.scrollerPhrase = phrase }
+  }
+
   func updateCreativeQualityLevel(_ qualityLevel: Double) {
     updateCreativeSettings { $0.qualityLevel = qualityLevel }
   }

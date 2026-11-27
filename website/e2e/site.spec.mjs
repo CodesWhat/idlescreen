@@ -35,7 +35,7 @@ const test = base.extend({
 
 const patterns = [
   'Topograph', 'Perlin Noise', 'Plasma', 'Sweep', 'Rain', 'Rainbow Cycle', 'Fire Effect', 'Ripple', 'Voronoi', 'Warp',
-  'Static', 'Pulse', 'DVD Bounce', 'Metaballs', 'Starfield', 'Spiral Galaxy', 'Terrain', 'Rain on Glass', 'Aurora',
+  'Static', 'Pulse', 'DVD Bounce', 'Metaballs', 'Starfield', 'Spiral Galaxy', 'Terrain', 'Rain on Glass', 'Aurora', 'Scroller',
 ];
 
 test.describe('content', () => {
@@ -47,10 +47,10 @@ test.describe('content', () => {
     await expect(page.locator('#brew-command')).toHaveText('brew install --cask codeswhat/tap/idlescreen');
   });
 
-  test('lists the 19 procedural patterns by name and Pixel Materials', async ({ page }) => {
+  test('lists the 20 procedural patterns by name and Pixel Materials', async ({ page }) => {
     await page.goto('/');
     const chips = page.locator('.chips li');
-    await expect(chips).toHaveCount(19);
+    await expect(chips).toHaveCount(20);
     expect(await chips.allTextContents()).toEqual(patterns);
     await expect(page.getByRole('heading', { name: 'Pixel Materials' })).toBeVisible();
   });

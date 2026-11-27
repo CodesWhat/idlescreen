@@ -1,7 +1,9 @@
+import AppKit
 import Foundation
 import IdleScreenCore
 import IdleScreenDisplay
 import IdleScreenRenderer
+import SwiftUI
 import Testing
 
 @Suite("Companion source compile gate")
@@ -133,6 +135,43 @@ struct IdleScreenAppCompileGateSmokeTests {
   @Test("new scenes start full bleed without a dark sky mask")
   func defaultSceneIsFullBleed() {
     #expect(IdleScreenConfiguration.default.creative.framing == .none)
+  }
+
+  @Test("the Scroller phrase reaches the renderer only for the Scroller")
+  func demoScrollerPhraseBridge() {
+    var configuration = IdleScreenConfiguration.default
+    configuration.creative.settings.scrollerPhrase = "idle!"
+    configuration.creative.pattern = .demoScroller
+    #expect(configuration.rendererConfiguration.demoScrollerPhrase == "IDLE!")
+    configuration.creative.settings.scrollerPhrase = nil
+    #expect(configuration.rendererConfiguration.demoScrollerPhrase == nil)
+    configuration.creative.settings.scrollerPhrase = "IDLE"
+    configuration.creative.pattern = .matrixRain
+    #expect(configuration.rendererConfiguration.demoScrollerPhrase == nil)
+  }
+
+  @Test("the Scroller phrase field renders and cleans typed text")
+  @MainActor
+  func demoScrollerPhraseField() {
+    let view = NSHostingView(
+      rootView: StudioScrollerPhraseField(phrase: "IDLE", onChange: { _ in })
+        .frame(width: 280, height: 60))
+    view.setFrameSize(NSSize(width: 280, height: 60))
+    view.layoutSubtreeIfNeeded()
+    #expect(view.fittingSize.height > 0)
+  }
+
+  @Test("the Scroller maps to the renderer and carries Reduce Motion")
+  func demoScrollerRendererMapping() {
+    var configuration = IdleScreenConfiguration.default
+    configuration.creative.pattern = .demoScroller
+    #expect(configuration.rendererConfiguration.patternRawValue == "demoScroller")
+    #expect(configuration.rendererConfiguration.reduceMotion == false)
+    #expect(configuration.rendererConfiguration.demoScrollerPhrase == nil)
+    #expect(
+      configuration.rendererConfiguration(for: nil, reduceMotion: true).reduceMotion == true)
+    #expect(IdleScreenCreativePattern.demoScroller.displayName == "Scroller")
+    #expect(!IdleScreenCreativePattern.patterns.contains(.demoScroller))
   }
 
   @Test("shared Pixel Materials configuration maps every product input")

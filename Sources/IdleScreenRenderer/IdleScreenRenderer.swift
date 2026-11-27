@@ -19,6 +19,10 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
   public var sceneSeed: UInt64
   public var sceneBrightness: Double
   public var aquariumSettings: IdleScreenAquariumRenderSettings?
+  /// Scroller text. Nil scrolls the time of day as "HH:MM".
+  public var demoScrollerPhrase: String?
+  /// Holds the Scroller still and centred.
+  public var reduceMotion: Bool
   public var pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings
   /// Agent sprites drawn into the scene, at most two. Empty leaves the
   /// rendered output untouched.
@@ -39,7 +43,9 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
     pixelMaterialsSettings: IdleScreenPixelMaterialsRendererSettings = .init(),
     agentSprites: [IdleScreenAgentSprite] = [],
     framing: IdleScreenRendererFraming = .none,
-    aquariumSettings: IdleScreenAquariumRenderSettings? = nil
+    aquariumSettings: IdleScreenAquariumRenderSettings? = nil,
+    demoScrollerPhrase: String? = nil,
+    reduceMotion: Bool = false
   ) {
     self.glyphScale = glyphScale
     self.contrast = contrast
@@ -59,6 +65,8 @@ public struct IdleScreenRendererConfiguration: Equatable, Sendable {
     )
     self.framing = framing
     self.aquariumSettings = aquariumSettings
+    self.demoScrollerPhrase = demoScrollerPhrase
+    self.reduceMotion = reduceMotion
   }
 
   public static let `default` = IdleScreenRendererConfiguration(
@@ -1293,8 +1301,17 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
     let aquariumFraming = IdleScreenAquariumFraming(
       logicalSize: logicalSize, viewport: configuration.viewport,
       worldWidth: configuration.aquariumSettings?.worldWidth ?? 384)
-    let columns = isAquarium ? aquariumFraming.columns : max(1, Int(logicalSize.width / cellWidth))
-    let rows = isAquarium ? aquariumFraming.rows : max(1, Int(logicalSize.height / cellHeight))
+    let isScroller = configuration.patternRawValue == "demoScroller" && mode != .camera
+    let scrollerGrid = IdleScreenDemoScroller.gridSize(
+      for: logicalSize, viewport: configuration.viewport)
+    let columns =
+      isAquarium
+      ? aquariumFraming.columns
+      : isScroller ? scrollerGrid.columns : max(1, Int(logicalSize.width / cellWidth))
+    let rows =
+      isAquarium
+      ? aquariumFraming.rows
+      : isScroller ? scrollerGrid.rows : max(1, Int(logicalSize.height / cellHeight))
     let count = columns * rows
 
     if instanceBuffers[bufferIndex] == nil
@@ -1405,6 +1422,14 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
         cameraInput: nil, pixelMaterialsInput: nil, usesProceduralCompute: false
       )
     }
+    if isScroller {
+      proceduralDebugState = .init(usesComputePipeline: false, instanceCount: count)
+      fillScrollerInstances(
+        instances, columns: columns, rows: rows, elapsed: TimeInterval(elapsed))
+      return PreparedGrid(
+        dimensions: GridDimensions(columns: columns, rows: rows),
+        cameraInput: nil, pixelMaterialsInput: nil, usesProceduralCompute: false)
+    }
     if configuration.patternRawValue == "pixelMaterials",
       let input = preparePixelMaterialsInput(
         elapsed: TimeInterval(elapsed),
@@ -1511,6 +1536,43 @@ public final class IdleScreenRenderer: NSObject, MTKViewDelegate {
       pixelMaterialsInput: nil,
       usesProceduralCompute: false
     )
+  }
+
+  /// Draws the Scroller as one solid cell per scene pixel. The scene is laid
+  /// out over the whole panorama and this display copies its own slice, so
+  /// every display of a multi-display scene shows the same pixels.
+  private func fillScrollerInstances(
+    _ instances: UnsafeMutablePointer<GlyphInstance>,
+    columns: Int, rows: Int, elapsed: TimeInterval
+  ) {
+    let configuration = self.configuration
+    let origin = configuration.viewport.coordinate(
+      column: 0, row: 0, columns: columns, rows: rows)
+    let speed = configuration.proceduralSettings.normalized.speed
+    let text =
+      configuration.demoScrollerPhrase
+      ?? IdleScreenDemoScroller.clockText(at: Date())
+    let frame = IdleScreenDemoScroller.frame(
+      columns: origin.columns, rows: origin.rows, time: elapsed * speed, text: text,
+      reduceMotion: configuration.reduceMotion)
+    let brightness = Float(configuration.sceneBrightness)
+    var colors = (0..<UInt8(IdleScreenDemoScroller.palette.count)).map {
+      IdleScreenDemoScroller.color(forIndex: $0)
+    }
+    for index in colors.indices {
+      colors[index] = SIMD4(
+        SIMD3(colors[index].x, colors[index].y, colors[index].z) * brightness, 1)
+    }
+    for row in 0..<rows {
+      for column in 0..<columns {
+        let scene = configuration.viewport.coordinate(
+          column: column, row: row, columns: columns, rows: rows)
+        let index = Int(frame.index(column: scene.column, row: scene.row))
+        instances[row * columns + column] = GlyphInstance(
+          gridBrightnessGlyph: SIMD4(Float(column), Float(row), 1, -1),
+          foreground: colors[index])
+      }
+    }
   }
 
   private func encodeProceduralInstances(
@@ -2040,7 +2102,9 @@ extension IdleScreenRendererConfiguration {
       pixelMaterialsSettings: pixelMaterialsSettings,
       agentSprites: agentSprites,
       framing: framing,
-      aquariumSettings: aquariumSettings
+      aquariumSettings: aquariumSettings,
+      demoScrollerPhrase: demoScrollerPhrase,
+      reduceMotion: reduceMotion
     )
   }
 

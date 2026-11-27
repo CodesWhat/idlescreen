@@ -102,7 +102,10 @@ enum IdleScreenRendererConfigurationBridge {
               worldAspect: bounds.map { $0.width / $0.height })
             settings.reduceMotion = reduceMotion
             return settings
-          } : nil
+          } : nil,
+      demoScrollerPhrase: creative.pattern == .demoScroller
+        ? IdleScreenCreativeSettings.sanitizedScrollerPhrase(settings.scrollerPhrase) : nil,
+      reduceMotion: reduceMotion
     )
   }
 
