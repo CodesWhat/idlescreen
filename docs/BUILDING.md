@@ -201,6 +201,21 @@ Ordinary changes target the protected `dev/v0.1` branch. `main` advances only
 through a reviewed promotion pull request and must immediately receive the GA
 tag so `git describe --exact-match origin/main` succeeds.
 
+Before opening the promotion pull request, check `dev/v0.1` for open high
+CodeQL alerts. The `main` ruleset has a `code_scanning` rule (errors, high or
+higher) that blocks the promotion even when every dev pull request passed:
+
+```sh
+gh api "repos/CodesWhat/idlescreen/code-scanning/alerts?state=open&ref=refs/heads/dev/v0.1" \
+  -q '.[] | select(.rule.security_severity_level == "high" or .rule.security_severity_level == "critical" or .rule.severity == "error") | {number, rule: .rule.id, severity: .rule.security_severity_level, path: .most_recent_instance.location.path}'
+```
+
+Fix each alert, or dismiss it with a reason once it is verified as a false
+positive. Never change the ruleset to get past it.
+
+When rerunning CI, rerun all jobs, not only the failed ones. The quality report
+aggregate only counts artifacts from the current attempt.
+
 ## Repository hygiene
 
 Local roadmaps, raw test evidence, design exports, audit reports, and historical
