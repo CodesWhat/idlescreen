@@ -11,7 +11,7 @@
  }
  function number(value,minimum=-1e12,maximum=1e12){if(typeof value!=='number'||!Number.isFinite(value)||value<minimum||value>maximum)fail('finite bounded number required');}
  function count(value){number(value,0,Number.MAX_SAFE_INTEGER-1);if(!Number.isSafeInteger(value))fail('safe counter required');}
- function choice(value,choices){if(!choices.includes(value))fail('unsupported value');}
+ function choice(value,choices){if(!choices.includes(value))fail('unsupported value '+JSON.stringify(value)+' not in '+JSON.stringify(choices));}
  function boolean(value){if(typeof value!=='boolean')fail('boolean required');}
  function vector(value,size=3){if(!Array.isArray(value)||value.length!==size)fail('vector required');value.forEach(v=>number(v,-100,100));}
  function quaternion(value){vector(value,4);if(Math.abs(Math.hypot(...value)-1)>1e-6)fail('unit quaternion required');}

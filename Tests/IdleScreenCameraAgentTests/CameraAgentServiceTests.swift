@@ -448,7 +448,7 @@ struct CameraAgentServiceTests {
           width: 1,
           height: 1,
           sourceBytesPerRow: 4,
-          timestamp: 1
+          timestamp: ProcessInfo.processInfo.systemUptime
         )
       }
 
@@ -471,7 +471,7 @@ struct CameraAgentServiceTests {
           width: 1,
           height: 1,
           sourceBytesPerRow: 4,
-          timestamp: 1.5
+          timestamp: ProcessInfo.processInfo.systemUptime
         )
       }
       let staleProcessAFrame = source.withFrame { _, _ in
@@ -493,7 +493,7 @@ struct CameraAgentServiceTests {
           width: 1,
           height: 1,
           sourceBytesPerRow: 4,
-          timestamp: 2
+          timestamp: ProcessInfo.processInfo.systemUptime
         )
       }
 

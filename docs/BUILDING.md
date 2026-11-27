@@ -87,6 +87,17 @@ treated as errors, CodeQL, workflow security, Qlty, and Codecov coverage. The
 companion compile gate prints the temporary directory
 containing its disposable build log.
 
+The WebGL-dependent renderer suites (the aquarium runtime, web surface and
+context lifecycle suites) start with a one-time per-process probe that loads the
+bundled aquarium. Hosted macOS runners sometimes have no WebGL for a whole test
+process, and then those suites skip with one
+`WebGL unavailable on this host` line in the log instead of failing every test.
+Set `IDLESCREEN_REQUIRE_WEBGL=1` on a machine with a real GPU to turn an
+unavailable probe into failures. Only the specific WebGL context failure counts as
+unavailable; any other probe failure (such as a scene that doesn't initialize)
+leaves the suites enabled so it fails them instead of skipping. `IDLESCREEN_FORCE_NO_WEBGL=1` makes the probe
+report unavailable, for checking the skip path. The two many-surface stress tests (`repeatedLoadAndTeardownNeverExhaustsWebGLContexts`, `fiftySurfacesReleaseEveryWebViewAndContext`) exhaust a hosted runner's virtual GPU and poison later tests, so they skip when `GITHUB_ACTIONS=true` unless `IDLESCREEN_RUN_WEBGL_STRESS=1` or `IDLESCREEN_REQUIRE_WEBGL=1` is set.
+
 On trusted pushes, the coverage job exports each tested scheme's Xcode archive
 line counts and converts them with `scripts/xccov_to_lcov.py` to one explicit
 LCOV report. It includes instrumented files under `Sources/` and `Products/`,

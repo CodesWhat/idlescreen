@@ -424,6 +424,55 @@ struct HealthContractTests {
     #expect(reports.first?.updatedAt == Date(timeIntervalSince1970: 9))
   }
 
+  @Test("background publication returns while the directory lock is held and keeps order")
+  func backgroundWriteDoesNotWaitOnTheLock() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory, lockTimeout: 0.1)
+    try store.write(retentionReport(.companionApp, pid: 7, instance: "i", at: 0))
+    let descriptor = open(directory.path, O_RDONLY)
+    #expect(descriptor >= 0)
+    #expect(flock(descriptor, LOCK_EX) == 0)
+
+    let started = ContinuousClock.now
+    for tick in 1...5 {
+      store.writeInBackground(
+        retentionReport(.companionApp, pid: 7, instance: "i", at: Double(tick)))
+    }
+    #expect(ContinuousClock.now - started < .milliseconds(250), "the caller waited on the lock")
+
+    flock(descriptor, LOCK_UN)
+    close(descriptor)
+    IdleScreenHealthStore.drainBackgroundWrites()
+    #expect(try store.readAll().first?.updatedAt == Date(timeIntervalSince1970: 5))
+  }
+
+  @Test("background publication completes before onComplete fires, on failure too")
+  func backgroundWriteReportsCompletionAfterThePublish() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory)
+    let report = retentionReport(.companionApp, pid: 9, instance: "i", at: 3)
+    let seenAtCompletion = LockedBox<[IdleScreenProcessHealth]>([])
+    let done = DispatchSemaphore(value: 0)
+    store.writeInBackground(
+      report,
+      onComplete: {
+        seenAtCompletion.set((try? store.readAll()) ?? [])
+        done.signal()
+      })
+    #expect(done.wait(timeout: .now() + 5) == .success)
+    #expect(seenAtCompletion.get().first?.updatedAt == Date(timeIntervalSince1970: 3))
+
+    // A failing publish still completes.
+    let blocker = directory.appending(path: "not-a-directory")
+    try Data().write(to: blocker)
+    let failing = IdleScreenHealthStore(directoryURL: blocker.appending(path: "child"))
+    let failed = DispatchSemaphore(value: 0)
+    failing.writeInBackground(report, onComplete: { failed.signal() })
+    #expect(failed.wait(timeout: .now() + 5) == .success)
+  }
+
   @Test("retention never removes unrecognized files")
   func retentionIgnoresUnrecognizedFiles() throws {
     let directory = retentionDirectory()
@@ -460,12 +509,90 @@ struct HealthContractTests {
     // pid 1 is the oldest and selected for removal; it is rewritten first.
     let refreshed = retentionReport(.cameraAgent, pid: 1, at: 99)
     let result = try store.enforceRetention(
-      protecting: [],
+      classifyingLive: { _ in [] },
       historicalLimitPerProcess: 4,
       beforeRemoving: { _ in try? store.write(refreshed) }
     )
 
     #expect(result.removedReportIdentifiers.isEmpty)
     #expect(try store.readAll().contains(refreshed))
+  }
+
+  @Test("a report published between inspection and removal is kept")
+  func reportPublishedAfterInspectionSurvives() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory, lockTimeout: 0.05)
+    for pid in 1...3 {
+      try store.write(retentionReport(.cameraAgent, pid: Int32(pid), at: Double(pid)))
+    }
+    let fresh = retentionReport(.cameraAgent, pid: 50, at: 99)
+    let rewritten = retentionReport(.cameraAgent, pid: 1, at: 100)
+    let result = try store.enforceRetention(
+      classifyingLive: { _ in
+        // Published after the inspection the classifier and pruner share.
+        try? store.write(fresh)
+        return []
+      },
+      historicalLimitPerProcess: 0,
+      beforeRemoving: { url in
+        if url.lastPathComponent == "cameraAgent-1.json" { try? store.write(rewritten) }
+      }
+    )
+
+    let kept = try store.readAll()
+    #expect(kept.contains(fresh))
+    #expect(kept.contains(rewritten))
+    #expect(!result.removedReportIdentifiers.contains("cameraAgent-1"))
+    #expect(!result.removedReportIdentifiers.contains("cameraAgent-50"))
+  }
+
+  @Test("retention skips pruning when the directory lock is held")
+  func retentionSkipsWhenLockHeld() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory, lockTimeout: 0.05)
+    for pid in 1...4 {
+      try store.write(retentionReport(.companionApp, pid: Int32(pid), at: Double(pid)))
+    }
+    let descriptor = open(directory.path, O_RDONLY)
+    #expect(descriptor >= 0)
+    #expect(flock(descriptor, LOCK_EX | LOCK_NB) == 0)
+
+    let result = try store.enforceRetention(
+      classifyingLive: { _ in ["companionApp-4"] },
+      historicalLimitPerProcess: 0
+    )
+    // A write still publishes while the lock is contended.
+    let late = retentionReport(.companionApp, pid: 9, at: 9)
+    try store.write(late)
+    flock(descriptor, LOCK_UN)
+    close(descriptor)
+
+    #expect(result.skippedPruning)
+    #expect(result.removedReportIdentifiers.isEmpty)
+    #expect(result.retained.count == 4)
+    #expect(result.liveReportIdentifiers == ["companionApp-4"])
+    #expect(try store.readAll().count == 5)
+
+    let after = try store.enforceRetention(historicalLimitPerProcess: 0)
+    #expect(!after.skippedPruning)
+    #expect(after.retained.isEmpty)
+  }
+}
+
+private final class LockedBox<Value>: @unchecked Sendable {
+  private let lock = NSLock()
+  private var value: Value
+  init(_ value: Value) { self.value = value }
+  func set(_ new: Value) {
+    lock.lock()
+    value = new
+    lock.unlock()
+  }
+  func get() -> Value {
+    lock.lock()
+    defer { lock.unlock() }
+    return value
   }
 }

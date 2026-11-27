@@ -237,6 +237,20 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
     configuration.userContentController.add(handler, name: "idleScreenStock")
   }
 
+  /// Returns a surface whose load failed to the unloaded state so `load` can run again. Releases
+  /// the failed page's WebGL context first. Returns false when the surface was stopped or never
+  /// failed, so a caller cannot revive a released surface.
+  @discardableResult
+  func resetFailedLoad() async -> Bool {
+    guard state == .failed, !released else { return false }
+    try? await command(Self.disposeScript)
+    // Teardown can run while the disposal awaits; don't resurrect a released surface.
+    guard state == .failed, !released else { return false }
+    view.stopLoading()
+    state = .unloaded
+    return true
+  }
+
   public func load(sceneURL: URL) async throws {
     guard state == .unloaded else { throw SurfaceError.invalidState }
     guard sceneURL.isFileURL,

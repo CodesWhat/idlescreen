@@ -1224,10 +1224,10 @@ final class IdleScreenSaverView: ScreenSaverView {
       configurationRevision: configuration.revision,
       issue: nil
     )
-    do {
-      try IdleScreenHealthStore(directoryURL: sharedPaths.healthDirectoryURL).write(report)
-    } catch {
-      viewLogger.error("Unable to publish health: \(error.localizedDescription, privacy: .public)")
+    let logger = viewLogger
+    IdleScreenHealthStore(directoryURL: sharedPaths.healthDirectoryURL).writeInBackground(report) {
+      error in
+      logger.error("Unable to publish health: \(error.localizedDescription, privacy: .public)")
     }
   }
 

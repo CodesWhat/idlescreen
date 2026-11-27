@@ -153,6 +153,22 @@ struct AquariumFrameCacheTests {
     #expect(cache.cachedFrameCount == 1)
   }
 
+  @Test func aWideDonorRasterIsNotKeptAtItsWideCapacityByANarrowScene() {
+    let stride = MemoryLayout<SIMD4<Float>>.stride
+    let narrow = 384 * 216 * stride
+    let cache = IdleScreenAquariumFrameCache(byteLimit: 1152 * 216 * stride)
+    var wide = AquariumFrameFixtures.settings(width: 1152)
+    wide.seed = 1
+    var small = AquariumFrameFixtures.settings(width: 384)
+    small.seed = 2
+    _ = cache.frame(at: 1, seed: 1, settings: wide)
+    // The narrow scene evicts the wide one and inherits its storage.
+    let frame = cache.frame(at: 1, seed: 2, settings: small)
+    #expect(frame.capacity * stride <= narrow + narrow / 4)
+    #expect(cache.cachedByteCount <= cache.byteLimit)
+    #expect(cache.cachedByteCount <= narrow + narrow / 4)
+  }
+
   @Test func settingsEditsInvalidateAndTeardownClears() {
     let cache = IdleScreenAquariumFrameCache()
     var settings = AquariumFrameFixtures.settings(width: 384)

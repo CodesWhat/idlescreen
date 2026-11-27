@@ -147,14 +147,15 @@ struct SyntheticCameraCompositionTests {
       slotCount: 3,
       slotByteCapacity: 8 * 4 * 4
     )
+    let runtimeScheduler = ManualSyntheticRuntimeScheduler()
     let writer = try CameraFrameMailboxWriter(
       appGroupContainerURL: temporaryRoot,
-      layout: layout
+      layout: layout,
+      publishClock: { runtimeScheduler.currentTime }
     )
     let publisher = try #require(CameraFrameMailboxRuntimePublisher(writer: writer))
     let captureScheduler = FakeSyntheticScheduler()
     let capture = SyntheticCameraCaptureController(scheduler: captureScheduler)
-    let runtimeScheduler = ManualSyntheticRuntimeScheduler()
     let driver = try #require(
       CameraAgentRuntimeDriver(
         scheduler: runtimeScheduler,
@@ -238,7 +239,13 @@ struct SyntheticCameraCompositionTests {
     #expect(runtimeScheduler.currentTime > CameraAgentRuntimeDriver.maximumFrameStallLatency)
     #expect(observedDescriptors.map(\.streamEpoch) == [7, 7, 7])
     #expect(observedDescriptors.map(\.sequence) == [1, 11, 22])
-    #expect(observedDescriptors.map(\.timestamp) == [0.1, 1.1, 2.2])
+    // The mailbox stamps arrival on the publish clock, here the manual
+    // runtime scheduler, which has advanced 0.1s per prior tick from its base.
+    let observedTimestamps = observedDescriptors.map(\.timestamp)
+    #expect(observedTimestamps.count == 3)
+    for (observed, offset) in zip(observedTimestamps, [0.0, 1.0, 2.1]) {
+      #expect(abs(observed - (ManualSyntheticRuntimeScheduler.clockBase + offset)) < 1e-9)
+    }
     #expect(runtimeScheduler.executedDelayedOperationCount == 0)
     #expect(runtimeScheduler.pendingDelayedOperationCount == 1)
 
@@ -541,9 +548,17 @@ private final class ManualSyntheticRuntimeScheduler: CameraAgentRuntimeSchedulin
   private let lock = NSLock()
   private var ready: [@Sendable () -> Void] = []
   private var delayed: [DelayedOperation] = []
-  private var now: TimeInterval = 0
+  private var now: TimeInterval
   private var nextSerial: UInt64 = 0
   private var delayedExecutions = 0
+
+  /// Production uptime is never zero and the mailbox rejects non-positive
+  /// timestamps, so the manual clock starts at a positive base.
+  static let clockBase: TimeInterval = 1_000
+
+  init(startingAt start: TimeInterval = ManualSyntheticRuntimeScheduler.clockBase) {
+    now = start
+  }
 
   var currentTime: TimeInterval { lock.withLock { now } }
   var executedDelayedOperationCount: Int { lock.withLock { delayedExecutions } }

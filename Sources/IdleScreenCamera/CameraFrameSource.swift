@@ -624,6 +624,21 @@ public final class CameraFrameSource: @unchecked Sendable {
         }
         return .noNewFrame
       }
+      return .deliver
+    }
+
+    // First read of this stream. Nothing has been accepted yet, so there is
+    // no local arrival time to age. The producer stamps each frame with the
+    // system uptime clock when it lands in the mailbox, the same clock as
+    // `clock.now`, so a frame that sat unread past the age limit is rejected
+    // instead of shown once.
+    guard now - descriptor.timestamp <= maximumFrameAge else {
+      let reason = CameraFrameSourceUnavailableReason.staleFrame(
+        epoch: descriptor.streamEpoch,
+        sequence: descriptor.sequence
+      )
+      currentAvailability = .unavailable(reason)
+      return .unavailable(reason)
     }
     return .deliver
   }

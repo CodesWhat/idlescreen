@@ -267,7 +267,7 @@ final class IdleScreenAppModel {
       persistConfigurationIfNeeded(overwritingExisting: repairedPersistedConfiguration)
     }
     agentIntegration.start()
-    publishAppHealth()
+    publishAppHealth(refreshAfter: true)
     refresh()
   }
 
@@ -317,11 +317,14 @@ final class IdleScreenAppModel {
     directoryURL: URL
   ) throws -> ProcessHealthSnapshot {
     let store = IdleScreenHealthStore(directoryURL: directoryURL)
-    let live = Set(
-      try store.readAll().compactMap { report -> String? in
-        isProcessReportRunning(report) ? report.reportIdentifier : nil
-      })
-    let retained = try store.enforceRetention(protecting: live).retained
+    let result = try store.enforceRetention(classifyingLive: { reports in
+      Set(
+        reports.compactMap { report -> String? in
+          isProcessReportRunning(report) ? report.reportIdentifier : nil
+        })
+    })
+    let retained = result.retained
+    let live = result.liveReportIdentifiers
     let retainedIdentifiers = Set(retained.map(\.reportIdentifier))
     return ProcessHealthSnapshot(
       reports: retained,
@@ -375,8 +378,7 @@ final class IdleScreenAppModel {
         lastError = message
       }
       isRefreshing = false
-      publishAppHealth()
-      readProcessHealth()
+      publishAppHealth(refreshAfter: true)
     }
   }
 
@@ -912,7 +914,10 @@ final class IdleScreenAppModel {
     }
   }
 
-  private func publishAppHealth() {
+  /// With `refreshAfter`, the process-health read starts only once the queued publication has
+  /// finished (success or failure), so the app's own entry isn't read stale. The wait happens on
+  /// the publish queue, never on the main actor.
+  private func publishAppHealth(refreshAfter: Bool = false) {
     guard let sharedPaths else { return }
     let report = IdleScreenProcessHealth(
       process: .companionApp,
@@ -927,12 +932,17 @@ final class IdleScreenAppModel {
       configurationRevision: configuration.revision,
       issue: lastError
     )
-    do {
-      try IdleScreenHealthStore(directoryURL: sharedPaths.healthDirectoryURL).write(report)
-    } catch {
-      Self.logger.error(
-        "Unable to publish app health: \(error.localizedDescription, privacy: .public)")
-    }
+    let logger = Self.logger
+    IdleScreenHealthStore(directoryURL: sharedPaths.healthDirectoryURL).writeInBackground(
+      report,
+      onFailure: { error in
+        logger.error(
+          "Unable to publish app health: \(error.localizedDescription, privacy: .public)")
+      },
+      onComplete: { [weak self] in
+        guard refreshAfter else { return }
+        Task { @MainActor in self?.readProcessHealth() }
+      })
   }
 
   private func runInBackground(_ operation: @escaping @Sendable () throws -> Void) {
@@ -979,8 +989,7 @@ final class IdleScreenAppModel {
       saverActionStatus = nil
       lastError = message
     }
-    publishAppHealth()
-    readProcessHealth()
+    publishAppHealth(refreshAfter: true)
   }
 
   private static func boolInfoValue(_ value: Any?) -> Bool {

@@ -138,6 +138,10 @@ final class IdleScreenAquariumFrameCache {
       var evicted = entries.removeFirst()
       if storage.isEmpty { swap(&storage, &evicted.pixels) }
     }
+    // A donor from a wider scene keeps its capacity through the render, so a
+    // narrower scene would hold (and be charged for) the wider allocation.
+    let stride = MemoryLayout<SIMD4<Float>>.stride
+    if storage.capacity * stride > needed + needed / 4 { storage = [] }
     entry.pixels = IdleScreenAquarium.frame(
       at: time, seed: seed, settings: settings, preparation: preparation, reusing: &storage)
     generatedFrameCount += 1

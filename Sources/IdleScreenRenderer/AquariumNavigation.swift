@@ -17,7 +17,7 @@ struct IdleScreenAquariumNavigation {
   let grazingAnchors: [Anchor]
   /// Parallel to `grazingAnchors`: stops under a cliff's approach slope, where
   /// an animal would hover instead of sit on the surface.
-  private let liftedAnchors: [Bool]
+  let liftedAnchors: [Bool]
   let shelters: [Shelter]
   private let schoolRanks: [UInt64: Int]
   private let surfaces: [Double]
@@ -189,7 +189,18 @@ struct IdleScreenAquariumNavigation {
     for personality: IdleScreenAquariumPersonality, identity: UInt64, seed: UInt64, trip: Int,
     origin: Double, side: Double
   ) -> Anchor {
+    grazeStop(
+      for: personality, identity: identity, seed: seed, trip: trip, origin: origin, side: side
+    ).anchor
+  }
+
+  /// The chosen stop and whether it sits under a cliff's approach slope.
+  func grazeStop(
+    for personality: IdleScreenAquariumPersonality, identity: UInt64, seed: UInt64, trip: Int,
+    origin: Double, side: Double
+  ) -> (anchor: Anchor, lifted: Bool) {
     var best: Anchor?
+    var bestLifted = false
     var bestScore = -Double.infinity
     for (index, candidate) in grazeStops.enumerated() {
       let distance = abs(candidate.x - origin) / Double(worldWidth)
@@ -205,9 +216,10 @@ struct IdleScreenAquariumNavigation {
       if score > bestScore {
         bestScore = score
         best = candidate
+        bestLifted = !liftedAnchors.isEmpty && liftedAnchors[index]
       }
     }
-    return best ?? Anchor(x: Double(worldWidth) * 0.25, y: floor)
+    return (best ?? Anchor(x: Double(worldWidth) * 0.25, y: floor), bestLifted)
   }
 
   private var grazeStops: [Anchor] {
@@ -242,11 +254,15 @@ struct IdleScreenAquariumNavigation {
       floorWalker ? nil : self.shelter(for: personality, identity: item.identity, seed: seed)
     let bX = shelter.map { Double($0.opening.midX) } ?? Double(worldWidth) * 0.75
     // Resting height: on the surface, and never above the approach slope, so
-    // pausing at a stop keeps the same height the route used to reach it.
+    // pausing at a stop keeps the same height the route used to reach it. A
+    // stop under the approach slope rests on the physical surface instead.
+    var lifted = false
     func ground(_ x: Double) -> Double {
       floorWalker
         ? floor + 3
-        : min(surface(at: x, radius: radius), height(in: travelSurfaces, at: x, radius: radius))
+        : lifted
+          ? surface(at: x, radius: radius)
+          : min(surface(at: x, radius: radius), height(in: travelSurfaces, at: x, radius: radius))
     }
     let side = restingSide(origin: bX, identity: item.identity, seed: seed)
 
@@ -270,8 +286,10 @@ struct IdleScreenAquariumNavigation {
       let spriteHeight = 20 * scale
       wallHeight = min(28 + 42 * personality.boldness, max(0, a.y - spriteHeight))
     } else {
-      let graze = grazeAnchor(
+      let stop = grazeStop(
         for: personality, identity: item.identity, seed: seed, trip: trip, origin: bX, side: side)
+      let graze = stop.anchor
+      lifted = stop.lifted
       let aX = min(Double(worldWidth - 32), max(32, graze.x))
       a = Anchor(x: aX, y: ground(aX))
     }
@@ -344,7 +362,7 @@ struct IdleScreenAquariumNavigation {
     let endpoints = start.y + (end.y - start.y) * progress
     let blendedY = endpoints + (travel - endpoints) * middleWeight
     let enteringShelter = shelter != nil && (outbound ? progress < 1.0 / 6 : progress > 5.0 / 6)
-    var y = floorWalker || enteringShelter ? blendedY : min(blendedY, travel)
+    var y = floorWalker || enteringShelter || lifted ? blendedY : min(blendedY, travel)
     if outbound, !glass, movement >= window {
       let creep = Self.ease(min(1, (movement - window) / 6))
       x = a.x + (aEnd.x - a.x) * creep
