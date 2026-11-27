@@ -596,6 +596,86 @@ struct AgentSignalInboxTests {
       ) == nil)
   }
 
+  @Test("acknowledging a session with no signal records the event and invents nothing")
+  func acknowledgeWithoutSignal() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = IdleScreenAgentSignalStore(
+      fileURL: root.appending(path: "inbox-v1.json")
+    )
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let other = try signal(eventID: "turn-1", state: .done, createdAt: now)
+    _ = try store.apply(.set(other), at: now)
+    let acknowledgement = IdleScreenAgentSignalStore.Mutation.acknowledge(
+      provider: .claude, sessionID: "missing-session", eventID: "ack-1")
+
+    let first = try store.apply(acknowledgement, at: now.addingTimeInterval(1))
+    let replay = try store.apply(acknowledgement, at: now.addingTimeInterval(2))
+
+    #expect(first.signals == [other])
+    #expect(first.signals.first?.acknowledgedAt == nil)
+    #expect(
+      first.recentEvents.contains(
+        .init(provider: .claude, sessionID: "missing-session", eventID: "ack-1")))
+    #expect(replay.revision == first.revision)
+    #expect(replay.signals == first.signals)
+  }
+
+  @Test("a future-schema primary with no backup fails the read")
+  func readRejectsFutureSchema() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    try encoder.encode(IdleScreenAgentSignalInbox(schemaVersion: 99)).write(to: fileURL)
+
+    #expect(throws: IdleScreenAgentSignalStore.StoreError.unsupportedSchema(99)) {
+      try IdleScreenAgentSignalStore(fileURL: fileURL).read(at: Date())
+    }
+  }
+
+  @Test("a future-schema primary recovers the prior snapshot with one redacted reason")
+  func futureSchemaRecoversBackup() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fileURL = root.appending(path: "inbox-v1.json")
+    let diagnostics = DiagnosticRecorder()
+    let store = IdleScreenAgentSignalStore(
+      fileURL: fileURL,
+      clock: TestMonotonicClock(now: 0),
+      processLock: TestProcessLock.alwaysAvailable(),
+      diagnosticSink: diagnostics.record
+    )
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let prior = try store.apply(
+      .set(try signal(eventID: "turn-1", state: .working, createdAt: now)), at: now)
+    _ = try store.apply(
+      .set(try signal(eventID: "turn-2", state: .done, createdAt: now)), at: now)
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    try encoder.encode(IdleScreenAgentSignalInbox(schemaVersion: 99)).write(to: fileURL)
+
+    let recovered = try store.read(at: now.addingTimeInterval(1))
+
+    #expect(recovered == prior)
+    #expect(diagnostics.values == [.recoveredPrevious(.unsupportedSchema)])
+  }
+
+  @Test("a read fails with the primary's error when both files are corrupt")
+  func readPropagatesWhenBothFilesCorrupt() throws {
+    let fixture = try unreadableInboxStore(backup: true)
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+    #expect(throws: DecodingError.self) {
+      try fixture.store.read(at: fixture.now)
+    }
+  }
+
   @Test("emergency clear removes every provider session")
   func clearsAllSessions() throws {
     let root = FileManager.default.temporaryDirectory

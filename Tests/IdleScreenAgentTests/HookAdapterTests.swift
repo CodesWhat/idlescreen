@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 
@@ -150,6 +151,64 @@ struct HookAdapterTests {
     #expect(first != second)
     #expect(first == replay)
     #expect(!first.contains("turn-456"))
+  }
+
+  @Test("identifiers that are not clean fall back to a stable SHA-256 digest")
+  func hashesUncleanIdentifiers() throws {
+    func digest(_ value: String) -> String {
+      SHA256.hash(data: Data(value.utf8)).prefix(16)
+        .map { String(format: "%02x", $0) }.joined()
+    }
+    func mutation(session: String, nonce: String) throws -> IdleScreenAgentSignal {
+      let payload = try JSONSerialization.data(withJSONObject: [
+        "hook_event_name": "Stop", "session_id": session,
+      ])
+      return try #require(
+        try IdleScreenAgentHookAdapter.mutation(
+          provider: .codex,
+          payload: payload,
+          configuration: enabledConfiguration,
+          receivedAt: now,
+          nonce: nonce
+        ).signal)
+    }
+    let dirty = "my session/with spaces \u{00E9}"
+    let overlong = String(repeating: "a", count: 129)
+
+    let hashed = try mutation(session: dirty, nonce: "nonce-1")
+    #expect(hashed.sessionID == "sessionid-\(digest(dirty))")
+    #expect(try mutation(session: dirty, nonce: "nonce-1").sessionID == hashed.sessionID)
+    #expect(
+      try mutation(session: "my session/with spaces", nonce: "nonce-1").sessionID
+        != hashed.sessionID)
+    #expect(
+      try mutation(session: overlong, nonce: "nonce-1").sessionID == "sessionid-\(digest(overlong))"
+    )
+
+    let clean = String(repeating: "a", count: 128)
+    #expect(try mutation(session: clean, nonce: "nonce-1").sessionID == clean)
+
+    let dirtyNonce = try mutation(session: "session-1", nonce: "nonce with spaces")
+    #expect(dirtyNonce.nonce == "nonce-\(digest("nonce with spaces"))")
+    #expect(dirtyNonce.eventID == "stop-event-\(digest("nonce with spaces"))")
+  }
+
+  @Test("an empty or missing session id fails closed instead of hashing")
+  func rejectsMissingSession() throws {
+    for payload in [
+      ["hook_event_name": "Stop"],
+      ["hook_event_name": "Stop", "session_id": ""],
+    ] {
+      #expect(throws: IdleScreenAgentHookAdapter.Error.missingField("session_id")) {
+        try IdleScreenAgentHookAdapter.mutation(
+          provider: .codex,
+          payload: try JSONSerialization.data(withJSONObject: payload),
+          configuration: enabledConfiguration,
+          receivedAt: now,
+          nonce: "nonce-1"
+        )
+      }
+    }
   }
 
   private var enabledConfiguration: IdleScreenAgentIntegrationConfiguration {
