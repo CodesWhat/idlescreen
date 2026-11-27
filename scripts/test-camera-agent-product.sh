@@ -365,6 +365,20 @@ extension_signature="$(signed_value "$extension_path" Signature)"
 helper_signature="$(signed_value "$helper_path" Signature)"
 control_tool_signature="$(signed_value "$control_tool_executable" Signature)"
 
+# A provisioned signature has to launch, not just verify. A bad state is
+# rejected with EX_USAGE before any container access, so no app group is
+# needed. Ad-hoc artifacts carry restricted entitlements without a profile and
+# are killed at exec, so they stay signature-only.
+if [[ "$control_tool_signature" != adhoc ]]; then
+  set +e
+  "$control_tool_executable" status --provider codex --session product-smoke \
+    --state invalid >/dev/null 2>&1
+  control_tool_status=$?
+  set -e
+  [[ "$control_tool_status" -eq 64 ]] ||
+    fail "signed control tool did not launch and reject a bad state with exit 64 (got $control_tool_status)"
+fi
+
 if [[ "$configuration" == Release ]]; then
   [[ "$app_team" == "$expected_team_identifier" ]] ||
     fail "Release app TeamIdentifier='$app_team', expected $expected_team_identifier"
