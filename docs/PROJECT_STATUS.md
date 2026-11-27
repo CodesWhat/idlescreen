@@ -69,8 +69,8 @@ unverified in the README; release publication does not close those rows.
 ## CI coverage
 
 Pushes enforce a fixed 80% line-coverage floor on the LCOV report with
-`scripts/check_coverage_floor.py`, after the Codecov upload so a miss still
-publishes the report. Promotion PRs to `main` are checked with
+`scripts/check_coverage_floor.py`, as the last step of the `coverage` job after
+the Codecov upload, so a miss still publishes the report. Promotion PRs to `main` are checked with
 `scripts/check-promotion-codeql.sh`, which checks the PR's merge ref for open
 high or critical code-scanning alerts (or error severity when an alert has no
 security severity) after confirming CodeQL analyzed the current merge commit.

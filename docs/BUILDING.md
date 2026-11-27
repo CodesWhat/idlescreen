@@ -101,7 +101,8 @@ failures are visible.
 
 After the report is uploaded, `scripts/check_coverage_floor.py` enforces a fixed
 80% line-coverage floor on the same LCOV and fails the push job below it. The
-check runs after the upload so a miss still publishes the report. `codecov.yml`
+check is the last step of the `coverage` job, after the upload, so a miss
+still publishes the report and the build job's later checks still run. `codecov.yml`
 sets the same 80% project target.
 
 ## Physical checks
@@ -187,8 +188,10 @@ it retries with the App Store Connect API key from these variables:
 - `IDLESCREEN_ASC_KEY_ID`: the 10-character key ID; and
 - `IDLESCREEN_ASC_ISSUER_ID`: the issuer UUID.
 
-All three must be set. The key is used for every later `notarytool` call in
-that run. Any other profile failure (network, revoked credentials) stops the
+All three must be set, and `IDLESCREEN_NOTARY_KEYCHAIN_PROFILE` must still
+name a profile (it can be one whose Keychain item is absent). The builder copies
+the key into its private scratch directory once and uses that copy for every
+later `notarytool` call in the run. Any other profile failure (network, revoked credentials) stops the
 run without falling back, and if neither credential works the run exits with a
 `BLOCKED` message. Secret values are never printed.
 `scripts/test-notary-credential-fallback.sh` covers the three cases with a stub
@@ -244,19 +247,22 @@ It downloads the DMG, `IdleScreenR1ReleaseCandidateV1.txt` and the SPDX SBOM,
 checks the DMG SHA-256 against the manifest's `stapled_dmg_sha256`, and then
 attaches GitHub build provenance attestations to all three plus an SBOM
 attestation for the DMG. It never signs, modifies or re-uploads anything and
-holds no secrets or Apple credentials. v0.4.0 was published before the workflow
-existed and has no attestations. To backfill or retry a later release, dispatch
-the workflow from that release's tag, which must contain it:
+holds no secrets or Apple credentials. It also requires the manifest's
+`source_commit` to equal the tag's commit and the SBOM's `idlescreen` package to
+carry the DMG's SHA-256 as its checksum. To retry a release whose tag already
+contains the workflow, dispatch it from the tag. Releases cut before the
+workflow existed (v0.4.0 included) can't be backfilled this way, because
+`--ref` picks the workflow file at that tag:
 
 ```sh
-gh workflow run release-attest.yml --ref <tag> -f tag=<tag>
+gh workflow run release-attest.yml --ref v0.4.0 -f tag=v0.4.0
 ```
 
-Verify a downloaded DMG from a release that was attested with:
+Verify a downloaded DMG with:
 
 ```sh
-gh attestation verify idlescreen-<version>-build<build>.dmg --repo CodesWhat/idlescreen
-gh attestation verify idlescreen-<version>-build<build>.dmg --repo CodesWhat/idlescreen \
+gh attestation verify idlescreen-0.4.0-build67.dmg --repo CodesWhat/idlescreen
+gh attestation verify idlescreen-0.4.0-build67.dmg --repo CodesWhat/idlescreen \
   --predicate-type https://spdx.dev/Document/v2.3
 ```
 

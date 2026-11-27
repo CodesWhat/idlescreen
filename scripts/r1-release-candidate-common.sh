@@ -130,7 +130,15 @@ r1_resolve_notary_auth() {
     echo "Neither credential is usable: IDLESCREEN_ASC_KEY_ID or IDLESCREEN_ASC_ISSUER_ID is malformed." >&2
     return 1
   fi
-  r1_notary_auth=(--key "$key_path" --key-id "$key_id" --issuer "$issuer_id")
+  # Authenticate every call with one private copy of the key so a later change
+  # to the original file cannot swap the identity mid-run. The scratch
+  # directory is removed by the caller.
+  local key_copy="$scratch/asc-api-key.p8"
+  if ! ( umask 077 && /bin/cp "$key_path" "$key_copy" ) 2>/dev/null; then
+    echo "Neither credential is usable: IDLESCREEN_ASC_KEY_PATH could not be copied." >&2
+    return 1
+  fi
+  r1_notary_auth=(--key "$key_copy" --key-id "$key_id" --issuer "$issuer_id")
   if "$@" history "${r1_notary_auth[@]}" --output-format json \
     >"$history_out" 2>"$history_err"; then
     return 0

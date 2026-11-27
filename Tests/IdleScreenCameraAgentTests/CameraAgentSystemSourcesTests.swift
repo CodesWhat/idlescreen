@@ -83,8 +83,14 @@ struct CameraAgentSystemSourcesTests {
       terminations.increment()
     }
 
-    kill(getpid(), SIGTERM)
-    #expect(await wait(for: terminations.count == 1))
+    // The dispatch source installs its kevent asynchronously, and SIGTERM is
+    // ignored until then, so keep signalling until the handler fires.
+    let deadline = Date().addingTimeInterval(5)
+    while terminations.count == 0 && Date() < deadline {
+      kill(getpid(), SIGTERM)
+      try? await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(terminations.count >= 1)
 
     task.cancel()
     var action = sigaction()

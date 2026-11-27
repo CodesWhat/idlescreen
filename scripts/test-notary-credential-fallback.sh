@@ -61,11 +61,22 @@ export IDLESCREEN_ASC_KEY_PATH="$key_file" IDLESCREEN_ASC_KEY_ID="$valid_key_id"
 STUB_PROFILE=ok STUB_KEY=ok check "profile ok uses the keychain profile" 0 "--keychain-profile idlescreen-test" || failures=$((failures + 1))
 grep -q -- '--key ' "$STUB_LOG" && { echo "FAIL: key tried despite working profile" >&2; failures=$((failures + 1)); }
 
-STUB_PROFILE=missing STUB_KEY=ok check "profile missing falls back to the API key" 0 "--key $key_file --key-id $valid_key_id --issuer $valid_issuer" || failures=$((failures + 1))
+STUB_PROFILE=missing STUB_KEY=ok check "profile missing falls back to the API key" 0 "--key $scratch_root/asc-api-key.p8 --key-id $valid_key_id --issuer $valid_issuer" || failures=$((failures + 1))
 
+# Later notarytool calls must use a private copy, immune to changes to the original.
+STUB_PROFILE=missing STUB_KEY=ok r1_resolve_notary_auth idlescreen-test "$scratch_root" "$stub_bin/notarytool" 2>/dev/null
+echo 'swapped key' >"$key_file"
+if [[ "$(cat "$scratch_root/asc-api-key.p8")" != 'not a real key' ||
+      "$(/usr/bin/stat -f '%Lp' "$scratch_root/asc-api-key.p8")" != 600 ]]; then
+  echo "FAIL: the API key copy is not private and independent of the original" >&2
+  failures=$((failures + 1))
+else
+  echo "PASS: API key copy is private and independent of the original"
+fi
+echo 'not a real key' >"$key_file"
 STUB_PROFILE=broken STUB_KEY=ok check "non-missing profile failure does not fall back" 2 "--keychain-profile idlescreen-test" || failures=$((failures + 1))
 
-STUB_PROFILE=missing STUB_KEY=bad check "profile missing and key rejected fails" 1 "--key $key_file --key-id $valid_key_id --issuer $valid_issuer" || failures=$((failures + 1))
+STUB_PROFILE=missing STUB_KEY=bad check "profile missing and key rejected fails" 1 "--key $scratch_root/asc-api-key.p8 --key-id $valid_key_id --issuer $valid_issuer" || failures=$((failures + 1))
 grep -q 'Neither credential is usable' "$scratch_root/stderr" || { echo "FAIL: no clear error for rejected key" >&2; failures=$((failures + 1)); }
 
 (

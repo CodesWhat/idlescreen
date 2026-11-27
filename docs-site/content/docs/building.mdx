@@ -73,7 +73,7 @@ python3 ./scripts/test_performance_r1_report.py
 ./scripts/test-public-release-contract.sh
 ```
 
-CI also runs the modern Xcode unit and integration schemes with Swift warnings as errors, CodeQL, workflow security, Qlty and Codecov coverage. On pushes, `scripts/check_coverage_floor.py` enforces a fixed 80% line-coverage floor on the uploaded report, after the upload so a miss still publishes it.
+CI also runs the modern Xcode unit and integration schemes with Swift warnings as errors, CodeQL, workflow security, Qlty and Codecov coverage. On pushes, `scripts/check_coverage_floor.py` enforces a fixed 80% line-coverage floor on the uploaded report, as the last step of the coverage job after the upload, so a miss still publishes it.
 
 ## Physical checks
 
@@ -81,7 +81,7 @@ Scripts that install products, register services, open a camera, start the scree
 
 ## Release candidates
 
-`scripts/build-r1-release-candidate.sh` is the Developer ID distribution authority. A real run needs a clean committed source tree, a nonexistent absolute output directory outside the repository, the Developer ID Application identity SHA-1, separate distribution profiles for the app, extension and camera helper, an existing `notarytool` Keychain profile (or, as a fallback when notarytool reports the profile missing, the App Store Connect API key via `IDLESCREEN_ASC_KEY_PATH`, `IDLESCREEN_ASC_KEY_ID` and `IDLESCREEN_ASC_ISSUER_ID`, all three set), and `IDLESCREEN_ALLOW_REAL_DISTRIBUTION=YES`.
+`scripts/build-r1-release-candidate.sh` is the Developer ID distribution authority. A real run needs a clean committed source tree, a nonexistent absolute output directory outside the repository, the Developer ID Application identity SHA-1, separate distribution profiles for the app, extension and camera helper, an existing `notarytool` Keychain profile (or the App Store Connect API key via `IDLESCREEN_ASC_KEY_PATH`, `IDLESCREEN_ASC_KEY_ID` and `IDLESCREEN_ASC_ISSUER_ID` as a fallback), and `IDLESCREEN_ALLOW_REAL_DISTRIBUTION=YES`.
 
 The builder archives the app, embeds release identity, signs nested code from the inside out, creates a DMG, notarizes and staples it, and has Gatekeeper assess the DMG and the mounted app. It never creates or stores credentials and never signs after notarization.
 

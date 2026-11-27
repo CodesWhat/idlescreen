@@ -1836,6 +1836,8 @@ if ! grep -Eq '^permissions: \{\}$' "$attest_workflow" ||
    ! grep -Fq 'actions/attest-build-provenance@' "$attest_workflow" ||
    ! grep -Fq 'actions/attest-sbom@' "$attest_workflow" ||
    ! grep -Fq 'sha256sum --check --strict' "$attest_workflow" ||
+   ! grep -Fq 'field source_commit' "$attest_workflow" ||
+   ! grep -Fq 'SPDXRef-Package-idlescreen' "$attest_workflow" ||
    ! grep -Fq 'workflow_dispatch:' "$attest_workflow" ||
    ! grep -Fq 'types: [published]' "$attest_workflow"; then
   echo "FAIL: release-attest.yml must be least-privilege, pinned, secret-free, and verify the manifest checksum before attesting provenance and the SBOM." >&2
