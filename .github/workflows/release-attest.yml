@@ -124,10 +124,29 @@ jobs:
           fi
 
           echo "${dmg_sha}  ${dmg}" | sha256sum --check --strict -
-          if ! grep -Fq "${dmg_sha}" "${sbom}"; then
-            echo "::error::SBOM does not bind the manifest DMG checksum"
+          # The candidate must have been built from the commit being attested,
+          # not from another commit that shares this version and build.
+          manifest_commit="$(field source_commit)"
+          [[ "${manifest_commit}" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Malformed manifest source commit"; exit 1; }
+          checked_out="$(git -C "${GITHUB_WORKSPACE}" rev-parse HEAD)"
+          if [ "${manifest_commit}" != "${checked_out}" ]; then
+            echo "::error::Candidate was built at ${manifest_commit}, not ${RELEASE_TAG} (${checked_out})"
             exit 1
           fi
+          jq -e \
+            --arg version "${version}" \
+            --arg file "${dmg}" \
+            --arg sha "${dmg_sha}" '
+            [.packages[] | select(.SPDXID == "SPDXRef-Package-idlescreen")] as $pkgs
+            | ($pkgs | length) == 1
+              and (.documentDescribes | index("SPDXRef-Package-idlescreen")) != null
+              and $pkgs[0].versionInfo == $version
+              and $pkgs[0].packageFileName == $file
+              and ([$pkgs[0].checksums[]? | select(.algorithm == "SHA256") | .checksumValue] == [$sha])
+          ' "${sbom}" >/dev/null || {
+            echo "::error::SBOM package does not bind the manifest DMG name, version and checksum"
+            exit 1
+          }
           echo "DMG_NAME=${dmg}" >> "${GITHUB_ENV}"
           echo "SBOM_NAME=${sbom}" >> "${GITHUB_ENV}"
 

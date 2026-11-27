@@ -166,8 +166,10 @@ it retries with the App Store Connect API key from these variables:
 - `IDLESCREEN_ASC_KEY_ID`: the 10-character key ID; and
 - `IDLESCREEN_ASC_ISSUER_ID`: the issuer UUID.
 
-All three must be set. The key is used for every later `notarytool` call in
-that run. Any other profile failure (network, revoked credentials) stops the
+All three must be set, and `IDLESCREEN_NOTARY_KEYCHAIN_PROFILE` must still
+name a profile (it can be one whose Keychain item is absent). The builder copies
+the key into its private scratch directory once and uses that copy for every
+later `notarytool` call in the run. Any other profile failure (network, revoked credentials) stops the
 run without falling back, and if neither credential works the run exits with a
 `BLOCKED` message. Secret values are never printed.
 `scripts/test-notary-credential-fallback.sh` covers the three cases with a stub
@@ -223,8 +225,12 @@ It downloads the DMG, `IdleScreenR1ReleaseCandidateV1.txt` and the SPDX SBOM,
 checks the DMG SHA-256 against the manifest's `stapled_dmg_sha256`, and then
 attaches GitHub build provenance attestations to all three plus an SBOM
 attestation for the DMG. It never signs, modifies or re-uploads anything and
-holds no secrets or Apple credentials. To backfill or retry a release, dispatch
-it from the tag:
+holds no secrets or Apple credentials. It also requires the manifest's
+`source_commit` to equal the tag's commit and the SBOM's `idlescreen` package to
+carry the DMG's SHA-256 as its checksum. To retry a release whose tag already
+contains the workflow, dispatch it from the tag. Releases cut before the
+workflow existed (v0.4.0 included) can't be backfilled this way, because
+`--ref` picks the workflow file at that tag:
 
 ```sh
 gh workflow run release-attest.yml --ref v0.4.0 -f tag=v0.4.0
