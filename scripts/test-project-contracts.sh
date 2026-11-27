@@ -49,6 +49,16 @@ echo "PASS: local camera-agent and saver unit-test schemes compile source-only t
 companion_compile_gate="$project_root/scripts/test-companion-compile-gate.sh"
 ci_workflow="$project_root/.github/workflows/ci-verify.yml"
 modern_test_runner="$project_root/scripts/test-modern-schemes.sh"
+xcodegen_release_sha="4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+for xcodegen_workflow in "$ci_workflow" "$project_root/.github/workflows/security-codeql.yml"; do
+  if ! grep -Fq "./scripts/install-xcodegen.sh 2.46.0 $xcodegen_release_sha" "$xcodegen_workflow" ||
+     grep -Fq 'brew install xcodegen' "$xcodegen_workflow"; then
+    echo "FAIL: ${xcodegen_workflow##*/} must install XcodeGen 2.46.0 from the sha256-pinned release, not Homebrew." >&2
+    exit 1
+  fi
+done
+echo "PASS: CI installs the sha256-pinned XcodeGen 2.46.0 release."
+
 companion_ci_invocation_count="$(grep -Fc './scripts/test-companion-compile-gate.sh' "$ci_workflow" || true)"
 ci_modern_test_block="$({
   awk '
@@ -112,6 +122,8 @@ if [[ "$(grep -Ec "$checkout_pin" "$ci_workflow" || true)" -ne 3 ]] ||
    ! grep -Fq 'plugins: noop' <<<"$ci_coverage_block" ||
    ! grep -Fq 'fail_ci_if_error: true' <<<"$ci_coverage_block" ||
    ! grep -Fq 'python3 ./scripts/test_xccov_to_lcov.py' "$ci_workflow" ||
+   ! grep -Fq './scripts/test-coverage-floor.sh' "$ci_workflow" ||
+   ! grep -Fq 'python3 ./scripts/check_coverage_floor.py --floor 80.0' "$ci_workflow" ||
    grep -Fq 'plugins: xcode' <<<"$ci_coverage_block" ||
    grep -Fq 'macos' <<<"$ci_coverage_block" ||
    grep -Eq '^[[:space:]]+token:' <<<"$ci_coverage_block" ||
@@ -1797,3 +1809,39 @@ if [[ -f "$generated_pbxproj" ]] &&
 fi
 
 echo "PASS: shipped targets are arm64-only."
+
+# Release attestation: Apple credentials stay on the controlled Mac, so this
+# workflow only verifies and attests uploaded assets with OIDC. Keep it
+# least-privilege, SHA-pinned and free of secrets.
+attest_workflow="$project_root/.github/workflows/release-attest.yml"
+[[ -f "$attest_workflow" ]] || {
+  echo "FAIL: .github/workflows/release-attest.yml is missing." >&2
+  exit 1
+}
+while IFS= read -r action_ref; do
+  if [[ ! "$action_ref" =~ ^[^@[:space:]]+@[0-9a-f]{40}$ ]]; then
+    echo "FAIL: release-attest.yml actions must use a full lowercase commit SHA: $action_ref" >&2
+    exit 1
+  fi
+done < <(awk '/uses:/ { print $2 }' "$attest_workflow")
+if ! grep -Eq '^permissions: \{\}$' "$attest_workflow" ||
+   [[ "$(grep -Ec '^[[:space:]]+id-token: write ' "$attest_workflow" || true)" -ne 1 ]] ||
+   [[ "$(grep -Ec '^[[:space:]]+attestations: write ' "$attest_workflow" || true)" -ne 1 ]] ||
+   [[ "$(grep -Ec '^[[:space:]]+contents: read ' "$attest_workflow" || true)" -ne 1 ]] ||
+   grep -Eq '^[[:space:]]+(actions|checks|contents|deployments|discussions|issues|models|packages|pages|pull-requests|security-events|statuses): write' "$attest_workflow" ||
+   grep -Eq 'permissions:[[:space:]]+(read-all|write-all)' "$attest_workflow" ||
+   grep -Fq 'secrets.' "$attest_workflow" ||
+   ! grep -Fq 'step-security/harden-runner@' "$attest_workflow" ||
+   ! grep -Fq 'persist-credentials: false' "$attest_workflow" ||
+   ! grep -Fq 'actions/attest-build-provenance@' "$attest_workflow" ||
+   ! grep -Fq 'actions/attest-sbom@' "$attest_workflow" ||
+   ! grep -Fq 'sha256sum --check --strict' "$attest_workflow" ||
+   ! grep -Fq 'field source_commit' "$attest_workflow" ||
+   ! grep -Fq 'SPDXRef-Package-idlescreen' "$attest_workflow" ||
+   ! grep -Fq 'workflow_dispatch:' "$attest_workflow" ||
+   ! grep -Fq 'types: [published]' "$attest_workflow"; then
+  echo "FAIL: release-attest.yml must be least-privilege, pinned, secret-free, and verify the manifest checksum before attesting provenance and the SBOM." >&2
+  exit 1
+fi
+
+echo "PASS: release attestation workflow is least-privilege, pinned and manifest-verified."

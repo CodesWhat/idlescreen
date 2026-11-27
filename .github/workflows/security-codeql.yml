@@ -201,7 +201,8 @@ jobs:
       - name: Install XcodeGen
         if: needs.changes.outputs.swift != 'false'
         run: |
-          arch -arm64 /opt/homebrew/bin/brew install xcodegen
+          ./scripts/install-xcodegen.sh 2.46.0 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+          export PATH="$RUNNER_TEMP/xcodegen-2.46.0/bin:$PATH"
           [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
 
       - name: Initialize CodeQL

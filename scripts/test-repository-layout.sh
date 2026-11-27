@@ -52,6 +52,7 @@ for public_file in \
   .github/workflows/security-actions.yml \
   .github/workflows/security-scorecard.yml \
   .github/workflows/main-is-released.yml \
+  .github/workflows/release-attest.yml \
   .github/workflows/greptile.yml \
   .github/ISSUE_TEMPLATE/bug_report.yml \
   .github/ISSUE_TEMPLATE/config.yml \
@@ -83,7 +84,7 @@ for codeql_contract in \
   "needs.changes.outputs.swift == 'false' && 'ubuntu-24.04' || 'macos-26'" \
   'upload-sarif@' \
   'build-mode: manual' \
-  'arch -arm64 /opt/homebrew/bin/brew install xcodegen' \
+  './scripts/install-xcodegen.sh 2.46.0 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806' \
   'xcodebuild build' \
   'ARCHS=arm64' \
   "EXCLUDED_SOURCE_FILE_NAMES='*.metal'" \

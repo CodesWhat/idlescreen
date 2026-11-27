@@ -57,7 +57,8 @@ jobs:
 
       - name: Install XcodeGen
         run: |
-          brew install xcodegen
+          ./scripts/install-xcodegen.sh 2.46.0 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+          export PATH="$RUNNER_TEMP/xcodegen-2.46.0/bin:$PATH"
           [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
 
       - name: Generate Xcode project
@@ -85,6 +86,7 @@ jobs:
           IDLESCREEN_COVERAGE_RESULT_BUNDLE: ${{ github.event_name == 'push' && format('{0}/idlescreen-test-results/IdleScreenAppCompileGate.xcresult', runner.temp) || '' }}
         run: |
           python3 ./scripts/test_xccov_to_lcov.py
+          ./scripts/test-coverage-floor.sh
           python3 ./scripts/test_performance_r1_report.py
           ./scripts/test-run-performance-r1.sh
           ./scripts/test-camera-gate-c8-soak-planner.py
@@ -120,6 +122,7 @@ jobs:
           ./scripts/test-synthetic-gate-contracts.sh
           ./scripts/test-synthetic-gate-transaction.sh
           ./scripts/test-release-sbom-symlinks.sh
+          ./scripts/test-notary-credential-fallback.sh
 
       - name: Convert test-run coverage to LCOV
         if: github.event_name == 'push'
@@ -211,6 +214,11 @@ jobs:
           plugins: noop
           fail_ci_if_error: true
 
+      - name: Enforce the 80% line-coverage floor
+        run: |
+          python3 ./scripts/check_coverage_floor.py --floor 80.0 \
+            "$RUNNER_TEMP/idlescreen-coverage/coverage.lcov"
+
   qlty:
     name: qlty
     runs-on: ubuntu-24.04
@@ -223,6 +231,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: >
             api.github.com:443
+            api.osv.dev:443
             api.segment.io:443
             api0.prismacloud.io:443
             cafe.github.com:443

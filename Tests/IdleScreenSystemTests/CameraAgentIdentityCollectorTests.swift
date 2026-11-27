@@ -560,6 +560,172 @@ struct CameraAgentIdentityCollectorTests {
   }
 }
 
+extension CameraAgentIdentityCollectorTests {
+  private func embeddedObservation(
+    fixture: Fixture,
+    fingerprint: CameraAgentArtifactFingerprint
+  ) -> CameraAgentIdentityObservation {
+    fixture.collector(embedded: fingerprint, registered: .absent)
+      .collect(registrationState: .notRegistered, liveEvidence: nil)
+      .embedded
+  }
+
+  @Test("an embedded fingerprint is rejected for each identity field that disagrees")
+  func embeddedFingerprintFieldMismatches() throws {
+    let fixture = try Fixture()
+    func fingerprint(
+      path: String? = nil,
+      service: String? = nil,
+      bundle: String = "com.idlescreen.camera-agent",
+      signing: String = "com.idlescreen.camera-agent",
+      team: String = "3524374A2S"
+    ) throws -> CameraAgentArtifactFingerprint {
+      try CameraAgentArtifactFingerprint(
+        canonicalBundlePath: path ?? fixture.helperURL.path,
+        serviceIdentifier: service ?? fixture.serviceIdentity.serviceIdentifier,
+        bundleIdentifier: bundle,
+        bundleVersion: "1",
+        marketingVersion: "0.1",
+        signingIdentifier: signing,
+        teamIdentifier: team,
+        codeDirectoryHash: String(repeating: "1", count: 40),
+        executableSHA256: String(repeating: "a", count: 64),
+        launchAgentSHA256: String(repeating: "2", count: 64),
+        provisioningProfileSHA256: String(repeating: "3", count: 64)
+      )
+    }
+
+    #expect(
+      embeddedObservation(
+        fixture: fixture, fingerprint: try fingerprint(path: "/elsewhere/Helper.app"))
+        == .invalid(
+          .fingerprintPathMismatch(
+            evidencePath: fixture.helperURL.path,
+            fingerprintPath: "/elsewhere/Helper.app"
+          ))
+    )
+    #expect(
+      embeddedObservation(
+        fixture: fixture,
+        fingerprint: try fingerprint(service: "group.com.idlescreen.dev.shared.camera-agent")
+      )
+        == .invalid(
+          .embeddedServiceIdentifier(
+            expected: fixture.serviceIdentity.serviceIdentifier,
+            actual: "group.com.idlescreen.dev.shared.camera-agent"
+          ))
+    )
+    #expect(
+      embeddedObservation(
+        fixture: fixture, fingerprint: try fingerprint(bundle: "com.example.other"))
+        == .invalid(
+          .embeddedBundleIdentifier(
+            expected: "com.idlescreen.camera-agent",
+            actual: "com.example.other"
+          ))
+    )
+    #expect(
+      embeddedObservation(
+        fixture: fixture, fingerprint: try fingerprint(signing: "com.example.other"))
+        == .invalid(
+          .embeddedSigningIdentifier(
+            expected: "com.idlescreen.camera-agent",
+            actual: "com.example.other"
+          ))
+    )
+    #expect(
+      embeddedObservation(fixture: fixture, fingerprint: try fingerprint(team: "FOREIGN123"))
+        == .invalid(
+          .embeddedTeamIdentifier(expected: "3524374A2S", actual: "FOREIGN123")
+        )
+    )
+    let valid = try fingerprint()
+    #expect(embeddedObservation(fixture: fixture, fingerprint: valid) == .observed(valid))
+  }
+
+  @Test("provider failures other than a missing helper are reported as invalid evidence")
+  func providerFailureClassification() throws {
+    let fixture = try Fixture()
+    func embedded(
+      _ result: Result<CameraAgentArtifactFingerprint, CameraAgentArtifactProviderError>
+    ) -> CameraAgentIdentityObservation {
+      CameraAgentIdentityCollector(
+        configuration: fixture.configuration,
+        embeddedArtifactProvider: StubEmbeddedArtifactProvider(result: result),
+        registeredArtifactProvider: StubRegisteredArtifactProvider(evidence: .absent)
+      ).collect(registrationState: .notRegistered, liveEvidence: nil).embedded
+    }
+
+    #expect(embedded(.failure(.helperBundleMissing("/x"))) == .absent)
+    #expect(
+      embedded(.failure(.launchAgentMissing("/x")))
+        == .invalid(.artifactProvider(.launchAgentMissing("/x")))
+    )
+    #expect(
+      embedded(.failure(.invalidStaticCode(-67_062)))
+        == .invalid(.artifactProvider(.invalidStaticCode(-67_062)))
+    )
+  }
+
+  @Test("registration states without an enabled service never consult the registered provider")
+  func registrationStateMapping() throws {
+    let fixture = try Fixture()
+    let embedded = try fixture.fingerprint()
+    func registered(_ state: CameraAgentRegistrationState) -> CameraAgentIdentityObservation {
+      fixture.collector(
+        embedded: embedded,
+        registered: .observed(bundleURL: fixture.helperURL, fingerprint: embedded)
+      ).collect(registrationState: state, liveEvidence: nil).registered
+    }
+
+    #expect(registered(.notRegistered) == .absent)
+    #expect(registered(.notFound) == .absent)
+    #expect(registered(.requiresApproval) == .unavailable)
+    #expect(registered(.enabled) == .observed(embedded))
+  }
+
+  @Test("enabled registration maps each registered-provider answer")
+  func enabledRegistrationEvidence() throws {
+    let fixture = try Fixture()
+    let embedded = try fixture.fingerprint()
+    func registered(_ evidence: CameraAgentRegisteredArtifactEvidence)
+      -> CameraAgentIdentityObservation
+    {
+      fixture.collector(embedded: embedded, registered: evidence)
+        .collect(registrationState: .enabled, liveEvidence: nil).registered
+    }
+
+    #expect(registered(.absent) == .absent)
+    #expect(registered(.unavailable) == .unavailable)
+    #expect(
+      registered(
+        .observed(bundleURL: URL(fileURLWithPath: "/other/Helper.app"), fingerprint: embedded))
+        == .invalid(
+          .fingerprintPathMismatch(
+            evidencePath: "/other/Helper.app",
+            fingerprintPath: fixture.helperURL.path
+          ))
+    )
+  }
+
+  @Test(
+    "a running helper outside the expected bundle layout has unavailable active-source evidence")
+  func runningHelperWithUnexpectedLayout() throws {
+    let fixture = try Fixture()
+    let odd = URL(fileURLWithPath: "/private/tmp/odd/Elsewhere.app")
+    let fingerprint = try fixture.fingerprint(canonicalBundlePath: odd.path)
+    let collection = fixture.collector(embedded: try fixture.fingerprint(), registered: .absent)
+      .collect(
+        registrationState: .enabled,
+        liveEvidence: try fixture.liveEvidence(bundleURL: odd, fingerprint: fingerprint)
+      )
+
+    #expect(collection.running == .unavailable)
+    #expect(collection.processIdentifier == 771)
+    #expect(collection.processEpoch == 7_001)
+  }
+}
+
 private final class StubEmbeddedArtifactProvider:
   CameraAgentEmbeddedArtifactProviding,
   @unchecked Sendable

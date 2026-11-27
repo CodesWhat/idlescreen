@@ -28,7 +28,9 @@ relying on a local pass:
 ./scripts/check-tool-versions.sh
 ```
 
-CI does not depend on any of this. It asserts `xcodegen --version` exactly and
+CI does not depend on any of this. It installs the sha256-pinned XcodeGen 2.46.0
+release with `scripts/install-xcodegen.sh` (not Homebrew), asserts
+`xcodegen --version` exactly, and
 installs Qlty from `qltysh/qlty-action/install` pinned to a full commit SHA, so
 a local version mismatch shows up as a disagreement with CI rather than as a
 silent pass.
@@ -93,9 +95,14 @@ line keeps its highest execution count, so duplicate instrumentation does not
 inflate counts and an uncovered line stays visible until exercised elsewhere.
 Every input must contain executable production lines; malformed or empty data
 fails before uploading. Codecov receives only that report, with automatic Xcode
-rediscovery disabled and upload errors failing the job. This makes generation
-and upload failures visible without imposing a numeric coverage target or
-replacing provider-side project/patch settings.
+rediscovery disabled and upload errors failing the job, so generation and upload
+failures are visible.
+
+After the report is uploaded, `scripts/check_coverage_floor.py` enforces a fixed
+80% line-coverage floor on the same LCOV and fails the push job below it. The
+check is the last step of the `coverage` job, after the upload, so a miss
+still publishes the report and the build job's later checks still run. `codecov.yml`
+sets the same 80% project target.
 
 ## Physical checks
 
@@ -145,7 +152,8 @@ authority. A real run requires:
 - the exact Developer ID Application identity SHA-1;
 - separate Developer ID distribution profiles for the app, extension, and
   camera helper;
-- an existing `notarytool` Keychain profile; and
+- an existing `notarytool` Keychain profile (or the App Store Connect API key
+  fallback described below); and
 - `IDLESCREEN_ALLOW_REAL_DISTRIBUTION=YES`.
 
 The builder archives the app, verifies the development-signed provenance,
@@ -153,6 +161,26 @@ embeds release identity, signs nested code from the inside out, creates a UDZO
 DMG, submits it for notarization, staples it, mounts it read-only, and asks
 Gatekeeper to assess both the DMG and mounted app. It never creates or stores
 credentials and never signs code after notarization.
+
+### Notarization credential fallback
+
+The builder tries `--keychain-profile $IDLESCREEN_NOTARY_KEYCHAIN_PROFILE`
+first. If `notarytool` reports that the profile is missing (the
+`idlescreen-notary-2026` profile has vanished from the login Keychain before),
+it retries with the App Store Connect API key from these variables:
+
+- `IDLESCREEN_ASC_KEY_PATH`: absolute path to the `AuthKey_<id>.p8` file;
+- `IDLESCREEN_ASC_KEY_ID`: the 10-character key ID; and
+- `IDLESCREEN_ASC_ISSUER_ID`: the issuer UUID.
+
+All three must be set, and `IDLESCREEN_NOTARY_KEYCHAIN_PROFILE` must still
+name a profile (it can be one whose Keychain item is absent). The builder copies
+the key into its private scratch directory once and uses that copy for every
+later `notarytool` call in the run. Any other profile failure (network, revoked credentials) stops the
+run without falling back, and if neither credential works the run exits with a
+`BLOCKED` message. Secret values are never printed.
+`scripts/test-notary-credential-fallback.sh` covers the three cases with a stub
+`notarytool`.
 
 Replay a completed candidate with:
 
@@ -197,9 +225,54 @@ Attach that file to the matching GitHub release under exactly the name
 download URL is derived from it, so a release whose SBOM is attached under any
 other name reads as having no SBOM at all.
 
+### Provenance attestations
+
+Publishing the GitHub release triggers `.github/workflows/release-attest.yml`.
+It downloads the DMG, `IdleScreenR1ReleaseCandidateV1.txt` and the SPDX SBOM,
+checks the DMG SHA-256 against the manifest's `stapled_dmg_sha256`, and then
+attaches GitHub build provenance attestations to all three plus an SBOM
+attestation for the DMG. It never signs, modifies or re-uploads anything and
+holds no secrets or Apple credentials. It also requires the manifest's
+`source_commit` to equal the tag's commit and the SBOM's `idlescreen` package to
+carry the DMG's SHA-256 as its checksum. To retry a release whose tag already
+contains the workflow, dispatch it from the tag. Releases cut before the
+workflow existed (v0.4.0 included) can't be backfilled this way, because
+`--ref` picks the workflow file at that tag:
+
+```sh
+gh workflow run release-attest.yml --ref v0.4.0 -f tag=v0.4.0
+```
+
+Verify a downloaded DMG with:
+
+```sh
+gh attestation verify idlescreen-0.4.0-build67.dmg --repo CodesWhat/idlescreen
+gh attestation verify idlescreen-0.4.0-build67.dmg --repo CodesWhat/idlescreen \
+  --predicate-type https://spdx.dev/Document/v2.3
+```
+
 Ordinary changes target the protected `dev/v0.1` branch. `main` advances only
 through a reviewed promotion pull request and must immediately receive the GA
 tag so `git describe --exact-match origin/main` succeeds.
+
+Before opening the promotion pull request, check `dev/v0.1` for open high
+CodeQL alerts. The `main` ruleset has a `code_scanning` rule (errors, high or
+higher) that blocks the promotion even when every dev pull request passed:
+
+```sh
+gh api --paginate "repos/CodesWhat/idlescreen/code-scanning/alerts?state=open&ref=refs/heads/dev/v0.1&per_page=100" \
+  -q '.[] | select(if .rule.security_severity_level then (.rule.security_severity_level == "high" or .rule.security_severity_level == "critical") else .rule.severity == "error" end) | {number, rule: .rule.id, severity: (.rule.security_severity_level // .rule.severity), path: .most_recent_instance.location.path}'
+```
+
+`--paginate` reads every page. Security alerts are judged by their security
+severity; error severity only counts for alerts without one, matching the
+ruleset's thresholds.
+
+Fix each alert, or dismiss it with a reason once it is verified as a false
+positive. Never change the ruleset to get past it.
+
+When rerunning CI, rerun all jobs, not only the failed ones. The quality report
+aggregate only counts artifacts from the current attempt.
 
 ## Repository hygiene
 

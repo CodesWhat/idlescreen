@@ -10,8 +10,8 @@ useful after it ships.
 
 ## v0.4.0
 
-Status: in progress. The last GA is `v0.3.0` (build 66, November 5, 2026). This
-release is prepared as `0.4.0` build 67.
+Status: released as `0.4.0` build 67 on November 21, 2026, the
+[GitHub release](https://github.com/CodesWhat/idlescreen/releases/tag/v0.4.0).
 
 - Add the Aquarium pattern, a planted pixel-art tank with shrimp, fish and
   crabs, with native tank editing and saved layouts.
