@@ -7,7 +7,9 @@ import WebKit
 @testable import IdleScreenRenderer
 
 extension WebGLSurfaceSuites {
-  @Suite("Bundled Three.js aquarium", .timeLimit(.minutes(1)))
+  @Suite(
+    "Bundled Three.js aquarium", .timeLimit(.minutes(1)),
+    .enabled("WebGL is unavailable on this runner") { await WebGLCapability.shouldRun() })
   @MainActor
   struct AquariumRuntimeBundleTests {
     @Test func premiumPlacementsKeepBodiesConnectionsAndGlassMountsTogether() async throws {
@@ -297,40 +299,6 @@ extension WebGLSurfaceSuites {
       #expect(hidden.scene.water.elapsedSeconds == initial.scene.water.elapsedSeconds)
       #expect(hidden.scene.ecology.animals == initial.scene.ecology.animals)
       try await surface.shutdown()
-    }
-
-    @Test func bundleContainsOnlyDeclaredRuntimeAndPinnedVendor() throws {
-      let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
-      let directory = resource.deletingLastPathComponent().resolvingSymlinksInPath()
-      let manifest = try JSONDecoder().decode(
-        Manifest.self, from: Data(contentsOf: directory.appendingPathComponent("PROVENANCE.json")))
-      let entry = try String(contentsOf: resource, encoding: .utf8)
-      let scripts = entry.matches(of: /<script src="([^"]+)"/).map { String($0.1) }
-      #expect(scripts == manifest.scriptOrder)
-      #expect(scripts.allSatisfy { !$0.contains(":") && !$0.hasPrefix("/") && !$0.contains("..") })
-      let enumerator = try #require(
-        FileManager.default.enumerator(
-          at: directory, includingPropertiesForKeys: [.isRegularFileKey])
-      )
-      var files: Set<String> = []
-      for case let url as URL in enumerator {
-        if try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true {
-          files.insert(
-            String(url.resolvingSymlinksInPath().path.dropFirst(directory.path.count + 1)))
-        }
-      }
-      #expect(files == Set(scripts + ["index.html", "PROVENANCE.json", "vendor/LICENSE"]))
-      #expect(
-        Set(manifest.importedFiles.map(\.path))
-          == Set(scripts.filter { $0 != "native-host.js" } + ["vendor/LICENSE"]))
-      #expect(manifest.vendor.revision == "160")
-      for (path, expected) in [
-        ("vendor/three.min.js", manifest.vendor.sha256),
-        ("vendor/LICENSE", manifest.vendor.licenseSha256),
-      ] {
-        let data = try Data(contentsOf: directory.appendingPathComponent(path))
-        #expect(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() == expected)
-      }
     }
 
     @Test func collisionQueriesPreserveContactsWithoutScanningDistantTriangles() async throws {
@@ -1330,32 +1298,6 @@ extension WebGLSurfaceSuites {
       }
     }
 
-    @Test func loadReportsWebGLUnavailableDescriptively() async throws {
-      let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
-      let surface = IdleScreenAquariumWebSurface()
-      defer { surface.releaseResources() }
-      surface.view.frame = NSRect(x: 0, y: 0, width: 320, height: 180)
-      surface.view.configuration.userContentController.addUserScript(
-        WKUserScript(
-          source: """
-            (() => {
-              const original = HTMLCanvasElement.prototype.getContext;
-              HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
-                return /webgl/i.test(String(type)) ? null : original.call(this, type, ...rest);
-              };
-            })();
-            """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-      do {
-        try await surface.load(sceneURL: resource)
-        Issue.record("load succeeded without WebGL")
-      } catch let error as IdleScreenAquariumWebSurface.SurfaceError {
-        let message = error.localizedDescription
-        #expect(message.contains("aquarium runtime did not start: WebGL unavailable"))
-        #expect(message.contains("could not start"))
-      }
-      #expect(surface.state == .failed)
-    }
-
     private func snapshot(_ surface: IdleScreenAquariumWebSurface, frames: Int = 0) async throws
       -> Snapshot
     {
@@ -1456,17 +1398,6 @@ extension WebGLSurfaceSuites {
       }
     }
 
-    private struct Manifest: Decodable {
-      let scriptOrder: [String]
-      let importedFiles: [ImportedFile]
-      let vendor: Vendor
-      struct ImportedFile: Decodable { let path: String }
-      struct Vendor: Decodable {
-        let revision: String
-        let sha256: String
-        let licenseSha256: String
-      }
-    }
   }
 }
 

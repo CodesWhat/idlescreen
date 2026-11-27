@@ -8,7 +8,9 @@ import WebKit
 /// Hosted runners cap live WebGL contexts per process, so a surface that outlives its test starves
 /// every later one (PR #81: after the first "WebGL unavailable", every later case failed).
 extension WebGLSurfaceSuites {
-  @Suite("Aquarium WebGL context lifecycle", .timeLimit(.minutes(5)))
+  @Suite(
+    "Aquarium WebGL context lifecycle", .timeLimit(.minutes(5)),
+    .enabled("WebGL is unavailable on this runner") { await WebGLCapability.shouldRun() })
   @MainActor
   struct AquariumWebGLLifecycleTests {
     @Test func disposeLosesTheLiveWebGLContext() async throws {
@@ -68,24 +70,14 @@ extension WebGLSurfaceSuites {
       let page = directory.appendingPathComponent("index.html")
       try "<!doctype html><title>no scene</title>".write(
         to: page, atomically: true, encoding: .utf8)
-      let baseline = IdleScreenAquariumWebSurface()
-      defer { baseline.releaseResources() }
-      let plainStart = ContinuousClock.now
-      await #expect(throws: IdleScreenAquariumWebSurface.SurfaceError.self) {
-        try await baseline.load(sceneURL: page)
-      }
-      let plain = ContinuousClock.now - plainStart
-
       let surface = IdleScreenAquariumWebSurface()
       defer { surface.releaseResources() }
-      let started = ContinuousClock.now
+      var attempts = 0
       await #expect(throws: IdleScreenAquariumWebSurface.SurfaceError.self) {
-        try await surface.loadRetryingTransientWebGLFailure(sceneURL: page)
+        try await surface.loadRetryingTransientWebGLFailure(
+          sceneURL: page, onAttempt: { attempts += 1 })
       }
-      // A retry would add the 500 ms back-off plus a second load.
-      #expect(
-        ContinuousClock.now - started < plain + .milliseconds(400),
-        "a non-WebGL failure was retried")
+      #expect(attempts == 1, "a non-WebGL failure was retried")
       #expect(surface.state == .failed)
     }
 

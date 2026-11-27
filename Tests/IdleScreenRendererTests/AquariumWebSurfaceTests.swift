@@ -6,7 +6,9 @@ import WebKit
 @testable import IdleScreenRenderer
 
 extension WebGLSurfaceSuites {
-  @Suite("Local aquarium WebKit surface", .timeLimit(.minutes(1)))
+  @Suite(
+    "Local aquarium WebKit surface", .timeLimit(.minutes(1)),
+    .enabled("WebGL is unavailable on this runner") { await WebGLCapability.shouldRun() })
   @MainActor
   struct AquariumWebSurfaceTests {
     @Test func bundledSceneLoadsPausedAndRunsOnlyOneAnimationLoop() async throws {
@@ -51,21 +53,6 @@ extension WebGLSurfaceSuites {
       await #expect(throws: IdleScreenAquariumWebSurface.SurfaceError.self) {
         try await surface.resume()
       }
-    }
-
-    @Test func rejectedResourcesNeverStartNavigation() async throws {
-      let surface = IdleScreenAquariumWebSurface()
-      defer { surface.releaseResources() }
-      let remote = try #require(URL(string: "https://example.invalid/scene.html"))
-      await #expect(throws: IdleScreenAquariumWebSurface.SurfaceError.self) {
-        try await surface.load(sceneURL: remote)
-      }
-      await #expect(throws: IdleScreenAquariumWebSurface.SurfaceError.self) {
-        try await surface.resume()
-      }
-      #expect(surface.state == .unloaded)
-      #expect(surface.view.url == nil)
-      try await surface.shutdown()
     }
 
     @Test func sceneCommandFailureDoesNotClaimItIsRunning() async throws {
