@@ -244,18 +244,19 @@ It downloads the DMG, `IdleScreenR1ReleaseCandidateV1.txt` and the SPDX SBOM,
 checks the DMG SHA-256 against the manifest's `stapled_dmg_sha256`, and then
 attaches GitHub build provenance attestations to all three plus an SBOM
 attestation for the DMG. It never signs, modifies or re-uploads anything and
-holds no secrets or Apple credentials. To backfill or retry a release, dispatch
-it from the tag:
+holds no secrets or Apple credentials. v0.4.0 was published before the workflow
+existed and has no attestations. To backfill or retry a later release, dispatch
+the workflow from that release's tag, which must contain it:
 
 ```sh
-gh workflow run release-attest.yml --ref v0.4.0 -f tag=v0.4.0
+gh workflow run release-attest.yml --ref <tag> -f tag=<tag>
 ```
 
-Verify a downloaded DMG with:
+Verify a downloaded DMG from a release that was attested with:
 
 ```sh
-gh attestation verify idlescreen-0.4.0-build67.dmg --repo CodesWhat/idlescreen
-gh attestation verify idlescreen-0.4.0-build67.dmg --repo CodesWhat/idlescreen \
+gh attestation verify idlescreen-<version>-build<build>.dmg --repo CodesWhat/idlescreen
+gh attestation verify idlescreen-<version>-build<build>.dmg --repo CodesWhat/idlescreen \
   --predicate-type https://spdx.dev/Document/v2.3
 ```
 

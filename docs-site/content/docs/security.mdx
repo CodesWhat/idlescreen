@@ -22,6 +22,10 @@ description: What stays on your Mac, the security invariants and how to report a
 
 The active private screen-saver declarations live in `Products/IdleScreenScreenSaver/Private`, with attribution in `THIRD_PARTY_NOTICES.md`. Apple's private screen-saver extension declarations are a compatibility risk, not a security vulnerability by themselves.
 
+## Verifying a release
+
+Each release publishes the DMG, `IdleScreenR1ReleaseCandidateV1.txt` and an SPDX SBOM. Releases published after v0.4.0 also carry GitHub build provenance attestations for those three files, which `gh attestation verify <dmg> --repo CodesWhat/idlescreen` checks. v0.4.0 has none. `scripts/check-release-reproducibility.sh <tag>` rebuilds the unsigned app from a tag and compares its source and project digests with the published manifest. See [Building from source](/building).
+
 ## Supported versions
 
 Security fixes ship on the latest public release line only.

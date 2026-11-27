@@ -5,6 +5,49 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- Add GitHub provenance and SBOM attestations for the DMG, the candidate
+  manifest and the SPDX SBOM of each release published from now on, through
+  `release-attest.yml`. v0.4.0 predates it and has none.
+- Add `scripts/check-release-reproducibility.sh <tag>`, which needs no signing
+  credentials and checks a tag's source, project files and bundle version
+  against the published candidate manifest. v0.4.0 matches on all six
+  comparable fields.
+- Add `scripts/check-promotion-codeql.sh <pr-number>`, which checks a promotion
+  PR's merge commit for open high or critical CodeQL alerts before it merges.
+- Add a fixed 80% line-coverage floor to CI (`scripts/check_coverage_floor.py`
+  and `codecov.yml`), and tests that bring line coverage above it.
+- Add the Maintainability badge and enable shellcheck, zizmor and osv-scanner
+  in Qlty.
+
+### Changed
+
+- State that macOS 26 (Tahoe) is supported and macOS 27 is untested.
+- The release builder falls back to an App Store Connect API key when the
+  notarytool Keychain profile is missing.
+- CI installs XcodeGen 2.46.0 from a checksum-pinned release instead of
+  Homebrew, and the shared CodesWhat workflows are pinned to a newer commit.
+- Split the Pixel Materials terrain generation and sand movement code, with
+  characterization tests that pin the output.
+
+### Fixed
+
+- Exporting an aquarium tank no longer fails after a feed pellet has settled
+  on the gravel.
+- Aquarium animals grazing at a lifted stop rest on the surface instead of
+  hovering, and the frame cache drops an oversized donated raster so a
+  narrower scene doesn't keep the wide capacity.
+- A first camera mailbox read older than the frame age limit is rejected.
+- Health report retention takes one locked inspection to classify and prune.
+- Setup no longer skips the camera step and the all-set card on a Mac you
+  finished by hand after a failed first refresh.
+- A saved quiet-hours window outside the valid range is clamped when the agent
+  configuration loads.
+- Serialize the WebGL surface test suites and release leaked contexts, fix
+  flaky aquarium, camera and notary tests, and time the renderer budget in
+  thread CPU time.
+
 ## [0.4.0] - 2026-11-20
 
 ### Added

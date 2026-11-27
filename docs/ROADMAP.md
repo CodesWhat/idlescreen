@@ -1,12 +1,28 @@
 # IdleScreen roadmap
 
-Last updated: November 20, 2026
+Last updated: November 27, 2026
 
 IdleScreen 0.1 is a released public product. The companion app, modern
 screen-saver extension, Metal renderer, camera agent, multi-display planner,
 Pixel Materials, Saved Looks, and optional local agent signals are implemented.
 This roadmap tracks the current release and the compatibility work that remains
 useful after it ships.
+
+## Next release (unreleased)
+
+Landed on the development line and not yet in a release. The
+[changelog](../CHANGELOG.md) has the user-facing detail.
+
+- Fix tank export after a feed pellet settles on the gravel, and rest lifted
+  aquarium grazing stops on the surface.
+- Reject a stale first camera mailbox read, take one locked health retention
+  inspection, and clamp saved quiet hours on load.
+- Attest provenance and an SBOM for each published release with
+  `release-attest.yml`, add a credential-free reproducibility check from a tag,
+  fall back to an App Store Connect API key for notarization, and gate
+  promotions on CodeQL alerts for the PR merge commit.
+- Enforce an 80% line-coverage floor in CI.
+- State that macOS 27 is untested.
 
 ## v0.4.0
 
@@ -89,9 +105,10 @@ useful coverage and product work:
   each row out of the README's not-verified list.
 - Repeat the full mixed-scale multi-display, hot-plug, Spaces, and sleep/wake
   matrix on additional physical Mac configurations.
-- Smoke-test the next macOS beta on Apple silicon hardware.
-- Move signed-release construction and artifact attestations into GitHub Actions
-  after Apple signing and notary credentials have an approved enrollment path.
+- Smoke-test macOS 27 on Apple silicon hardware. It is untested today.
+- Move signed-release construction into GitHub Actions after Apple signing and
+  notary credentials have an approved enrollment path. Provenance and SBOM
+  attestation of published assets is already done by `release-attest.yml`.
 - Consider the optional custom-pet importer only with explicit user-owned art
   and provenance-safe inputs.
 - Consider a local MCP surface only if it remains content-minimal and does not
