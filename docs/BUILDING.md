@@ -208,9 +208,13 @@ CodeQL alerts. The `main` ruleset has a `code_scanning` rule (errors, high or
 higher) that blocks the promotion even when every dev pull request passed:
 
 ```sh
-gh api "repos/CodesWhat/idlescreen/code-scanning/alerts?state=open&ref=refs/heads/dev/v0.1" \
-  -q '.[] | select(.rule.security_severity_level == "high" or .rule.security_severity_level == "critical" or .rule.severity == "error") | {number, rule: .rule.id, severity: .rule.security_severity_level, path: .most_recent_instance.location.path}'
+gh api --paginate "repos/CodesWhat/idlescreen/code-scanning/alerts?state=open&ref=refs/heads/dev/v0.1&per_page=100" \
+  -q '.[] | select(if .rule.security_severity_level then (.rule.security_severity_level == "high" or .rule.security_severity_level == "critical") else .rule.severity == "error" end) | {number, rule: .rule.id, severity: (.rule.security_severity_level // .rule.severity), path: .most_recent_instance.location.path}'
 ```
+
+`--paginate` reads every page. Security alerts are judged by their security
+severity; error severity only counts for alerts without one, matching the
+ruleset's thresholds.
 
 Fix each alert, or dismiss it with a reason once it is verified as a false
 positive. Never change the ruleset to get past it.
