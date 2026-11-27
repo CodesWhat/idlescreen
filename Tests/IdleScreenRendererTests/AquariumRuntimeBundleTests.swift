@@ -6,1441 +6,1466 @@ import WebKit
 
 @testable import IdleScreenRenderer
 
-@Suite("Bundled Three.js aquarium", .timeLimit(.minutes(1)))
-@MainActor
-struct AquariumRuntimeBundleTests {
-  @Test func premiumPlacementsKeepBodiesConnectionsAndGlassMountsTogether() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let result =
-      try await surface.view.evaluateJavaScript(
-        """
-        (()=>{
-          const options={stripPlug:{filter:[9,1,-6],co2:[-9,1,-6]}},factory=AquariumMetricEquipmentArt;
-          const original=factory.create(THREE,options);
-          if(!original.placementsCm)return 'missing premium centimeter placements';
-          const placementsCm={canister:{x:44,z:0},co2:{x:-42,z:8},intake:{x:-24},return:{x:-17},diffuser:{x:-8,y:7}};
-          const moved=factory.create(THREE,{...options,placementsCm}),cm=36/8.4,near=(a,b)=>Math.abs(a-b)<.00003;
-          for(const [slot,part]of [['canister','canister-housing'],['co2','cylinder-chart-envelope']]){
-            const before=original.dryGroup.userData.parts[part].bounds,after=moved.dryGroup.userData.parts[part].bounds;
-            if(!near(after.min[0]-before.min[0],(moved.placementsCm[slot].x-original.placementsCm[slot].x)/cm))throw new Error(slot+' body did not follow placement');
-            if(!near(after.max[2]-before.max[2],(moved.placementsCm[slot].z-original.placementsCm[slot].z)/cm))throw new Error(slot+' depth did not follow placement');
-          }
-          const authored=moved.dryGroup.userData.authored;
-          if(!near(authored.filterSideGapCm,4.9)||!near(authored.cylinderSideGapCm,6.45))throw new Error('Clearance metadata did not follow premium bodies');
-          const find=name=>moved.wetGroup.getObjectByName(name)||moved.dryGroup.getObjectByName(name);
-          for(const route of Object.values(moved.dryGroup.userData.routes)){
-            const points=[...route.dry,...(route.wet||[])];
-            for(const [key,index]of [['startConnector',0],['endConnector',points.length-1]]){
-              const connector=find(route[key]);if(!connector||!connector.position.toArray().every((n,i)=>near(n,points[index][i])))throw new Error('Disconnected '+route[key]);
+extension WebGLSurfaceSuites {
+  @Suite("Bundled Three.js aquarium", .timeLimit(.minutes(1)))
+  @MainActor
+  struct AquariumRuntimeBundleTests {
+    @Test func premiumPlacementsKeepBodiesConnectionsAndGlassMountsTogether() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let result =
+        try await surface.view.evaluateJavaScript(
+          """
+          (()=>{
+            const options={stripPlug:{filter:[9,1,-6],co2:[-9,1,-6]}},factory=AquariumMetricEquipmentArt;
+            const original=factory.create(THREE,options);
+            if(!original.placementsCm)return 'missing premium centimeter placements';
+            const placementsCm={canister:{x:44,z:0},co2:{x:-42,z:8},intake:{x:-24},return:{x:-17},diffuser:{x:-8,y:7}};
+            const moved=factory.create(THREE,{...options,placementsCm}),cm=36/8.4,near=(a,b)=>Math.abs(a-b)<.00003;
+            for(const [slot,part]of [['canister','canister-housing'],['co2','cylinder-chart-envelope']]){
+              const before=original.dryGroup.userData.parts[part].bounds,after=moved.dryGroup.userData.parts[part].bounds;
+              if(!near(after.min[0]-before.min[0],(moved.placementsCm[slot].x-original.placementsCm[slot].x)/cm))throw new Error(slot+' body did not follow placement');
+              if(!near(after.max[2]-before.max[2],(moved.placementsCm[slot].z-original.placementsCm[slot].z)/cm))throw new Error(slot+' depth did not follow placement');
             }
-          }
-          if(!near(moved.returnPoint.x-original.returnPoint.x,3/cm))throw new Error('Return flow origin did not move');
-          if(!near(moved.diffuserPoint.y-original.diffuserPoint.y,(7-original.placementsCm.diffuser.y)/cm))throw new Error('Mist origin did not move');
-          for(const mount of moved.wetGroup.userData.mounts){
-            if(mount.kind==='rim'&&!near(mount.contact[1],8.4))throw new Error('Rim mount floats');
-            if(mount.kind==='suction'&&!near(mount.wallPoint[2],-4.36+.6/cm))throw new Error('Suction mount left rear glass');
-          }
-          const repeated=factory.create(THREE,{...options,placementsCm:moved.placementsCm});
-          if(JSON.stringify(repeated.placementsCm)!==JSON.stringify(moved.placementsCm))throw new Error('Premium placement cannot round trip');
-          for(const asset of [original,moved,repeated])asset.dispose();
-          let allocations=0;const tracked=Object.create(THREE);tracked.Group=class extends THREE.Group{constructor(){super();allocations++;}};
-          for(const invalid of [{unknown:{}},{co2:{x:0}},{canister:{y:1}},{intake:{z:0}},{return:{rotationY:1}},{diffuser:{y:34}},{canister:{x:Infinity}},{intake:{x:-29},return:{x:-28}}]){
-            let rejected=false;try{factory.create(tracked,{...options,placementsCm:invalid}).dispose();}catch(_){rejected=true;}
-            if(!rejected||allocations)throw new Error('Invalid premium placement allocated or was accepted');
-          }
-          return 'ok';
-        })()
-        """) as? String
-    #expect(result == "ok")
-    try await surface.shutdown()
-  }
-
-  @Test func premiumDefaultsFitShallowTanksAndGasHoseFollowsRaisedDiffuser() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let result =
-      try await surface.view.evaluateJavaScript(
-        """
-        (()=>{
-          const cm=36/8.4,options={stripPlug:{filter:[9,1,-6],co2:[-9,1,-6]}},factory=AquariumMetricEquipmentArt;
-          const shallow=factory.create(THREE,{...options,backZ:-7.5/cm,frontZ:7.5/cm});
-          if(!(shallow.placementsCm.canister.z+6.1<=7.5))throw new Error('Default canister exceeds a 15 cm deep tank');
-          shallow.dispose();
-          const deep=factory.create(THREE,options);
-          const rear=(-4.36-(-4.36+4.04)/2)*cm;
-          if(Math.abs(deep.placementsCm.canister.z-(rear+14))>1e-7)throw new Error('Default canister offset changed for the standard tank');
-          const lowered=deep.dryGroup.userData.routes.co2.wet.length;deep.dispose();
-          const raised=factory.create(THREE,{...options,placementsCm:{diffuser:{y:15}}}),wet=raised.dryGroup.userData.routes.co2.wet;
-          if(wet.length!==2)throw new Error('Gas hose doubles back over a raised diffuser inlet');
-          if(lowered!==3)throw new Error('Default gas hose lost its descending waypoint');
-          raised.dispose();
-          return 'ok';
-        })()
-        """) as? String
-    #expect(result == "ok")
-    try await surface.shutdown()
-  }
-
-  @Test func co2PowerAdapterClearsAMovedCylinder() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let result =
-      try await surface.view.evaluateJavaScript(
-        """
-        (()=>{
-          const options={stripPlug:{filter:[9,1,-6],co2:[-9,1,-6]}},factory=AquariumMetricEquipmentArt;
-          const clear=art=>{
-            const p=art.dryGroup.userData.parts,a=p['co2-power-adapter'].bounds,c=p['cylinder-chart-envelope'].bounds;
-            return [0,1,2].some(k=>a.max[k]<=c.min[k]||a.min[k]>=c.max[k]);
-          };
-          const base=factory.create(THREE,options);
-          if(!clear(base))throw new Error('Default adapter intersects the cylinder');
-          base.dispose();
-          const moved=factory.create(THREE,{...options,placementsCm:{co2:{z:-12}}});
-          if(!clear(moved))throw new Error('Adapter intersects a moved cylinder');
-          moved.dispose();
-          return 'ok';
-        })()
-        """) as? String
-    #expect(result == "ok")
-    try await surface.shutdown()
-  }
-
-  @Test func automaticRoomSettingsEncodeAnExplicitNullManualLevel() async throws {
-    var settings = IdleScreenAquariumWebSurface.TankSettings(
-      light: .init(preset: "warm", count: 1, output: 0.6, spread: "focused"),
-      room: .init(mode: "auto", finish: "concrete", manualLevel: nil),
-      surface: "lively", pump: 1.2, rasterHeight: 1080)
-    let object = try #require(
-      JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any])
-    let room = try #require(object["room"] as? [String: Any])
-    #expect(room["manualLevel"] is NSNull)
-    settings.room.manualLevel = 0.4
-    let manual = try #require(
-      JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any])
-    #expect((manual["room"] as? [String: Any])?["manualLevel"] as? Double == 0.4)
-
-    let surface = IdleScreenAquariumWebSurface()
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    _ = try await surface.beginEditing()
-    settings.room.manualLevel = nil
-    let checkpoint = try await surface.prepareSettings(settings, id: "auto-room", name: "Auto room")
-    #expect(!checkpoint.isEmpty)
-    try await surface.shutdown()
-  }
-
-  @Test func presentationSettingsPreserveTheCurrentEcosystemCheckpoint() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    _ = try await surface.beginEditing()
-    let supported =
-      try await surface.view.evaluateJavaScript(
-        "typeof idleScreenScene.prepareSettings === 'function'") as? Bool
-    try #require(supported == true)
-    let result =
-      try await surface.view.evaluateJavaScript(
-        """
-        (()=>{
-          aquariumStudy.feed();aquariumStudy.previewLifeEvent('molt');aquariumStudy.previewLifeEvent('death');
-          const before=aquariumStudy.exportTank({id:'settings-test',name:'Settings test'});
-          const c=before.tank.configuration;
-          const settings={light:{preset:'warm',count:1,output:.6,spread:'focused'},room:{mode:'off',finish:'concrete',manualLevel:0},surface:'lively',pump:1.2,rasterHeight:1080};
-          const response=idleScreenScene.prepareSettings({settings,id:'settings-test',name:'Settings test'});
-          if(response.error)throw new Error(response.error);
-          const after=JSON.parse(response.checkpointJSON);
-          if(JSON.stringify(before.runtime)!==JSON.stringify(after.runtime))throw new Error('Settings reset runtime state');
-          if(JSON.stringify(before.tank.document)!==JSON.stringify(after.tank.document))throw new Error('Settings reset ecosystem or layout');
-          if(after.tank.configuration.light.preset!=='warm'||after.tank.configuration.rasterHeight!==1080)throw new Error('Settings were not applied');
-          for(const invalid of [{...settings,pump:NaN},{...settings,rasterHeight:42},{...settings,light:{...settings.light,output:9}},{...settings,setup:'lush'}]){
-            if(!idleScreenScene.prepareSettings({settings:invalid,id:'settings-test',name:'Settings test'}).error)throw new Error('Invalid setting was accepted');
-          }
-          if(JSON.stringify(before)!==JSON.stringify(aquariumStudy.exportTank({id:'settings-test',name:'Settings test'})))throw new Error('Preparing settings mutated source tank');
-          return true;
-        })()
-        """) as? Bool
-    #expect(result == true)
-    try await surface.shutdown()
-  }
-
-  @Test func stockMessagesRejectMalformedAndStaleUpdatesAndFenceOldQueries() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let original = try await surface.beginEditing()
-    var updates: [IdleScreenAquariumWebSurface.StockUpdate] = []
-    surface.onStockChange = { updates.append($0) }
-    _ = try await surface.view.evaluateJavaScript(
-      "window.savedStockSnapshot=idleScreenScene.editorSnapshot(); aquariumStudy.previewLifeEvent('death'); true"
-    )
-    for _ in 0..<200 {
-      if !updates.isEmpty { break }
-      try await Task.sleep(for: .milliseconds(10))
+            const authored=moved.dryGroup.userData.authored;
+            if(!near(authored.filterSideGapCm,4.9)||!near(authored.cylinderSideGapCm,6.45))throw new Error('Clearance metadata did not follow premium bodies');
+            const find=name=>moved.wetGroup.getObjectByName(name)||moved.dryGroup.getObjectByName(name);
+            for(const route of Object.values(moved.dryGroup.userData.routes)){
+              const points=[...route.dry,...(route.wet||[])];
+              for(const [key,index]of [['startConnector',0],['endConnector',points.length-1]]){
+                const connector=find(route[key]);if(!connector||!connector.position.toArray().every((n,i)=>near(n,points[index][i])))throw new Error('Disconnected '+route[key]);
+              }
+            }
+            if(!near(moved.returnPoint.x-original.returnPoint.x,3/cm))throw new Error('Return flow origin did not move');
+            if(!near(moved.diffuserPoint.y-original.diffuserPoint.y,(7-original.placementsCm.diffuser.y)/cm))throw new Error('Mist origin did not move');
+            for(const mount of moved.wetGroup.userData.mounts){
+              if(mount.kind==='rim'&&!near(mount.contact[1],8.4))throw new Error('Rim mount floats');
+              if(mount.kind==='suction'&&!near(mount.wallPoint[2],-4.36+.6/cm))throw new Error('Suction mount left rear glass');
+            }
+            const repeated=factory.create(THREE,{...options,placementsCm:moved.placementsCm});
+            if(JSON.stringify(repeated.placementsCm)!==JSON.stringify(moved.placementsCm))throw new Error('Premium placement cannot round trip');
+            for(const asset of [original,moved,repeated])asset.dispose();
+            let allocations=0;const tracked=Object.create(THREE);tracked.Group=class extends THREE.Group{constructor(){super();allocations++;}};
+            for(const invalid of [{unknown:{}},{co2:{x:0}},{canister:{y:1}},{intake:{z:0}},{return:{rotationY:1}},{diffuser:{y:34}},{canister:{x:Infinity}},{intake:{x:-29},return:{x:-28}}]){
+              let rejected=false;try{factory.create(tracked,{...options,placementsCm:invalid}).dispose();}catch(_){rejected=true;}
+              if(!rejected||allocations)throw new Error('Invalid premium placement allocated or was accepted');
+            }
+            return 'ok';
+          })()
+          """) as? String
+      #expect(result == "ok")
+      try await surface.shutdown()
     }
-    let death = try #require(updates.last)
-    #expect(death.animals.filter(\.alive).count == original.animals.filter(\.alive).count - 1)
-    _ = try await surface.view.evaluateJavaScript(
-      """
-      (()=>{
-        const send=value=>webkit.messageHandlers.idleScreenStock.postMessage(JSON.stringify(value));
-        const animals=idleScreenScene.editorSnapshot().animals;
-        send({revision:-1,animals});
-        send({revision:9007199254740992,animals});
-        send({revision:999,animals:[animals[0],animals[0]]});
-        send({revision:999,animals:[{...animals[0],kind:'dragon'}]});
-        send({revision:999,animals:[{...animals[0],id:''}]});
-        send({revision:999,animals:Array(81).fill(animals[0])});
-        send({revision:999,animals:[{...animals[0],species:'x'.repeat(65536)}]});
-        send({revision:\(death.revision),animals:[]});
-        window.idleScreenScene={...idleScreenScene,editorSnapshot:()=>savedStockSnapshot};
-        return true;
-      })()
-      """)
-    let fenced = try await surface.editorSnapshot()
-    #expect(updates.count == 1)
-    #expect(fenced.animals == death.animals)
-    #expect(fenced.objects == original.objects)
-    _ = try await surface.view.evaluateJavaScript("aquariumStudy.previewLifeEvent('death'); true")
-    for _ in 0..<200 {
-      if updates.count == 2 { break }
-      try await Task.sleep(for: .milliseconds(10))
+
+    @Test func premiumDefaultsFitShallowTanksAndGasHoseFollowsRaisedDiffuser() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let result =
+        try await surface.view.evaluateJavaScript(
+          """
+          (()=>{
+            const cm=36/8.4,options={stripPlug:{filter:[9,1,-6],co2:[-9,1,-6]}},factory=AquariumMetricEquipmentArt;
+            const shallow=factory.create(THREE,{...options,backZ:-7.5/cm,frontZ:7.5/cm});
+            if(!(shallow.placementsCm.canister.z+6.1<=7.5))throw new Error('Default canister exceeds a 15 cm deep tank');
+            shallow.dispose();
+            const deep=factory.create(THREE,options);
+            const rear=(-4.36-(-4.36+4.04)/2)*cm;
+            if(Math.abs(deep.placementsCm.canister.z-(rear+14))>1e-7)throw new Error('Default canister offset changed for the standard tank');
+            const lowered=deep.dryGroup.userData.routes.co2.wet.length;deep.dispose();
+            const raised=factory.create(THREE,{...options,placementsCm:{diffuser:{y:15}}}),wet=raised.dryGroup.userData.routes.co2.wet;
+            if(wet.length!==2)throw new Error('Gas hose doubles back over a raised diffuser inlet');
+            if(lowered!==3)throw new Error('Default gas hose lost its descending waypoint');
+            raised.dispose();
+            return 'ok';
+          })()
+          """) as? String
+      #expect(result == "ok")
+      try await surface.shutdown()
     }
-    #expect(updates.count == 2)
-    #expect(updates.last?.revision == death.revision + 1)
-    try await surface.shutdown()
-    #expect(surface.onStockChange == nil)
-  }
 
-  @Test func actualAquariumLoadsAndPreservesItsCoupledLifeAcrossPauses() async throws {
-    let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
-    #expect(resource.path.contains("IdleScreenRenderer.framework/"))
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    surface.view.configuration.userContentController.addUserScript(
-      WKUserScript(
-        source: Self.frameClock(emulatingVisibleDocument: true), injectionTime: .atDocumentStart,
-        forMainFrameOnly: true)
-    )
-    try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
-    let initial = try await snapshot(surface)
-    #expect(initial.revision == "160")
-    #expect(!initial.documentHidden)
-    #expect(!initial.scene.motion)
-    #expect(initial.pendingFrames == 0)
-    #expect(initial.scene.physical.tankCm.width == 60)
-    #expect(initial.scene.physical.tankCm.depth == 36)
-    #expect(initial.scene.physical.tankCm.height == 36)
-    #expect(initial.scene.water.volumeL == 50)
-    #expect(initial.scene.condition.mode == "ecosystem")
-    #expect(initial.scene.renderedFrames > 0)
-    #expect(initial.scene.drawCalls > 0)
-    #expect(initial.scene.triangles > 0)
-    #expect(!initial.scene.ecology.animals.isEmpty)
-    #expect(initial.visibleControls == 0)
-
-    try await surface.resume()
-    try await surface.resume()
-    let running = try await snapshot(surface, frames: 3)
-    #expect(running.pendingFrames == 1)
-    #expect(running.scene.renderedFrames > initial.scene.renderedFrames)
-    #expect(running.scene.water.elapsedSeconds > initial.scene.water.elapsedSeconds)
-    #expect(running.scene.ecology.seconds == running.scene.water.elapsedSeconds)
-    #expect(running.scene.ecology.animals.map(\.id) == initial.scene.ecology.animals.map(\.id))
-
-    try await surface.pause()
-    let paused = try await snapshot(surface, frames: 3)
-    #expect(paused.pendingFrames == 0)
-    #expect(paused.scene.clock == running.scene.clock)
-    #expect(paused.scene.water.elapsedSeconds == running.scene.water.elapsedSeconds)
-    #expect(paused.scene.ecology.animals == running.scene.ecology.animals)
-
-    try await surface.resume()
-    let resumed = try await snapshot(surface, frames: 3)
-    #expect(resumed.pendingFrames == 1)
-    #expect(resumed.scene.clock > paused.scene.clock)
-    #expect(resumed.scene.water.elapsedSeconds > paused.scene.water.elapsedSeconds)
-    #expect(resumed.scene.ecology.animals.map(\.id) == paused.scene.ecology.animals.map(\.id))
-    try await surface.shutdown()
-    #expect(surface.state == .stopped)
-  }
-
-  @Test func anUnattachedHiddenDocumentDoesNotAdvanceLife() async throws {
-    let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    surface.view.configuration.userContentController.addUserScript(
-      WKUserScript(
-        source: Self.frameClock(emulatingVisibleDocument: false), injectionTime: .atDocumentStart,
-        forMainFrameOnly: true))
-    try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
-    let initial = try await snapshot(surface)
-    #expect(initial.documentHidden)
-    try await surface.resume()
-    let hidden = try await snapshot(surface, frames: 3)
-    #expect(hidden.pendingFrames == 0)
-    #expect(hidden.scene.clock == initial.scene.clock)
-    #expect(hidden.scene.water.elapsedSeconds == initial.scene.water.elapsedSeconds)
-    #expect(hidden.scene.ecology.animals == initial.scene.ecology.animals)
-    try await surface.shutdown()
-  }
-
-  @Test func bundleContainsOnlyDeclaredRuntimeAndPinnedVendor() throws {
-    let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
-    let directory = resource.deletingLastPathComponent().resolvingSymlinksInPath()
-    let manifest = try JSONDecoder().decode(
-      Manifest.self, from: Data(contentsOf: directory.appendingPathComponent("PROVENANCE.json")))
-    let entry = try String(contentsOf: resource, encoding: .utf8)
-    let scripts = entry.matches(of: /<script src="([^"]+)"/).map { String($0.1) }
-    #expect(scripts == manifest.scriptOrder)
-    #expect(scripts.allSatisfy { !$0.contains(":") && !$0.hasPrefix("/") && !$0.contains("..") })
-    let enumerator = try #require(
-      FileManager.default.enumerator(at: directory, includingPropertiesForKeys: [.isRegularFileKey])
-    )
-    var files: Set<String> = []
-    for case let url as URL in enumerator {
-      if try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true {
-        files.insert(String(url.resolvingSymlinksInPath().path.dropFirst(directory.path.count + 1)))
-      }
+    @Test func co2PowerAdapterClearsAMovedCylinder() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let result =
+        try await surface.view.evaluateJavaScript(
+          """
+          (()=>{
+            const options={stripPlug:{filter:[9,1,-6],co2:[-9,1,-6]}},factory=AquariumMetricEquipmentArt;
+            const clear=art=>{
+              const p=art.dryGroup.userData.parts,a=p['co2-power-adapter'].bounds,c=p['cylinder-chart-envelope'].bounds;
+              return [0,1,2].some(k=>a.max[k]<=c.min[k]||a.min[k]>=c.max[k]);
+            };
+            const base=factory.create(THREE,options);
+            if(!clear(base))throw new Error('Default adapter intersects the cylinder');
+            base.dispose();
+            const moved=factory.create(THREE,{...options,placementsCm:{co2:{z:-12}}});
+            if(!clear(moved))throw new Error('Adapter intersects a moved cylinder');
+            moved.dispose();
+            return 'ok';
+          })()
+          """) as? String
+      #expect(result == "ok")
+      try await surface.shutdown()
     }
-    #expect(files == Set(scripts + ["index.html", "PROVENANCE.json", "vendor/LICENSE"]))
-    #expect(
-      Set(manifest.importedFiles.map(\.path))
-        == Set(scripts.filter { $0 != "native-host.js" } + ["vendor/LICENSE"]))
-    #expect(manifest.vendor.revision == "160")
-    for (path, expected) in [
-      ("vendor/three.min.js", manifest.vendor.sha256),
-      ("vendor/LICENSE", manifest.vendor.licenseSha256),
-    ] {
-      let data = try Data(contentsOf: directory.appendingPathComponent(path))
-      #expect(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() == expected)
-    }
-  }
 
-  @Test func collisionQueriesPreserveContactsWithoutScanningDistantTriangles() async throws {
-    let fixture = try #require(
-      Bundle(for: AquariumCollisionFixtureBundle.self).url(
-        forResource: "collision-check", withExtension: "js", subdirectory: "WebSurfaceProof"))
-    let source = try String(contentsOf: fixture, encoding: .utf8)
-    let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
-    let script = source + "\nJSON.stringify(runAquariumCollisionCheck(THREE, AquariumCollisions));"
-    let json: String = try await withCheckedThrowingContinuation { continuation in
-      surface.view.evaluateJavaScript(script) { value, error in
-        if let error {
-          continuation.resume(throwing: error)
-        } else if let text = value as? String {
-          continuation.resume(returning: text)
-        } else {
-          continuation.resume(throwing: CocoaError(.coderValueNotFound))
-        }
-      }
-    }
-    let result = try JSONDecoder().decode([String: Int].self, from: Data(json.utf8))
-    #expect(result["samples"] == 24)
-    #expect(result["bodyQueries"] == 6)
-    #expect(try #require(result["maxVertexReads"]) < 500)
-    try await surface.shutdown()
-  }
+    @Test func automaticRoomSettingsEncodeAnExplicitNullManualLevel() async throws {
+      var settings = IdleScreenAquariumWebSurface.TankSettings(
+        light: .init(preset: "warm", count: 1, output: 0.6, spread: "focused"),
+        room: .init(mode: "auto", finish: "concrete", manualLevel: nil),
+        surface: "lively", pump: 1.2, rasterHeight: 1080)
+      let object = try #require(
+        JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any])
+      let room = try #require(object["room"] as? [String: Any])
+      #expect(room["manualLevel"] is NSNull)
+      settings.room.manualLevel = 0.4
+      let manual = try #require(
+        JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any])
+      #expect((manual["room"] as? [String: Any])?["manualLevel"] as? Double == 0.4)
 
-  @Test func existingObjectValidationKeepsGeometryAndRefreshesObstacles() async throws {
-    let result = try await runPresetFixture(
-      "preset-edit-check",
-      invocation:
-        "runAquariumPresetEditCheck(THREE, AquariumDesignerPlacement, AquariumRootedPlantsV2)")
-    #expect(result["checks"] == 9)
-  }
-
-  @Test func editingPresetObjectsPreservesLifeAndRestoresActualCollisionSurfaces() async throws {
-    let result = try await runPresetFixture(
-      "preset-scene-check", invocation: "runAquariumPresetSceneCheck(aquariumStudy)")
-    #expect(result["checks"] == 10)
-  }
-
-  @Test func placedAssetsAreRevisionFencedAndRejectedWithoutChangingLife() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let initial = try await surface.beginEditing()
-    #expect(initial.catalog.count == 15)
-    #expect(initial.placedObjects.isEmpty)
-    #expect(!initial.catalog.contains { $0.id == "pirate-chest" })
-    let before = try await surface.exportTank(id: "test", name: "Test")
-    let plant = IdleScreenAquariumWebSurface.PresetObject(
-      id: "placed-test", assetId: "rotala", positionCm: .init(x: -22, y: 5, z: 12), rotationY: 0)
-    let edited = try await surface.applyPlacedObjects(
-      expectedRevision: initial.revision, objects: [plant])
-    #expect(edited.revision > initial.revision)
-    #expect(edited.placedObjects == [plant])
-    #expect(edited.objects == initial.objects)
-    #expect(
-      try await surface.applyPlacedObjects(expectedRevision: edited.revision, objects: [plant])
-        == edited)
-    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
-      try await surface.applyPlacedObjects(expectedRevision: initial.revision, objects: [])
-    }
-    for invalid in [
-      IdleScreenAquariumWebSurface.PresetObject(
-        id: "placed-test", assetId: "rotala", positionCm: .init(x: 29, y: 5, z: 12), rotationY: 0),
-      IdleScreenAquariumWebSurface.PresetObject(
-        id: "base-conflict", assetId: "rotala", positionCm: plant.positionCm, rotationY: 0),
-    ] {
-      await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
-        try await surface.applyPlacedObjects(expectedRevision: edited.revision, objects: [invalid])
-      }
-      #expect(try await surface.editorSnapshot() == edited)
-    }
-    let after = try await surface.exportTank(id: "test", name: "Test")
-    let first = try #require(JSONSerialization.jsonObject(with: before) as? NSDictionary)
-    let last = try #require(JSONSerialization.jsonObject(with: after) as? NSDictionary)
-    #expect(first["runtime"] as? NSDictionary == last["runtime"] as? NSDictionary)
-    let removed = try await surface.applyPlacedObjects(
-      expectedRevision: edited.revision, objects: [])
-    #expect(removed.placedObjects.isEmpty)
-    try await surface.shutdown()
-  }
-
-  @Test func movingAPresetCannotBuryAnAddedPlant() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let initial = try await surface.beginEditing()
-    let rock = try #require(initial.objects.first { $0.id == "base-rock" })
-    let plant = IdleScreenAquariumWebSurface.PresetObject(
-      id: "placed-rooted", assetId: "rotala", positionCm: .init(x: -22, y: 5, z: 12), rotationY: 0)
-    let planted = try await surface.applyPlacedObjects(
-      expectedRevision: initial.revision, objects: [plant])
-    let before = try await surface.exportTank(id: "test", name: "Test")
-    var moved = rock
-    moved.positionCm.x = -20
-    moved.positionCm.z = 10
-    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
-      try await surface.applyPresetObjects(
-        expectedRevision: planted.revision,
-        objects: planted.objects.map { $0.id == rock.id ? moved : $0 })
-    }
-    #expect(try await surface.editorSnapshot() == planted)
-    #expect(try await surface.exportTank(id: "test", name: "Test") == before)
-    try await surface.shutdown()
-  }
-
-  @Test func nativePointerToolsReportRealBedHitsWithoutEditingTheLayout() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let initial = try await surface.beginEditing()
-    var received: IdleScreenAquariumWebSurface.EditorPick?
-    var receivedCount = 0
-    surface.onEditorPick = {
-      received = $0
-      receivedCount += 1
-    }
-    let placing = try await surface.setEditorTool(.place, assetID: "rotala")
-    #expect(placing == initial)
-    let script = """
-      (() => {
-        const s = aquariumStudy.state, c = s.camera;
-        const camera = new THREE.PerspectiveCamera(c.fov,c.aspect,.1,1000);
-        camera.position.fromArray(c.position);camera.lookAt(...c.target);
-        camera.projectionMatrix.elements[9]=2*c.horizonPercent/100-1;
-        camera.updateMatrixWorld();
-        const centerZ=(s.world.floorBackZ+s.world.floorFrontZ)/2;
-        const p=new THREE.Vector3(-22/s.physical.cmPerUnit,5/s.physical.cmPerUnit,centerZ+12/s.physical.cmPerUnit).project(camera);
-        const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();
-        canvas.dispatchEvent(new PointerEvent('pointerdown',{button:0,clientX:r.left+(p.x+1)*r.width/2,clientY:r.top+(1-p.y)*r.height/2}));
-        window.idleScreenScene.setEditorTool({tool:'select',generation:42});
-        return 'clicked';
-      })()
-      """
-    _ = try await surface.view.evaluateJavaScript(script)
-    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-    while received == nil && ContinuousClock.now < deadline {
-      try await Task.sleep(for: .milliseconds(10))
-    }
-    let pick = try #require(received)
-    #expect(pick.tool == .place)
-    #expect(pick.revision == initial.revision)
-    let point = try #require(pick.positionCm)
-    #expect(abs(point.x + 22) < 0.001)
-    #expect(abs(point.y - 5) < 0.001)
-    #expect(abs(point.z - 12) < 0.001)
-    #expect(try await surface.editorSnapshot() == initial)
-    _ = try await surface.setEditorTool(.select)
-    _ = try await surface.setEditorTool(.place, assetID: "rotala")
-    received = nil
-    receivedCount = 0
-    _ = try await surface.view.evaluateJavaScript(
-      """
-      window.postMessage({type:'aquarium-designer-pick',revision:\(pick.revision),tool:'place',
-        toolGeneration:\(pick.toolGeneration),positionCm:{x:0,y:5,z:0}},'*');
-      """)
-    _ = try await surface.view.evaluateJavaScript(script)
-    let freshDeadline = ContinuousClock.now.advanced(by: .seconds(5))
-    while received == nil && ContinuousClock.now < freshDeadline {
-      try await Task.sleep(for: .milliseconds(10))
-    }
-    let fresh = try #require(received)
-    #expect(fresh.toolGeneration > pick.toolGeneration)
-    #expect(receivedCount == 1)
-    #expect(abs(try #require(fresh.positionCm).x + 22) < 0.001)
-    _ = try await surface.setEditorTool(.select)
-    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
-      try await surface.setEditorTool(.place, assetID: "pirate-chest")
-    }
-    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
-      try await surface.setEditorTool(.move, selectedID: "missing")
-    }
-    #expect(try await surface.editorSnapshot() == initial)
-    try await surface.shutdown()
-  }
-
-  @Test func epiphytesFollowActualSupportNormalsWithoutLosingCollisionChecks() async throws {
-    let result = try await runPresetFixture(
-      "mount-normal-check",
-      invocation:
-        "runAquariumMountNormalCheck(THREE,AquariumDesignerPlacement,AquariumEpiphytePlantsV2)")
-    #expect(result["checks"] == 8)
-  }
-
-  @Test func mountedPlantsSurviveRejectedSupportChangesAndAddedRocksCollide() async throws {
-    let result = try await runPresetFixture(
-      "mount-edit-check", invocation: "runAquariumMountEditCheck(aquariumStudy)")
-    #expect(result["checks"] == 9)
-  }
-
-  @Test func nativeCanvasCanPickAndMovePresetRockWhileLegacySelectionStaysAddedOnly() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let initial = try await surface.beginEditing()
-    var rock = try #require(initial.objects.first { $0.id == "base-rock" })
-    rock.positionCm.x = 0
-    rock.positionCm.z = 0
-    let centered = try await surface.applyPresetObjects(
-      expectedRevision: initial.revision, objects: [rock])
-    #expect(try await surface.setEditorTool(.select, selectedID: rock.id) == centered)
-    var picks: [IdleScreenAquariumWebSurface.EditorPick] = []
-    surface.onEditorPick = { picks.append($0) }
-    try await clickTankPoint(surface, point: .init(x: 0, y: 8, z: 0))
-    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-    while picks.isEmpty && ContinuousClock.now < deadline {
-      try await Task.sleep(for: .milliseconds(10))
-    }
-    #expect(try #require(picks.first).id == rock.id)
-    picks.removeAll()
-    #expect(try await surface.setEditorTool(.move, selectedID: rock.id) == centered)
-    #expect(try await surface.beginEditing() == centered)
-    try await clickTankPoint(surface, point: .init(x: 0, y: rock.positionCm.y, z: 3))
-    let movedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
-    while picks.isEmpty && ContinuousClock.now < movedDeadline {
-      try await Task.sleep(for: .milliseconds(10))
-    }
-    let pick = try #require(picks.first)
-    #expect(pick.id == rock.id)
-    #expect(pick.tool == .move)
-    let position = try #require(pick.positionCm)
-    #expect(abs(position.z - 3) < 0.001)
-    #expect(position.y == rock.positionCm.y)
-    #expect(try await surface.editorSnapshot() == centered)
-    let legacy = try await tankScript(
-      surface,
-      "JSON.stringify(aquariumStudy.applyDesigner({layout:aquariumStudy.designer.layout,selectionScope:'added',selectedId:'base-rock'}))"
-    )
-    #expect(legacy.contains("error"))
-    try await surface.shutdown()
-  }
-
-  @Test func equipmentPlacementsRegenerateBodiesRimLeadsAndCounterConnections() async throws {
-    let result = try await runPresetFixture(
-      "equipment-placement-check",
-      invocation:
-        "runAquariumEquipmentPlacementCheck(THREE,AquariumMetricBasicArt,AquariumMetricConnections)"
-    )
-    #expect(result["checks"] == 8)
-  }
-
-  @Test func liveEquipmentMovesPersistAndOldConfigurationsKeepDefaultHardware() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let initial = try await surface.beginEditing()
-    #expect(initial.equipmentObjects.count == 3)
-    let cleared = try await surface.applyPresetObjects(
-      expectedRevision: initial.revision, objects: [])
-    var moved = cleared.equipmentObjects
-    let index = try #require(moved.firstIndex { $0.id == "equipment/filter" })
-    moved[index].positionCm.x = -15
-    moved[index].positionCm.z = 8
-    let edited = try await surface.applyEquipmentObjects(
-      expectedRevision: cleared.revision, objects: moved)
-    #expect(edited.equipmentObjects == moved)
-    #expect(edited.objects.isEmpty)
-    #expect(edited.revision > cleared.revision)
-    let stable = try await surface.exportTank(id: "equipment-test", name: "Equipment")
-    var invalid = moved
-    invalid[index].positionCm.x = 29
-    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
-      try await surface.applyEquipmentObjects(expectedRevision: edited.revision, objects: invalid)
-    }
-    #expect(try await surface.exportTank(id: "equipment-test", name: "Equipment") == stable)
-    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
-      try await surface.applyEquipmentObjects(expectedRevision: cleared.revision, objects: moved)
-    }
-    let restored = IdleScreenAquariumWebSurface()
-    defer { restored.releaseResources() }
-    try await restored.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let reopened = try await restored.restoreTank(from: stable)
-    #expect(reopened.equipmentObjects == moved)
-    var legacy = try #require(JSONSerialization.jsonObject(with: stable) as? [String: Any])
-    var tank = try #require(legacy["tank"] as? [String: Any])
-    var config = try #require(tank["configuration"] as? [String: Any])
-    #expect(config["schemaVersion"] as? Int == 2)
-    config["schemaVersion"] = 1
-    config.removeValue(forKey: "equipment")
-    tank["configuration"] = config
-    legacy["tank"] = tank
-    let old = IdleScreenAquariumWebSurface()
-    defer { old.releaseResources() }
-    try await old.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let oldState = try await old.restoreTank(from: JSONSerialization.data(withJSONObject: legacy))
-    #expect(oldState.equipmentObjects == initial.equipmentObjects)
-    try await surface.shutdown()
-    try await restored.shutdown()
-    try await old.shutdown()
-  }
-
-  @Test func aTankWhoseBaselineAndEquipmentSwappedPlacesRestoresAsOneLayout() async throws {
-    let source = try await freshEditingSurface()
-    defer { source.releaseResources() }
-    let start = try await source.editorSnapshot()
-    let filter = try #require(start.equipmentObjects.first { $0.id == "equipment/filter" })
-    let plant = try #require(start.objects.first { $0.id == "base-plant-0" })
-    let initial = try await source.applyPresetObjects(
-      expectedRevision: start.revision, objects: [plant])
-    var equipment = initial.equipmentObjects
-    let filterIndex = try #require(equipment.firstIndex { $0.id == "equipment/filter" })
-    equipment[filterIndex].positionCm.x = -15
-    equipment[filterIndex].positionCm.z = 8
-    let moved = try await source.applyEquipmentObjects(
-      expectedRevision: initial.revision, objects: equipment)
-    var plants = moved.objects
-    let plantIndex = try #require(plants.firstIndex { $0.id == plant.id })
-    plants[plantIndex].positionCm.x = filter.positionCm.x
-    plants[plantIndex].positionCm.z = filter.positionCm.z
-    let edited = try await source.applyPresetObjects(
-      expectedRevision: moved.revision, objects: plants)
-    #expect(edited.equipmentObjects == equipment)
-    let saved = try await source.exportTank(id: "swap-test", name: "Swap")
-    let target = IdleScreenAquariumWebSurface()
-    defer { target.releaseResources() }
-    try await target.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let reopened = try await target.restoreTank(from: saved)
-    #expect(reopened.equipmentObjects == edited.equipmentObjects)
-    expectSamePoses(reopened.objects, edited.objects)
-    let again = try await target.exportTank(id: "swap-test", name: "Swap")
-    let before = try #require(JSONSerialization.jsonObject(with: saved) as? [String: Any])
-    let after = try #require(JSONSerialization.jsonObject(with: again) as? [String: Any])
-    func checkpoint(_ envelope: [String: Any]) throws -> NSDictionary {
-      let tank = try #require(envelope["tank"] as? [String: Any])
-      let document = try #require(tank["document"] as? [String: Any])
-      return NSDictionary(dictionary: try #require(document["checkpoint"] as? [String: Any]))
-    }
-    #expect(try checkpoint(before) == checkpoint(after))
-    #expect(
-      NSDictionary(dictionary: try #require(before["runtime"] as? [String: Any]))
-        == NSDictionary(dictionary: try #require(after["runtime"] as? [String: Any])))
-    try await source.shutdown()
-    try await target.shutdown()
-  }
-
-  @Test func savedEquipmentMayOccupySpaceVacatedByAMovedOrRemovedRock() async throws {
-    let source = try await freshEditingSurface()
-    defer { source.releaseResources() }
-    let initial = try await source.editorSnapshot()
-    let rock = try #require(initial.objects.first { $0.id == "base-rock" })
-    let remaining = initial.objects.filter { $0.id != rock.id }
-    let cleared = try await source.applyPresetObjects(
-      expectedRevision: initial.revision, objects: remaining)
-    var equipment = cleared.equipmentObjects
-    let filterIndex = try #require(equipment.firstIndex { $0.id == "equipment/filter" })
-    equipment[filterIndex].positionCm.x = rock.positionCm.x
-    equipment[filterIndex].positionCm.z = rock.positionCm.z
-    let edited = try await source.applyEquipmentObjects(
-      expectedRevision: cleared.revision, objects: equipment)
-    let saved = try await source.exportTank(id: "vacated-test", name: "Vacated")
-    let target = IdleScreenAquariumWebSurface()
-    defer { target.releaseResources() }
-    try await target.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let reopened = try await target.restoreTank(from: saved)
-    #expect(reopened.equipmentObjects == edited.equipmentObjects)
-    expectSamePoses(reopened.objects, cleared.objects)
-    #expect(!reopened.objects.contains { $0.id == rock.id })
-    try await source.shutdown()
-    try await target.shutdown()
-  }
-
-  @Test func aRestoredLayoutWithACollidingBaselineObjectStaysRejected() async throws {
-    let source = try await freshEditingSurface()
-    defer { source.releaseResources() }
-    let start = try await source.editorSnapshot()
-    let plant = try #require(start.objects.first { $0.id == "base-plant-0" })
-    let initial = try await source.applyPresetObjects(
-      expectedRevision: start.revision, objects: [plant])
-    var equipment = initial.equipmentObjects
-    let filterIndex = try #require(equipment.firstIndex { $0.id == "equipment/filter" })
-    equipment[filterIndex].positionCm.x = -15
-    equipment[filterIndex].positionCm.z = 8
-    _ = try await source.applyEquipmentObjects(
-      expectedRevision: initial.revision, objects: equipment)
-    let saved = try await source.exportTank(id: "collide-test", name: "Collide")
-    var envelope = try #require(JSONSerialization.jsonObject(with: saved) as? [String: Any])
-    var tank = try #require(envelope["tank"] as? [String: Any])
-    var document = try #require(tank["document"] as? [String: Any])
-    var layout = try #require(document["layout"] as? [String: Any])
-    var objects = try #require(layout["objects"] as? [[String: Any]])
-    let plantIndex = try #require(objects.firstIndex { $0["id"] as? String == "base-plant-0" })
-    var position = try #require(objects[plantIndex]["positionCm"] as? [String: Any])
-    position["x"] = -15
-    position["z"] = 8
-    objects[plantIndex]["positionCm"] = position
-    layout["objects"] = objects
-    document["layout"] = layout
-    tank["document"] = document
-    envelope["tank"] = tank
-    let tampered = try JSONSerialization.data(withJSONObject: envelope)
-    let target = IdleScreenAquariumWebSurface()
-    defer { target.releaseResources() }
-    try await target.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    await #expect(throws: (any Error).self) { try await target.restoreTank(from: tampered) }
-    try await source.shutdown()
-    try await target.shutdown()
-  }
-
-  @Test func liveEquipmentPreservesBiologyAndReleasesRejectedAndReplacedResources() async throws {
-    let result = try await runPresetFixture(
-      "equipment-live-check",
-      invocation:
-        "runAquariumEquipmentLiveCheck(aquariumStudy,AquariumMetricBasicArt,AquariumTankConfiguration,THREE,AquariumMossRockArt)"
-    )
-    #expect(result["checks"] == 9)
-  }
-
-  @Test func equipmentCanBePickedAndMovedThroughTheNativeCanvasBridge() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let initial = try await surface.beginEditing()
-    let cleared = try await surface.applyPresetObjects(
-      expectedRevision: initial.revision, objects: [])
-    let filter = try #require(cleared.equipmentObjects.first { $0.id == "equipment/filter" })
-    _ = try await surface.setEditorTool(.select)
-    var received: IdleScreenAquariumWebSurface.EditorPick?
-    surface.onEditorPick = { received = $0 }
-    try await clickTankPoint(
-      surface, point: .init(x: filter.positionCm.x, y: 14, z: filter.positionCm.z))
-    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-    while received == nil && ContinuousClock.now < deadline {
-      try await Task.sleep(for: .milliseconds(10))
-    }
-    #expect(try #require(received).id == filter.id)
-    _ = try await surface.setEditorTool(.move, selectedID: filter.id)
-    received = nil
-    try await clickTankPoint(surface, point: .init(x: -15, y: 5, z: 8))
-    let moveDeadline = ContinuousClock.now.advanced(by: .seconds(5))
-    while received == nil && ContinuousClock.now < moveDeadline {
-      try await Task.sleep(for: .milliseconds(10))
-    }
-    let point = try #require(received?.positionCm)
-    #expect(abs(point.x + 15) < 0.001 && abs(point.z - 8) < 0.001)
-    #expect(try await surface.editorSnapshot() == cleared)
-    try await surface.shutdown()
-  }
-
-  @Test func equipmentIdentitiesDoNotShadowExistingSavedObjectNames() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let initial = try await surface.beginEditing()
-    let empty = try await surface.applyPresetObjects(
-      expectedRevision: initial.revision, objects: [])
-    let plant = IdleScreenAquariumWebSurface.PresetObject(
-      id: "equipment-filter", assetId: "rotala",
-      positionCm: .init(x: -22, y: 5, z: 12), rotationY: 0)
-    let edited = try await surface.applyPlacedObjects(
-      expectedRevision: empty.revision, objects: [plant])
-    let ids =
-      edited.objects.map(\.id) + edited.placedObjects.map(\.id) + edited.equipmentObjects.map(\.id)
-    #expect(Set(ids).count == ids.count)
-    try await surface.shutdown()
-  }
-
-  @Test func nativeEditorBridgeMovesObjectsAndRecoversFromRejectedEdits() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    surface.view.configuration.userContentController.addUserScript(
-      WKUserScript(
-        source: Self.frameClock(emulatingVisibleDocument: false), injectionTime: .atDocumentStart,
-        forMainFrameOnly: true))
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let before = try await snapshot(surface)
-    let initial = try await surface.beginEditing()
-    #expect(!initial.objects.isEmpty)
-    #expect(try await surface.beginEditing() == initial)
-    let rock = try #require(initial.objects.first { $0.id == "base-rock" })
-    var moved = initial.objects
-    let index = try #require(moved.firstIndex { $0.id == rock.id })
-    moved[index].positionCm.z += 3
-    let edited = try await surface.applyPresetObjects(
-      expectedRevision: initial.revision, objects: moved)
-    #expect(edited.revision > initial.revision)
-    #expect(edited.objects[index].positionCm.z == rock.positionCm.z + 3)
-    do {
-      _ = try await surface.applyPresetObjects(
-        expectedRevision: initial.revision, objects: initial.objects)
-      Issue.record("Stale editor command was accepted")
-    } catch IdleScreenAquariumWebSurface.EditorError.rejected(let message) {
-      #expect(message.contains("stale"))
-    }
-    var invalid = edited.objects
-    invalid[index].positionCm.x = 50
-    await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
-      try await surface.applyPresetObjects(expectedRevision: edited.revision, objects: invalid)
-    }
-    #expect(surface.state == .paused)
-    #expect(try await surface.editorSnapshot() == edited)
-    let restored = try await surface.applyPresetObjects(
-      expectedRevision: edited.revision, objects: initial.objects)
-    #expect(restored.objects.map(\.id) == initial.objects.map(\.id))
-    for (actual, expected) in zip(restored.objects, initial.objects) {
-      #expect(actual.assetId == expected.assetId)
-      #expect(abs(actual.positionCm.x - expected.positionCm.x) < 1e-9)
-      #expect(abs(actual.positionCm.y - expected.positionCm.y) < 1e-9)
-      #expect(abs(actual.positionCm.z - expected.positionCm.z) < 1e-9)
-      #expect(abs(actual.rotationY - expected.rotationY) < 1e-9)
-    }
-    let after = try await snapshot(surface)
-    #expect(after.scene.ecology.animals == before.scene.ecology.animals)
-    #expect(after.scene.water.elapsedSeconds == before.scene.water.elapsedSeconds)
-    #expect(after.scene.clock == before.scene.clock)
-    try await surface.shutdown()
-    await #expect(throws: IdleScreenAquariumWebSurface.SurfaceError.self) {
-      try await surface.editorSnapshot()
-    }
-  }
-
-  @Test(arguments: ["basic", "lush", "waterfall"])
-  func fullTankCheckpointRestoresLifeFoodAndLayoutInAFreshRuntime(setup: String) async throws {
-    let source = IdleScreenAquariumWebSurface()
-    defer { source.releaseResources() }
-    source.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    source.view.configuration.userContentController.addUserScript(
-      WKUserScript(
-        source: Self.frameClock(emulatingVisibleDocument: true),
-        injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    try await source.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let setupJSON = String(decoding: try JSONEncoder().encode(setup), as: UTF8.self)
-    _ = try await tankScript(
-      source, "aquariumStudy.setSceneStyle(\(setupJSON)); JSON.stringify(true)")
-    _ = try await source.beginEditing()
-    if setup == "basic" {
-      let initial = try await source.editorSnapshot()
-      let moved = initial.objects.map { item in
-        var result = item
-        if item.id == "base-rock" { result.positionCm.z += 3 }
-        return result
-      }
-      _ = try await source.applyPresetObjects(expectedRevision: initial.revision, objects: moved)
-      _ = try await tankScript(
-        source,
-        "aquariumStudy.applyDesigner({layout:{schemaVersion:1,units:'cm',name:'Living tank',base:{setup:'basic'},instances:[{id:'saved-rotala',assetId:'rotala',positionCm:{x:-22,y:5,z:12},rotationY:0}]}}); JSON.stringify(true)"
-      )
-    }
-    _ = try await tankScript(
-      source,
-      "aquariumStudy.setGlassPane('snail-0','back'); aquariumStudy.setPumpOutput(.6); aquariumStudy.setTankLightCount(1); aquariumStudy.setLight('warm'); aquariumStudy.feed({automatic:true}); aquariumStudy.previewLifeEvent('molt'); aquariumStudy.previewLifeEvent('death'); aquariumStudy.setEcologyRate(120); JSON.stringify(true)"
-    )
-    try await source.resume()
-    _ = try await snapshot(source, frames: 5)
-    try await source.pause()
-    let savedData = try await source.exportTank(id: "tank-one", name: "Living tank")
-    let saved = String(decoding: savedData, as: UTF8.self)
-    let savedValue = try #require(
-      JSONSerialization.jsonObject(with: Data(saved.utf8)) as? [String: Any])
-    let target = IdleScreenAquariumWebSurface()
-    defer { target.releaseResources() }
-    target.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    target.view.configuration.userContentController.addUserScript(
-      WKUserScript(
-        source: Self.frameClock(emulatingVisibleDocument: true),
-        injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    try await target.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    _ = try await target.restoreTank(from: savedData)
-    let exported = try await tankScript(
-      target, "JSON.stringify(aquariumStudy.exportTank({id:'tank-one',name:'Living tank'}))")
-    let restored = try #require(
-      JSONSerialization.jsonObject(with: Data(exported.utf8)) as? [String: Any])
-    let beforeEnvelope = try #require(savedValue["tank"] as? [String: Any])
-    let afterEnvelope = try #require(restored["tank"] as? [String: Any])
-    let beforeDocument = try #require(beforeEnvelope["document"] as? [String: Any])
-    let afterDocument = try #require(afterEnvelope["document"] as? [String: Any])
-    #expect(
-      NSDictionary(dictionary: try #require(beforeDocument["checkpoint"] as? [String: Any]))
-        == NSDictionary(dictionary: try #require(afterDocument["checkpoint"] as? [String: Any])))
-    #expect(
-      NSDictionary(dictionary: try #require(savedValue["runtime"] as? [String: Any]))
-        == NSDictionary(dictionary: try #require(restored["runtime"] as? [String: Any])))
-    #expect(
-      NSDictionary(dictionary: try #require(beforeEnvelope["configuration"] as? [String: Any]))
-        == NSDictionary(dictionary: try #require(afterEnvelope["configuration"] as? [String: Any])))
-    let checkpoint = try #require(beforeDocument["checkpoint"] as? [String: Any])
-    let domain = try #require(checkpoint["data"] as? [String: Any])
-    let ecology = try #require(domain["ecology"] as? [String: Any])
-    let statistics = try #require(ecology["stats"] as? [String: Any])
-    #expect(try #require(statistics["deaths"] as? Int) > 0)
-    #expect(try #require(statistics["molts"] as? Int) > 0)
-    #expect(!(try #require(ecology["food"] as? [Any])).isEmpty)
-    let oldLayout = try #require(beforeDocument["layout"] as? [String: Any])
-    let newLayout = try #require(afterDocument["layout"] as? [String: Any])
-    func objects(_ layout: [String: Any]) throws -> [IdleScreenAquariumWebSurface.PresetObject] {
-      try JSONDecoder().decode(
-        [IdleScreenAquariumWebSurface.PresetObject].self,
-        from: JSONSerialization.data(withJSONObject: #require(layout["objects"])))
-    }
-    let expectedObjects = try objects(oldLayout)
-    let actualObjects = try objects(newLayout)
-    #expect(actualObjects.map(\.id) == expectedObjects.map(\.id))
-    for (actual, expected) in zip(actualObjects, expectedObjects) {
-      #expect(actual.assetId == expected.assetId)
-      #expect(abs(actual.positionCm.x - expected.positionCm.x) < 1e-9)
-      #expect(abs(actual.positionCm.y - expected.positionCm.y) < 1e-9)
-      #expect(abs(actual.positionCm.z - expected.positionCm.z) < 1e-9)
-      #expect(abs(actual.rotationY - expected.rotationY) < 1e-9)
-    }
-    #expect(target.state == .paused)
-    await #expect(throws: (any Error).self) { try await target.restoreTank(from: savedData) }
-    let paused = try await snapshot(target)
-    try await target.resume()
-    let continued = try await snapshot(target, frames: 4)
-    #expect(continued.scene.ecology.animals.map(\.id) == paused.scene.ecology.animals.map(\.id))
-    #expect(continued.scene.water.elapsedSeconds > paused.scene.water.elapsedSeconds)
-    try await source.shutdown()
-    try await target.shutdown()
-  }
-
-  @Test(arguments: [false, true])
-  func rebuildingScenePreservesStoredStockAndFeeding(empty: Bool) async throws {
-    let source = IdleScreenAquariumWebSurface()
-    try await source.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    _ = try await source.beginEditing()
-    _ = try await tankScript(source, "aquariumStudy.feed({automatic:true}); JSON.stringify(true)")
-    let saved = try await tankScript(
-      source,
-      """
-      (() => {
-        if (!\(empty)) {
-          aquariumStudy.previewLifeEvent('molt');
-          aquariumStudy.previewLifeEvent('death');
-        }
-        const saved = aquariumStudy.exportTank({id:'stock-rebuild',name:'Stock'});
-        if (\(empty)) {
-          saved.tank.document.checkpoint.data.ecology.animals = [];
-          saved.runtime.actors = [];
-          saved.tank.document.checkpoint.data.breeding = AquariumBreeding.create({maxAnimals:80}).snapshot();
-        }
-        return JSON.stringify(saved);
-      })()
-      """)
-    let target = IdleScreenAquariumWebSurface()
-    target.view.configuration.userContentController.addUserScript(
-      WKUserScript(
-        source: Self.frameClock(emulatingVisibleDocument: true),
-        injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    try await target.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    _ = try await target.restoreTank(from: Data(saved.utf8))
-    let result = try await tankScript(
-      target,
-      """
-      (() => {
-        const capture = () => aquariumStudy.exportTank({id:'stock-rebuild',name:'Stock'});
-        const before = capture();
-        aquariumStudy.setAsset('gravel','river');
-        const after = capture();
-        return JSON.stringify({
-          differences: ['actors','food'].flatMap(group => before.runtime[group].flatMap(a => {
-            const b = after.runtime[group].find(b => b.id === a.id);
-            return Object.keys(a).filter(key => JSON.stringify(a[key]) !== JSON.stringify(b?.[key]))
-              .map(key => ({id:a.id,key,before:a[key],after:b?.[key]}));
-          })),
-          hasFood: before.runtime.food.length > 0,
-          pelletsStayAttached: after.runtime.food.length > 0 && aquariumStudy.detachedFoodCount === 0,
-          inventoryMatches: aquariumStudy.state.inventory.fish === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'fish' && a.alive).length
-            && aquariumStudy.state.inventory.shrimp === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'shrimp' && a.alive).length
-            && aquariumStudy.state.inventory.snails === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'snail' && a.alive).length,
-          sameLife: JSON.stringify(before.tank.document.checkpoint) === JSON.stringify(after.tank.document.checkpoint),
-          sameRuntime: JSON.stringify(before.runtime) === JSON.stringify(after.runtime)
-        });
-      })()
-      """)
-    let checks = try #require(
-      JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any])
-    #expect(checks["hasFood"] as? Bool == true)
-    #expect(checks["pelletsStayAttached"] as? Bool == true)
-    #expect(checks["inventoryMatches"] as? Bool == true)
-    #expect(checks["sameLife"] as? Bool == true)
-    #expect(checks["sameRuntime"] as? Bool == true, "\(String(describing: checks["differences"]))")
-    let paused = try await snapshot(target)
-    try await target.resume()
-    let continued = try await snapshot(target, frames: 3)
-    #expect(continued.scene.clock > paused.scene.clock)
-    #expect(continued.scene.ecology.animals.map(\.id) == paused.scene.ecology.animals.map(\.id))
-    try await source.shutdown()
-    try await target.shutdown()
-  }
-
-  @Test func retainedRebuildCapturesTheSwimmingFishCurrentFacing() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    surface.view.configuration.userContentController.addUserScript(
-      WKUserScript(
-        source: Self.frameClock(emulatingVisibleDocument: true),
-        injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    _ = try await surface.beginEditing()
-    try await surface.resume()
-    let result = try await tankScript(
-      surface,
-      """
-      (() => {
-        const facings = () => Object.fromEntries(aquariumStudy.exportTank({id:'facing',name:'Facing'})
-          .runtime.actors.filter(a => a.kind === 'fish' && !a.surface).map(a => [a.id, a.facing]));
-        const before = facings();
-        for (let i = 0; i < 400; i++) window.aquariumFrameProof.advance();
-        const after = facings();
-        const ids = Object.keys(before);
-        return JSON.stringify({
-          fish: ids.length,
-          turned: ids.filter(id => after[id] !== before[id]).length,
-          unturned: ids.filter(id => after[id] === before[id]).length
-        });
-      })()
-      """)
-    let checks = try #require(
-      JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any])
-    #expect((checks["fish"] as? Int ?? 0) > 0)
-    #expect(
-      (checks["turned"] as? Int ?? 0) > 0,
-      "exported facing never followed a swimming fish turn: \(result)")
-    try await surface.shutdown()
-  }
-
-  @Test func exportTankSucceedsAfterALongSimulatedRun() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    surface.view.configuration.userContentController.addUserScript(
-      WKUserScript(
-        source: Self.frameClock(emulatingVisibleDocument: true),
-        injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    _ = try await surface.beginEditing()
-    try await surface.resume()
-    let result = try await tankScript(
-      surface,
-      """
-      (() => {
-        for (let i = 0; i < 3000; i++) window.aquariumFrameProof.advance();
-        try {
-          const tank = aquariumStudy.exportTank({id:'long',name:'Long'});
-          return JSON.stringify({ok: true, actors: tank.runtime.actors.length});
-        } catch (error) {
-          return JSON.stringify({ok: false, error: String(error.message)});
-        }
-      })()
-      """)
-    let checks = try #require(
-      JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any])
-    #expect(checks["ok"] as? Bool == true, "export failed after 3000 frames: \(result)")
-    try await surface.shutdown()
-  }
-
-  @Test func invalidCheckpointArtAndBindingsAreRejectedBeforeAnySceneMutation() async throws {
-    let result = try await runPresetFixture(
-      "checkpoint-validation", invocation: "runAquariumCheckpointValidation(aquariumStudy)")
-    #expect(result["checks"] == 9)
-  }
-
-  @Test func returnedStockAvoidsTheCurrentHardscape() async throws {
-    let result = try await runPresetFixture(
-      "stock-return-placement", invocation: "runAquariumStockReturnPlacement(aquariumStudy)")
-    #expect(result["checks"] == 7)
-  }
-
-  @Test(arguments: ["front", "left", "right", "back"])
-  func returnedStockKeepsItsGlassPane(pane: String) async throws {
-    let result = try await runPresetFixture(
-      "stock-return-placement", invocation: "runAquariumStockPaneReturn(aquariumStudy, '\(pane)')")
-    #expect(result["checks"] == 3)
-  }
-
-  @Test func animalHistoryKeepsYoungAndTheirParents() async throws {
-    let result = try await runPresetFixture(
-      "stock-history", invocation: "runAquariumYoungStockHistory(aquariumStudy)")
-    #expect(result["checks"] == 6)
-  }
-
-  @Test func animalHistoryPreservesTheCurrentEcosystem() async throws {
-    let result = try await runPresetFixture(
-      "stock-history", invocation: "runAquariumStockHistory(aquariumStudy)")
-    #expect(result["checks"] == 20)
-  }
-
-  @Test func reservedBroodsKeepTheirStockCapacity() async throws {
-    let result = try await runPresetFixture(
-      "stock-addition", invocation: "runAquariumReservedStock(aquariumStudy)")
-    #expect(result["checks"] == 2)
-  }
-
-  @Test func supportedStockCanBeAddedWithoutRewindingTheExistingTank() async throws {
-    let result = try await runPresetFixture(
-      "stock-addition", invocation: "runAquariumStockAddition(aquariumStudy)")
-    #expect(result["checks"] == 46)
-  }
-
-  @Test func finishedAnimalCatalogIsSharedWithTheNativeEditor() async throws {
-    let result = try await runPresetFixture(
-      "stock-catalog", invocation: "runAquariumStockCatalog()")
-    #expect(result["checks"] == 10)
-    let surface = IdleScreenAquariumWebSurface()
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let snapshot = try await surface.beginEditing()
-    #expect(snapshot.stockCatalog.count == 35)
-    #expect(Set(snapshot.stockCatalog.map(\.id)).count == 35)
-    #expect(snapshot.stockCatalog.first { $0.id == "fish/chili" }?.label == "Chili Rasbora")
-    try await surface.shutdown()
-  }
-
-  @Test func removedStockIsNotResurrectedWhenTheSceneRebuilds() async throws {
-    let result = try await runPresetFixture(
-      "checkpoint-stock", invocation: "runAquariumCheckpointStock(aquariumStudy)")
-    #expect(result["checks"] == 16)
-  }
-
-  @Test func domainCheckpointsContinueBirthsWasteAndMassWithoutDuplicatingHistory() async throws {
-    let result = try await runPresetFixture(
-      "domain-checkpoint-checks", invocation: "runAquariumDomainCheckpointChecks()")
-    #expect(result["checks"] == 8)
-  }
-
-  @Test func decomposedCorpsesDoNotLeaveUnsavableVisualBindings() async throws {
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    surface.view.configuration.userContentController.addUserScript(
-      WKUserScript(
-        source: """
-          Object.defineProperty(window, 'AquariumEcology', {configurable:true,set(api){
-            Object.defineProperty(window, 'AquariumEcology', {value:{...api,create(options){
-              const model=api.create(options); window.checkpointEcologyProof=model; return model;
-            }}});
-          }});
-          """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    _ = try await surface.beginEditing()
-    _ = try await tankScript(
-      surface,
-      """
-      aquariumStudy.previewLifeEvent('death');
-      const domain=window.checkpointEcologyProof, index=domain.deposits.findIndex(d=>d.kind==='corpse');
-      domain.stats.dissolved+=domain.deposits[index].amount; domain.deposits.splice(index,1);
-      aquariumStudy.previewLifeEvent('molt'); JSON.stringify(true)
-      """)
-    let saved = try await surface.exportTank(id: "old-tank", name: "After decomposition")
-    #expect(!saved.isEmpty)
-    try await surface.shutdown()
-  }
-
-  @Test func originalOrnamentsHaveClosedSurfacesAndRealSwimthroughs() async throws {
-    let result = try await runPresetFixture(
-      "ornament-checks", invocation: "runAquariumOrnamentChecks()")
-    #expect(result["checks"] == 7)
-  }
-
-  private func clickTankPoint(
-    _ surface: IdleScreenAquariumWebSurface,
-    point: IdleScreenAquariumWebSurface.PositionCm
-  ) async throws {
-    let argument = String(decoding: try JSONEncoder().encode(point), as: UTF8.self)
-    _ = try await tankScript(
-      surface,
-      """
-      (() => {
-        const s=aquariumStudy.state,c=s.camera,point=\(argument);
-        const camera=new THREE.PerspectiveCamera(c.fov,c.aspect,.1,1000);
-        camera.position.fromArray(c.position);camera.lookAt(...c.target);
-        camera.projectionMatrix.elements[9]=2*c.horizonPercent/100-1;camera.updateMatrixWorld();
-        const centerZ=(s.world.floorBackZ+s.world.floorFrontZ)/2;
-        const p=new THREE.Vector3(point.x/s.physical.cmPerUnit,point.y/s.physical.cmPerUnit,centerZ+point.z/s.physical.cmPerUnit).project(camera);
-        const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();
-        canvas.dispatchEvent(new PointerEvent('pointerdown',{button:0,clientX:r.left+(p.x+1)*r.width/2,clientY:r.top+(1-p.y)*r.height/2}));
-        return 'clicked';
-      })()
-      """)
-  }
-
-  private func expectSamePoses(
-    _ actual: [IdleScreenAquariumWebSurface.PresetObject],
-    _ expected: [IdleScreenAquariumWebSurface.PresetObject]
-  ) {
-    #expect(actual.map(\.id) == expected.map(\.id))
-    for (a, e) in zip(actual, expected) {
-      #expect(a.assetId == e.assetId)
-      #expect(abs(a.positionCm.x - e.positionCm.x) < 1e-9)
-      #expect(abs(a.positionCm.y - e.positionCm.y) < 1e-9)
-      #expect(abs(a.positionCm.z - e.positionCm.z) < 1e-9)
-      #expect(abs(a.rotationY - e.rotationY) < 1e-9)
-    }
-  }
-
-  private func freshEditingSurface() async throws -> IdleScreenAquariumWebSurface {
-    let surface = IdleScreenAquariumWebSurface()
-    do {
-      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
       try await surface.loadRetryingTransientWebGLFailure(
         sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
       _ = try await surface.beginEditing()
-      return surface
-    } catch {
-      surface.releaseResources()
-      throw error
+      settings.room.manualLevel = nil
+      let checkpoint = try await surface.prepareSettings(
+        settings, id: "auto-room", name: "Auto room")
+      #expect(!checkpoint.isEmpty)
+      try await surface.shutdown()
     }
-  }
 
-  private func tankScript(_ surface: IdleScreenAquariumWebSurface, _ script: String) async throws
-    -> String
-  {
-    try await withCheckedThrowingContinuation { continuation in
-      surface.view.evaluateJavaScript(script) { value, error in
-        if let error {
-          continuation.resume(throwing: error)
-        } else if let text = value as? String {
-          continuation.resume(returning: text)
-        } else {
-          continuation.resume(throwing: CocoaError(.coderValueNotFound))
-        }
-      }
-    }
-  }
-
-  private func runPresetFixture(_ name: String, invocation: String) async throws -> [String: Int] {
-    let fixture = try #require(
-      Bundle(for: AquariumCollisionFixtureBundle.self).url(
-        forResource: name, withExtension: "js", subdirectory: "WebSurfaceProof"))
-    let source = try String(contentsOf: fixture, encoding: .utf8)
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
-    try await surface.loadRetryingTransientWebGLFailure(
-      sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
-    let script = source + "\nJSON.stringify(" + invocation + ");"
-    let json: String = try await withCheckedThrowingContinuation { continuation in
-      surface.view.evaluateJavaScript(script) { value, error in
-        if let error {
-          continuation.resume(throwing: error)
-        } else if let text = value as? String {
-          continuation.resume(returning: text)
-        } else {
-          continuation.resume(throwing: CocoaError(.coderValueNotFound))
-        }
-      }
-    }
-    let result = try JSONDecoder().decode([String: Int].self, from: Data(json.utf8))
-    try await surface.shutdown()
-    return result
-  }
-
-  @Test func repeatedLoadAndTeardownNeverExhaustsWebGLContexts() async throws {
-    let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
-    // CI ran out of WebGL contexts from the seventh load when they leaked, so
-    // twelve loads catch a regression and fit the suite's per-test time limit.
-    for iteration in 1...12 {
+    @Test func presentationSettingsPreserveTheCurrentEcosystemCheckpoint() async throws {
       let surface = IdleScreenAquariumWebSurface()
       defer { surface.releaseResources() }
-      surface.view.frame = NSRect(x: 0, y: 0, width: 320, height: 180)
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      _ = try await surface.beginEditing()
+      let supported =
+        try await surface.view.evaluateJavaScript(
+          "typeof idleScreenScene.prepareSettings === 'function'") as? Bool
+      try #require(supported == true)
+      let result =
+        try await surface.view.evaluateJavaScript(
+          """
+          (()=>{
+            aquariumStudy.feed();aquariumStudy.previewLifeEvent('molt');aquariumStudy.previewLifeEvent('death');
+            const before=aquariumStudy.exportTank({id:'settings-test',name:'Settings test'});
+            const c=before.tank.configuration;
+            const settings={light:{preset:'warm',count:1,output:.6,spread:'focused'},room:{mode:'off',finish:'concrete',manualLevel:0},surface:'lively',pump:1.2,rasterHeight:1080};
+            const response=idleScreenScene.prepareSettings({settings,id:'settings-test',name:'Settings test'});
+            if(response.error)throw new Error(response.error);
+            const after=JSON.parse(response.checkpointJSON);
+            if(JSON.stringify(before.runtime)!==JSON.stringify(after.runtime))throw new Error('Settings reset runtime state');
+            if(JSON.stringify(before.tank.document)!==JSON.stringify(after.tank.document))throw new Error('Settings reset ecosystem or layout');
+            if(after.tank.configuration.light.preset!=='warm'||after.tank.configuration.rasterHeight!==1080)throw new Error('Settings were not applied');
+            for(const invalid of [{...settings,pump:NaN},{...settings,rasterHeight:42},{...settings,light:{...settings.light,output:9}},{...settings,setup:'lush'}]){
+              if(!idleScreenScene.prepareSettings({settings:invalid,id:'settings-test',name:'Settings test'}).error)throw new Error('Invalid setting was accepted');
+            }
+            if(JSON.stringify(before)!==JSON.stringify(aquariumStudy.exportTank({id:'settings-test',name:'Settings test'})))throw new Error('Preparing settings mutated source tank');
+            return true;
+          })()
+          """) as? Bool
+      #expect(result == true)
+      try await surface.shutdown()
+    }
+
+    @Test func stockMessagesRejectMalformedAndStaleUpdatesAndFenceOldQueries() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let original = try await surface.beginEditing()
+      var updates: [IdleScreenAquariumWebSurface.StockUpdate] = []
+      surface.onStockChange = { updates.append($0) }
+      _ = try await surface.view.evaluateJavaScript(
+        "window.savedStockSnapshot=idleScreenScene.editorSnapshot(); aquariumStudy.previewLifeEvent('death'); true"
+      )
+      for _ in 0..<200 {
+        if !updates.isEmpty { break }
+        try await Task.sleep(for: .milliseconds(10))
+      }
+      let death = try #require(updates.last)
+      #expect(death.animals.filter(\.alive).count == original.animals.filter(\.alive).count - 1)
+      _ = try await surface.view.evaluateJavaScript(
+        """
+        (()=>{
+          const send=value=>webkit.messageHandlers.idleScreenStock.postMessage(JSON.stringify(value));
+          const animals=idleScreenScene.editorSnapshot().animals;
+          send({revision:-1,animals});
+          send({revision:9007199254740992,animals});
+          send({revision:999,animals:[animals[0],animals[0]]});
+          send({revision:999,animals:[{...animals[0],kind:'dragon'}]});
+          send({revision:999,animals:[{...animals[0],id:''}]});
+          send({revision:999,animals:Array(81).fill(animals[0])});
+          send({revision:999,animals:[{...animals[0],species:'x'.repeat(65536)}]});
+          send({revision:\(death.revision),animals:[]});
+          window.idleScreenScene={...idleScreenScene,editorSnapshot:()=>savedStockSnapshot};
+          return true;
+        })()
+        """)
+      let fenced = try await surface.editorSnapshot()
+      #expect(updates.count == 1)
+      #expect(fenced.animals == death.animals)
+      #expect(fenced.objects == original.objects)
+      _ = try await surface.view.evaluateJavaScript("aquariumStudy.previewLifeEvent('death'); true")
+      for _ in 0..<200 {
+        if updates.count == 2 { break }
+        try await Task.sleep(for: .milliseconds(10))
+      }
+      #expect(updates.count == 2)
+      #expect(updates.last?.revision == death.revision + 1)
+      try await surface.shutdown()
+      #expect(surface.onStockChange == nil)
+    }
+
+    @Test func actualAquariumLoadsAndPreservesItsCoupledLifeAcrossPauses() async throws {
+      let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
+      #expect(resource.path.contains("IdleScreenRenderer.framework/"))
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      surface.view.configuration.userContentController.addUserScript(
+        WKUserScript(
+          source: Self.frameClock(emulatingVisibleDocument: true), injectionTime: .atDocumentStart,
+          forMainFrameOnly: true)
+      )
       try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
-      let kind = try await surface.view.evaluateJavaScript("typeof window.idleScreenScene")
-      #expect(kind as? String == "object", "load \(iteration) has no live scene")
+      let initial = try await snapshot(surface)
+      #expect(initial.revision == "160")
+      #expect(!initial.documentHidden)
+      #expect(!initial.scene.motion)
+      #expect(initial.pendingFrames == 0)
+      #expect(initial.scene.physical.tankCm.width == 60)
+      #expect(initial.scene.physical.tankCm.depth == 36)
+      #expect(initial.scene.physical.tankCm.height == 36)
+      #expect(initial.scene.water.volumeL == 50)
+      #expect(initial.scene.condition.mode == "ecosystem")
+      #expect(initial.scene.renderedFrames > 0)
+      #expect(initial.scene.drawCalls > 0)
+      #expect(initial.scene.triangles > 0)
+      #expect(!initial.scene.ecology.animals.isEmpty)
+      #expect(initial.visibleControls == 0)
+
+      try await surface.resume()
+      try await surface.resume()
+      let running = try await snapshot(surface, frames: 3)
+      #expect(running.pendingFrames == 1)
+      #expect(running.scene.renderedFrames > initial.scene.renderedFrames)
+      #expect(running.scene.water.elapsedSeconds > initial.scene.water.elapsedSeconds)
+      #expect(running.scene.ecology.seconds == running.scene.water.elapsedSeconds)
+      #expect(running.scene.ecology.animals.map(\.id) == initial.scene.ecology.animals.map(\.id))
+
+      try await surface.pause()
+      let paused = try await snapshot(surface, frames: 3)
+      #expect(paused.pendingFrames == 0)
+      #expect(paused.scene.clock == running.scene.clock)
+      #expect(paused.scene.water.elapsedSeconds == running.scene.water.elapsedSeconds)
+      #expect(paused.scene.ecology.animals == running.scene.ecology.animals)
+
+      try await surface.resume()
+      let resumed = try await snapshot(surface, frames: 3)
+      #expect(resumed.pendingFrames == 1)
+      #expect(resumed.scene.clock > paused.scene.clock)
+      #expect(resumed.scene.water.elapsedSeconds > paused.scene.water.elapsedSeconds)
+      #expect(resumed.scene.ecology.animals.map(\.id) == paused.scene.ecology.animals.map(\.id))
       try await surface.shutdown()
       #expect(surface.state == .stopped)
     }
-  }
 
-  @Test func loadReportsWebGLUnavailableDescriptively() async throws {
-    let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
-    let surface = IdleScreenAquariumWebSurface()
-    defer { surface.releaseResources() }
-    surface.view.frame = NSRect(x: 0, y: 0, width: 320, height: 180)
-    surface.view.configuration.userContentController.addUserScript(
-      WKUserScript(
-        source: """
-          (() => {
-            const original = HTMLCanvasElement.prototype.getContext;
-            HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
-              return /webgl/i.test(String(type)) ? null : original.call(this, type, ...rest);
-            };
-          })();
-          """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    do {
-      try await surface.load(sceneURL: resource)
-      Issue.record("load succeeded without WebGL")
-    } catch let error as IdleScreenAquariumWebSurface.SurfaceError {
-      let message = error.localizedDescription
-      #expect(message.contains("aquarium runtime did not start: WebGL unavailable"))
-      #expect(message.contains("could not start"))
+    @Test func anUnattachedHiddenDocumentDoesNotAdvanceLife() async throws {
+      let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      surface.view.configuration.userContentController.addUserScript(
+        WKUserScript(
+          source: Self.frameClock(emulatingVisibleDocument: false), injectionTime: .atDocumentStart,
+          forMainFrameOnly: true))
+      try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
+      let initial = try await snapshot(surface)
+      #expect(initial.documentHidden)
+      try await surface.resume()
+      let hidden = try await snapshot(surface, frames: 3)
+      #expect(hidden.pendingFrames == 0)
+      #expect(hidden.scene.clock == initial.scene.clock)
+      #expect(hidden.scene.water.elapsedSeconds == initial.scene.water.elapsedSeconds)
+      #expect(hidden.scene.ecology.animals == initial.scene.ecology.animals)
+      try await surface.shutdown()
     }
-    #expect(surface.state == .failed)
-  }
 
-  private func snapshot(_ surface: IdleScreenAquariumWebSurface, frames: Int = 0) async throws
-    -> Snapshot
-  {
-    let script = """
-      for (let index = 0; index < \(frames); index++) window.aquariumFrameProof.advance();
-      JSON.stringify({
-        revision: THREE.REVISION,
-        documentHidden: document.hidden,
-        scene: aquariumStudy.state,
-        pendingFrames: window.aquariumFrameProof.pending,
-        visibleControls: Array.from(document.querySelectorAll('button')).filter(
-          element => element.getClientRects().length > 0).length
-      });
-      """
-    let json: String = try await withCheckedThrowingContinuation { continuation in
-      surface.view.evaluateJavaScript(script) { value, error in
-        if let error {
-          continuation.resume(throwing: error)
-        } else if let json = value as? String {
-          continuation.resume(returning: json)
-        } else {
-          continuation.resume(throwing: CocoaError(.coderValueNotFound))
+    @Test func bundleContainsOnlyDeclaredRuntimeAndPinnedVendor() throws {
+      let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
+      let directory = resource.deletingLastPathComponent().resolvingSymlinksInPath()
+      let manifest = try JSONDecoder().decode(
+        Manifest.self, from: Data(contentsOf: directory.appendingPathComponent("PROVENANCE.json")))
+      let entry = try String(contentsOf: resource, encoding: .utf8)
+      let scripts = entry.matches(of: /<script src="([^"]+)"/).map { String($0.1) }
+      #expect(scripts == manifest.scriptOrder)
+      #expect(scripts.allSatisfy { !$0.contains(":") && !$0.hasPrefix("/") && !$0.contains("..") })
+      let enumerator = try #require(
+        FileManager.default.enumerator(
+          at: directory, includingPropertiesForKeys: [.isRegularFileKey])
+      )
+      var files: Set<String> = []
+      for case let url as URL in enumerator {
+        if try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true {
+          files.insert(
+            String(url.resolvingSymlinksInPath().path.dropFirst(directory.path.count + 1)))
+        }
+      }
+      #expect(files == Set(scripts + ["index.html", "PROVENANCE.json", "vendor/LICENSE"]))
+      #expect(
+        Set(manifest.importedFiles.map(\.path))
+          == Set(scripts.filter { $0 != "native-host.js" } + ["vendor/LICENSE"]))
+      #expect(manifest.vendor.revision == "160")
+      for (path, expected) in [
+        ("vendor/three.min.js", manifest.vendor.sha256),
+        ("vendor/LICENSE", manifest.vendor.licenseSha256),
+      ] {
+        let data = try Data(contentsOf: directory.appendingPathComponent(path))
+        #expect(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() == expected)
+      }
+    }
+
+    @Test func collisionQueriesPreserveContactsWithoutScanningDistantTriangles() async throws {
+      let fixture = try #require(
+        Bundle(for: AquariumCollisionFixtureBundle.self).url(
+          forResource: "collision-check", withExtension: "js", subdirectory: "WebSurfaceProof"))
+      let source = try String(contentsOf: fixture, encoding: .utf8)
+      let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
+      let script =
+        source + "\nJSON.stringify(runAquariumCollisionCheck(THREE, AquariumCollisions));"
+      let json: String = try await withCheckedThrowingContinuation { continuation in
+        surface.view.evaluateJavaScript(script) { value, error in
+          if let error {
+            continuation.resume(throwing: error)
+          } else if let text = value as? String {
+            continuation.resume(returning: text)
+          } else {
+            continuation.resume(throwing: CocoaError(.coderValueNotFound))
+          }
+        }
+      }
+      let result = try JSONDecoder().decode([String: Int].self, from: Data(json.utf8))
+      #expect(result["samples"] == 24)
+      #expect(result["bodyQueries"] == 6)
+      #expect(try #require(result["maxVertexReads"]) < 500)
+      try await surface.shutdown()
+    }
+
+    @Test func existingObjectValidationKeepsGeometryAndRefreshesObstacles() async throws {
+      let result = try await runPresetFixture(
+        "preset-edit-check",
+        invocation:
+          "runAquariumPresetEditCheck(THREE, AquariumDesignerPlacement, AquariumRootedPlantsV2)")
+      #expect(result["checks"] == 9)
+    }
+
+    @Test func editingPresetObjectsPreservesLifeAndRestoresActualCollisionSurfaces() async throws {
+      let result = try await runPresetFixture(
+        "preset-scene-check", invocation: "runAquariumPresetSceneCheck(aquariumStudy)")
+      #expect(result["checks"] == 10)
+    }
+
+    @Test func placedAssetsAreRevisionFencedAndRejectedWithoutChangingLife() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let initial = try await surface.beginEditing()
+      #expect(initial.catalog.count == 15)
+      #expect(initial.placedObjects.isEmpty)
+      #expect(!initial.catalog.contains { $0.id == "pirate-chest" })
+      let before = try await surface.exportTank(id: "test", name: "Test")
+      let plant = IdleScreenAquariumWebSurface.PresetObject(
+        id: "placed-test", assetId: "rotala", positionCm: .init(x: -22, y: 5, z: 12), rotationY: 0)
+      let edited = try await surface.applyPlacedObjects(
+        expectedRevision: initial.revision, objects: [plant])
+      #expect(edited.revision > initial.revision)
+      #expect(edited.placedObjects == [plant])
+      #expect(edited.objects == initial.objects)
+      #expect(
+        try await surface.applyPlacedObjects(expectedRevision: edited.revision, objects: [plant])
+          == edited)
+      await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+        try await surface.applyPlacedObjects(expectedRevision: initial.revision, objects: [])
+      }
+      for invalid in [
+        IdleScreenAquariumWebSurface.PresetObject(
+          id: "placed-test", assetId: "rotala", positionCm: .init(x: 29, y: 5, z: 12), rotationY: 0),
+        IdleScreenAquariumWebSurface.PresetObject(
+          id: "base-conflict", assetId: "rotala", positionCm: plant.positionCm, rotationY: 0),
+      ] {
+        await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+          try await surface.applyPlacedObjects(
+            expectedRevision: edited.revision, objects: [invalid])
+        }
+        #expect(try await surface.editorSnapshot() == edited)
+      }
+      let after = try await surface.exportTank(id: "test", name: "Test")
+      let first = try #require(JSONSerialization.jsonObject(with: before) as? NSDictionary)
+      let last = try #require(JSONSerialization.jsonObject(with: after) as? NSDictionary)
+      #expect(first["runtime"] as? NSDictionary == last["runtime"] as? NSDictionary)
+      let removed = try await surface.applyPlacedObjects(
+        expectedRevision: edited.revision, objects: [])
+      #expect(removed.placedObjects.isEmpty)
+      try await surface.shutdown()
+    }
+
+    @Test func movingAPresetCannotBuryAnAddedPlant() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let initial = try await surface.beginEditing()
+      let rock = try #require(initial.objects.first { $0.id == "base-rock" })
+      let plant = IdleScreenAquariumWebSurface.PresetObject(
+        id: "placed-rooted", assetId: "rotala", positionCm: .init(x: -22, y: 5, z: 12), rotationY: 0
+      )
+      let planted = try await surface.applyPlacedObjects(
+        expectedRevision: initial.revision, objects: [plant])
+      let before = try await surface.exportTank(id: "test", name: "Test")
+      var moved = rock
+      moved.positionCm.x = -20
+      moved.positionCm.z = 10
+      await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+        try await surface.applyPresetObjects(
+          expectedRevision: planted.revision,
+          objects: planted.objects.map { $0.id == rock.id ? moved : $0 })
+      }
+      #expect(try await surface.editorSnapshot() == planted)
+      #expect(try await surface.exportTank(id: "test", name: "Test") == before)
+      try await surface.shutdown()
+    }
+
+    @Test func nativePointerToolsReportRealBedHitsWithoutEditingTheLayout() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let initial = try await surface.beginEditing()
+      var received: IdleScreenAquariumWebSurface.EditorPick?
+      var receivedCount = 0
+      surface.onEditorPick = {
+        received = $0
+        receivedCount += 1
+      }
+      let placing = try await surface.setEditorTool(.place, assetID: "rotala")
+      #expect(placing == initial)
+      let script = """
+        (() => {
+          const s = aquariumStudy.state, c = s.camera;
+          const camera = new THREE.PerspectiveCamera(c.fov,c.aspect,.1,1000);
+          camera.position.fromArray(c.position);camera.lookAt(...c.target);
+          camera.projectionMatrix.elements[9]=2*c.horizonPercent/100-1;
+          camera.updateMatrixWorld();
+          const centerZ=(s.world.floorBackZ+s.world.floorFrontZ)/2;
+          const p=new THREE.Vector3(-22/s.physical.cmPerUnit,5/s.physical.cmPerUnit,centerZ+12/s.physical.cmPerUnit).project(camera);
+          const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();
+          canvas.dispatchEvent(new PointerEvent('pointerdown',{button:0,clientX:r.left+(p.x+1)*r.width/2,clientY:r.top+(1-p.y)*r.height/2}));
+          window.idleScreenScene.setEditorTool({tool:'select',generation:42});
+          return 'clicked';
+        })()
+        """
+      _ = try await surface.view.evaluateJavaScript(script)
+      let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+      while received == nil && ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(10))
+      }
+      let pick = try #require(received)
+      #expect(pick.tool == .place)
+      #expect(pick.revision == initial.revision)
+      let point = try #require(pick.positionCm)
+      #expect(abs(point.x + 22) < 0.001)
+      #expect(abs(point.y - 5) < 0.001)
+      #expect(abs(point.z - 12) < 0.001)
+      #expect(try await surface.editorSnapshot() == initial)
+      _ = try await surface.setEditorTool(.select)
+      _ = try await surface.setEditorTool(.place, assetID: "rotala")
+      received = nil
+      receivedCount = 0
+      _ = try await surface.view.evaluateJavaScript(
+        """
+        window.postMessage({type:'aquarium-designer-pick',revision:\(pick.revision),tool:'place',
+          toolGeneration:\(pick.toolGeneration),positionCm:{x:0,y:5,z:0}},'*');
+        """)
+      _ = try await surface.view.evaluateJavaScript(script)
+      let freshDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+      while received == nil && ContinuousClock.now < freshDeadline {
+        try await Task.sleep(for: .milliseconds(10))
+      }
+      let fresh = try #require(received)
+      #expect(fresh.toolGeneration > pick.toolGeneration)
+      #expect(receivedCount == 1)
+      #expect(abs(try #require(fresh.positionCm).x + 22) < 0.001)
+      _ = try await surface.setEditorTool(.select)
+      await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+        try await surface.setEditorTool(.place, assetID: "pirate-chest")
+      }
+      await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+        try await surface.setEditorTool(.move, selectedID: "missing")
+      }
+      #expect(try await surface.editorSnapshot() == initial)
+      try await surface.shutdown()
+    }
+
+    @Test func epiphytesFollowActualSupportNormalsWithoutLosingCollisionChecks() async throws {
+      let result = try await runPresetFixture(
+        "mount-normal-check",
+        invocation:
+          "runAquariumMountNormalCheck(THREE,AquariumDesignerPlacement,AquariumEpiphytePlantsV2)")
+      #expect(result["checks"] == 8)
+    }
+
+    @Test func mountedPlantsSurviveRejectedSupportChangesAndAddedRocksCollide() async throws {
+      let result = try await runPresetFixture(
+        "mount-edit-check", invocation: "runAquariumMountEditCheck(aquariumStudy)")
+      #expect(result["checks"] == 9)
+    }
+
+    @Test func nativeCanvasCanPickAndMovePresetRockWhileLegacySelectionStaysAddedOnly() async throws
+    {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let initial = try await surface.beginEditing()
+      var rock = try #require(initial.objects.first { $0.id == "base-rock" })
+      rock.positionCm.x = 0
+      rock.positionCm.z = 0
+      let centered = try await surface.applyPresetObjects(
+        expectedRevision: initial.revision, objects: [rock])
+      #expect(try await surface.setEditorTool(.select, selectedID: rock.id) == centered)
+      var picks: [IdleScreenAquariumWebSurface.EditorPick] = []
+      surface.onEditorPick = { picks.append($0) }
+      try await clickTankPoint(surface, point: .init(x: 0, y: 8, z: 0))
+      let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+      while picks.isEmpty && ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(10))
+      }
+      #expect(try #require(picks.first).id == rock.id)
+      picks.removeAll()
+      #expect(try await surface.setEditorTool(.move, selectedID: rock.id) == centered)
+      #expect(try await surface.beginEditing() == centered)
+      try await clickTankPoint(surface, point: .init(x: 0, y: rock.positionCm.y, z: 3))
+      let movedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+      while picks.isEmpty && ContinuousClock.now < movedDeadline {
+        try await Task.sleep(for: .milliseconds(10))
+      }
+      let pick = try #require(picks.first)
+      #expect(pick.id == rock.id)
+      #expect(pick.tool == .move)
+      let position = try #require(pick.positionCm)
+      #expect(abs(position.z - 3) < 0.001)
+      #expect(position.y == rock.positionCm.y)
+      #expect(try await surface.editorSnapshot() == centered)
+      let legacy = try await tankScript(
+        surface,
+        "JSON.stringify(aquariumStudy.applyDesigner({layout:aquariumStudy.designer.layout,selectionScope:'added',selectedId:'base-rock'}))"
+      )
+      #expect(legacy.contains("error"))
+      try await surface.shutdown()
+    }
+
+    @Test func equipmentPlacementsRegenerateBodiesRimLeadsAndCounterConnections() async throws {
+      let result = try await runPresetFixture(
+        "equipment-placement-check",
+        invocation:
+          "runAquariumEquipmentPlacementCheck(THREE,AquariumMetricBasicArt,AquariumMetricConnections)"
+      )
+      #expect(result["checks"] == 8)
+    }
+
+    @Test func liveEquipmentMovesPersistAndOldConfigurationsKeepDefaultHardware() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let initial = try await surface.beginEditing()
+      #expect(initial.equipmentObjects.count == 3)
+      let cleared = try await surface.applyPresetObjects(
+        expectedRevision: initial.revision, objects: [])
+      var moved = cleared.equipmentObjects
+      let index = try #require(moved.firstIndex { $0.id == "equipment/filter" })
+      moved[index].positionCm.x = -15
+      moved[index].positionCm.z = 8
+      let edited = try await surface.applyEquipmentObjects(
+        expectedRevision: cleared.revision, objects: moved)
+      #expect(edited.equipmentObjects == moved)
+      #expect(edited.objects.isEmpty)
+      #expect(edited.revision > cleared.revision)
+      let stable = try await surface.exportTank(id: "equipment-test", name: "Equipment")
+      var invalid = moved
+      invalid[index].positionCm.x = 29
+      await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+        try await surface.applyEquipmentObjects(expectedRevision: edited.revision, objects: invalid)
+      }
+      #expect(try await surface.exportTank(id: "equipment-test", name: "Equipment") == stable)
+      await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+        try await surface.applyEquipmentObjects(expectedRevision: cleared.revision, objects: moved)
+      }
+      let restored = IdleScreenAquariumWebSurface()
+      defer { restored.releaseResources() }
+      try await restored.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let reopened = try await restored.restoreTank(from: stable)
+      #expect(reopened.equipmentObjects == moved)
+      var legacy = try #require(JSONSerialization.jsonObject(with: stable) as? [String: Any])
+      var tank = try #require(legacy["tank"] as? [String: Any])
+      var config = try #require(tank["configuration"] as? [String: Any])
+      #expect(config["schemaVersion"] as? Int == 2)
+      config["schemaVersion"] = 1
+      config.removeValue(forKey: "equipment")
+      tank["configuration"] = config
+      legacy["tank"] = tank
+      let old = IdleScreenAquariumWebSurface()
+      defer { old.releaseResources() }
+      try await old.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let oldState = try await old.restoreTank(from: JSONSerialization.data(withJSONObject: legacy))
+      #expect(oldState.equipmentObjects == initial.equipmentObjects)
+      try await surface.shutdown()
+      try await restored.shutdown()
+      try await old.shutdown()
+    }
+
+    @Test func aTankWhoseBaselineAndEquipmentSwappedPlacesRestoresAsOneLayout() async throws {
+      let source = try await freshEditingSurface()
+      defer { source.releaseResources() }
+      let start = try await source.editorSnapshot()
+      let filter = try #require(start.equipmentObjects.first { $0.id == "equipment/filter" })
+      let plant = try #require(start.objects.first { $0.id == "base-plant-0" })
+      let initial = try await source.applyPresetObjects(
+        expectedRevision: start.revision, objects: [plant])
+      var equipment = initial.equipmentObjects
+      let filterIndex = try #require(equipment.firstIndex { $0.id == "equipment/filter" })
+      equipment[filterIndex].positionCm.x = -15
+      equipment[filterIndex].positionCm.z = 8
+      let moved = try await source.applyEquipmentObjects(
+        expectedRevision: initial.revision, objects: equipment)
+      var plants = moved.objects
+      let plantIndex = try #require(plants.firstIndex { $0.id == plant.id })
+      plants[plantIndex].positionCm.x = filter.positionCm.x
+      plants[plantIndex].positionCm.z = filter.positionCm.z
+      let edited = try await source.applyPresetObjects(
+        expectedRevision: moved.revision, objects: plants)
+      #expect(edited.equipmentObjects == equipment)
+      let saved = try await source.exportTank(id: "swap-test", name: "Swap")
+      let target = IdleScreenAquariumWebSurface()
+      defer { target.releaseResources() }
+      try await target.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let reopened = try await target.restoreTank(from: saved)
+      #expect(reopened.equipmentObjects == edited.equipmentObjects)
+      expectSamePoses(reopened.objects, edited.objects)
+      let again = try await target.exportTank(id: "swap-test", name: "Swap")
+      let before = try #require(JSONSerialization.jsonObject(with: saved) as? [String: Any])
+      let after = try #require(JSONSerialization.jsonObject(with: again) as? [String: Any])
+      func checkpoint(_ envelope: [String: Any]) throws -> NSDictionary {
+        let tank = try #require(envelope["tank"] as? [String: Any])
+        let document = try #require(tank["document"] as? [String: Any])
+        return NSDictionary(dictionary: try #require(document["checkpoint"] as? [String: Any]))
+      }
+      #expect(try checkpoint(before) == checkpoint(after))
+      #expect(
+        NSDictionary(dictionary: try #require(before["runtime"] as? [String: Any]))
+          == NSDictionary(dictionary: try #require(after["runtime"] as? [String: Any])))
+      try await source.shutdown()
+      try await target.shutdown()
+    }
+
+    @Test func savedEquipmentMayOccupySpaceVacatedByAMovedOrRemovedRock() async throws {
+      let source = try await freshEditingSurface()
+      defer { source.releaseResources() }
+      let initial = try await source.editorSnapshot()
+      let rock = try #require(initial.objects.first { $0.id == "base-rock" })
+      let remaining = initial.objects.filter { $0.id != rock.id }
+      let cleared = try await source.applyPresetObjects(
+        expectedRevision: initial.revision, objects: remaining)
+      var equipment = cleared.equipmentObjects
+      let filterIndex = try #require(equipment.firstIndex { $0.id == "equipment/filter" })
+      equipment[filterIndex].positionCm.x = rock.positionCm.x
+      equipment[filterIndex].positionCm.z = rock.positionCm.z
+      let edited = try await source.applyEquipmentObjects(
+        expectedRevision: cleared.revision, objects: equipment)
+      let saved = try await source.exportTank(id: "vacated-test", name: "Vacated")
+      let target = IdleScreenAquariumWebSurface()
+      defer { target.releaseResources() }
+      try await target.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let reopened = try await target.restoreTank(from: saved)
+      #expect(reopened.equipmentObjects == edited.equipmentObjects)
+      expectSamePoses(reopened.objects, cleared.objects)
+      #expect(!reopened.objects.contains { $0.id == rock.id })
+      try await source.shutdown()
+      try await target.shutdown()
+    }
+
+    @Test func aRestoredLayoutWithACollidingBaselineObjectStaysRejected() async throws {
+      let source = try await freshEditingSurface()
+      defer { source.releaseResources() }
+      let start = try await source.editorSnapshot()
+      let plant = try #require(start.objects.first { $0.id == "base-plant-0" })
+      let initial = try await source.applyPresetObjects(
+        expectedRevision: start.revision, objects: [plant])
+      var equipment = initial.equipmentObjects
+      let filterIndex = try #require(equipment.firstIndex { $0.id == "equipment/filter" })
+      equipment[filterIndex].positionCm.x = -15
+      equipment[filterIndex].positionCm.z = 8
+      _ = try await source.applyEquipmentObjects(
+        expectedRevision: initial.revision, objects: equipment)
+      let saved = try await source.exportTank(id: "collide-test", name: "Collide")
+      var envelope = try #require(JSONSerialization.jsonObject(with: saved) as? [String: Any])
+      var tank = try #require(envelope["tank"] as? [String: Any])
+      var document = try #require(tank["document"] as? [String: Any])
+      var layout = try #require(document["layout"] as? [String: Any])
+      var objects = try #require(layout["objects"] as? [[String: Any]])
+      let plantIndex = try #require(objects.firstIndex { $0["id"] as? String == "base-plant-0" })
+      var position = try #require(objects[plantIndex]["positionCm"] as? [String: Any])
+      position["x"] = -15
+      position["z"] = 8
+      objects[plantIndex]["positionCm"] = position
+      layout["objects"] = objects
+      document["layout"] = layout
+      tank["document"] = document
+      envelope["tank"] = tank
+      let tampered = try JSONSerialization.data(withJSONObject: envelope)
+      let target = IdleScreenAquariumWebSurface()
+      defer { target.releaseResources() }
+      try await target.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      await #expect(throws: (any Error).self) { try await target.restoreTank(from: tampered) }
+      try await source.shutdown()
+      try await target.shutdown()
+    }
+
+    @Test func liveEquipmentPreservesBiologyAndReleasesRejectedAndReplacedResources() async throws {
+      let result = try await runPresetFixture(
+        "equipment-live-check",
+        invocation:
+          "runAquariumEquipmentLiveCheck(aquariumStudy,AquariumMetricBasicArt,AquariumTankConfiguration,THREE,AquariumMossRockArt)"
+      )
+      #expect(result["checks"] == 9)
+    }
+
+    @Test func equipmentCanBePickedAndMovedThroughTheNativeCanvasBridge() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let initial = try await surface.beginEditing()
+      let cleared = try await surface.applyPresetObjects(
+        expectedRevision: initial.revision, objects: [])
+      let filter = try #require(cleared.equipmentObjects.first { $0.id == "equipment/filter" })
+      _ = try await surface.setEditorTool(.select)
+      var received: IdleScreenAquariumWebSurface.EditorPick?
+      surface.onEditorPick = { received = $0 }
+      try await clickTankPoint(
+        surface, point: .init(x: filter.positionCm.x, y: 14, z: filter.positionCm.z))
+      let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+      while received == nil && ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(10))
+      }
+      #expect(try #require(received).id == filter.id)
+      _ = try await surface.setEditorTool(.move, selectedID: filter.id)
+      received = nil
+      try await clickTankPoint(surface, point: .init(x: -15, y: 5, z: 8))
+      let moveDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+      while received == nil && ContinuousClock.now < moveDeadline {
+        try await Task.sleep(for: .milliseconds(10))
+      }
+      let point = try #require(received?.positionCm)
+      #expect(abs(point.x + 15) < 0.001 && abs(point.z - 8) < 0.001)
+      #expect(try await surface.editorSnapshot() == cleared)
+      try await surface.shutdown()
+    }
+
+    @Test func equipmentIdentitiesDoNotShadowExistingSavedObjectNames() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let initial = try await surface.beginEditing()
+      let empty = try await surface.applyPresetObjects(
+        expectedRevision: initial.revision, objects: [])
+      let plant = IdleScreenAquariumWebSurface.PresetObject(
+        id: "equipment-filter", assetId: "rotala",
+        positionCm: .init(x: -22, y: 5, z: 12), rotationY: 0)
+      let edited = try await surface.applyPlacedObjects(
+        expectedRevision: empty.revision, objects: [plant])
+      let ids =
+        edited.objects.map(\.id) + edited.placedObjects.map(\.id)
+        + edited.equipmentObjects.map(\.id)
+      #expect(Set(ids).count == ids.count)
+      try await surface.shutdown()
+    }
+
+    @Test func nativeEditorBridgeMovesObjectsAndRecoversFromRejectedEdits() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      surface.view.configuration.userContentController.addUserScript(
+        WKUserScript(
+          source: Self.frameClock(emulatingVisibleDocument: false), injectionTime: .atDocumentStart,
+          forMainFrameOnly: true))
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let before = try await snapshot(surface)
+      let initial = try await surface.beginEditing()
+      #expect(!initial.objects.isEmpty)
+      #expect(try await surface.beginEditing() == initial)
+      let rock = try #require(initial.objects.first { $0.id == "base-rock" })
+      var moved = initial.objects
+      let index = try #require(moved.firstIndex { $0.id == rock.id })
+      moved[index].positionCm.z += 3
+      let edited = try await surface.applyPresetObjects(
+        expectedRevision: initial.revision, objects: moved)
+      #expect(edited.revision > initial.revision)
+      #expect(edited.objects[index].positionCm.z == rock.positionCm.z + 3)
+      do {
+        _ = try await surface.applyPresetObjects(
+          expectedRevision: initial.revision, objects: initial.objects)
+        Issue.record("Stale editor command was accepted")
+      } catch IdleScreenAquariumWebSurface.EditorError.rejected(let message) {
+        #expect(message.contains("stale"))
+      }
+      var invalid = edited.objects
+      invalid[index].positionCm.x = 50
+      await #expect(throws: IdleScreenAquariumWebSurface.EditorError.self) {
+        try await surface.applyPresetObjects(expectedRevision: edited.revision, objects: invalid)
+      }
+      #expect(surface.state == .paused)
+      #expect(try await surface.editorSnapshot() == edited)
+      let restored = try await surface.applyPresetObjects(
+        expectedRevision: edited.revision, objects: initial.objects)
+      #expect(restored.objects.map(\.id) == initial.objects.map(\.id))
+      for (actual, expected) in zip(restored.objects, initial.objects) {
+        #expect(actual.assetId == expected.assetId)
+        #expect(abs(actual.positionCm.x - expected.positionCm.x) < 1e-9)
+        #expect(abs(actual.positionCm.y - expected.positionCm.y) < 1e-9)
+        #expect(abs(actual.positionCm.z - expected.positionCm.z) < 1e-9)
+        #expect(abs(actual.rotationY - expected.rotationY) < 1e-9)
+      }
+      let after = try await snapshot(surface)
+      #expect(after.scene.ecology.animals == before.scene.ecology.animals)
+      #expect(after.scene.water.elapsedSeconds == before.scene.water.elapsedSeconds)
+      #expect(after.scene.clock == before.scene.clock)
+      try await surface.shutdown()
+      await #expect(throws: IdleScreenAquariumWebSurface.SurfaceError.self) {
+        try await surface.editorSnapshot()
+      }
+    }
+
+    @Test(arguments: ["basic", "lush", "waterfall"])
+    func fullTankCheckpointRestoresLifeFoodAndLayoutInAFreshRuntime(setup: String) async throws {
+      let source = IdleScreenAquariumWebSurface()
+      defer { source.releaseResources() }
+      source.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      source.view.configuration.userContentController.addUserScript(
+        WKUserScript(
+          source: Self.frameClock(emulatingVisibleDocument: true),
+          injectionTime: .atDocumentStart, forMainFrameOnly: true))
+      try await source.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let setupJSON = String(decoding: try JSONEncoder().encode(setup), as: UTF8.self)
+      _ = try await tankScript(
+        source, "aquariumStudy.setSceneStyle(\(setupJSON)); JSON.stringify(true)")
+      _ = try await source.beginEditing()
+      if setup == "basic" {
+        let initial = try await source.editorSnapshot()
+        let moved = initial.objects.map { item in
+          var result = item
+          if item.id == "base-rock" { result.positionCm.z += 3 }
+          return result
+        }
+        _ = try await source.applyPresetObjects(expectedRevision: initial.revision, objects: moved)
+        _ = try await tankScript(
+          source,
+          "aquariumStudy.applyDesigner({layout:{schemaVersion:1,units:'cm',name:'Living tank',base:{setup:'basic'},instances:[{id:'saved-rotala',assetId:'rotala',positionCm:{x:-22,y:5,z:12},rotationY:0}]}}); JSON.stringify(true)"
+        )
+      }
+      _ = try await tankScript(
+        source,
+        "aquariumStudy.setGlassPane('snail-0','back'); aquariumStudy.setPumpOutput(.6); aquariumStudy.setTankLightCount(1); aquariumStudy.setLight('warm'); aquariumStudy.feed({automatic:true}); aquariumStudy.previewLifeEvent('molt'); aquariumStudy.previewLifeEvent('death'); aquariumStudy.setEcologyRate(120); JSON.stringify(true)"
+      )
+      try await source.resume()
+      _ = try await snapshot(source, frames: 5)
+      try await source.pause()
+      let savedData = try await source.exportTank(id: "tank-one", name: "Living tank")
+      let saved = String(decoding: savedData, as: UTF8.self)
+      let savedValue = try #require(
+        JSONSerialization.jsonObject(with: Data(saved.utf8)) as? [String: Any])
+      let target = IdleScreenAquariumWebSurface()
+      defer { target.releaseResources() }
+      target.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      target.view.configuration.userContentController.addUserScript(
+        WKUserScript(
+          source: Self.frameClock(emulatingVisibleDocument: true),
+          injectionTime: .atDocumentStart, forMainFrameOnly: true))
+      try await target.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      _ = try await target.restoreTank(from: savedData)
+      let exported = try await tankScript(
+        target, "JSON.stringify(aquariumStudy.exportTank({id:'tank-one',name:'Living tank'}))")
+      let restored = try #require(
+        JSONSerialization.jsonObject(with: Data(exported.utf8)) as? [String: Any])
+      let beforeEnvelope = try #require(savedValue["tank"] as? [String: Any])
+      let afterEnvelope = try #require(restored["tank"] as? [String: Any])
+      let beforeDocument = try #require(beforeEnvelope["document"] as? [String: Any])
+      let afterDocument = try #require(afterEnvelope["document"] as? [String: Any])
+      #expect(
+        NSDictionary(dictionary: try #require(beforeDocument["checkpoint"] as? [String: Any]))
+          == NSDictionary(dictionary: try #require(afterDocument["checkpoint"] as? [String: Any])))
+      #expect(
+        NSDictionary(dictionary: try #require(savedValue["runtime"] as? [String: Any]))
+          == NSDictionary(dictionary: try #require(restored["runtime"] as? [String: Any])))
+      #expect(
+        NSDictionary(dictionary: try #require(beforeEnvelope["configuration"] as? [String: Any]))
+          == NSDictionary(
+            dictionary: try #require(afterEnvelope["configuration"] as? [String: Any])))
+      let checkpoint = try #require(beforeDocument["checkpoint"] as? [String: Any])
+      let domain = try #require(checkpoint["data"] as? [String: Any])
+      let ecology = try #require(domain["ecology"] as? [String: Any])
+      let statistics = try #require(ecology["stats"] as? [String: Any])
+      #expect(try #require(statistics["deaths"] as? Int) > 0)
+      #expect(try #require(statistics["molts"] as? Int) > 0)
+      #expect(!(try #require(ecology["food"] as? [Any])).isEmpty)
+      let oldLayout = try #require(beforeDocument["layout"] as? [String: Any])
+      let newLayout = try #require(afterDocument["layout"] as? [String: Any])
+      func objects(_ layout: [String: Any]) throws -> [IdleScreenAquariumWebSurface.PresetObject] {
+        try JSONDecoder().decode(
+          [IdleScreenAquariumWebSurface.PresetObject].self,
+          from: JSONSerialization.data(withJSONObject: #require(layout["objects"])))
+      }
+      let expectedObjects = try objects(oldLayout)
+      let actualObjects = try objects(newLayout)
+      #expect(actualObjects.map(\.id) == expectedObjects.map(\.id))
+      for (actual, expected) in zip(actualObjects, expectedObjects) {
+        #expect(actual.assetId == expected.assetId)
+        #expect(abs(actual.positionCm.x - expected.positionCm.x) < 1e-9)
+        #expect(abs(actual.positionCm.y - expected.positionCm.y) < 1e-9)
+        #expect(abs(actual.positionCm.z - expected.positionCm.z) < 1e-9)
+        #expect(abs(actual.rotationY - expected.rotationY) < 1e-9)
+      }
+      #expect(target.state == .paused)
+      await #expect(throws: (any Error).self) { try await target.restoreTank(from: savedData) }
+      let paused = try await snapshot(target)
+      try await target.resume()
+      let continued = try await snapshot(target, frames: 4)
+      #expect(continued.scene.ecology.animals.map(\.id) == paused.scene.ecology.animals.map(\.id))
+      #expect(continued.scene.water.elapsedSeconds > paused.scene.water.elapsedSeconds)
+      try await source.shutdown()
+      try await target.shutdown()
+    }
+
+    @Test(arguments: [false, true])
+    func rebuildingScenePreservesStoredStockAndFeeding(empty: Bool) async throws {
+      let source = IdleScreenAquariumWebSurface()
+      defer { source.releaseResources() }
+      try await source.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      _ = try await source.beginEditing()
+      _ = try await tankScript(source, "aquariumStudy.feed({automatic:true}); JSON.stringify(true)")
+      let saved = try await tankScript(
+        source,
+        """
+        (() => {
+          if (!\(empty)) {
+            aquariumStudy.previewLifeEvent('molt');
+            aquariumStudy.previewLifeEvent('death');
+          }
+          const saved = aquariumStudy.exportTank({id:'stock-rebuild',name:'Stock'});
+          if (\(empty)) {
+            saved.tank.document.checkpoint.data.ecology.animals = [];
+            saved.runtime.actors = [];
+            saved.tank.document.checkpoint.data.breeding = AquariumBreeding.create({maxAnimals:80}).snapshot();
+          }
+          return JSON.stringify(saved);
+        })()
+        """)
+      let target = IdleScreenAquariumWebSurface()
+      defer { target.releaseResources() }
+      target.view.configuration.userContentController.addUserScript(
+        WKUserScript(
+          source: Self.frameClock(emulatingVisibleDocument: true),
+          injectionTime: .atDocumentStart, forMainFrameOnly: true))
+      try await target.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      _ = try await target.restoreTank(from: Data(saved.utf8))
+      let result = try await tankScript(
+        target,
+        """
+        (() => {
+          const capture = () => aquariumStudy.exportTank({id:'stock-rebuild',name:'Stock'});
+          const before = capture();
+          aquariumStudy.setAsset('gravel','river');
+          const after = capture();
+          return JSON.stringify({
+            differences: ['actors','food'].flatMap(group => before.runtime[group].flatMap(a => {
+              const b = after.runtime[group].find(b => b.id === a.id);
+              return Object.keys(a).filter(key => JSON.stringify(a[key]) !== JSON.stringify(b?.[key]))
+                .map(key => ({id:a.id,key,before:a[key],after:b?.[key]}));
+            })),
+            hasFood: before.runtime.food.length > 0,
+            pelletsStayAttached: after.runtime.food.length > 0 && aquariumStudy.detachedFoodCount === 0,
+            inventoryMatches: aquariumStudy.state.inventory.fish === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'fish' && a.alive).length
+              && aquariumStudy.state.inventory.shrimp === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'shrimp' && a.alive).length
+              && aquariumStudy.state.inventory.snails === after.tank.document.checkpoint.data.ecology.animals.filter(a => a.kind === 'snail' && a.alive).length,
+            sameLife: JSON.stringify(before.tank.document.checkpoint) === JSON.stringify(after.tank.document.checkpoint),
+            sameRuntime: JSON.stringify(before.runtime) === JSON.stringify(after.runtime)
+          });
+        })()
+        """)
+      let checks = try #require(
+        JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any])
+      #expect(checks["hasFood"] as? Bool == true)
+      #expect(checks["pelletsStayAttached"] as? Bool == true)
+      #expect(checks["inventoryMatches"] as? Bool == true)
+      #expect(checks["sameLife"] as? Bool == true)
+      #expect(
+        checks["sameRuntime"] as? Bool == true, "\(String(describing: checks["differences"]))")
+      let paused = try await snapshot(target)
+      try await target.resume()
+      let continued = try await snapshot(target, frames: 3)
+      #expect(continued.scene.clock > paused.scene.clock)
+      #expect(continued.scene.ecology.animals.map(\.id) == paused.scene.ecology.animals.map(\.id))
+      try await source.shutdown()
+      try await target.shutdown()
+    }
+
+    @Test func retainedRebuildCapturesTheSwimmingFishCurrentFacing() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.configuration.userContentController.addUserScript(
+        WKUserScript(
+          source: Self.frameClock(emulatingVisibleDocument: true),
+          injectionTime: .atDocumentStart, forMainFrameOnly: true))
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      _ = try await surface.beginEditing()
+      try await surface.resume()
+      let result = try await tankScript(
+        surface,
+        """
+        (() => {
+          const facings = () => Object.fromEntries(aquariumStudy.exportTank({id:'facing',name:'Facing'})
+            .runtime.actors.filter(a => a.kind === 'fish' && !a.surface).map(a => [a.id, a.facing]));
+          const before = facings();
+          for (let i = 0; i < 400; i++) window.aquariumFrameProof.advance();
+          const after = facings();
+          const ids = Object.keys(before);
+          return JSON.stringify({
+            fish: ids.length,
+            turned: ids.filter(id => after[id] !== before[id]).length,
+            unturned: ids.filter(id => after[id] === before[id]).length
+          });
+        })()
+        """)
+      let checks = try #require(
+        JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any])
+      #expect((checks["fish"] as? Int ?? 0) > 0)
+      #expect(
+        (checks["turned"] as? Int ?? 0) > 0,
+        "exported facing never followed a swimming fish turn: \(result)")
+      try await surface.shutdown()
+    }
+
+    @Test func exportTankSucceedsAfterALongSimulatedRun() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.configuration.userContentController.addUserScript(
+        WKUserScript(
+          source: Self.frameClock(emulatingVisibleDocument: true),
+          injectionTime: .atDocumentStart, forMainFrameOnly: true))
+      try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      _ = try await surface.beginEditing()
+      try await surface.resume()
+      let result = try await tankScript(
+        surface,
+        """
+        (() => {
+          for (let i = 0; i < 3000; i++) window.aquariumFrameProof.advance();
+          try {
+            const tank = aquariumStudy.exportTank({id:'long',name:'Long'});
+            return JSON.stringify({ok: true, actors: tank.runtime.actors.length});
+          } catch (error) {
+            return JSON.stringify({ok: false, error: String(error.message)});
+          }
+        })()
+        """)
+      let checks = try #require(
+        JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any])
+      #expect(checks["ok"] as? Bool == true, "export failed after 3000 frames: \(result)")
+      try await surface.shutdown()
+    }
+
+    @Test func invalidCheckpointArtAndBindingsAreRejectedBeforeAnySceneMutation() async throws {
+      let result = try await runPresetFixture(
+        "checkpoint-validation", invocation: "runAquariumCheckpointValidation(aquariumStudy)")
+      #expect(result["checks"] == 9)
+    }
+
+    @Test func returnedStockAvoidsTheCurrentHardscape() async throws {
+      let result = try await runPresetFixture(
+        "stock-return-placement", invocation: "runAquariumStockReturnPlacement(aquariumStudy)")
+      #expect(result["checks"] == 7)
+    }
+
+    @Test(arguments: ["front", "left", "right", "back"])
+    func returnedStockKeepsItsGlassPane(pane: String) async throws {
+      let result = try await runPresetFixture(
+        "stock-return-placement", invocation: "runAquariumStockPaneReturn(aquariumStudy, '\(pane)')"
+      )
+      #expect(result["checks"] == 3)
+    }
+
+    @Test func animalHistoryKeepsYoungAndTheirParents() async throws {
+      let result = try await runPresetFixture(
+        "stock-history", invocation: "runAquariumYoungStockHistory(aquariumStudy)")
+      #expect(result["checks"] == 6)
+    }
+
+    @Test func animalHistoryPreservesTheCurrentEcosystem() async throws {
+      let result = try await runPresetFixture(
+        "stock-history", invocation: "runAquariumStockHistory(aquariumStudy)")
+      #expect(result["checks"] == 20)
+    }
+
+    @Test func reservedBroodsKeepTheirStockCapacity() async throws {
+      let result = try await runPresetFixture(
+        "stock-addition", invocation: "runAquariumReservedStock(aquariumStudy)")
+      #expect(result["checks"] == 2)
+    }
+
+    @Test func supportedStockCanBeAddedWithoutRewindingTheExistingTank() async throws {
+      let result = try await runPresetFixture(
+        "stock-addition", invocation: "runAquariumStockAddition(aquariumStudy)")
+      #expect(result["checks"] == 46)
+    }
+
+    @Test func finishedAnimalCatalogIsSharedWithTheNativeEditor() async throws {
+      let result = try await runPresetFixture(
+        "stock-catalog", invocation: "runAquariumStockCatalog()")
+      #expect(result["checks"] == 10)
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let snapshot = try await surface.beginEditing()
+      #expect(snapshot.stockCatalog.count == 35)
+      #expect(Set(snapshot.stockCatalog.map(\.id)).count == 35)
+      #expect(snapshot.stockCatalog.first { $0.id == "fish/chili" }?.label == "Chili Rasbora")
+      try await surface.shutdown()
+    }
+
+    @Test func removedStockIsNotResurrectedWhenTheSceneRebuilds() async throws {
+      let result = try await runPresetFixture(
+        "checkpoint-stock", invocation: "runAquariumCheckpointStock(aquariumStudy)")
+      #expect(result["checks"] == 16)
+    }
+
+    @Test func domainCheckpointsContinueBirthsWasteAndMassWithoutDuplicatingHistory() async throws {
+      let result = try await runPresetFixture(
+        "domain-checkpoint-checks", invocation: "runAquariumDomainCheckpointChecks()")
+      #expect(result["checks"] == 8)
+    }
+
+    @Test func decomposedCorpsesDoNotLeaveUnsavableVisualBindings() async throws {
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      surface.view.configuration.userContentController.addUserScript(
+        WKUserScript(
+          source: """
+            Object.defineProperty(window, 'AquariumEcology', {configurable:true,set(api){
+              Object.defineProperty(window, 'AquariumEcology', {value:{...api,create(options){
+                const model=api.create(options); window.checkpointEcologyProof=model; return model;
+              }}});
+            }});
+            """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      _ = try await surface.beginEditing()
+      _ = try await tankScript(
+        surface,
+        """
+        aquariumStudy.previewLifeEvent('death');
+        const domain=window.checkpointEcologyProof, index=domain.deposits.findIndex(d=>d.kind==='corpse');
+        domain.stats.dissolved+=domain.deposits[index].amount; domain.deposits.splice(index,1);
+        aquariumStudy.previewLifeEvent('molt'); JSON.stringify(true)
+        """)
+      let saved = try await surface.exportTank(id: "old-tank", name: "After decomposition")
+      #expect(!saved.isEmpty)
+      try await surface.shutdown()
+    }
+
+    @Test func originalOrnamentsHaveClosedSurfacesAndRealSwimthroughs() async throws {
+      let result = try await runPresetFixture(
+        "ornament-checks", invocation: "runAquariumOrnamentChecks()")
+      #expect(result["checks"] == 7)
+    }
+
+    private func clickTankPoint(
+      _ surface: IdleScreenAquariumWebSurface,
+      point: IdleScreenAquariumWebSurface.PositionCm
+    ) async throws {
+      let argument = String(decoding: try JSONEncoder().encode(point), as: UTF8.self)
+      _ = try await tankScript(
+        surface,
+        """
+        (() => {
+          const s=aquariumStudy.state,c=s.camera,point=\(argument);
+          const camera=new THREE.PerspectiveCamera(c.fov,c.aspect,.1,1000);
+          camera.position.fromArray(c.position);camera.lookAt(...c.target);
+          camera.projectionMatrix.elements[9]=2*c.horizonPercent/100-1;camera.updateMatrixWorld();
+          const centerZ=(s.world.floorBackZ+s.world.floorFrontZ)/2;
+          const p=new THREE.Vector3(point.x/s.physical.cmPerUnit,point.y/s.physical.cmPerUnit,centerZ+point.z/s.physical.cmPerUnit).project(camera);
+          const canvas=document.querySelector('canvas'),r=canvas.getBoundingClientRect();
+          canvas.dispatchEvent(new PointerEvent('pointerdown',{button:0,clientX:r.left+(p.x+1)*r.width/2,clientY:r.top+(1-p.y)*r.height/2}));
+          return 'clicked';
+        })()
+        """)
+    }
+
+    private func expectSamePoses(
+      _ actual: [IdleScreenAquariumWebSurface.PresetObject],
+      _ expected: [IdleScreenAquariumWebSurface.PresetObject]
+    ) {
+      #expect(actual.map(\.id) == expected.map(\.id))
+      for (a, e) in zip(actual, expected) {
+        #expect(a.assetId == e.assetId)
+        #expect(abs(a.positionCm.x - e.positionCm.x) < 1e-9)
+        #expect(abs(a.positionCm.y - e.positionCm.y) < 1e-9)
+        #expect(abs(a.positionCm.z - e.positionCm.z) < 1e-9)
+        #expect(abs(a.rotationY - e.rotationY) < 1e-9)
+      }
+    }
+
+    private func freshEditingSurface() async throws -> IdleScreenAquariumWebSurface {
+      let surface = IdleScreenAquariumWebSurface()
+      do {
+        surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+        try await surface.loadRetryingTransientWebGLFailure(
+          sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+        _ = try await surface.beginEditing()
+        return surface
+      } catch {
+        surface.releaseResources()
+        throw error
+      }
+    }
+
+    private func tankScript(_ surface: IdleScreenAquariumWebSurface, _ script: String) async throws
+      -> String
+    {
+      try await withCheckedThrowingContinuation { continuation in
+        surface.view.evaluateJavaScript(script) { value, error in
+          if let error {
+            continuation.resume(throwing: error)
+          } else if let text = value as? String {
+            continuation.resume(returning: text)
+          } else {
+            continuation.resume(throwing: CocoaError(.coderValueNotFound))
+          }
         }
       }
     }
-    return try JSONDecoder().decode(Snapshot.self, from: Data(json.utf8))
-  }
 
-  private static func frameClock(emulatingVisibleDocument: Bool) -> String {
-    """
-    (() => {
-      // The unattached test view is hidden. Emulate host visibility only here.
-      if (\(emulatingVisibleDocument)) Object.defineProperty(document, 'hidden', { get: () => false });
-      let nextID = 0;
-      let time = 0;
-      const callbacks = new Map();
-      window.requestAnimationFrame = callback => {
-        const id = ++nextID;
-        callbacks.set(id, callback);
-        return id;
-      };
-      window.cancelAnimationFrame = id => callbacks.delete(id);
-      window.aquariumFrameProof = {
-        get pending() { return callbacks.size; },
-        advance() {
-          time += 50;
-          const current = Array.from(callbacks.values());
-          callbacks.clear();
-          current.forEach(callback => callback(time));
+    private func runPresetFixture(_ name: String, invocation: String) async throws -> [String: Int]
+    {
+      let fixture = try #require(
+        Bundle(for: AquariumCollisionFixtureBundle.self).url(
+          forResource: name, withExtension: "js", subdirectory: "WebSurfaceProof"))
+      let source = try String(contentsOf: fixture, encoding: .utf8)
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 640, height: 360)
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      let script = source + "\nJSON.stringify(" + invocation + ");"
+      let json: String = try await withCheckedThrowingContinuation { continuation in
+        surface.view.evaluateJavaScript(script) { value, error in
+          if let error {
+            continuation.resume(throwing: error)
+          } else if let text = value as? String {
+            continuation.resume(returning: text)
+          } else {
+            continuation.resume(throwing: CocoaError(.coderValueNotFound))
+          }
         }
-      };
-    })();
-    """
-  }
-
-  private struct Snapshot: Decodable {
-    let revision: String
-    let documentHidden: Bool
-    let scene: Scene
-    let pendingFrames: Int
-    let visibleControls: Int
-
-    struct Scene: Decodable {
-      let motion: Bool
-      let clock: Double
-      let renderedFrames: Int
-      let drawCalls: Int
-      let triangles: Int
-      let water: Water
-      let ecology: Ecology
-      let condition: Condition
-      let physical: Physical
+      }
+      let result = try JSONDecoder().decode([String: Int].self, from: Data(json.utf8))
+      try await surface.shutdown()
+      return result
     }
 
-    struct Water: Decodable {
-      let elapsedSeconds: Double
-      let volumeL: Double
+    @Test func repeatedLoadAndTeardownNeverExhaustsWebGLContexts() async throws {
+      let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
+      // CI ran out of WebGL contexts from the seventh load when they leaked, so
+      // twelve loads catch a regression and fit the suite's per-test time limit.
+      for iteration in 1...12 {
+        let surface = IdleScreenAquariumWebSurface()
+        defer { surface.releaseResources() }
+        surface.view.frame = NSRect(x: 0, y: 0, width: 320, height: 180)
+        try await surface.loadRetryingTransientWebGLFailure(sceneURL: resource)
+        let kind = try await surface.view.evaluateJavaScript("typeof window.idleScreenScene")
+        #expect(kind as? String == "object", "load \(iteration) has no live scene")
+        try await surface.shutdown()
+        #expect(surface.state == .stopped)
+      }
     }
 
-    struct Ecology: Decodable {
-      let seconds: Double
-      let animals: [Animal]
+    @Test func loadReportsWebGLUnavailableDescriptively() async throws {
+      let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
+      let surface = IdleScreenAquariumWebSurface()
+      defer { surface.releaseResources() }
+      surface.view.frame = NSRect(x: 0, y: 0, width: 320, height: 180)
+      surface.view.configuration.userContentController.addUserScript(
+        WKUserScript(
+          source: """
+            (() => {
+              const original = HTMLCanvasElement.prototype.getContext;
+              HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+                return /webgl/i.test(String(type)) ? null : original.call(this, type, ...rest);
+              };
+            })();
+            """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+      do {
+        try await surface.load(sceneURL: resource)
+        Issue.record("load succeeded without WebGL")
+      } catch let error as IdleScreenAquariumWebSurface.SurfaceError {
+        let message = error.localizedDescription
+        #expect(message.contains("aquarium runtime did not start: WebGL unavailable"))
+        #expect(message.contains("could not start"))
+      }
+      #expect(surface.state == .failed)
     }
 
-    struct Animal: Decodable, Equatable {
-      let id: String
-      let alive: Bool
-      let health: Double
-      let hunger: Double
+    private func snapshot(_ surface: IdleScreenAquariumWebSurface, frames: Int = 0) async throws
+      -> Snapshot
+    {
+      let script = """
+        for (let index = 0; index < \(frames); index++) window.aquariumFrameProof.advance();
+        JSON.stringify({
+          revision: THREE.REVISION,
+          documentHidden: document.hidden,
+          scene: aquariumStudy.state,
+          pendingFrames: window.aquariumFrameProof.pending,
+          visibleControls: Array.from(document.querySelectorAll('button')).filter(
+            element => element.getClientRects().length > 0).length
+        });
+        """
+      let json: String = try await withCheckedThrowingContinuation { continuation in
+        surface.view.evaluateJavaScript(script) { value, error in
+          if let error {
+            continuation.resume(throwing: error)
+          } else if let json = value as? String {
+            continuation.resume(returning: json)
+          } else {
+            continuation.resume(throwing: CocoaError(.coderValueNotFound))
+          }
+        }
+      }
+      return try JSONDecoder().decode(Snapshot.self, from: Data(json.utf8))
     }
 
-    struct Condition: Decodable { let mode: String }
-    struct Physical: Decodable { let tankCm: Dimensions }
-    struct Dimensions: Decodable {
-      let width: Double
-      let depth: Double
-      let height: Double
+    private static func frameClock(emulatingVisibleDocument: Bool) -> String {
+      """
+      (() => {
+        // The unattached test view is hidden. Emulate host visibility only here.
+        if (\(emulatingVisibleDocument)) Object.defineProperty(document, 'hidden', { get: () => false });
+        let nextID = 0;
+        let time = 0;
+        const callbacks = new Map();
+        window.requestAnimationFrame = callback => {
+          const id = ++nextID;
+          callbacks.set(id, callback);
+          return id;
+        };
+        window.cancelAnimationFrame = id => callbacks.delete(id);
+        window.aquariumFrameProof = {
+          get pending() { return callbacks.size; },
+          advance() {
+            time += 50;
+            const current = Array.from(callbacks.values());
+            callbacks.clear();
+            current.forEach(callback => callback(time));
+          }
+        };
+      })();
+      """
     }
-  }
 
-  private struct Manifest: Decodable {
-    let scriptOrder: [String]
-    let importedFiles: [ImportedFile]
-    let vendor: Vendor
-    struct ImportedFile: Decodable { let path: String }
-    struct Vendor: Decodable {
+    private struct Snapshot: Decodable {
       let revision: String
-      let sha256: String
-      let licenseSha256: String
+      let documentHidden: Bool
+      let scene: Scene
+      let pendingFrames: Int
+      let visibleControls: Int
+
+      struct Scene: Decodable {
+        let motion: Bool
+        let clock: Double
+        let renderedFrames: Int
+        let drawCalls: Int
+        let triangles: Int
+        let water: Water
+        let ecology: Ecology
+        let condition: Condition
+        let physical: Physical
+      }
+
+      struct Water: Decodable {
+        let elapsedSeconds: Double
+        let volumeL: Double
+      }
+
+      struct Ecology: Decodable {
+        let seconds: Double
+        let animals: [Animal]
+      }
+
+      struct Animal: Decodable, Equatable {
+        let id: String
+        let alive: Bool
+        let health: Double
+        let hunger: Double
+      }
+
+      struct Condition: Decodable { let mode: String }
+      struct Physical: Decodable { let tankCm: Dimensions }
+      struct Dimensions: Decodable {
+        let width: Double
+        let depth: Double
+        let height: Double
+      }
+    }
+
+    private struct Manifest: Decodable {
+      let scriptOrder: [String]
+      let importedFiles: [ImportedFile]
+      let vendor: Vendor
+      struct ImportedFile: Decodable { let path: String }
+      struct Vendor: Decodable {
+        let revision: String
+        let sha256: String
+        let licenseSha256: String
+      }
     }
   }
 }
