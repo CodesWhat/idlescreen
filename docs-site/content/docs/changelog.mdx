@@ -18,9 +18,14 @@ All notable changes to idlescreen are documented here. The project follows
   against the published candidate manifest. v0.4.0 matches on all six
   comparable fields.
 - Add `scripts/check-promotion-codeql.sh <pr-number>`, which checks a promotion
-  PR's merge commit for open high or critical CodeQL alerts before it merges.
+  PR's merge ref for open code-scanning alerts that are high or critical (or
+  error severity when an alert has no security severity), after confirming
+  CodeQL has analyzed the current merge commit.
 - Add a fixed 80% line-coverage floor to CI (`scripts/check_coverage_floor.py`
   and `codecov.yml`), and tests that bring line coverage above it.
+- Add native stock editing for the aquarium: add supported adults and remove
+  living animals through staged, validated edits, with undo and a live animal
+  inspector, plus new tank controls and premium equipment.
 - Add the Maintainability badge and enable shellcheck, zizmor and osv-scanner
   in Qlty.
 

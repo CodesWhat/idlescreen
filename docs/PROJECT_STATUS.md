@@ -26,7 +26,7 @@ pipeline, or web runtime.
 | Public security | Private reporting, secret scanning, push protection, Dependabot | Enabled live; no open CodeQL alerts. Two open Dependabot alerts (medium, both GHSA-mfr8-8qww-v76h on `next` in `docs-site`, patched in 16.4.5). `dev/v0.1` already has `next` 16.4.6 from #54, so they stay open until that reaches `main`. Three open Scorecard code-scanning alerts on `main`: CIIBestPracticesID, FuzzingID and TokenPermissionsID | Follow-up |
 | Review automation | CodeRabbit on dev PRs; Greptile only by label | CodeRabbit reviewed and rechecked the corrected head; the label-gated Greptile path was exercised, but bot silence was not counted as review evidence | Pass |
 | README | Product shape, live badges, install path, community routing | Product shape adopted; Scorecard and Codecov badges require their first default-branch run | Verify after release |
-| Release engineering | Clean immutable candidate, Developer ID, notarization, Gatekeeper, manifest-derived cask | The clean development source, signing identity, and all three Developer ID profiles pass the builder preflight; the team-scoped App Store Connect API key authenticates against submission history, the stale Apple ID notary profile has been removed so one working credential remains (the builder also falls back to that API key when the profile is missing), and the Developer ID Application certificate is valid through 2027-02-01 | v0.4.0 build 67 published November 21, 2026; v0.3.0 build 66 asset digests were rechecked |
+| Release engineering | Clean immutable candidate, Developer ID, notarization, Gatekeeper, manifest-derived cask | The clean development source, signing identity, and all three Developer ID profiles pass the builder preflight; the team-scoped App Store Connect API key authenticates against submission history, the stale Apple ID notary profile has been removed so one working credential remains (the builder also falls back to that API key when the profile is missing), and the Developer ID Application certificate is valid through 2027-02-01 | v0.4.0 build 67 published November 21, 2026; v0.4.0 asset digests recorded from the GitHub release |
 | Build provenance | SBOM and workflow identity for shipped artifacts | A manifest-bound SPDX 2.3 SBOM is generated for the shipped DMG. `release-attest.yml` attaches GitHub provenance and SBOM attestations to a published release's assets without holding Apple credentials; moving signing into Actions would require moving the signing and notary credentials | Local SBOM passes; `release-attest.yml` attests the DMG, manifest and SBOM of releases published after v0.4.0, which has none |
 | Repository metadata | Public product description, topics, Discussions, detected MIT license | Description, topics, Discussions, and MIT license detection are live | Pass |
 
@@ -71,9 +71,12 @@ unverified in the README; release publication does not close those rows.
 Pushes enforce a fixed 80% line-coverage floor on the LCOV report with
 `scripts/check_coverage_floor.py`, after the Codecov upload so a miss still
 publishes the report. Promotion PRs to `main` are checked with
-`scripts/check-promotion-codeql.sh` against the PR's merge commit.
+`scripts/check-promotion-codeql.sh`, which checks the PR's merge ref for open
+high or critical code-scanning alerts (or error severity when an alert has no
+security severity) after confirming CodeQL analyzed the current merge commit.
 
-The v0.3.0 build 66 release (promotion PR #44, provenance PR #46, cask in
-CodesWhat/homebrew-tap#30) is recorded in the [roadmap](ROADMAP.md). The v0.1.2
+The v0.3.0 build 66 release (tag commit c7095365, cask in
+CodesWhat/homebrew-tap#30) is recorded in the [roadmap](ROADMAP.md); it
+followed promotion PR #44 and provenance PR #46. The v0.1.2
 candidate/SBOM snapshot-binding follow-up was completed in the v0.2.0 release
 work, including PR #21.

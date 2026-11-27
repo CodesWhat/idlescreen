@@ -13,6 +13,8 @@ useful after it ships.
 Landed on the development line and not yet in a release. The
 [changelog](../CHANGELOG.md) has the user-facing detail.
 
+- Add native stock editing, tank controls and premium equipment to the
+  aquarium.
 - Fix tank export after a feed pellet settles on the gravel, and rest lifted
   aquarium grazing stops on the surface.
 - Reject a stale first camera mailbox read, take one locked health retention
@@ -20,7 +22,7 @@ Landed on the development line and not yet in a release. The
 - Attest provenance and an SBOM for each published release with
   `release-attest.yml`, add a credential-free reproducibility check from a tag,
   fall back to an App Store Connect API key for notarization, and gate
-  promotions on CodeQL alerts for the PR merge commit.
+  promotions on code-scanning alerts for the PR merge ref.
 - Enforce an 80% line-coverage floor in CI.
 - State that macOS 27 is untested.
 

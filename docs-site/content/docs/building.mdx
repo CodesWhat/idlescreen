@@ -97,7 +97,7 @@ Publishing a GitHub release triggers `.github/workflows/release-attest.yml`. It 
 
 ### Promotion
 
-Ordinary changes target the protected `dev/v0.1` branch. `main` advances only through a reviewed promotion pull request and gets the GA tag immediately. Before merging the promotion PR, run `scripts/check-promotion-codeql.sh <pr-number>`. It checks the PR's merge commit for open high or critical CodeQL alerts, because the `main` ruleset evaluates that ref.
+Ordinary changes target the protected `dev/v0.1` branch. `main` advances only through a reviewed promotion pull request and gets the GA tag immediately. Before merging the promotion PR, run `scripts/check-promotion-codeql.sh <pr-number>`. It checks the PR's merge ref for open code-scanning alerts that are high or critical (or error severity when an alert has no security severity), after confirming CodeQL has analyzed the current merge commit. The `main` ruleset evaluates that ref.
 
 ## Repository hygiene
 
