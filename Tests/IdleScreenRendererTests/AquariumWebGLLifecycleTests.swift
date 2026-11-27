@@ -32,7 +32,8 @@ extension WebGLSurfaceSuites {
       #expect(after as? Bool == true)
     }
 
-    @Test func fiftySurfacesReleaseEveryWebViewAndContext() async throws {
+    @Test(.enabled(if: WebGLCapability.stressTestsEnabled, WebGLCapability.stressSkipReason))
+    func fiftySurfacesReleaseEveryWebViewAndContext() async throws {
       var released: [WeakView] = []
       for _ in 0..<50 {
         let surface = IdleScreenAquariumWebSurface()

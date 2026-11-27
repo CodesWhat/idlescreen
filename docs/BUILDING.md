@@ -96,7 +96,7 @@ Set `IDLESCREEN_REQUIRE_WEBGL=1` on a machine with a real GPU to turn an
 unavailable probe into failures. Only the specific WebGL context failure counts as
 unavailable; any other probe failure (such as a scene that doesn't initialize)
 leaves the suites enabled so it fails them instead of skipping. `IDLESCREEN_FORCE_NO_WEBGL=1` makes the probe
-report unavailable, for checking the skip path.
+report unavailable, for checking the skip path. The two many-surface stress tests (`repeatedLoadAndTeardownNeverExhaustsWebGLContexts`, `fiftySurfacesReleaseEveryWebViewAndContext`) exhaust a hosted runner's virtual GPU and poison later tests, so they skip when `GITHUB_ACTIONS=true` unless `IDLESCREEN_RUN_WEBGL_STRESS=1` or `IDLESCREEN_REQUIRE_WEBGL=1` is set.
 
 On trusted pushes, the coverage job exports each tested scheme's Xcode archive
 line counts and converts them with `scripts/xccov_to_lcov.py` to one explicit

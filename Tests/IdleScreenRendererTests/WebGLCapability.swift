@@ -12,6 +12,7 @@ import WebKit
 /// Suites gate with `.enabled("WebGL is unavailable on this runner") { await WebGLCapability.shouldRun() }`.
 ///
 /// - `IDLESCREEN_REQUIRE_WEBGL=1`: an unavailable probe doesn't skip, so the suites run and fail.
+/// - `IDLESCREEN_RUN_WEBGL_STRESS=1`: run the many-surface stress tests on a hosted runner too.
 /// - `IDLESCREEN_FORCE_NO_WEBGL=1`: test-only hook that hides WebGL from every page the helper loads.
 enum WebGLCapability {
   private actor Probe {
@@ -80,6 +81,18 @@ enum WebGLCapability {
   static var requireWebGL: Bool {
     ProcessInfo.processInfo.environment["IDLESCREEN_REQUIRE_WEBGL"] == "1"
   }
+
+  /// Stress tests create dozens of surfaces in a loop. WebKit reclaims lost contexts lazily, so on a
+  /// hosted runner's virtual GPU they exhaust the context pool and fail every later WebGL test in
+  /// the process. They run on real GPUs, and on hosted CI only when asked for explicitly.
+  static var stressTestsEnabled: Bool {
+    let environment = ProcessInfo.processInfo.environment
+    guard environment["GITHUB_ACTIONS"] == "true" else { return true }
+    return environment["IDLESCREEN_RUN_WEBGL_STRESS"] == "1" || requireWebGL
+  }
+
+  static let stressSkipReason: Comment =
+    "WebGL stress tests exhaust the hosted runner's virtual GPU; set IDLESCREEN_RUN_WEBGL_STRESS=1 or IDLESCREEN_REQUIRE_WEBGL=1 to run them on CI"
 
   /// True when the dependent tests should run: WebGL works, or the host demands it so a missing
   /// context must show up as failures.

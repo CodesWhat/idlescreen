@@ -1283,7 +1283,8 @@ extension WebGLSurfaceSuites {
       return result
     }
 
-    @Test func repeatedLoadAndTeardownNeverExhaustsWebGLContexts() async throws {
+    @Test(.enabled(if: WebGLCapability.stressTestsEnabled, WebGLCapability.stressSkipReason))
+    func repeatedLoadAndTeardownNeverExhaustsWebGLContexts() async throws {
       let resource = try #require(IdleScreenAquariumRuntime.sceneURL)
       // CI ran out of WebGL contexts from the seventh load when they leaked, so
       // twelve loads catch a regression and fit the suite's per-test time limit.
