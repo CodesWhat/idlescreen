@@ -52,6 +52,7 @@ for public_file in \
   .github/workflows/security-actions.yml \
   .github/workflows/security-scorecard.yml \
   .github/workflows/main-is-released.yml \
+  .github/workflows/release-attest.yml \
   .github/workflows/greptile.yml \
   .github/ISSUE_TEMPLATE/bug_report.yml \
   .github/ISSUE_TEMPLATE/config.yml \

@@ -1809,3 +1809,39 @@ if [[ -f "$generated_pbxproj" ]] &&
 fi
 
 echo "PASS: shipped targets are arm64-only."
+
+# Release attestation: Apple credentials stay on the controlled Mac, so this
+# workflow only verifies and attests uploaded assets with OIDC. Keep it
+# least-privilege, SHA-pinned and free of secrets.
+attest_workflow="$project_root/.github/workflows/release-attest.yml"
+[[ -f "$attest_workflow" ]] || {
+  echo "FAIL: .github/workflows/release-attest.yml is missing." >&2
+  exit 1
+}
+while IFS= read -r action_ref; do
+  if [[ ! "$action_ref" =~ ^[^@[:space:]]+@[0-9a-f]{40}$ ]]; then
+    echo "FAIL: release-attest.yml actions must use a full lowercase commit SHA: $action_ref" >&2
+    exit 1
+  fi
+done < <(awk '/uses:/ { print $2 }' "$attest_workflow")
+if ! grep -Eq '^permissions: \{\}$' "$attest_workflow" ||
+   [[ "$(grep -Ec '^[[:space:]]+id-token: write ' "$attest_workflow" || true)" -ne 1 ]] ||
+   [[ "$(grep -Ec '^[[:space:]]+attestations: write ' "$attest_workflow" || true)" -ne 1 ]] ||
+   [[ "$(grep -Ec '^[[:space:]]+contents: read ' "$attest_workflow" || true)" -ne 1 ]] ||
+   grep -Eq '^[[:space:]]+(actions|checks|contents|deployments|discussions|issues|models|packages|pages|pull-requests|security-events|statuses): write' "$attest_workflow" ||
+   grep -Eq 'permissions:[[:space:]]+(read-all|write-all)' "$attest_workflow" ||
+   grep -Fq 'secrets.' "$attest_workflow" ||
+   ! grep -Fq 'step-security/harden-runner@' "$attest_workflow" ||
+   ! grep -Fq 'persist-credentials: false' "$attest_workflow" ||
+   ! grep -Fq 'actions/attest-build-provenance@' "$attest_workflow" ||
+   ! grep -Fq 'actions/attest-sbom@' "$attest_workflow" ||
+   ! grep -Fq 'sha256sum --check --strict' "$attest_workflow" ||
+   ! grep -Fq 'field source_commit' "$attest_workflow" ||
+   ! grep -Fq 'SPDXRef-Package-idlescreen' "$attest_workflow" ||
+   ! grep -Fq 'workflow_dispatch:' "$attest_workflow" ||
+   ! grep -Fq 'types: [published]' "$attest_workflow"; then
+  echo "FAIL: release-attest.yml must be least-privilege, pinned, secret-free, and verify the manifest checksum before attesting provenance and the SBOM." >&2
+  exit 1
+fi
+
+echo "PASS: release attestation workflow is least-privilege, pinned and manifest-verified."
