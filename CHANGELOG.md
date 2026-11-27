@@ -53,7 +53,7 @@ All notable changes to idlescreen are documented here. The project follows
   flaky aquarium, camera and notary tests, and time the renderer budget in
   thread CPU time.
 
-## [0.4.0] - 2026-11-20
+## [0.4.0] - 2026-11-21
 
 ### Added
 
