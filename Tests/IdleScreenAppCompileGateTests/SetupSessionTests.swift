@@ -91,6 +91,40 @@ struct SetupSessionTests {
     #expect(fresh.finishesSetup)
   }
 
+  @Test(
+    "a failed first refresh then a manual finish is still a first run: camera step and done card show"
+  )
+  func failedFirstRefreshThenManualFinishIsFirstRun() {
+    var session = SetupSession()
+    let stale = SetupGate.decide(
+      session: session, hasFreshStatus: false, hasError: true, requiredStepsDone: false)
+    session.apply(stale)
+    #expect(stale.showsFlow)
+
+    session.engage()  // the user registers and picks IdleScreen in the flow
+
+    let fresh = SetupGate.decide(
+      session: session, hasFreshStatus: true, hasError: false, requiredStepsDone: true)
+    #expect(!fresh.finishesSetup)
+    #expect(fresh.showsFlow)
+
+    let ready = inputs(registered: true, selected: true, camera: .notDetermined)
+    #expect(SetupProgress(ready).current == .camera)
+    let authorized = inputs(registered: true, selected: true, camera: .authorized)
+    #expect(SetupProgress(authorized).isComplete)
+  }
+
+  @Test("a real upgrade with no flow interaction still finishes silently")
+  func realUpgradeStillSkips() {
+    var session = SetupSession()
+    session.apply(
+      SetupGate.decide(
+        session: session, hasFreshStatus: false, hasError: true, requiredStepsDone: false))
+    let fresh = SetupGate.decide(
+      session: session, hasFreshStatus: true, hasError: false, requiredStepsDone: true)
+    #expect(fresh.finishesSetup && !fresh.showsFlow)
+  }
+
   @Test("once judged, required steps flipping to done never finish setup on their own")
   func neverFinishesAfterJudgement() {
     var session = SetupSession()

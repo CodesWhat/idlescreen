@@ -144,6 +144,7 @@ trap '/bin/rm -f "${temporary_output:?}"' EXIT
   echo
   echo '  caveats <<~EOS'
   echo '    Open IdleScreen once after installation, then enable it in System Settings > Wallpaper > Screen Saver.'
+  echo '    Supported on macOS 26 (Tahoe) on Apple silicon. macOS 27 has not been tested yet; reports are welcome at https://github.com/CodesWhat/idlescreen/issues.'
   echo '    Camera access is requested only if you enable a camera-based effect.'
   echo '    Not verified on a device: sleep/wake, reboot, app replacement while running, camera permission changes, camera contention and disconnect, multiple saver views. See the README.'
   echo '  EOS'

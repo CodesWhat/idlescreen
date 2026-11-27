@@ -490,6 +490,43 @@ struct IdleScreenSaverViewTests {
     #expect(silentView.rendererConfiguration.agentSprites.isEmpty)
   }
 
+  @Test("quiet hours suppress the sprites end to end and lift when the window passes")
+  func agentSpritesObeyQuietHours() throws {
+    let now = Date(timeIntervalSince1970: 1_786_295_958)
+    let parts = Calendar.current.dateComponents([.hour, .minute], from: now)
+    let minute = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+    let signals: (IdleScreenAgentSignalStore, Date) throws -> Void = { store, now in
+      _ = try store.apply(.set(try agentSignal(.codex, .working, at: now)), at: now)
+    }
+
+    let (inside, insideRoot) = try agentView(
+      {
+        $0.agentIntegration.codexEnabled = true
+        $0.agentIntegration.quietHours = .init(
+          startMinute: (minute + 1_440 - 5) % 1_440, endMinute: (minute + 5) % 1_440)
+      }, signals: signals)
+    defer { try? FileManager.default.removeItem(at: insideRoot) }
+    #expect(inside.rendererConfiguration.agentSprites.isEmpty)
+    #expect(inside.agentOverlayPresentation == nil)
+
+    let (outside, outsideRoot) = try agentView(
+      {
+        $0.agentIntegration.codexEnabled = true
+        $0.agentIntegration.quietHours = .init(
+          startMinute: (minute + 10) % 1_440, endMinute: (minute + 20) % 1_440)
+      }, signals: signals)
+    defer { try? FileManager.default.removeItem(at: outsideRoot) }
+    #expect(outside.rendererConfiguration.agentSprites.count == 1)
+
+    let (everQuiet, everRoot) = try agentView(
+      {
+        $0.agentIntegration.codexEnabled = true
+        $0.agentIntegration.quietHours = .init(startMinute: minute, endMinute: minute)
+      }, signals: signals)
+    defer { try? FileManager.default.removeItem(at: everRoot) }
+    #expect(everQuiet.rendererConfiguration.agentSprites.count == 1)
+  }
+
   private func agentView(
     _ configure: (inout IdleScreenConfiguration) -> Void,
     signals: (IdleScreenAgentSignalStore, Date) throws -> Void

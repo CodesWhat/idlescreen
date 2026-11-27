@@ -1845,3 +1845,14 @@ if ! grep -Eq '^permissions: \{\}$' "$attest_workflow" ||
 fi
 
 echo "PASS: release attestation workflow is least-privilege, pinned and manifest-verified."
+
+# macOS 27 is untested, so every requirements surface says so in the same words.
+for platform_file in README.md docs-site/content/docs/getting-started.mdx docs-site/content/docs/index.mdx \
+  docs-site/content/docs/building.mdx docs/BUILDING.md docs/PROJECT_STATUS.md scripts/generate-homebrew-cask.sh; do
+  if ! grep -Fq 'macOS 27 has not been tested yet' "$platform_file"; then
+    echo "FAIL: $platform_file must state that macOS 27 has not been tested yet." >&2
+    exit 1
+  fi
+done
+
+echo "PASS: requirements surfaces state the macOS 27 compatibility position."

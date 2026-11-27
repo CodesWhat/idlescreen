@@ -324,26 +324,13 @@ public struct IdleScreenPixelMaterialsTerrain: Equatable, Sendable {
       throw IdleScreenPixelMaterialsError.insufficientTerrainSpace
     }
 
-    let terrainSalt: UInt64 =
-      switch settings.terrainStyle {
-      case .watershed: 0x5741_5445_5253_4844
-      case .terraces: 0x5445_5252_4143_4553
-      case .caverns: 0x4341_5645_524E_5300
-      }
-    var random = SplitMix64(state: settings.seed ^ terrainSalt)
+    var random = SplitMix64(
+      state: settings.seed ^ terrainSalt(for: settings.terrainStyle)
+    )
     var surfaceRows = Array(repeating: max(3, height / 2), count: width)
     var basins: [IdleScreenPixelBasin] = []
     let segmentWidth = usableWidth / count
-    let connectedLinkCount = min(
-      count - 1,
-      max(
-        0,
-        Int(
-          (Double(count - 1) * settings.channelConnectivity)
-            .rounded()
-        )
-      )
-    )
+    let connectedLinkCount = connectedLinkCount(count: count, settings: settings)
     let baseLip = max(
       3,
       height / 2 - settings.basinDepth / 2
@@ -365,50 +352,30 @@ public struct IdleScreenPixelMaterialsTerrain: Equatable, Sendable {
       )
       let interiorStart = min(end - 1, start + 1)
       let interiorEnd = max(interiorStart, end - 1)
-      surfaceRows[start] = lipRow
-      surfaceRows[end] = lipRow
-      for column in interiorStart...interiorEnd {
-        let edgeDistance = min(column - start, end - column)
-        let depth = min(
-          floorRow - lipRow,
-          max(1, edgeDistance * 2)
-        )
-        surfaceRows[column] = lipRow + depth
-      }
       let isConnected = index < connectedLinkCount
-      if isConnected {
-        for offset in 0..<settings.channelWidth {
-          let channelColumn = max(start, end - offset)
-          surfaceRows[channelColumn] = lipRow
-        }
-      } else if index < count - 1 {
-        // A disconnected segment is a real full-height dam, not only
-        // metadata. This keeps later basin columns unreachable until
-        // the saved connectivity explicitly opens their spillway.
-        surfaceRows[end] = 0
-      }
+      carveBasinSurface(
+        surfaceRows: &surfaceRows,
+        columns: start...end,
+        interior: interiorStart...interiorEnd,
+        lipRow: lipRow,
+        floorRow: floorRow,
+        isConnected: isConnected,
+        isLast: index == count - 1,
+        settings: settings
+      )
       var capacity =
         (interiorStart...interiorEnd).reduce(0) {
           $0 + max(0, surfaceRows[$1] - lipRow)
         } * IdleScreenPixelMaterialsSnapshot.maximumWaterPerCell
       if settings.obstacleDensity > 0 {
-        for column in interiorStart...interiorEnd {
-          guard
-            capacity
-              - IdleScreenPixelMaterialsSnapshot.maximumWaterPerCell
-              >= settings.minimumBasinCapacity,
-            surfaceRows[column] - lipRow > 1
-          else {
-            continue
-          }
-          let unit = Double(random.next() % 10_000) / 10_000
-          if unit < settings.obstacleDensity {
-            surfaceRows[column] -= 1
-            capacity -=
-              IdleScreenPixelMaterialsSnapshot
-              .maximumWaterPerCell
-          }
-        }
+        capacity = placeObstacles(
+          surfaceRows: &surfaceRows,
+          interior: interiorStart...interiorEnd,
+          lipRow: lipRow,
+          capacity: capacity,
+          settings: settings,
+          random: &random
+        )
       }
       guard capacity >= settings.minimumBasinCapacity else {
         throw IdleScreenPixelMaterialsError.insufficientTerrainSpace
@@ -434,6 +401,122 @@ public struct IdleScreenPixelMaterialsTerrain: Equatable, Sendable {
     surfaceRows[width - 2] = min(surfaceRows[width - 2], height - 3)
     surfaceRows[width - 1] = 0
 
+    let cells = solidCells(
+      surfaceRows: surfaceRows,
+      width: width,
+      height: height,
+      settings: settings,
+      random: &random
+    )
+    let (emitters, sink) = emittersAndSink(
+      basins: basins,
+      connectedLinkCount: connectedLinkCount,
+      settings: settings
+    )
+    return try Self(
+      width: width,
+      height: height,
+      cells: cells,
+      basins: basins,
+      emitters: emitters,
+      terminalSinks: [sink]
+    )
+  }
+
+  private static func terrainSalt(for style: IdleScreenPixelTerrainStyle) -> UInt64 {
+    switch style {
+    case .watershed: 0x5741_5445_5253_4844
+    case .terraces: 0x5445_5252_4143_4553
+    case .caverns: 0x4341_5645_524E_5300
+    }
+  }
+
+  private static func connectedLinkCount(
+    count: Int,
+    settings: IdleScreenPixelMaterialsRendererSettings
+  ) -> Int {
+    min(
+      count - 1,
+      max(
+        0,
+        Int(
+          (Double(count - 1) * settings.channelConnectivity)
+            .rounded()
+        )
+      )
+    )
+  }
+
+  private static func carveBasinSurface(
+    surfaceRows: inout [Int],
+    columns: ClosedRange<Int>,
+    interior: ClosedRange<Int>,
+    lipRow: Int,
+    floorRow: Int,
+    isConnected: Bool,
+    isLast: Bool,
+    settings: IdleScreenPixelMaterialsRendererSettings
+  ) {
+    let start = columns.lowerBound
+    let end = columns.upperBound
+    surfaceRows[start] = lipRow
+    surfaceRows[end] = lipRow
+    for column in interior {
+      let edgeDistance = min(column - start, end - column)
+      let depth = min(
+        floorRow - lipRow,
+        max(1, edgeDistance * 2)
+      )
+      surfaceRows[column] = lipRow + depth
+    }
+    if isConnected {
+      for offset in 0..<settings.channelWidth {
+        let channelColumn = max(start, end - offset)
+        surfaceRows[channelColumn] = lipRow
+      }
+    } else if !isLast {
+      // A disconnected segment is a real full-height dam, not only
+      // metadata. This keeps later basin columns unreachable until
+      // the saved connectivity explicitly opens their spillway.
+      surfaceRows[end] = 0
+    }
+  }
+
+  /// Raises random interior columns while keeping the basin above its
+  /// minimum capacity. Returns the remaining capacity.
+  private static func placeObstacles(
+    surfaceRows: inout [Int],
+    interior: ClosedRange<Int>,
+    lipRow: Int,
+    capacity: Int,
+    settings: IdleScreenPixelMaterialsRendererSettings,
+    random: inout SplitMix64
+  ) -> Int {
+    var capacity = capacity
+    let perCell = IdleScreenPixelMaterialsSnapshot.maximumWaterPerCell
+    for column in interior {
+      guard
+        capacity - perCell >= settings.minimumBasinCapacity,
+        surfaceRows[column] - lipRow > 1
+      else {
+        continue
+      }
+      let unit = Double(random.next() % 10_000) / 10_000
+      if unit < settings.obstacleDensity {
+        surfaceRows[column] -= 1
+        capacity -= perCell
+      }
+    }
+    return capacity
+  }
+
+  private static func solidCells(
+    surfaceRows: [Int],
+    width: Int,
+    height: Int,
+    settings: IdleScreenPixelMaterialsRendererSettings,
+    random: inout SplitMix64
+  ) -> [IdleScreenPixelTerrainCell] {
     var cells = Array(
       repeating: IdleScreenPixelTerrainCell.air,
       count: width * height
@@ -452,6 +535,14 @@ public struct IdleScreenPixelMaterialsTerrain: Equatable, Sendable {
           ? .rock : .soil
       }
     }
+    return cells
+  }
+
+  private static func emittersAndSink(
+    basins: [IdleScreenPixelBasin],
+    connectedLinkCount: Int,
+    settings: IdleScreenPixelMaterialsRendererSettings
+  ) -> ([IdleScreenPixelCoordinate], IdleScreenPixelCoordinate) {
     let first = basins[0]
     let emitterCenter =
       first.columns.lowerBound
@@ -472,14 +563,7 @@ public struct IdleScreenPixelMaterialsTerrain: Equatable, Sendable {
       column: last.columns.upperBound,
       row: max(0, last.floorRow - 1)
     )
-    return try Self(
-      width: width,
-      height: height,
-      cells: cells,
-      basins: basins,
-      emitters: emitters,
-      terminalSinks: [sink]
-    )
+    return (emitters, sink)
   }
 
   private static func makeChecksum(
@@ -845,30 +929,33 @@ public struct IdleScreenPixelMaterialsReferenceModel: Sendable {
         ? Array(0..<terrain.width)
         : Array((0..<terrain.width).reversed())
       for column in columns {
-        let source = IdleScreenPixelCoordinate(column: column, row: row)
-        let sourceIndex = index(source)
-        guard sand[sourceIndex] > 0 else { continue }
-        let candidates = [
-          IdleScreenPixelCoordinate(column: column, row: row + 1),
-          IdleScreenPixelCoordinate(
-            column: column + (leftFirst ? -1 : 1),
-            row: row + 1
-          ),
-          IdleScreenPixelCoordinate(
-            column: column + (leftFirst ? 1 : -1),
-            row: row + 1
-          ),
-        ]
-        if let destination = candidates.first(where: canAcceptSand) {
-          sand[sourceIndex] = 0
-          sand[index(destination)] = 1
-        } else if settings.outerBoundaryBehavior != .wall,
-          row == terrain.height - 1
-        {
-          sand[sourceIndex] = 0
-          accounting.drainedSand += 1
-        }
+        moveSandGrain(column: column, row: row, leftFirst: leftFirst)
       }
+    }
+  }
+
+  private mutating func moveSandGrain(column: Int, row: Int, leftFirst: Bool) {
+    let sourceIndex = index(IdleScreenPixelCoordinate(column: column, row: row))
+    guard sand[sourceIndex] > 0 else { return }
+    let candidates = [
+      IdleScreenPixelCoordinate(column: column, row: row + 1),
+      IdleScreenPixelCoordinate(
+        column: column + (leftFirst ? -1 : 1),
+        row: row + 1
+      ),
+      IdleScreenPixelCoordinate(
+        column: column + (leftFirst ? 1 : -1),
+        row: row + 1
+      ),
+    ]
+    if let destination = candidates.first(where: canAcceptSand) {
+      sand[sourceIndex] = 0
+      sand[index(destination)] = 1
+    } else if settings.outerBoundaryBehavior != .wall,
+      row == terrain.height - 1
+    {
+      sand[sourceIndex] = 0
+      accounting.drainedSand += 1
     }
   }
 

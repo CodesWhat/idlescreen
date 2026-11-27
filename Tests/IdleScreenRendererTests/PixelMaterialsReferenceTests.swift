@@ -663,6 +663,48 @@ struct PixelMaterialsReferenceTests {
       ])
   }
 
+  @Test("characterization: seeded terrain and stepped grids keep exact checksums")
+  func characterizationHashes() throws {
+    let configs: [IdleScreenPixelMaterialsRendererSettings] = [
+      .init(material: .water, terrainStyle: .watershed, seed: 7, basinCount: 3),
+      .init(
+        material: .sand, terrainStyle: .terraces, seed: 11, basinCount: 4,
+        outerBoundaryBehavior: .drain),
+      .init(
+        material: .mixed, terrainStyle: .caverns, seed: 23, basinCount: 3,
+        channelConnectivity: 0.5, obstacleDensity: 0.3),
+      .init(
+        material: .mixed, terrainStyle: .watershed, seed: 99, basinCount: 5,
+        channelConnectivity: 0, gravity: 0.6),
+    ]
+    var results: [String] = []
+    for settings in configs {
+      var model = try IdleScreenPixelMaterialsReferenceModel(
+        settings: settings, width: 72, height: 40)
+      let terrain = try IdleScreenPixelMaterialsTerrain.generate(
+        width: 72, height: 40, settings: settings)
+      var mid = ""
+      for step in 0..<120 {
+        model.step(emitting: step < 80, draining: step >= 100)
+        if step == 79 {
+          let middle = model.snapshot
+          mid = "\(middle.checksum)/s\(middle.totalSand)/w\(middle.totalWater)"
+        }
+      }
+      let snapshot = model.snapshot
+      results.append(
+        "\(terrain.checksum)/\(mid)/\(snapshot.checksum)/s\(snapshot.totalSand)/w\(snapshot.totalWater)/ds\(model.accounting.drainedSand)"
+      )
+    }
+    #expect(
+      results == [
+        "16886228340006930905/17438528371624290762/s0/w320/6847320504617346574/s0/w0/ds0",
+        "12877637923932540023/16288801277154939691/s160/w0/17014908101408808587/s0/w0/ds160",
+        "6916722440254605973/287000588338487545/s80/w160/8622148626044561711/s0/w0/ds80",
+        "1874010824968791127/16304834294215864340/s50/w160/4018855910435625056/s0/w0/ds50",
+      ])
+  }
+
   private func floorCells(width: Int, height: Int) -> [IdleScreenPixelTerrainCell] {
     var cells = Array(
       repeating: IdleScreenPixelTerrainCell.air,

@@ -62,7 +62,7 @@ test.describe('content', () => {
     for (const name of ['Panorama', 'Per Display', 'Focus Display']) {
       await expect(page.locator('#displays dt', { hasText: name })).toBeVisible();
     }
-    await expect(page.locator('#install')).toContainText('macOS 26 Tahoe or newer');
+    await expect(page.locator('#install')).toContainText('macOS 27 has not been tested yet');
     await expect(page.locator('#not-verified a')).toHaveAttribute('href', 'https://github.com/CodesWhat/idlescreen#not-verified-on-a-device');
   });
 

@@ -67,3 +67,9 @@ test('current install guidance uses the case-correct released app path', async (
     assert.doesNotMatch(content, /\/Applications\/idlescreen\.app/);
   }
 });
+
+test('requirements state macOS 26 support and that macOS 27 is untested', () => {
+  assert.match(html, /macOS 26 \(Tahoe\) on Apple silicon/);
+  assert.match(html, /macOS 27 has not been tested yet/);
+  assert.match(html, /github\.com\/CodesWhat\/idlescreen\/issues/);
+});

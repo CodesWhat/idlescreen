@@ -7,7 +7,7 @@ This page follows [docs/BUILDING.md](https://github.com/CodesWhat/idlescreen/blo
 
 ## Requirements
 
-- Apple silicon Mac (M1 or later), macOS 26 Tahoe or later
+- Apple silicon Mac (M1 or later), macOS 26 (Tahoe). macOS 27 has not been tested yet. Reports are welcome as [GitHub issues](https://github.com/CodesWhat/idlescreen/issues).
 - Xcode 26
 - XcodeGen 2.46.0
 - Python 3 for the deterministic fixture tests
@@ -28,7 +28,7 @@ Homebrew installs whatever is current, which isn't necessarily the version the g
 ./scripts/check-tool-versions.sh
 ```
 
-CI asserts `xcodegen --version` exactly and installs Qlty from a pinned commit, so a local mismatch shows up as a disagreement with CI rather than a silent pass.
+CI installs the checksum-pinned XcodeGen 2.46.0 release with `scripts/install-xcodegen.sh` (not Homebrew), asserts `xcodegen --version` exactly and installs Qlty from a pinned commit, so a local mismatch shows up as a disagreement with CI rather than a silent pass.
 
 ## Generate and open the project
 
@@ -69,10 +69,11 @@ python3 ./scripts/test_performance_r1_report.py
 ./scripts/test-synthetic-gate-product-fixtures.sh
 ./scripts/test-release-archive-provenance-fixtures.sh
 ./scripts/test-r1-release-candidate-fixtures.sh
+./scripts/test-release-reproducibility-fixtures.sh
 ./scripts/test-public-release-contract.sh
 ```
 
-CI also runs the modern Xcode unit and integration schemes with Swift warnings as errors, CodeQL, workflow security, Qlty and Codecov coverage.
+CI also runs the modern Xcode unit and integration schemes with Swift warnings as errors, CodeQL, workflow security, Qlty and Codecov coverage. On pushes, `scripts/check_coverage_floor.py` enforces a fixed 80% line-coverage floor on the uploaded report, as the last step of the coverage job after the upload, so a miss still publishes it.
 
 ## Physical checks
 
@@ -86,7 +87,17 @@ The builder archives the app, embeds release identity, signs nested code from th
 
 Replay a finished candidate with `scripts/verify-r1-release-candidate.sh`, generate the Homebrew cask with `scripts/generate-homebrew-cask.sh`, and generate the SPDX 2.3 SBOM with `scripts/generate-release-sbom.sh`. Attach the SBOM to the GitHub release under exactly `idlescreen-<version>-build<build>.spdx.json`; the published download URL is derived from that name.
 
-Ordinary changes target the protected `dev/v0.1` branch. `main` advances only through a reviewed promotion pull request and gets the GA tag immediately.
+### Reproducibility from a tag
+
+`scripts/check-release-reproducibility.sh <tag>` needs no signing credentials. It builds the unsigned Release app from the tag and compares source commit and tree, `project.yml` and regenerated `project.pbxproj` digests, and the bundle version and build against the `IdleScreenR1ReleaseCandidateV1.txt` published on the GitHub release. Signatures, cdhashes, the DMG and notarization print as `NOT-COMPARABLE`, because the manifest records no unsigned per-binary digests.
+
+### Provenance attestations
+
+Publishing a GitHub release triggers `.github/workflows/release-attest.yml`. It checks the DMG against the candidate manifest, then attaches build provenance attestations to the DMG, manifest and SBOM, plus an SBOM attestation for the DMG. It signs and uploads nothing and holds no Apple credentials. v0.4.0 predates it and has no attestations. Verify a downloaded DMG from an attested release with `gh attestation verify <dmg> --repo CodesWhat/idlescreen`.
+
+### Promotion
+
+Ordinary changes target the protected `dev/v0.1` branch. `main` advances only through a reviewed promotion pull request and gets the GA tag immediately. Before merging the promotion PR, run `scripts/check-promotion-codeql.sh <pr-number>`. It checks the PR's merge ref for open code-scanning alerts that are high or critical (or error severity when an alert has no security severity), after confirming CodeQL has analyzed the current merge commit. The `main` ruleset evaluates that ref.
 
 ## Repository hygiene
 

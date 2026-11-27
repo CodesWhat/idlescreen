@@ -61,6 +61,7 @@ for public_file in \
   scripts/generate-release-sbom.py \
   scripts/generate-release-sbom.sh \
   scripts/test-public-release-contract.sh \
+  scripts/check-promotion-codeql.sh \
   greptile.json \
   lefthook.yml \
   scripts/verify.sh \

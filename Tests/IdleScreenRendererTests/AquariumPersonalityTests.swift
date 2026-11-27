@@ -116,6 +116,28 @@ struct AquariumPersonalityTests {
     }
   }
 
+  @Test func grazingAtALiftedStopRestsOnThePhysicalSurface() {
+    let settings = scene([("rock", 0.4), ("castle", 0.52)])
+    let navigation = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
+    let liftedStops = navigation.grazingAnchors.indices.filter { navigation.liftedAnchors[$0] }
+    #expect(!liftedStops.isEmpty)
+    var checked = 0
+    for identity in UInt64(1)...40 {
+      let item = IdleScreenAquariumRenderInhabitant(identity: identity, species: "cherryShrimp")
+      for tick in 0..<4_000 {
+        let pose = IdleScreenAquarium.savedAnimal(
+          item, at: Double(tick) / 10, seed: 42, settings: settings, navigation: navigation)
+        guard pose.activity == .grazing,
+          liftedStops.contains(where: { abs(navigation.grazingAnchors[$0].x - pose.x) < 12 })
+        else { continue }
+        checked += 1
+        let ground = navigation.surface(at: pose.x, radius: 8)
+        #expect(abs(pose.y - 2 * pose.scale - ground) <= 1.5, "x\(pose.x) y\(pose.y)")
+      }
+    }
+    #expect(checked > 0)
+  }
+
   @Test func grazingCreepMovesAlongTheSurfaceWithoutHopping() {
     let settings = scene([("rock", 0.18), ("driftwood", 0.5), ("slate", 0.82)])
     let navigation = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
@@ -256,11 +278,17 @@ struct AquariumPersonalityTests {
     let navigation = IdleScreenAquariumNavigation(settings: settings, worldWidth: 384)
     let frames = 600
     var checksum = 0.0
-    let clock = ContinuousClock()
-    // Best of three passes keeps scheduler noise out of the budget check.
+    // Thread CPU time, best of three passes: a loaded machine deschedules the
+    // thread, which inflates wall time but not the work the pose step does.
+    func threadCPUMilliseconds() -> Double {
+      var spec = timespec()
+      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &spec)
+      return Double(spec.tv_sec) * 1000 + Double(spec.tv_nsec) / 1e6
+    }
     var perFrame = Double.infinity
     for pass in 0..<3 {
-      let elapsed = clock.measure {
+      let start = threadCPUMilliseconds()
+      do {
         for frame in 0..<frames {
           for item in settings.inhabitants {
             checksum +=
@@ -271,8 +299,7 @@ struct AquariumPersonalityTests {
           }
         }
       }
-      let milliseconds =
-        Double(elapsed.components.seconds) * 1000 + Double(elapsed.components.attoseconds) / 1e15
+      let milliseconds = threadCPUMilliseconds() - start
       perFrame = min(perFrame, milliseconds / Double(frames))
     }
     print("aquarium pose step: \(perFrame) ms/frame for 32 animals")

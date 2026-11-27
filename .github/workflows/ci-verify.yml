@@ -97,6 +97,7 @@ jobs:
           (umask 077; ./scripts/test-synthetic-gate-product-fixtures.sh)
           ./scripts/test-release-archive-provenance-fixtures.sh
           ./scripts/test-r1-release-candidate-fixtures.sh
+          ./scripts/test-release-reproducibility-fixtures.sh
           ./scripts/test-public-release-contract.sh
           ./scripts/test-camera-gate-c4-evidence-fixtures.py
           ./scripts/test-camera-gate-c5-evidence-fixtures.py
@@ -123,6 +124,7 @@ jobs:
           ./scripts/test-synthetic-gate-transaction.sh
           ./scripts/test-release-sbom-symlinks.sh
           ./scripts/test-notary-credential-fallback.sh
+          ./scripts/test-check-promotion-codeql.sh
 
       - name: Convert test-run coverage to LCOV
         if: github.event_name == 'push'
