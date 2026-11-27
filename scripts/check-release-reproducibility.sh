@@ -39,8 +39,10 @@ gh release download "$tag" --repo CodesWhat/idlescreen \
   fail "could not download the candidate manifest for $tag"
 manifest="$scratch/manifest/IdleScreenR1ReleaseCandidateV1.txt"
 
-xcodegen="$("$script_root/install-xcodegen.sh" "$xcodegen_version" "$xcodegen_sha256" "$scratch/tools")" ||
+GITHUB_PATH='' "$script_root/install-xcodegen.sh" "$xcodegen_version" "$xcodegen_sha256" \
+  "$scratch/tools/xcodegen-$xcodegen_version" >/dev/null ||
   fail "could not install pinned XcodeGen"
+xcodegen="$scratch/tools/xcodegen-$xcodegen_version/bin/xcodegen"
 
 git -C "$project_root" worktree add --detach "$worktree" "$tag_commit" >/dev/null 2>&1 ||
   fail "could not check out $tag"

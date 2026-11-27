@@ -1,28 +1,37 @@
-#!/bin/bash
-# Usage: install-xcodegen.sh <version> <sha256-of-xcodegen.zip> <destination-dir>
-# Downloads the pinned XcodeGen release, verifies its SHA-256, and extracts it
-# into the destination. Prints the path of the xcodegen binary on stdout.
+#!/usr/bin/env bash
+# Install an exact XcodeGen release from its GitHub release asset instead of the
+# moving Homebrew bottle. Usage: install-xcodegen.sh <version> <sha256> [dest]
+# dest defaults to $RUNNER_TEMP/xcodegen-<version>. When GITHUB_PATH is set the
+# bin directory is appended to it. The binary must report exactly <version>.
 set -euo pipefail
 
-[[ $# -eq 3 ]] || { echo "Usage: $0 <version> <sha256> <destination-dir>" >&2; exit 2; }
-version="$1" expected_sha="$2" destination="$3"
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "FAIL: bad XcodeGen version: $version" >&2; exit 2; }
-[[ "$expected_sha" =~ ^[0-9a-f]{64}$ ]] || { echo "FAIL: expected a lowercase SHA-256" >&2; exit 2; }
-[[ -d "$destination" ]] || { echo "FAIL: destination is not a directory: $destination" >&2; exit 2; }
+version="${1:?usage: install-xcodegen.sh <version> <sha256> [dest]}"
+sha256="${2:?usage: install-xcodegen.sh <version> <sha256> [dest]}"
+dest="${3:-${RUNNER_TEMP:?RUNNER_TEMP or an explicit dest is required}/xcodegen-$version}"
 
-archive="$destination/xcodegen-$version.zip"
-/usr/bin/curl -fsSL -o "$archive" \
+[[ "$sha256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::sha256 must be 64 lowercase hex digits" >&2; exit 1; }
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+curl --fail --silent --show-error --location --retry 3 \
+  --output "$work/xcodegen.zip" \
   "https://github.com/yonaskolb/XcodeGen/releases/download/$version/xcodegen.zip"
-actual_sha="$(/usr/bin/shasum -a 256 "$archive" | /usr/bin/awk '{ print $1 }')"
-[[ "$actual_sha" == "$expected_sha" ]] || {
-  echo "FAIL: XcodeGen $version archive SHA-256 mismatch (got $actual_sha)" >&2
+(cd "$work" && echo "$sha256  xcodegen.zip" | shasum -a 256 -c -)
+
+mkdir -p "$work/unpacked"
+unzip -q "$work/xcodegen.zip" -d "$work/unpacked"
+rm -rf "$dest"
+mkdir -p "$dest"
+cp -R "$work/unpacked/xcodegen/." "$dest/"
+
+observed="$("$dest/bin/xcodegen" --version)"
+[[ "$observed" == "Version: $version" ]] || {
+  echo "::error::installed XcodeGen reports '$observed', expected 'Version: $version'" >&2
   exit 1
 }
-/usr/bin/unzip -q "$archive" -d "$destination/xcodegen-$version"
-binary="$destination/xcodegen-$version/xcodegen/bin/xcodegen"
-[[ -x "$binary" ]] || { echo "FAIL: archive has no xcodegen binary" >&2; exit 1; }
-[[ "$("$binary" --version)" == "Version: $version" ]] || {
-  echo "FAIL: installed XcodeGen is not $version" >&2
-  exit 1
-}
-echo "$binary"
+
+if [[ -n "${GITHUB_PATH:-}" ]]; then
+  echo "$dest/bin" >>"$GITHUB_PATH"
+fi
+echo "Installed XcodeGen $version at $dest"

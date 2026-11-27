@@ -28,7 +28,9 @@ relying on a local pass:
 ./scripts/check-tool-versions.sh
 ```
 
-CI does not depend on any of this. It asserts `xcodegen --version` exactly and
+CI does not depend on any of this. It installs the sha256-pinned XcodeGen 2.46.0
+release with `scripts/install-xcodegen.sh` (not Homebrew), asserts
+`xcodegen --version` exactly, and
 installs Qlty from `qltysh/qlty-action/install` pinned to a full commit SHA, so
 a local version mismatch shows up as a disagreement with CI rather than as a
 silent pass.
@@ -260,6 +262,25 @@ gh attestation verify idlescreen-0.4.0-build67.dmg --repo CodesWhat/idlescreen \
 Ordinary changes target the protected `dev/v0.1` branch. `main` advances only
 through a reviewed promotion pull request and must immediately receive the GA
 tag so `git describe --exact-match origin/main` succeeds.
+
+As an early warning before opening the promotion pull request, check `dev/v0.1`
+for open high CodeQL alerts. The `main` ruleset has a `code_scanning` rule (errors, high or
+higher) that blocks the promotion even when every dev pull request passed:
+
+```sh
+gh api --paginate "repos/CodesWhat/idlescreen/code-scanning/alerts?state=open&ref=refs/heads/dev/v0.1&per_page=100" \
+  -q '.[] | select(if .rule.security_severity_level then (.rule.security_severity_level == "high" or .rule.security_severity_level == "critical") else .rule.severity == "error" end) | {number, rule: .rule.id, severity: (.rule.security_severity_level // .rule.severity), path: .most_recent_instance.location.path}'
+```
+
+`--paginate` reads every page. Security alerts are judged by their security
+severity; error severity only counts for alerts without one, matching the
+ruleset's thresholds.
+
+Fix each alert, or dismiss it with a reason once it is verified as a false
+positive. Never change the ruleset to get past it.
+
+When rerunning CI, rerun all jobs, not only the failed ones. The quality report
+aggregate only counts artifacts from the current attempt.
 
 Before merging the promotion PR, run the CodeQL gate. `main`'s ruleset has a
 `code_scanning` rule (errors, high or higher) that is evaluated on the PR's
