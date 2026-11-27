@@ -185,6 +185,32 @@ public struct IdleScreenHealthStore: Sendable {
     }
   }
 
+  private static let publishQueue = DispatchQueue(
+    label: "com.codeswhat.idlescreen.health-publish", qos: .utility)
+
+  /// Publishes from a serial background queue so an interactive caller never waits on the
+  /// directory lock. Reports from every caller land in submission order, so a later report can't be
+  /// overwritten by an earlier one. `onFailure` runs on that queue.
+  public func writeInBackground(
+    _ report: IdleScreenProcessHealth,
+    onFailure: @escaping @Sendable (any Swift.Error) -> Void = { _ in }
+  ) {
+    let store = self
+    Self.publishQueue.async {
+      do {
+        try store.write(report)
+      } catch {
+        onFailure(error)
+      }
+    }
+  }
+
+  /// Blocks until every report queued by `writeInBackground` has been published. For tests and
+  /// orderly shutdown, never an interactive path.
+  public static func drainBackgroundWrites() {
+    publishQueue.sync {}
+  }
+
   public func readAll() throws -> [IdleScreenProcessHealth] {
     try inspectReports().map(\.report)
   }

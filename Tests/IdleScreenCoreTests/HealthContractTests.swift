@@ -424,6 +424,29 @@ struct HealthContractTests {
     #expect(reports.first?.updatedAt == Date(timeIntervalSince1970: 9))
   }
 
+  @Test("background publication returns while the directory lock is held and keeps order")
+  func backgroundWriteDoesNotWaitOnTheLock() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory, lockTimeout: 0.1)
+    try store.write(retentionReport(.companionApp, pid: 7, instance: "i", at: 0))
+    let descriptor = open(directory.path, O_RDONLY)
+    #expect(descriptor >= 0)
+    #expect(flock(descriptor, LOCK_EX) == 0)
+
+    let started = ContinuousClock.now
+    for tick in 1...5 {
+      store.writeInBackground(
+        retentionReport(.companionApp, pid: 7, instance: "i", at: Double(tick)))
+    }
+    #expect(ContinuousClock.now - started < .milliseconds(250), "the caller waited on the lock")
+
+    flock(descriptor, LOCK_UN)
+    close(descriptor)
+    IdleScreenHealthStore.drainBackgroundWrites()
+    #expect(try store.readAll().first?.updatedAt == Date(timeIntervalSince1970: 5))
+  }
+
   @Test("retention never removes unrecognized files")
   func retentionIgnoresUnrecognizedFiles() throws {
     let directory = retentionDirectory()

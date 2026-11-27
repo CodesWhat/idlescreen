@@ -930,10 +930,10 @@ final class IdleScreenAppModel {
       configurationRevision: configuration.revision,
       issue: lastError
     )
-    do {
-      try IdleScreenHealthStore(directoryURL: sharedPaths.healthDirectoryURL).write(report)
-    } catch {
-      Self.logger.error(
+    let logger = Self.logger
+    IdleScreenHealthStore(directoryURL: sharedPaths.healthDirectoryURL).writeInBackground(report) {
+      error in
+      logger.error(
         "Unable to publish app health: \(error.localizedDescription, privacy: .public)")
     }
   }
