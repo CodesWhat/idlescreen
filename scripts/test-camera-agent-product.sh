@@ -59,6 +59,17 @@ helper_path="$app_path/Contents/Helpers/IdleScreenCameraAgent.app"
 helper_info="$helper_path/Contents/Info.plist"
 helper_executable="$helper_path/Contents/MacOS/IdleScreenCameraAgent"
 control_tool_executable="$app_path/Contents/Helpers/idlescreenctl"
+# Developer ID distributions keep a launcher shim at Helpers/idlescreenctl and
+# the entitled tool inside a profile-bearing helper bundle, because AMFI kills a
+# bare binary with restricted entitlements. Every other build is the bare tool.
+control_tool_bundle="$app_path/Contents/Helpers/IdleScreenCtl.app"
+control_tool_launcher="$control_tool_executable"
+control_tool_shim=""
+if [[ -d "$control_tool_bundle" ]]; then
+  control_tool_shim="$control_tool_executable"
+  control_tool_executable="$control_tool_bundle/Contents/MacOS/idlescreenctl"
+  expected_control_tool_identifier="com.idlescreen.app.ctl"
+fi
 launch_agents_path="$app_path/Contents/Library/LaunchAgents"
 expected_agent_plist="$launch_agents_path/$expected_mach_service.plist"
 opposite_agent_plist="$launch_agents_path/$opposite_mach_service.plist"
@@ -197,6 +208,9 @@ expect_exact_production_macho_paths() {
       Contents/Frameworks/IdleScreenRenderer.framework/Versions/A/IdleScreenRenderer \
       Contents/MacOS/IdleScreen \
       Contents/PlugIns/IdleScreenScreenSaver.appex/Contents/MacOS/IdleScreenScreenSaver
+    if [[ -n "$control_tool_shim" ]]; then
+      printf '%s\n' Contents/Helpers/IdleScreenCtl.app/Contents/MacOS/idlescreenctl
+    fi
   } | LC_ALL=C /usr/bin/sort)"
   actual="$(enumerate_macho_relative_paths "$app_path")"
   while IFS= read -r relative; do
@@ -227,6 +241,11 @@ expect_camera_free_binary "$app_executable" "production companion"
 expect_camera_free_binary "$renderer_executable" "production renderer"
 expect_camera_free_binary "$extension_executable" "production screen-saver"
 expect_camera_free_binary "$control_tool_executable" "production control tool"
+if [[ -n "$control_tool_shim" ]]; then
+  expect_camera_free_binary "$control_tool_shim" "production control tool launcher"
+  expect_plist_value "$control_tool_bundle/Contents/Info.plist" CFBundleIdentifier com.idlescreen.app.ctl
+  expect_plist_value "$control_tool_bundle/Contents/Info.plist" CFBundleExecutable idlescreenctl
+fi
 expect_no_synthetic_hosted_marker "$app_executable" "production companion"
 expect_no_synthetic_hosted_marker "$renderer_executable" "production renderer"
 expect_no_synthetic_hosted_marker "$extension_executable" "production screen-saver"
@@ -311,6 +330,19 @@ expect_plist_value "$helper_info" NSCameraUseContinuityCameraDeviceType true
   fail "screen saver signature verification failed"
 /usr/bin/codesign --verify --strict "$control_tool_executable" >/dev/null 2>&1 ||
   fail "control-tool signature verification failed"
+if [[ -n "$control_tool_shim" ]]; then
+  /usr/bin/codesign --verify --strict "$control_tool_bundle" >/dev/null 2>&1 ||
+    fail "control-tool helper bundle signature verification failed"
+  /usr/bin/codesign --verify --strict "$control_tool_shim" >/dev/null 2>&1 ||
+    fail "control-tool launcher signature verification failed"
+  [[ "$(signed_value "$control_tool_shim" Identifier)" == com.idlescreen.ctl ]] ||
+    fail "control-tool launcher signing identifier is not com.idlescreen.ctl"
+  shim_entitlements="$(/usr/bin/codesign -d --entitlements :- "$control_tool_shim" 2>/dev/null || true)"
+  [[ -z "$shim_entitlements" ]] ||
+    fail "control-tool launcher must not carry entitlements"
+  [[ -f "$control_tool_bundle/Contents/embedded.provisionprofile" ]] ||
+    fail "control-tool helper bundle is missing its embedded provisioning profile"
+fi
 
 helper_entitlements="$scratch_root/helper-entitlements.plist"
 app_entitlements="$scratch_root/app-entitlements.plist"
@@ -371,12 +403,25 @@ control_tool_signature="$(signed_value "$control_tool_executable" Signature)"
 # are killed at exec, so they stay signature-only.
 if [[ "$control_tool_signature" != adhoc ]]; then
   set +e
-  "$control_tool_executable" status --provider codex --session product-smoke \
+  "$control_tool_launcher" status --provider codex --session product-smoke \
     --state invalid >/dev/null 2>&1
   control_tool_status=$?
   set -e
   [[ "$control_tool_status" -eq 64 ]] ||
     fail "signed control tool did not launch and reject a bad state with exit 64 (got $control_tool_status)"
+  if [[ "$configuration" == Release ]]; then
+    # The hook path agents call has to reach the shared container too. A payload
+    # with no event is rejected as malformed (65) once the container resolves, or
+    # accepted (0) when the provider is disabled. 69 means the sandboxed tool could
+    # not resolve its App Group and 137 means AMFI killed it.
+    set +e
+    /usr/bin/printf '{}' | "$control_tool_launcher" hook --provider claude \
+      --app-group "$expected_app_group" --installation idlescreen-v1 >/dev/null 2>&1
+    control_tool_hook_status=$?
+    set -e
+    [[ "$control_tool_hook_status" -eq 65 || "$control_tool_hook_status" -eq 0 ]] ||
+      fail "signed control tool hook command did not reach the shared container (got $control_tool_hook_status)"
+  fi
 fi
 
 if [[ "$configuration" == Release ]]; then

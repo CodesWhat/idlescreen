@@ -232,6 +232,7 @@ validate_developer_id_app() {
   local helper_path="$app_path/Contents/Helpers/IdleScreenCameraAgent.app"
   local renderer_path="$app_path/Contents/Frameworks/IdleScreenRenderer.framework"
   local control_tool="$app_path/Contents/Helpers/idlescreenctl"
+  local control_bundle="$app_path/Contents/Helpers/IdleScreenCtl.app"
   local reference_certificate=""
   local certificate_sha
   local app_cdhash
@@ -239,6 +240,8 @@ validate_developer_id_app() {
   local helper_cdhash
   local renderer_cdhash
   local control_tool_cdhash
+  local control_bundle_cdhash
+  local shim_entitlements
 
   [[ -d "$app_path" && ! -L "$app_path" ]] || fail "Developer ID app is missing or is a symbolic link"
   "$product_verifier" "$app_path" Release >/dev/null || fail "Release product contracts failed"
@@ -254,6 +257,10 @@ validate_developer_id_app() {
     fail "nested products do not share one exact Developer ID signing certificate"
   validate_developer_id_product "$helper_path" helper com.idlescreen.camera-agent
   helper_cdhash="$r1_validated_cdhash"
+  /usr/bin/cmp -s "$reference_certificate" "$r1_validated_certificate" ||
+    fail "nested products do not share one exact Developer ID signing certificate"
+  validate_developer_id_product "$control_bundle" control-bundle com.idlescreen.app.ctl
+  control_bundle_cdhash="$r1_validated_cdhash"
   /usr/bin/cmp -s "$reference_certificate" "$r1_validated_certificate" ||
     fail "nested products do not share one exact Developer ID signing certificate"
   validate_developer_id_product "$control_tool" control-tool com.idlescreen.ctl
@@ -277,11 +284,19 @@ validate_developer_id_app() {
     "$project_root/Products/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements"
   validate_exact_entitlements "$helper_path" helper \
     "$project_root/Sources/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements"
-  validate_exact_entitlements "$control_tool" control-tool \
+  validate_exact_entitlements "$control_bundle" control-bundle \
     "$project_root/Products/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements"
+  # The launcher shim must stay entitlement-free: restricted entitlements on a
+  # bare binary are exactly what AMFI kills at launch.
+  shim_entitlements="$("$codesign_command" -d --entitlements :- "$control_tool" 2>/dev/null || true)"
+  [[ -z "$shim_entitlements" ]] ||
+    fail "control-tool launcher shim must not carry entitlements"
 
   validate_distribution_profile \
     "$app_path/Contents/embedded.provisionprofile" app com.idlescreen.app "$reference_certificate"
+  validate_distribution_profile \
+    "$control_bundle/Contents/embedded.provisionprofile" control-bundle \
+    com.idlescreen.app "$reference_certificate"
   validate_distribution_profile \
     "$extension_path/Contents/embedded.provisionprofile" extension \
     com.idlescreen.app.screensaver "$reference_certificate"
@@ -294,6 +309,7 @@ validate_developer_id_app() {
   /usr/bin/printf 'helper_cdhash=%s\n' "$helper_cdhash"
   /usr/bin/printf 'renderer_cdhash=%s\n' "$renderer_cdhash"
   /usr/bin/printf 'control_tool_cdhash=%s\n' "$control_tool_cdhash"
+  /usr/bin/printf 'control_bundle_cdhash=%s\n' "$control_bundle_cdhash"
 }
 
 validate_dmg_signature() {
@@ -527,7 +543,7 @@ for embedded_record in \
     fail "signed release provenance drifted at $embedded_key"
 done
 validate_developer_id_app "$mounted_app" "$expected_certificate_sha" >"$scratch_root/mounted-product.txt"
-for cdhash_key in app extension helper renderer control_tool; do
+for cdhash_key in app extension helper renderer control_tool control_bundle; do
   expected_cdhash="$(r1_manifest_value "$manifest" "${cdhash_key}_cdhash")" ||
     fail "candidate manifest is missing ${cdhash_key}_cdhash"
   [[ "$expected_cdhash" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] ||

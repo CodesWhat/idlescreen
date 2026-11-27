@@ -162,6 +162,19 @@ DMG, submits it for notarization, staples it, mounts it read-only, and asks
 Gatekeeper to assess both the DMG and mounted app. It never creates or stores
 credentials and never signs code after notarization.
 
+The control tool is the one nested product that is reshaped before signing. The
+archive holds `Contents/Helpers/idlescreenctl` as a bare Mach-O, and AMFI kills a
+bare binary that carries restricted entitlements (`Code=-413 No matching profile
+found`). The builder moves it into `Contents/Helpers/IdleScreenCtl.app`
+(`com.idlescreen.app.ctl`), embeds the app's Developer ID profile there, and
+signs it with the app's `application-identifier`. It then builds the launcher
+from `Products/IdleScreenCtlShim` and installs it at the original
+`Contents/Helpers/idlescreenctl` path, so hooks already written into agent
+settings keep working. The launcher carries no entitlements. Signing order is
+the control tool bundle, then the launcher, then the app. The product verifier
+launches the launcher and the hook command, so a tool that can't start fails the
+build.
+
 ### Notarization credential fallback
 
 The builder tries `--keychain-profile $IDLESCREEN_NOTARY_KEYCHAIN_PROFILE`

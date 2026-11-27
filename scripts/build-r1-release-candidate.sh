@@ -60,6 +60,7 @@ override_names=(
   IDLESCREEN_R1_CODESIGN
   IDLESCREEN_R1_PRODUCT_VERIFIER
   IDLESCREEN_R1_SIGNING_VERIFIER
+  IDLESCREEN_R1_CONTROL_SHIM_BUILDER
   IDLESCREEN_R1_HDIUTIL
   IDLESCREEN_R1_NOTARYTOOL
   IDLESCREEN_R1_STAPLER
@@ -89,6 +90,7 @@ c3_verifier="${IDLESCREEN_R1_C3_VERIFIER:-$script_root/verify-release-archive-pr
 codesign_command="${IDLESCREEN_R1_CODESIGN:-/usr/bin/codesign}"
 product_verifier="${IDLESCREEN_R1_PRODUCT_VERIFIER:-$script_root/test-camera-agent-product.sh}"
 signing_verifier="${IDLESCREEN_R1_SIGNING_VERIFIER:-$script_root/verify-release-signing.sh}"
+control_shim_builder="${IDLESCREEN_R1_CONTROL_SHIM_BUILDER:-$script_root/build-idlescreenctl-shim.sh}"
 hdiutil_command="${IDLESCREEN_R1_HDIUTIL:-/usr/bin/hdiutil}"
 spctl_command="${IDLESCREEN_R1_SPCTL:-/usr/sbin/spctl}"
 if [[ -n "${IDLESCREEN_R1_NOTARYTOOL:-}" ]]; then
@@ -104,7 +106,7 @@ fi
 
 for command_path in \
   "$git_command" "$security_command" "$c3_builder" "$c3_verifier" "$codesign_command" \
-  "$product_verifier" "$signing_verifier" "$hdiutil_command" "$spctl_command" \
+  "$product_verifier" "$signing_verifier" "$control_shim_builder" "$hdiutil_command" "$spctl_command" \
   /usr/bin/xattr; do
   [[ -x "$command_path" ]] || {
     echo "FAIL: required release command is missing: $command_path" >&2
@@ -279,6 +281,14 @@ for distribution_product in \
   [[ -e "$distribution_product" && ! -L "$distribution_product" ]] ||
     fail "distribution staging is missing a required nested product: $distribution_product"
 done
+
+# The archived idlescreenctl is a bare Mach-O that AMFI kills at launch; see the
+# packager for why. It becomes a profile-bearing helper bundle plus a launcher.
+distribution_control_bundle="$distribution_app/Contents/Helpers/IdleScreenCtl.app"
+"$script_root/package-idlescreenctl-helper.sh" \
+  "$distribution_app" "$app_profile" "$control_shim_builder" ||
+  fail "could not package the control tool helper bundle"
+
 /usr/bin/ditto "$app_profile" "$distribution_app/Contents/embedded.provisionprofile" ||
   fail "could not embed app Developer ID profile"
 /usr/bin/ditto "$extension_profile" "$distribution_extension/Contents/embedded.provisionprofile" ||
@@ -288,7 +298,8 @@ done
 for embedded_profile in \
   "$distribution_app/Contents/embedded.provisionprofile" \
   "$distribution_extension/Contents/embedded.provisionprofile" \
-  "$distribution_helper/Contents/embedded.provisionprofile"; do
+  "$distribution_helper/Contents/embedded.provisionprofile" \
+  "$distribution_control_bundle/Contents/embedded.provisionprofile"; do
   /usr/bin/xattr -c "$embedded_profile" ||
     fail "could not normalize embedded provisioning-profile metadata"
   external_xattrs="$(
@@ -350,9 +361,10 @@ sign_product "$distribution_extension" \
   "$project_root/Products/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements"
 sign_product "$distribution_helper" \
   "$project_root/Sources/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements"
-sign_product "$distribution_control_tool" \
+sign_product "$distribution_control_bundle" \
   "$project_root/Products/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements" \
-  com.idlescreen.ctl
+  com.idlescreen.app.ctl
+sign_product "$distribution_control_tool" "" com.idlescreen.ctl
 sign_product "$distribution_app" "$project_root/Products/IdleScreenApp/IdleScreenDeveloperID.entitlements"
 
 extract_certificate() {
@@ -370,8 +382,10 @@ extension_certificate="$(extract_certificate "$distribution_extension" extension
 helper_certificate="$(extract_certificate "$distribution_helper" helper)"
 renderer_certificate="$(extract_certificate "$distribution_renderer" renderer)"
 control_tool_certificate="$(extract_certificate "$distribution_control_tool" control-tool)"
+control_bundle_certificate="$(extract_certificate "$distribution_control_bundle" control-bundle)"
 for nested_certificate in \
-  "$extension_certificate" "$helper_certificate" "$renderer_certificate" "$control_tool_certificate"; do
+  "$extension_certificate" "$helper_certificate" "$renderer_certificate" "$control_tool_certificate" \
+  "$control_bundle_certificate"; do
   /usr/bin/cmp -s "$app_certificate" "$nested_certificate" ||
     fail "nested products do not share one exact Developer ID signing certificate"
 done
@@ -469,7 +483,7 @@ manifest_temp="$output_root/.IdleScreenR1ReleaseCandidateV1.txt.tmp"
   echo 'dmg_signing_identifier=com.idlescreen.app.dmg'
   /usr/bin/printf 'distribution_app_tree_sha256=%s\n' "$distribution_app_tree_sha"
   /usr/bin/printf 'developer_id_certificate_sha256=%s\n' "$developer_id_certificate_sha"
-  for cdhash_key in app extension helper renderer control_tool; do
+  for cdhash_key in app extension helper renderer control_tool control_bundle; do
     /usr/bin/printf '%s_cdhash=%s\n' "$cdhash_key" \
       "$(r1_manifest_value "$product_verification" "${cdhash_key}_cdhash")"
   done

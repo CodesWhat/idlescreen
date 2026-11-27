@@ -251,7 +251,12 @@ if [[ -z "$agent_target_block" || -z "$control_tool_target_block" ]] ||
    [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' "$control_tool_entitlements" 2>/dev/null || true)" != 3524374A2S.com.idlescreen.ctl ]] ||
    [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.application-groups:0' "$control_tool_entitlements" 2>/dev/null || true)" != group.com.idlescreen.shared ]] ||
    [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.team-identifier' "$control_tool_developer_id_entitlements" 2>/dev/null || true)" != 3524374A2S ]] ||
-   [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' "$control_tool_developer_id_entitlements" 2>/dev/null || true)" != 3524374A2S.com.idlescreen.ctl ]] ||
+   [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' "$control_tool_developer_id_entitlements" 2>/dev/null || true)" != 3524374A2S.com.idlescreen.app ]] ||
+   ! grep -Fq 'IdleScreenCtl.app' "$project_root/scripts/build-r1-release-candidate.sh" ||
+   ! grep -Fq 'com.idlescreen.app.ctl' "$project_root/scripts/build-r1-release-candidate.sh" ||
+   [[ ! -x "$project_root/scripts/build-idlescreenctl-shim.sh" ]] ||
+   [[ ! -f "$project_root/Products/IdleScreenCtlShim/main.swift" ]] ||
+   ! grep -Fq 'execv' "$project_root/Products/IdleScreenCtlShim/main.swift" ||
    /usr/libexec/PlistBuddy -c 'Print :com.apple.security.device.camera' "$control_tool_entitlements" >/dev/null 2>&1 ||
    grep -RqsE '(transcript_path|tool_input|tool_output|last_assistant_message|permission_suggestions|credential)' "$project_root/Sources/IdleScreenAgent" ||
    ! grep -Fq 'target: IdleScreenCtl' "$project_file" ||

@@ -5,6 +5,15 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The agent hook helper no longer gets killed at launch. The Developer ID build
+  of `idlescreenctl` carried entitlements that need a provisioning profile, which
+  a bare binary can't hold, so macOS refused to run it and Codex and Claude hooks
+  silently did nothing. The real tool now lives in a helper bundle with the
+  profile, and `Contents/Helpers/idlescreenctl` is a small launcher, so hooks
+  you already installed keep working.
+
 ## [0.4.0] - 2026-11-20
 
 ### Added
