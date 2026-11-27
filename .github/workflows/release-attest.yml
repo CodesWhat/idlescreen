@@ -1,0 +1,165 @@
+name: Release Attest
+
+# Attaches GitHub build provenance and SBOM attestations to the assets of a
+# published release. IdleScreen builds, signs and notarizes on a controlled Mac
+# and uploads the DMG, the candidate manifest and the SPDX SBOM by hand, so
+# Apple credentials never reach CI. This workflow only downloads those assets,
+# checks them against the candidate manifest, and attests them. Nothing is
+# modified, re-uploaded or signed, so notarization stays intact.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attest, e.g. v0.4.0. Dispatch with --ref set to the same tag."
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: release-attest-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  attest:
+    name: Attest release assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read       # checkout the tag and download release assets
+      id-token: write      # Sigstore keyless OIDC for the attestations
+      attestations: write  # attest-build-provenance and attest-sbom
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+
+      - name: Validate tag
+        run: |
+          set -euo pipefail
+          if ! [[ "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Refusing to attest unexpected release tag '${RELEASE_TAG}'"
+            exit 1
+          fi
+
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: Require the run commit to be the tag's commit
+        env:
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # Provenance names the run's commit. A dispatch from another ref
+          # would attest the wrong source for these assets.
+          tag_sha="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [ "${RUN_SHA}" != "${tag_sha}" ]; then
+            echo "::error::Run commit ${RUN_SHA} is not ${RELEASE_TAG} (${tag_sha}). Dispatch with --ref ${RELEASE_TAG}."
+            exit 1
+          fi
+
+      - name: Download release assets
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/assets"
+          gh release download "${RELEASE_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --dir "${RUNNER_TEMP}/assets" \
+            --pattern 'idlescreen-*-build*.dmg' \
+            --pattern 'IdleScreenR1ReleaseCandidateV1.txt' \
+            --pattern 'idlescreen-*-build*.spdx.json'
+          ls -l "${RUNNER_TEMP}/assets"
+
+      - name: Verify assets against the candidate manifest
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/assets"
+          manifest=IdleScreenR1ReleaseCandidateV1.txt
+          [ -f "${manifest}" ] || { echo "::error::Release ${RELEASE_TAG} has no ${manifest}"; exit 1; }
+
+          field() {
+            local value
+            value="$(grep -E "^$1=" "${manifest}" | head -n 2)"
+            if [ "$(printf '%s\n' "${value}" | wc -l)" -ne 1 ] || [ -z "${value}" ]; then
+              echo "::error::Manifest has no unique $1"
+              exit 1
+            fi
+            printf '%s' "${value#*=}"
+          }
+
+          version="$(field bundle_short_version)"
+          build="$(field bundle_version)"
+          dmg_sha="$(field stapled_dmg_sha256)"
+          dmg_relative="$(field dmg_relative_path)"
+          [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Malformed manifest version"; exit 1; }
+          [[ "${build}" =~ ^[1-9][0-9]*$ ]] || { echo "::error::Malformed manifest build"; exit 1; }
+          [[ "${dmg_sha}" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::Malformed manifest DMG checksum"; exit 1; }
+          if [ "v${version}" != "${RELEASE_TAG}" ]; then
+            echo "::error::Manifest version v${version} does not match ${RELEASE_TAG}"
+            exit 1
+          fi
+
+          dmg="idlescreen-${version}-build${build}.dmg"
+          sbom="idlescreen-${version}-build${build}.spdx.json"
+          if [ "${dmg_relative}" != "Distribution/${dmg}" ]; then
+            echo "::error::Manifest DMG path is not canonical"
+            exit 1
+          fi
+          # Exactly the three expected assets, nothing else in the directory.
+          found="$(find . -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort | tr '\n' ' ')"
+          expected="$(printf '%s\n' "${manifest}" "${dmg}" "${sbom}" | LC_ALL=C sort | tr '\n' ' ')"
+          if [ "${found}" != "${expected}" ]; then
+            echo "::error::Release ${RELEASE_TAG} must carry exactly ${dmg}, ${manifest} and ${sbom}"
+            exit 1
+          fi
+
+          echo "${dmg_sha}  ${dmg}" | sha256sum --check --strict -
+          # The candidate must have been built from the commit being attested,
+          # not from another commit that shares this version and build.
+          manifest_commit="$(field source_commit)"
+          [[ "${manifest_commit}" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Malformed manifest source commit"; exit 1; }
+          checked_out="$(git -C "${GITHUB_WORKSPACE}" rev-parse HEAD)"
+          if [ "${manifest_commit}" != "${checked_out}" ]; then
+            echo "::error::Candidate was built at ${manifest_commit}, not ${RELEASE_TAG} (${checked_out})"
+            exit 1
+          fi
+          jq -e \
+            --arg version "${version}" \
+            --arg file "${dmg}" \
+            --arg sha "${dmg_sha}" '
+            [.packages[] | select(.SPDXID == "SPDXRef-Package-idlescreen")] as $pkgs
+            | ($pkgs | length) == 1
+              and (.documentDescribes | index("SPDXRef-Package-idlescreen")) != null
+              and $pkgs[0].versionInfo == $version
+              and $pkgs[0].packageFileName == $file
+              and ([$pkgs[0].checksums[]? | select(.algorithm == "SHA256") | .checksumValue] == [$sha])
+          ' "${sbom}" >/dev/null || {
+            echo "::error::SBOM package does not bind the manifest DMG name, version and checksum"
+            exit 1
+          }
+          echo "DMG_NAME=${dmg}" >> "${GITHUB_ENV}"
+          echo "SBOM_NAME=${sbom}" >> "${GITHUB_ENV}"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ runner.temp }}/assets/*.dmg
+            ${{ runner.temp }}/assets/IdleScreenR1ReleaseCandidateV1.txt
+            ${{ runner.temp }}/assets/*.spdx.json
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: ${{ runner.temp }}/assets/${{ env.DMG_NAME }}
+          sbom-path: ${{ runner.temp }}/assets/${{ env.SBOM_NAME }}

@@ -121,6 +121,7 @@ jobs:
           ./scripts/test-synthetic-gate-contracts.sh
           ./scripts/test-synthetic-gate-transaction.sh
           ./scripts/test-release-sbom-symlinks.sh
+          ./scripts/test-notary-credential-fallback.sh
 
       - name: Convert test-run coverage to LCOV
         if: github.event_name == 'push'
@@ -224,6 +225,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: >
             api.github.com:443
+            api.osv.dev:443
             api.segment.io:443
             api0.prismacloud.io:443
             cafe.github.com:443

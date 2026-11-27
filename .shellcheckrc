@@ -1,0 +1,3 @@
+# Existing scripts carry info/style findings only; lefthook gates shellcheck
+# at --severity=error, so keep Qlty at the same bar.
+disable=SC1003,SC1010,SC1091,SC2015,SC2016,SC2034,SC2094,SC2129,SC2154
