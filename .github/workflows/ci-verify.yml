@@ -57,7 +57,8 @@ jobs:
 
       - name: Install XcodeGen
         run: |
-          brew install xcodegen
+          ./scripts/install-xcodegen.sh 2.46.0 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+          export PATH="$RUNNER_TEMP/xcodegen-2.46.0/bin:$PATH"
           [[ "$(xcodegen --version)" == "Version: 2.46.0" ]]
 
       - name: Generate Xcode project

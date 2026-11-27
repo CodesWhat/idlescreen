@@ -49,6 +49,16 @@ echo "PASS: local camera-agent and saver unit-test schemes compile source-only t
 companion_compile_gate="$project_root/scripts/test-companion-compile-gate.sh"
 ci_workflow="$project_root/.github/workflows/ci-verify.yml"
 modern_test_runner="$project_root/scripts/test-modern-schemes.sh"
+xcodegen_release_sha="4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+for xcodegen_workflow in "$ci_workflow" "$project_root/.github/workflows/security-codeql.yml"; do
+  if ! grep -Fq "./scripts/install-xcodegen.sh 2.46.0 $xcodegen_release_sha" "$xcodegen_workflow" ||
+     grep -Fq 'brew install xcodegen' "$xcodegen_workflow"; then
+    echo "FAIL: ${xcodegen_workflow##*/} must install XcodeGen 2.46.0 from the sha256-pinned release, not Homebrew." >&2
+    exit 1
+  fi
+done
+echo "PASS: CI installs the sha256-pinned XcodeGen 2.46.0 release."
+
 companion_ci_invocation_count="$(grep -Fc './scripts/test-companion-compile-gate.sh' "$ci_workflow" || true)"
 ci_modern_test_block="$({
   awk '
