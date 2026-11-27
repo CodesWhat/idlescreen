@@ -4,7 +4,14 @@ exclude_patterns = [
   "**/build/**",
   "**/DerivedData/**",
   "**/*.xcresult/**",
+  "**/node_modules/**",
+  "**/dist/**",
+  "**/vendor/**",
+  "**/.next/**",
+  "**/.build/**",
+  "**/*.min.*",
   ".claude/**",
+  ".planning/**",
   ".qlty/**",
 ]
 
@@ -26,3 +33,12 @@ name = "actionlint"
 
 [[plugin]]
 name = "trufflehog"
+
+[[plugin]]
+name = "shellcheck"
+
+[[plugin]]
+name = "zizmor"
+
+[[plugin]]
+name = "osv-scanner"
