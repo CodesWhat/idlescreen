@@ -170,4 +170,65 @@ struct AgentSignalMonitorTests {
     #expect(republished?.inboxRevision == first?.inboxRevision)
     #expect(unchanged == nil)
   }
+
+  @Test("the polling interval is clamped to its bounds")
+  func clampsPollingInterval() throws {
+    let now = Date(timeIntervalSince1970: 1_786_296_500)
+    let empty = IdleScreenAgentSignalInbox()
+    let minimum = IdleScreenAgentSignalMonitor.minimumPollingInterval
+    let maximum = IdleScreenAgentSignalMonitor.maximumPollingInterval
+
+    var tiny = IdleScreenAgentSignalMonitor(pollingInterval: 0)
+    _ = tiny.consume(empty, at: now)
+    #expect(!tiny.canPoll(at: now.addingTimeInterval(minimum - 0.01)))
+    #expect(tiny.canPoll(at: now.addingTimeInterval(minimum)))
+
+    var negative = IdleScreenAgentSignalMonitor(pollingInterval: -5)
+    _ = negative.consume(empty, at: now)
+    #expect(negative.canPoll(at: now.addingTimeInterval(minimum)))
+    #expect(!negative.canPoll(at: now))
+
+    var huge = IdleScreenAgentSignalMonitor(pollingInterval: 3_600)
+    _ = huge.consume(empty, at: now)
+    #expect(!huge.canPoll(at: now.addingTimeInterval(maximum - 0.01)))
+    #expect(huge.canPoll(at: now.addingTimeInterval(maximum)))
+
+    let root = FileManager.default.temporaryDirectory
+      .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: root) }
+    var stored = IdleScreenAgentSignalMonitor(
+      store: IdleScreenAgentSignalStore(fileURL: root.appending(path: "inbox-v1.json")),
+      pollingInterval: 3_600
+    )
+    _ = try stored.poll(at: now)
+    #expect(!stored.canPoll(at: now.addingTimeInterval(maximum - 0.01)))
+    #expect(stored.canPoll(at: now.addingTimeInterval(maximum)))
+  }
+
+  @Test("a revision bump publishes even when the active signal is unchanged")
+  func revisionBumpWithoutSignalChange() throws {
+    let now = Date(timeIntervalSince1970: 1_786_296_600)
+    let signal = try IdleScreenAgentSignal.validated(
+      provider: .codex, sessionID: "session-1", eventID: "event-1",
+      state: .working, title: nil, message: nil, temporaryLookID: nil, priority: 0,
+      createdAt: now, expiresAt: now.addingTimeInterval(600), acknowledgedAt: nil,
+      nonce: "nonce-1", validatedAt: now)
+    var monitor = IdleScreenAgentSignalMonitor(pollingInterval: 1)
+    var inbox = IdleScreenAgentSignalInbox(revision: 1, updatedAt: now)
+    inbox.signals = [signal]
+
+    let first = monitor.consume(inbox, at: now)
+    let same = monitor.consume(inbox, at: now.addingTimeInterval(1))
+    inbox.revision = 2
+    inbox.ignoredEventCounts = [.claude: 3]
+    let bumped = monitor.consume(inbox, at: now.addingTimeInterval(2))
+    let settled = monitor.consume(inbox, at: now.addingTimeInterval(3))
+
+    #expect(first?.inboxRevision == 1)
+    #expect(same == nil)
+    #expect(bumped?.inboxRevision == 2)
+    #expect(bumped?.signal == signal)
+    #expect(bumped?.ignoredEventCounts == [.claude: 3])
+    #expect(settled == nil)
+  }
 }
