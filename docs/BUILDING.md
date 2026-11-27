@@ -28,7 +28,9 @@ relying on a local pass:
 ./scripts/check-tool-versions.sh
 ```
 
-CI does not depend on any of this. It asserts `xcodegen --version` exactly and
+CI does not depend on any of this. It installs the sha256-pinned XcodeGen 2.46.0
+release with `scripts/install-xcodegen.sh` (not Homebrew), asserts
+`xcodegen --version` exactly, and
 installs Qlty from `qltysh/qlty-action/install` pinned to a full commit SHA, so
 a local version mismatch shows up as a disagreement with CI rather than as a
 silent pass.
