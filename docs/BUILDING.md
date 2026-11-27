@@ -261,6 +261,21 @@ Ordinary changes target the protected `dev/v0.1` branch. `main` advances only
 through a reviewed promotion pull request and must immediately receive the GA
 tag so `git describe --exact-match origin/main` succeeds.
 
+Before merging the promotion PR, run the CodeQL gate. `main`'s ruleset has a
+`code_scanning` rule (errors, high or higher) that is evaluated on the PR's
+merge commit, so check that exact ref:
+
+```sh
+./scripts/check-promotion-codeql.sh <pr-number>
+```
+
+It reads the PR's `merge_commit_sha`, requires a CodeQL analysis of
+`refs/pull/<n>/merge` for that commit (exit 2 means wait for
+`security-codeql` and rerun), and fails with exit 1 if any open alert on that
+ref is high or critical by security severity, or `error` severity when it has
+none. This is the gate. The same alert query against `refs/heads/dev/v0.1` is
+only an early warning, since it doesn't see the merge result.
+
 ## Repository hygiene
 
 Local roadmaps, raw test evidence, design exports, audit reports, and historical

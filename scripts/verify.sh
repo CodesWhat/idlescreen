@@ -85,7 +85,8 @@ release_fixtures() {
     ./scripts/test-selection-probe.sh &&
     ./scripts/test-shared-state-verifier.sh &&
     ./scripts/test-synthetic-gate-contracts.sh &&
-    ./scripts/test-synthetic-gate-transaction.sh
+    ./scripts/test-synthetic-gate-transaction.sh &&
+    ./scripts/test-check-promotion-codeql.sh
 }
 
 release_build() {
