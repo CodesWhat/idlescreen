@@ -100,7 +100,8 @@ failures are visible.
 
 After the report is uploaded, `scripts/check_coverage_floor.py` enforces a fixed
 80% line-coverage floor on the same LCOV and fails the push job below it. The
-check runs after the upload so a miss still publishes the report. `codecov.yml`
+check is the last step of the `coverage` job, after the upload, so a miss
+still publishes the report and the build job's later checks still run. `codecov.yml`
 sets the same 80% project target.
 
 ## Physical checks
