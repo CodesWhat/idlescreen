@@ -122,6 +122,8 @@ if [[ "$(grep -Ec "$checkout_pin" "$ci_workflow" || true)" -ne 3 ]] ||
    ! grep -Fq 'plugins: noop' <<<"$ci_coverage_block" ||
    ! grep -Fq 'fail_ci_if_error: true' <<<"$ci_coverage_block" ||
    ! grep -Fq 'python3 ./scripts/test_xccov_to_lcov.py' "$ci_workflow" ||
+   ! grep -Fq './scripts/test-coverage-floor.sh' "$ci_workflow" ||
+   ! grep -Fq 'python3 ./scripts/check_coverage_floor.py --floor 80.0' "$ci_workflow" ||
    grep -Fq 'plugins: xcode' <<<"$ci_coverage_block" ||
    grep -Fq 'macos' <<<"$ci_coverage_block" ||
    grep -Eq '^[[:space:]]+token:' <<<"$ci_coverage_block" ||

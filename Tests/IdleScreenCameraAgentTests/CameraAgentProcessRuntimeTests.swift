@@ -1,5 +1,6 @@
 import Foundation
 import IdleScreenCamera
+import IdleScreenCore
 import Testing
 
 @testable import IdleScreenCameraAgentCore
@@ -326,6 +327,137 @@ struct CameraAgentProcessRuntimeTests {
     #expect(CameraAgentProcessBootstrapError.assemblyFailed.stderrToken == "assembly-failed")
   }
 
+  private struct InjectedFailure: Error {}
+
+  @Test("a generic failure from each assembly step maps to that step's stable error")
+  func genericFailuresMapToStepErrors() throws {
+    let expectations: [(String, CameraAgentProcessBootstrapError)] = [
+      ("agent-identity", .identityUnavailable(.unknown)),
+      ("mailbox-publisher", .frameTransportUnavailable),
+      ("runtime-driver", .runtimeUnavailable),
+      ("service", .serviceUnavailable),
+      ("listener", .listenerUnavailable),
+    ]
+    for (operation, expected) in expectations {
+      let harness = try ProcessRuntimeHarness()
+      harness.components.failures[operation] = InjectedFailure()
+
+      #expect(throws: expected, "\(operation)") {
+        _ = try harness.bootstrap()
+      }
+      #expect(harness.components.operations.last == operation)
+    }
+  }
+
+  @Test("a bootstrap error raised by a step propagates unchanged")
+  func bootstrapErrorsPropagate() throws {
+    for operation in [
+      "agent-identity", "mailbox-publisher", "runtime-driver", "service", "listener",
+    ] {
+      let harness = try ProcessRuntimeHarness()
+      harness.components.failures[operation] = CameraAgentProcessBootstrapError.containerUnavailable
+
+      #expect(throws: CameraAgentProcessBootstrapError.containerUnavailable, "\(operation)") {
+        _ = try harness.bootstrap()
+      }
+    }
+  }
+
+  @Test("identity bootstrap failures keep their diagnostic reason")
+  func identityFailureReasonIsPreserved() throws {
+    let harness = try ProcessRuntimeHarness()
+    harness.components.failures["agent-identity"] =
+      CameraAgentIdentityBootstrapFailure.executableHash
+
+    #expect(throws: CameraAgentProcessBootstrapError.identityUnavailable(.executableHash)) {
+      _ = try harness.bootstrap()
+    }
+    #expect(
+      CameraAgentProcessBootstrapError.identityUnavailable(.executableHash).stderrToken
+        == "identity-executable-hash"
+    )
+  }
+
+  @Test("an identity that disagrees with the configuration fails assembly")
+  func identityMismatchFailsClosed() throws {
+    let harness = try ProcessRuntimeHarness()
+    harness.components.identityOverride = makeTestAgentIdentity(
+      processIncarnationEpoch: 41,
+      bundleIdentifier: "com.example.imposter",
+      serviceIdentifier: harness.configuration.machServiceName,
+      teamIdentifier: harness.configuration.expectedTeamIdentifier
+    )
+
+    #expect(throws: CameraAgentProcessBootstrapError.assemblyFailed) {
+      _ = try harness.bootstrap()
+    }
+    #expect(harness.components.operations == ["agent-identity"])
+
+    let staleEpoch = try ProcessRuntimeHarness()
+    staleEpoch.components.identityOverride = makeTestAgentIdentity(
+      processIncarnationEpoch: 99,
+      bundleIdentifier: staleEpoch.configuration.agentBundleIdentifier,
+      serviceIdentifier: staleEpoch.configuration.machServiceName,
+      teamIdentifier: staleEpoch.configuration.expectedTeamIdentifier
+    )
+    #expect(throws: CameraAgentProcessBootstrapError.assemblyFailed) {
+      _ = try staleEpoch.bootstrap()
+    }
+  }
+
+  @Test("every bootstrap failure has a distinct stderr token")
+  func stderrTokens() {
+    let errors: [CameraAgentProcessBootstrapError] = [
+      .containerUnavailable, .identityUnavailable(.bundleLayout), .frameTransportUnavailable,
+      .runtimeUnavailable, .serviceUnavailable, .listenerUnavailable, .assemblyFailed,
+    ]
+    let tokens = errors.map(\.stderrToken)
+    #expect(Set(tokens).count == errors.count)
+    #expect(
+      tokens == [
+        "container-unavailable", "identity-bundle-layout", "frame-transport-unavailable",
+        "runtime-unavailable", "service-unavailable", "listener-unavailable", "assembly-failed",
+      ])
+  }
+
+  @Test("camera selection from shared configuration is delivered once per change")
+  func cameraSelectionDeliveryIsDeduplicated() throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let harness = try ProcessRuntimeHarness()
+    harness.container.result = directory
+    let store = IdleScreenConfigurationStore(
+      fileURL: IdleScreenSharedPaths(rootURL: directory).configurationURL
+    )
+    let runtime = try harness.bootstrap()
+    let driver = harness.components.driver
+
+    // No file yet: the default policy is delivered once at start.
+    runtime.start()
+    #expect(driver.cameraConfigurations == [.default])
+    harness.repeatingScheduler.fire()
+    #expect(driver.cameraConfigurations == [.default])
+
+    var configuration = IdleScreenConfiguration.default
+    configuration.camera = IdleScreenCameraConfiguration(
+      selection: .device(uniqueID: "cam-7"),
+      isMirrored: false
+    )
+    try store.write(configuration)
+    harness.repeatingScheduler.fire()
+    harness.repeatingScheduler.fire()
+    #expect(driver.cameraConfigurations.count == 2)
+    #expect(driver.cameraConfigurations.last?.selection == .device(uniqueID: "cam-7"))
+
+    // A half-written file keeps the last valid policy instead of replacing it.
+    try Data("{ not json".utf8).write(to: store.fileURL)
+    harness.repeatingScheduler.fire()
+    #expect(driver.cameraConfigurations.count == 2)
+    runtime.shutdown()
+  }
+
   @Test("bootstrap rejects a zero process epoch seed before assembling components")
   func zeroProcessEpochSeedFailsClosed() throws {
     let harness = try ProcessRuntimeHarness()
@@ -450,6 +582,8 @@ private final class FakeProcessComponents: CameraAgentProcessComponentBuilding,
   let listener = FakeProcessListener()
 
   private(set) var operations: [String] = []
+  var failures: [String: any Error] = [:]
+  var identityOverride: IdleScreenCameraAgentIdentity?
   var selfIdentityIsAvailable = true
   private(set) var identityRequestEpochs: [UInt64] = []
   private(set) var mailboxFileNames: [String] = []
@@ -481,6 +615,8 @@ private final class FakeProcessComponents: CameraAgentProcessComponentBuilding,
   ) throws -> IdleScreenCameraAgentIdentity {
     operations.append("agent-identity")
     identityRequestEpochs.append(processIncarnationEpoch)
+    if let failure = failures["agent-identity"] { throw failure }
+    if let identityOverride { return identityOverride }
     guard selfIdentityIsAvailable,
       let identity = makeTestAgentIdentity(
         processIncarnationEpoch: processIncarnationEpoch,
@@ -524,6 +660,7 @@ private final class FakeProcessComponents: CameraAgentProcessComponentBuilding,
   ) throws -> any CameraAgentProcessFramePublishing {
     _ = appGroupContainerURL
     operations.append("mailbox-publisher")
+    if let failure = failures["mailbox-publisher"] { throw failure }
     mailboxFileNames.append(mailboxFileName)
     return publisher
   }
@@ -537,6 +674,7 @@ private final class FakeProcessComponents: CameraAgentProcessComponentBuilding,
     _ = captureController
     _ = framePublisher
     operations.append("runtime-driver")
+    if let failure = failures["runtime-driver"] { throw failure }
     return driver
   }
 
@@ -555,6 +693,7 @@ private final class FakeProcessComponents: CameraAgentProcessComponentBuilding,
     serviceReceivedSharedAuthorizationChecker =
       (authorizationChecker as? FakeAuthorizationChecker) === checker
     operations.append("service")
+    if let failure = failures["service"] { throw failure }
     serviceLeaseTimeToLive = leaseTimeToLive
     producerStreamEpochSeeds.append(producerStreamEpochSeed)
     serviceAgentIdentities.append(agentIdentity)
@@ -577,6 +716,7 @@ private final class FakeProcessComponents: CameraAgentProcessComponentBuilding,
   ) throws -> any CameraAgentProcessListening {
     _ = service
     operations.append("listener")
+    if let failure = failures["listener"] { throw failure }
     listenerConfigurations.append(configuration)
     return listener
   }
@@ -735,6 +875,12 @@ private final class FakeProcessDriver: CameraAgentProcessDriving, @unchecked Sen
 
   func receiveDeviceInventory(_ snapshot: CameraDeviceInventorySnapshot) {
     inventorySnapshots.append(snapshot)
+  }
+
+  private(set) var cameraConfigurations: [IdleScreenCameraConfiguration] = []
+
+  func receiveCameraConfiguration(_ configuration: IdleScreenCameraConfiguration) {
+    cameraConfigurations.append(configuration)
   }
 
   func cancelDeviceInventoryCallbacks() {
