@@ -106,9 +106,14 @@ line keeps its highest execution count, so duplicate instrumentation does not
 inflate counts and an uncovered line stays visible until exercised elsewhere.
 Every input must contain executable production lines; malformed or empty data
 fails before uploading. Codecov receives only that report, with automatic Xcode
-rediscovery disabled and upload errors failing the job. This makes generation
-and upload failures visible without imposing a numeric coverage target or
-replacing provider-side project/patch settings.
+rediscovery disabled and upload errors failing the job, so generation and upload
+failures are visible.
+
+After the report is uploaded, `scripts/check_coverage_floor.py` enforces a fixed
+80% line-coverage floor on the same LCOV and fails the push job below it. The
+check is the last step of the `coverage` job, after the upload, so a miss
+still publishes the report and the build job's later checks still run. `codecov.yml`
+sets the same 80% project target.
 
 ## Physical checks
 

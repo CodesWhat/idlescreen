@@ -86,6 +86,7 @@ jobs:
           IDLESCREEN_COVERAGE_RESULT_BUNDLE: ${{ github.event_name == 'push' && format('{0}/idlescreen-test-results/IdleScreenAppCompileGate.xcresult', runner.temp) || '' }}
         run: |
           python3 ./scripts/test_xccov_to_lcov.py
+          ./scripts/test-coverage-floor.sh
           python3 ./scripts/test_performance_r1_report.py
           ./scripts/test-run-performance-r1.sh
           ./scripts/test-camera-gate-c8-soak-planner.py
@@ -212,6 +213,11 @@ jobs:
           disable_search: true
           plugins: noop
           fail_ci_if_error: true
+
+      - name: Enforce the 80% line-coverage floor
+        run: |
+          python3 ./scripts/check_coverage_floor.py --floor 80.0 \
+            "$RUNNER_TEMP/idlescreen-coverage/coverage.lcov"
 
   qlty:
     name: qlty
