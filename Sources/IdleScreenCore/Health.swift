@@ -190,10 +190,13 @@ public struct IdleScreenHealthStore: Sendable {
 
   /// Publishes from a serial background queue so an interactive caller never waits on the
   /// directory lock. Reports from every caller land in submission order, so a later report can't be
-  /// overwritten by an earlier one. `onFailure` runs on that queue.
+  /// overwritten by an earlier one. `onFailure` and `onComplete` run on that queue; `onComplete`
+  /// runs after the write attempt whether it succeeded or failed, so a dependent read can start
+  /// once the publication has landed without blocking the caller.
   public func writeInBackground(
     _ report: IdleScreenProcessHealth,
-    onFailure: @escaping @Sendable (any Swift.Error) -> Void = { _ in }
+    onFailure: @escaping @Sendable (any Swift.Error) -> Void = { _ in },
+    onComplete: @escaping @Sendable () -> Void = {}
   ) {
     let store = self
     Self.publishQueue.async {
@@ -202,6 +205,7 @@ public struct IdleScreenHealthStore: Sendable {
       } catch {
         onFailure(error)
       }
+      onComplete()
     }
   }
 

@@ -43,9 +43,18 @@ enum WebGLCapability {
         try await surface.shutdown()
         return true
       } catch {
-        return false
+        return !WebGLCapability.isWebGLUnavailable(error)
       }
     }
+  }
+
+  /// Only the specific WebGL-context failure counts as "unavailable". Any other failure (a scene
+  /// that doesn't initialize, a navigation error) leaves the suites enabled so their own loads
+  /// report it instead of being skipped.
+  static func isWebGLUnavailable(_ error: any Error) -> Bool {
+    guard case IdleScreenAquariumWebSurface.SurfaceError.runtimeUnavailable(let detail) = error
+    else { return false }
+    return detail.hasPrefix("WebGL unavailable")
   }
 
   private static let probe = Probe()
@@ -77,5 +86,18 @@ enum WebGLCapability {
   static func shouldRun() async -> Bool {
     let available = await probe.isAvailable()
     return available || requireWebGL
+  }
+}
+
+@Suite("WebGL capability classification")
+struct WebGLCapabilityClassificationTests {
+  @Test func onlyTheWebGLContextFailureIsUnavailable() {
+    typealias Failure = IdleScreenAquariumWebSurface.SurfaceError
+    #expect(
+      WebGLCapability.isWebGLUnavailable(
+        Failure.runtimeUnavailable("WebGL unavailable: no context")))
+    #expect(
+      !WebGLCapability.isWebGLUnavailable(Failure.runtimeUnavailable("scene did not initialize")))
+    #expect(!WebGLCapability.isWebGLUnavailable(URLError(.badURL)))
   }
 }

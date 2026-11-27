@@ -93,7 +93,9 @@ bundled aquarium. Hosted macOS runners sometimes have no WebGL for a whole test
 process, and then those suites skip with one
 `WebGL unavailable on this host` line in the log instead of failing every test.
 Set `IDLESCREEN_REQUIRE_WEBGL=1` on a machine with a real GPU to turn an
-unavailable probe into failures. `IDLESCREEN_FORCE_NO_WEBGL=1` makes the probe
+unavailable probe into failures. Only the specific WebGL context failure counts as
+unavailable; any other probe failure (such as a scene that doesn't initialize)
+leaves the suites enabled so it fails them instead of skipping. `IDLESCREEN_FORCE_NO_WEBGL=1` makes the probe
 report unavailable, for checking the skip path.
 
 On trusted pushes, the coverage job exports each tested scheme's Xcode archive

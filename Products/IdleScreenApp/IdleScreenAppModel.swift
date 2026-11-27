@@ -267,7 +267,7 @@ final class IdleScreenAppModel {
       persistConfigurationIfNeeded(overwritingExisting: repairedPersistedConfiguration)
     }
     agentIntegration.start()
-    publishAppHealth()
+    publishAppHealth(refreshAfter: true)
     refresh()
   }
 
@@ -378,8 +378,7 @@ final class IdleScreenAppModel {
         lastError = message
       }
       isRefreshing = false
-      publishAppHealth()
-      readProcessHealth()
+      publishAppHealth(refreshAfter: true)
     }
   }
 
@@ -915,7 +914,10 @@ final class IdleScreenAppModel {
     }
   }
 
-  private func publishAppHealth() {
+  /// With `refreshAfter`, the process-health read starts only once the queued publication has
+  /// finished (success or failure), so the app's own entry isn't read stale. The wait happens on
+  /// the publish queue, never on the main actor.
+  private func publishAppHealth(refreshAfter: Bool = false) {
     guard let sharedPaths else { return }
     let report = IdleScreenProcessHealth(
       process: .companionApp,
@@ -931,11 +933,16 @@ final class IdleScreenAppModel {
       issue: lastError
     )
     let logger = Self.logger
-    IdleScreenHealthStore(directoryURL: sharedPaths.healthDirectoryURL).writeInBackground(report) {
-      error in
-      logger.error(
-        "Unable to publish app health: \(error.localizedDescription, privacy: .public)")
-    }
+    IdleScreenHealthStore(directoryURL: sharedPaths.healthDirectoryURL).writeInBackground(
+      report,
+      onFailure: { error in
+        logger.error(
+          "Unable to publish app health: \(error.localizedDescription, privacy: .public)")
+      },
+      onComplete: { [weak self] in
+        guard refreshAfter else { return }
+        Task { @MainActor in self?.readProcessHealth() }
+      })
   }
 
   private func runInBackground(_ operation: @escaping @Sendable () throws -> Void) {
@@ -982,8 +989,7 @@ final class IdleScreenAppModel {
       saverActionStatus = nil
       lastError = message
     }
-    publishAppHealth()
-    readProcessHealth()
+    publishAppHealth(refreshAfter: true)
   }
 
   private static func boolInfoValue(_ value: Any?) -> Bool {

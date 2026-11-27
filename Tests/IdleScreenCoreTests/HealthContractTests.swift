@@ -447,6 +447,32 @@ struct HealthContractTests {
     #expect(try store.readAll().first?.updatedAt == Date(timeIntervalSince1970: 5))
   }
 
+  @Test("background publication completes before onComplete fires, on failure too")
+  func backgroundWriteReportsCompletionAfterThePublish() throws {
+    let directory = retentionDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = IdleScreenHealthStore(directoryURL: directory)
+    let report = retentionReport(.companionApp, pid: 9, instance: "i", at: 3)
+    let seenAtCompletion = LockedBox<[IdleScreenProcessHealth]>([])
+    let done = DispatchSemaphore(value: 0)
+    store.writeInBackground(
+      report,
+      onComplete: {
+        seenAtCompletion.set((try? store.readAll()) ?? [])
+        done.signal()
+      })
+    #expect(done.wait(timeout: .now() + 5) == .success)
+    #expect(seenAtCompletion.get().first?.updatedAt == Date(timeIntervalSince1970: 3))
+
+    // A failing publish still completes.
+    let blocker = directory.appending(path: "not-a-directory")
+    try Data().write(to: blocker)
+    let failing = IdleScreenHealthStore(directoryURL: blocker.appending(path: "child"))
+    let failed = DispatchSemaphore(value: 0)
+    failing.writeInBackground(report, onComplete: { failed.signal() })
+    #expect(failed.wait(timeout: .now() + 5) == .success)
+  }
+
   @Test("retention never removes unrecognized files")
   func retentionIgnoresUnrecognizedFiles() throws {
     let directory = retentionDirectory()
@@ -552,5 +578,21 @@ struct HealthContractTests {
     let after = try store.enforceRetention(historicalLimitPerProcess: 0)
     #expect(!after.skippedPruning)
     #expect(after.retained.isEmpty)
+  }
+}
+
+private final class LockedBox<Value>: @unchecked Sendable {
+  private let lock = NSLock()
+  private var value: Value
+  init(_ value: Value) { self.value = value }
+  func set(_ new: Value) {
+    lock.lock()
+    value = new
+    lock.unlock()
+  }
+  func get() -> Value {
+    lock.lock()
+    defer { lock.unlock() }
+    return value
   }
 }

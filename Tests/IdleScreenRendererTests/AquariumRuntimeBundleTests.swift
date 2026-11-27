@@ -1060,7 +1060,8 @@ extension WebGLSurfaceSuites {
         WKUserScript(
           source: Self.frameClock(emulatingVisibleDocument: true),
           injectionTime: .atDocumentStart, forMainFrameOnly: true))
-      try await surface.load(sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
+      try await surface.loadRetryingTransientWebGLFailure(
+        sceneURL: #require(IdleScreenAquariumRuntime.sceneURL))
       _ = try await surface.beginEditing()
       try await surface.resume()
       let result = try await tankScript(
