@@ -25,6 +25,7 @@ fixture_product_name() {
     */IdleScreenRenderer.framework) echo renderer ;;
     */IdleScreenScreenSaver.appex) echo extension ;;
     */IdleScreenCameraAgent.app) echo helper ;;
+    */IdleScreenCtl.app) echo control-bundle ;;
     */idlescreenctl) echo control-tool ;;
     */IdleScreen.app) echo app ;;
     *) return 1 ;;
@@ -38,6 +39,7 @@ fixture_identifier() {
     extension) echo com.idlescreen.app.screensaver ;;
     helper) echo com.idlescreen.camera-agent ;;
     control-tool) echo com.idlescreen.ctl ;;
+    control-bundle) echo com.idlescreen.app.ctl ;;
     app) echo com.idlescreen.app ;;
     *) return 1 ;;
   esac
@@ -50,6 +52,7 @@ fixture_cdhash() {
     helper) /usr/bin/printf '33%.0s' {1..20} ;;
     renderer) /usr/bin/printf '44%.0s' {1..20} ;;
     control-tool) /usr/bin/printf '55%.0s' {1..20} ;;
+    control-bundle) /usr/bin/printf '77%.0s' {1..20} ;;
     dmg) /usr/bin/printf '66%.0s' {1..20} ;;
     *) return 1 ;;
   esac
@@ -194,10 +197,16 @@ mock_codesign_main() {
            "$8" == "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Sources/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements" ]] || return 1
         ;;
       control-tool)
+        [[ $# -eq 9 && "$1" == --force && "$2" == --sign &&
+           "$3" == "$IDLESCREEN_DEVELOPER_IDENTITY_SHA1" && "$4" == --timestamp &&
+           "$5" == --options && "$6" == runtime && "$7" == --identifier &&
+           "$8" == com.idlescreen.ctl ]] || return 1
+        ;;
+      control-bundle)
         [[ $# -eq 11 && "$1" == --force && "$2" == --sign &&
            "$3" == "$IDLESCREEN_DEVELOPER_IDENTITY_SHA1" && "$4" == --timestamp &&
            "$5" == --options && "$6" == runtime && "$7" == --identifier &&
-           "$8" == com.idlescreen.ctl && "$9" == --entitlements &&
+           "$8" == com.idlescreen.app.ctl && "$9" == --entitlements &&
            "${10}" == "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Products/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements" ]] || return 1
         ;;
       app)
@@ -236,7 +245,8 @@ mock_codesign_main() {
         app) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Products/IdleScreenApp/IdleScreenDeveloperID.entitlements" ;;
         extension) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Products/IdleScreenScreenSaver/IdleScreenScreenSaverDeveloperID.entitlements" ;;
         helper) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Sources/IdleScreenCameraAgent/IdleScreenCameraAgentDeveloperID.entitlements" ;;
-        control-tool) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Products/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements" ;;
+        control-tool) ;;
+        control-bundle) /bin/cat "$IDLESCREEN_FIXTURE_PROJECT_ROOT/Products/IdleScreenAgentExecutable/idlescreenctl-DeveloperID.entitlements" ;;
         *) return 1 ;;
       esac
     fi
@@ -278,6 +288,13 @@ mock_codesign_main() {
 mock_product_verifier_main() {
   [[ $# -eq 2 && "$1" == */IdleScreen.app && "$2" == Release ]] || return 1
   append_event product-contracts
+}
+
+mock_control_shim_builder_main() {
+  [[ $# -eq 2 && ! -e "$1" && -f "$2" ]] || return 64
+  append_event build-control-shim
+  /usr/bin/printf shim >"$1"
+  /bin/chmod 755 "$1"
 }
 
 mock_signing_verifier_main() {
@@ -423,6 +440,7 @@ case "$(/usr/bin/basename "$0")" in
   mock-c3-verifier) mock_c3_verifier_main "$@"; exit $? ;;
   mock-codesign) mock_codesign_main "$@"; exit $? ;;
   mock-product-verifier) mock_product_verifier_main "$@"; exit $? ;;
+  mock-control-shim-builder) mock_control_shim_builder_main "$@"; exit $? ;;
   mock-signing-verifier) mock_signing_verifier_main "$@"; exit $? ;;
   mock-hdiutil) mock_hdiutil_main "$@"; exit $? ;;
   mock-notarytool) mock_notarytool_main "$@"; exit $? ;;
@@ -435,7 +453,7 @@ esac
 
 mock_root="$fixture_root/mocks"
 /bin/mkdir -p "$mock_root"
-for mock_name in git security c3-builder c3-verifier codesign product-verifier signing-verifier hdiutil notarytool stapler spctl; do
+for mock_name in git security c3-builder c3-verifier codesign product-verifier signing-verifier control-shim-builder hdiutil notarytool stapler spctl; do
   /bin/ln -s "$script_root/$(/usr/bin/basename "$0")" "$mock_root/mock-$mock_name"
 done
 
@@ -498,6 +516,7 @@ run_builder() {
   IDLESCREEN_R1_CODESIGN="$mock_root/mock-codesign" \
   IDLESCREEN_R1_PRODUCT_VERIFIER="$mock_root/mock-product-verifier" \
   IDLESCREEN_R1_SIGNING_VERIFIER="$mock_root/mock-signing-verifier" \
+  IDLESCREEN_R1_CONTROL_SHIM_BUILDER="$mock_root/mock-control-shim-builder" \
   IDLESCREEN_R1_HDIUTIL="$mock_root/mock-hdiutil" \
   IDLESCREEN_R1_NOTARYTOOL="$mock_root/mock-notarytool" \
   IDLESCREEN_R1_STAPLER="$mock_root/mock-stapler" \
@@ -582,8 +601,8 @@ events="$fixture_root/events-valid-candidate.txt"
 previous_line=0
 for expected_event in \
   security-identity-preflight profile-app profile-extension profile-helper \
-  notary-credential-preflight c3-archive c3-provenance-replay sign-renderer sign-extension sign-helper \
-  sign-control-tool sign-app product-contracts provisioning-contracts create-dmg \
+  notary-credential-preflight c3-archive c3-provenance-replay build-control-shim sign-renderer sign-extension sign-helper \
+  sign-control-bundle sign-control-tool sign-app product-contracts provisioning-contracts create-dmg \
   sign-dmg verify-dmg notary-submit notary-wait notary-log staple-dmg \
   validate-staple gatekeeper-dmg attach-readonly-dmg gatekeeper-app detach-dmg; do
   event_line="$(/usr/bin/awk -v event="$expected_event" '$0 == event { print NR; exit }' "$events")"

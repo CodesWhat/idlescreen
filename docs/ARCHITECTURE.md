@@ -22,6 +22,7 @@ IdleScreen.app
 ├── Contents/PlugIns/IdleScreenScreenSaver.appex
 ├── Contents/Helpers/IdleScreenCameraAgent.app
 ├── Contents/Helpers/idlescreenctl
+├── Contents/Helpers/IdleScreenCtl.app
 └── Contents/Library/LaunchAgents/
 ```
 
@@ -33,6 +34,9 @@ IdleScreen.app
 - `IdleScreenCore` owns versioned configuration and cross-process data models.
 - `IdleScreenSystem` owns app-only registration and System Settings integration.
 - `IdleScreenAgent` and `idlescreenctl` implement optional local agent signals.
+  In the Developer ID build `Helpers/idlescreenctl` is a small launcher that
+  `exec`s the real tool in `Helpers/IdleScreenCtl.app`, because a bare binary
+  can't carry the provisioning profile its entitlements need.
 
 The `IdleScreenSyntheticGate` targets are test apparatus. They are never
 embedded in the distributed application.

@@ -150,6 +150,7 @@ canonical_paths=(
   Products/IdleScreenAgentExecutable
   Products/IdleScreenApp
   Products/IdleScreenCameraAgentExecutable
+  Products/IdleScreenCtlShim
   Products/IdleScreenScreenSaver
   Sources/IdleScreenAgent
   Sources/IdleScreenCamera
