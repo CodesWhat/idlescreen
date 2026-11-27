@@ -94,9 +94,9 @@ checkout_pin="uses: actions/checkout@$pin_comment"
 codecov_pin="uses: codecov/codecov-action@$pin_comment"
 harden_runner_pin="uses: step-security/harden-runner@$pin_comment"
 ci_coverage_block="$(sed -n '/^  coverage:$/,/^  qlty:$/p' "$ci_workflow")"
-if [[ "$(grep -Ec "$checkout_pin" "$ci_workflow" || true)" -ne 3 ]] ||
-   [[ "$(grep -Ec "$harden_runner_pin" "$ci_workflow" || true)" -ne 3 ]] ||
-   [[ "$(grep -Fc 'persist-credentials: false' "$ci_workflow" || true)" -ne 3 ]] ||
+if [[ "$(grep -Ec "$checkout_pin" "$ci_workflow" || true)" -ne 6 ]] ||
+   [[ "$(grep -Ec "$harden_runner_pin" "$ci_workflow" || true)" -ne 7 ]] ||
+   [[ "$(grep -Fc 'persist-credentials: false' "$ci_workflow" || true)" -ne 6 ]] ||
    ! grep -Fq 'permissions:' <<<"$ci_coverage_block" ||
    ! grep -Fq 'contents: read' <<<"$ci_coverage_block" ||
    ! grep -Fq 'id-token: write' <<<"$ci_coverage_block" ||
@@ -141,14 +141,67 @@ while IFS= read -r action_ref; do
     echo "FAIL: every external GitHub Action reference must use a full lowercase commit SHA: $action_ref" >&2
     exit 1
   fi
-done < <(awk '/uses:/ { print $2 }' "$ci_workflow")
+done < <(awk '/(^|[[:space:]-])uses:/ { print $2 }' "$ci_workflow")
 
+ci_receipt_block="$(sed -n '/^  receipt:$/,$p' "$ci_workflow")"
 if [[ "$(grep -Ec '^[[:space:]]+id-token: write$' "$ci_workflow" || true)" -ne 1 ]] ||
-   grep -Eq '^[[:space:]]+(actions|attestations|checks|deployments|discussions|issues|models|packages|pages|pull-requests|security-events|statuses): write$' "$ci_workflow" ||
+   [[ "$(grep -Ec '^[[:space:]]+statuses: write$' "$ci_workflow" || true)" -ne 1 ]] ||
+   ! grep -Fq 'statuses: write' <<<"$ci_receipt_block" ||
+   grep -Eq '^[[:space:]]+(actions|attestations|checks|deployments|discussions|issues|models|packages|pages|pull-requests|security-events): write$' "$ci_workflow" ||
    grep -Eq 'permissions:[[:space:]]+(read-all|write-all)' "$ci_workflow"; then
-  echo "FAIL: CI may grant write permission only to one coverage-job OIDC token." >&2
+  echo "FAIL: CI may grant write permission only to the coverage-job OIDC credential and the push-only receipt job's statuses." >&2
   exit 1
 fi
+
+# Changes gate and tree receipt wiring. The gate must fail open, push runs
+# must always verify in full and record a receipt, and the required
+# build-and-test check must keep reporting when its job is skipped.
+reviewed_gate_sha="684a6b931e7802f1985e2cb4f6ea0c95861988e3"
+ci_changes_block="$(sed -n '/^  changes:$/,/^  receipt-check:$/p' "$ci_workflow")"
+ci_receipt_check_block="$(sed -n '/^  receipt-check:$/,/^  build-and-test:$/p' "$ci_workflow")"
+ci_build_block="$(sed -n '/^  build-and-test:$/,/^    steps:$/p' "$ci_workflow")"
+ci_website_block="$(sed -n '/^  website:$/,/^  coverage:$/p' "$ci_workflow")"
+if [[ "$(grep -Fc "uses: CodesWhat/.github/actions/changes-gate@$reviewed_gate_sha" "$ci_workflow" || true)" -ne 2 ]] ||
+   [[ "$(grep -Fc "uses: CodesWhat/.github/actions/tree-receipt/verify@$reviewed_gate_sha" "$ci_workflow" || true)" -ne 1 ]] ||
+   [[ "$(grep -Fc "uses: CodesWhat/.github/actions/tree-receipt/record@$reviewed_gate_sha" "$ci_workflow" || true)" -ne 1 ]] ||
+   [[ "$(grep -Fc "if: github.event_name == 'pull_request'" <<<"$ci_changes_block" || true)" -ne 2 ]] ||
+   ! grep -Fq 'pull-requests: read' <<<"$ci_changes_block" ||
+   ! grep -Fq 'native: ${{ steps.native.outputs.run == '"'false'"' && '"'false'"' || '"'true'"' }}' <<<"$ci_changes_block" ||
+   ! grep -Fq 'web: ${{ steps.web.outputs.run == '"'false'"' && '"'false'"' || '"'true'"' }}' <<<"$ci_changes_block" ||
+   ! grep -Fq '!website/**' <<<"$ci_changes_block" ||
+   ! grep -Fq 'scripts/verify-website-browsers.sh' <<<"$ci_changes_block" ||
+   ! grep -Fq 'fetch-depth: 2' <<<"$ci_receipt_check_block" ||
+   ! grep -Fq 'statuses: read' <<<"$ci_receipt_check_block" ||
+   ! grep -Fq 'actions: read' <<<"$ci_receipt_check_block" ||
+   ! grep -Fq "if: github.event_name == 'pull_request'" <<<"$ci_receipt_check_block" ||
+   grep -Fq 'statuses: write' <<<"$ci_receipt_check_block" ||
+   ! grep -Fq 'needs: [changes, receipt-check]' <<<"$ci_build_block" ||
+   ! grep -Fq '!cancelled()' <<<"$ci_build_block" ||
+   ! grep -Fq "needs.changes.result != 'success' || needs.changes.outputs.native != 'false'" <<<"$ci_build_block" ||
+   ! grep -Fq "github.event_name != 'pull_request'" <<<"$ci_build_block" ||
+   ! grep -Fq "needs.receipt-check.result != 'success'" <<<"$ci_build_block" ||
+   ! grep -Fq "needs.receipt-check.outputs.reuse != 'true'" <<<"$ci_build_block" ||
+   grep -Fq "outputs.native == 'true'" <<<"$ci_build_block" ||
+   ! grep -Fq "needs.changes.outputs.web != 'false'" <<<"$ci_website_block" ||
+   ! grep -Fq '!cancelled()' <<<"$ci_website_block" ||
+   ! grep -Fq './scripts/verify-website-browsers.sh' <<<"$ci_website_block" ||
+   [[ "$(grep -Fc './scripts/verify-website-browsers.sh' "$ci_workflow" || true)" -ne 1 ]] ||
+   ! grep -Fq "if: \${{ always() && github.event_name == 'push' }}" <<<"$ci_receipt_block" ||
+   ! grep -Fq 'needs: [changes, receipt-check, build-and-test, website, coverage, qlty]' <<<"$ci_receipt_block" ||
+   ! grep -Fq 'cancel-in-progress: ${{ github.event_name == '"'pull_request'"' }}' "$ci_workflow" ||
+   grep -Eq '^[[:space:]]+branches:.*paths' "$ci_workflow" ||
+   grep -Eq '^[[:space:]]+paths(-ignore)?:' "$ci_workflow"; then
+  echo "FAIL: CI must gate macOS work with the fail-open changes gate, keep required job names reporting, and record push-only tree receipts." >&2
+  exit 1
+fi
+if [[ "$(grep -Fc 'runs-on: macos-26' "$ci_workflow" || true)" -ne 2 ]] ||
+   grep -Fq 'runs-on: macos-26' <<<"$ci_changes_block" ||
+   grep -Fq 'runs-on: macos-26' <<<"$ci_receipt_check_block" ||
+   grep -Fq 'runs-on: macos-26' <<<"$ci_receipt_block"; then
+  echo "FAIL: only build-and-test and website may use macOS in ci-verify.yml." >&2
+  exit 1
+fi
+echo "PASS: CI gates macOS work on changed paths (fail open), keeps required checks reporting, and records receipts on push only."
 
 echo "PASS: CI pins and hardens actions; trusted-push Codecov uses explicit validated production LCOV, visible failures, and least-privilege OIDC."
 

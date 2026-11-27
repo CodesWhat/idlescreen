@@ -16,15 +16,115 @@ on:
     - cron: "37 8 * * 1"
   workflow_dispatch:
 
+# Pull requests supersede their own older runs. Pushes get a group per commit
+# and are never cancelled, so a protected-branch push always finishes and
+# records its tree receipt.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event.pull_request.number || format('{0}-{1}', github.ref, github.sha) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
+  # Fail-open changes gate. Only pull requests are evaluated; push, schedule
+  # and dispatch runs always report true. Any doubt inside the action also
+  # reports true. The job itself always succeeds so a push run stays eligible
+  # as tree-receipt evidence (a skipped job rejects the run).
+  changes:
+    name: changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      # Normalized: only an explicit 'false' skips work.
+      native: ${{ steps.native.outputs.run == 'false' && 'false' || 'true' }}
+      web: ${{ steps.web.outputs.run == 'false' && 'false' || 'true' }}
+
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+
+      - name: Gate pull requests on Swift, project and dependency inputs
+        id: native
+        if: github.event_name == 'pull_request'
+        uses: CodesWhat/.github/actions/changes-gate@684a6b931e7802f1985e2cb4f6ea0c95861988e3
+        with:
+          patterns: |
+            **
+            !website/**
+            !docs-site/**
+            !docs/**
+            !**/*.md
+            !LICENSE
+            !.github/ISSUE_TEMPLATE/**
+
+      - name: Gate pull requests on website and docs inputs
+        id: web
+        if: github.event_name == 'pull_request'
+        uses: CodesWhat/.github/actions/changes-gate@684a6b931e7802f1985e2cb4f6ea0c95861988e3
+        with:
+          patterns: |
+            website/**
+            docs-site/**
+            scripts/verify-website-browsers.sh
+            .github/workflows/ci-verify.yml
+
+  # Reads the receipt a push run recorded for an identical tree. Evaluated on
+  # pull requests only; push runs never reuse, so main and dev always verify
+  # in full. The job runs on every event so push runs have no skipped jobs.
+  receipt-check:
+    name: receipt-check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      statuses: read
+    outputs:
+      reuse: ${{ steps.receipt.outputs.reuse }}
+
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Look for a verified receipt for this tree
+        id: receipt
+        if: github.event_name == 'pull_request'
+        uses: CodesWhat/.github/actions/tree-receipt/verify@684a6b931e7802f1985e2cb4f6ea0c95861988e3
+
   build-and-test:
+    needs: [changes, receipt-check]
+    # Fail open. A bare output check carries an implicit success(), so a failed
+    # gate would skip this job and the required check would still pass. Skip
+    # only when the gate succeeded and said 'false', or a pull request has a
+    # verified receipt for the same tree. A skipped job reports success to the
+    # required build-and-test check.
+    if: >-
+      ${{ !cancelled() &&
+      (needs.changes.result != 'success' || needs.changes.outputs.native != 'false') &&
+      (github.event_name != 'pull_request' ||
+      needs.receipt-check.result != 'success' ||
+      needs.receipt-check.outputs.reuse != 'true') }}
     runs-on: macos-26
     timeout-minutes: 45
 
@@ -159,6 +259,46 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
 
+  # Website and docs browser checks. Still on macOS: the egress list and the
+  # three-browser install are proven there, and moving them to Linux is a
+  # separate change. Skipped for Swift-only and Markdown-only pull requests.
+  website:
+    needs: [changes, receipt-check]
+    if: >-
+      ${{ !cancelled() &&
+      (needs.changes.result != 'success' || needs.changes.outputs.web != 'false') &&
+      (github.event_name != 'pull_request' ||
+      needs.receipt-check.result != 'success' ||
+      needs.receipt-check.outputs.reuse != 'true') }}
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            formulae.brew.sh:443
+            ghcr.io:443
+            github.com:443
+            nodejs.org:443
+            objects.githubusercontent.com:443
+            pkg-containers.githubusercontent.com:443
+            playwright.download.prss.microsoft.com:443
+            cdn.playwright.dev:443
+            storage.googleapis.com:443
+            registry.npmjs.org:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            *.blob.core.windows.net:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Set up Node.js for website and docs checks
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -263,3 +403,44 @@ jobs:
 
       - name: Run Qlty gate
         run: ./scripts/qlty-check-gate.sh all
+
+  # Final job on push runs. Records the tree receipt a later pull request
+  # looks for, and only when every job ran and passed. Nothing is gated off on
+  # push, so any result other than success is a failure. Pull requests never
+  # reach this job, so they never get a status-writing credential.
+  receipt:
+    needs: [changes, receipt-check, build-and-test, website, coverage, qlty]
+    if: ${{ always() && github.event_name == 'push' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: write
+
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+
+      - name: Fail unless every job ran and passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            if [[ "$result" != success ]]; then
+              echo "a needed job ended as $result"
+              exit 1
+            fi
+          done
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Record the tree receipt
+        uses: CodesWhat/.github/actions/tree-receipt/record@684a6b931e7802f1985e2cb4f6ea0c95861988e3

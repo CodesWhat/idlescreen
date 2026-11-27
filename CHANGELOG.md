@@ -5,6 +5,12 @@ All notable changes to idlescreen are documented here. The project follows
 
 ## [Unreleased]
 
+### Changed
+
+- CI skips the macOS build and the website browser checks on pull requests that
+  only touch docs, Markdown or the other half of the repo, and records a tree
+  receipt on pushes so an identical-tree promotion PR can reuse the result.
+
 ## [0.4.0] - 2026-11-20
 
 ### Added

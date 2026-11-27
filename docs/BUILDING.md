@@ -87,6 +87,21 @@ treated as errors, CodeQL, workflow security, Qlty, and Codecov coverage. The
 companion compile gate prints the temporary directory
 containing its disposable build log.
 
+Pull requests run `ci-verify.yml` through the shared `changes-gate` action
+(`CodesWhat/.github/actions/changes-gate`). The macOS `build-and-test` job
+skips when only `website/`, `docs-site/`, `docs/`, Markdown, `LICENSE` or issue
+templates changed, and the macOS `website` job skips unless `website/`,
+`docs-site/`, `scripts/verify-website-browsers.sh` or the workflow changed. The
+gate fails open: any API error, doubt or non-PR event runs everything, and the
+job conditions run on any result other than an explicit `false`. A skipped job
+still reports success, so the required `build-and-test` and `qlty` checks keep
+reporting. Pushes to `main` and `dev/**` always run in full and finish without
+being cancelled. A final push-only `receipt` job writes a
+`tree-receipt/.github/workflows/ci-verify.yml` commit status once every job has
+passed, and a pull request with an identical tree (a promotion PR, for
+example) reuses that run instead of repeating the macOS work. CodeQL keeps its
+own Swift-change detection in `security-codeql.yml`.
+
 On trusted pushes, the coverage job exports each tested scheme's Xcode archive
 line counts and converts them with `scripts/xccov_to_lcov.py` to one explicit
 LCOV report. It includes instrumented files under `Sources/` and `Products/`,
