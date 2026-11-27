@@ -244,6 +244,8 @@ public final class IdleScreenAquariumWebSurface: NSObject, WKNavigationDelegate 
   func resetFailedLoad() async -> Bool {
     guard state == .failed, !released else { return false }
     try? await command(Self.disposeScript)
+    // Teardown can run while the disposal awaits; don't resurrect a released surface.
+    guard state == .failed, !released else { return false }
     view.stopLoading()
     state = .unloaded
     return true
