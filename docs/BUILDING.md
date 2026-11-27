@@ -77,6 +77,7 @@ python3 ./scripts/test_performance_r1_report.py
 ./scripts/test-synthetic-gate-product-fixtures.sh
 ./scripts/test-release-archive-provenance-fixtures.sh
 ./scripts/test-r1-release-candidate-fixtures.sh
+./scripts/test-release-reproducibility-fixtures.sh
 ./scripts/test-public-release-contract.sh
 ```
 
@@ -158,6 +159,20 @@ embeds release identity, signs nested code from the inside out, creates a UDZO
 DMG, submits it for notarization, staples it, mounts it read-only, and asks
 Gatekeeper to assess both the DMG and mounted app. It never creates or stores
 credentials and never signs code after notarization.
+
+### Reproducibility from a tag
+
+`scripts/check-release-reproducibility.sh <tag>` needs no signing credentials.
+It checks the tag out into a temporary worktree, installs the pinned XcodeGen
+(`scripts/install-xcodegen.sh`, SHA-256 verified), regenerates the project,
+builds the unsigned Release app, and compares against the
+`IdleScreenR1ReleaseCandidateV1.txt` published on the GitHub release (fetched
+with `gh`). It compares source commit and tree, `project.yml` and regenerated
+`project.pbxproj` digests, and the bundle version and build. Signatures,
+cdhashes, the DMG and notarization are printed as `NOT-COMPARABLE`: the
+manifest records no unsigned per-binary digests, so binaries are not compared.
+The comparison logic is covered by `scripts/test-release-reproducibility-fixtures.sh`,
+which runs without a build.
 
 ### Notarization credential fallback
 
