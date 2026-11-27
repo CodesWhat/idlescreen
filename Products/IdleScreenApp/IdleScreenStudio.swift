@@ -1813,6 +1813,11 @@ struct StudioView: View {
         valueText: percentage(model.configuration.creative.settings.fireDecay),
         step: 0.01
       )
+    case .demoScroller:
+      StudioScrollerPhraseField(
+        phrase: model.configuration.creative.settings.scrollerPhrase,
+        onChange: { model.updateCreativeScrollerPhrase($0) }
+      )
     default:
       EmptyView()
     }

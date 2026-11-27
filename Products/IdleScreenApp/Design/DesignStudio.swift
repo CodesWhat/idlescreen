@@ -103,6 +103,38 @@ struct StudioField<Control: View>: View {
   }
 }
 
+/// The Scroller's phrase. The draft is cleaned as it is typed, so the field
+/// only ever shows glyphs the bitmap font can draw; an empty field shows the time.
+struct StudioScrollerPhraseField: View {
+  let phrase: String?
+  let onChange: (String?) -> Void
+  @State private var draft: String
+
+  init(phrase: String?, onChange: @escaping (String?) -> Void) {
+    self.phrase = phrase
+    self.onChange = onChange
+    _draft = State(initialValue: phrase ?? "")
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 5) {
+      Text("Text").font(DesignFont.sans(DesignFont.caption, .medium))
+        .foregroundStyle(DesignPalette.ink)
+      TextField("Leave empty to show the time", text: $draft)
+        .textFieldStyle(.roundedBorder)
+        .controlSize(.small)
+        .accessibilityLabel("Scroller text")
+        .onChange(of: draft) { _, newValue in
+          let cleaned = IdleScreenCreativeSettings.sanitizedScrollerPhrase(newValue)
+          let shown = IdleScreenCreativeSettings.filteredScrollerText(newValue)
+          if shown != newValue { draft = shown }
+          if cleaned != phrase { onChange(cleaned) }
+        }
+    }
+    .frame(maxWidth: .infinity)
+  }
+}
+
 /// The one Studio slider. `inline` is the compact dock's title-slider-value row; `stacked` is the expanded panels' title and value
 /// over a full-width slider. Both label the slider with its visible title and read the value text as its value.
 struct StudioSlider: View {

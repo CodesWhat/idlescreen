@@ -103,6 +103,8 @@ enum IdleScreenRendererConfigurationBridge {
             settings.reduceMotion = reduceMotion
             return settings
           } : nil,
+      demoScrollerPhrase: creative.pattern == .demoScroller
+        ? IdleScreenCreativeSettings.sanitizedScrollerPhrase(settings.scrollerPhrase) : nil,
       reduceMotion: reduceMotion
     )
   }
