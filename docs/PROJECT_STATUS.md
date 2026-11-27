@@ -38,6 +38,12 @@ scheme matrix, release fixtures, project generation, Release build, and
 performance measurements passed before this audit. See [CHANGELOG.md](../CHANGELOG.md)
 and the [roadmap](ROADMAP.md) for the user-facing scope.
 
+## Platform support
+
+IdleScreen is supported on macOS 26 (Tahoe) on Apple silicon.
+macOS 27 has not been tested yet, because no macOS 27 machine is available for a
+smoke run. Reports are welcome as GitHub issues.
+
 ## Current release exit
 
 The latest release is

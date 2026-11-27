@@ -38,7 +38,7 @@ renders it, and a separately signed camera agent owns the complete camera
 lifecycle.
 
 Current release: [v0.4.0](https://github.com/CodesWhat/idlescreen/releases/tag/v0.4.0)
-(build 67, November 21, 2026). Apple silicon only, macOS 26 or later.
+(build 67, November 21, 2026). Apple silicon only, macOS 26 (Tahoe); macOS 27 is untested.
 
 ## Contents
 
@@ -129,7 +129,7 @@ so ownership and teardown remain inspectable.
 - Automatic camera fallback and recovery after permission or device changes
 - Optional expiring Codex and Claude status overlays with no prompt,
   transcript, command, or response ingestion
-- Apple silicon build (M1 or later) for macOS 26 Tahoe or newer
+- Apple silicon build (M1 or later) for macOS 26 (Tahoe). macOS 27 has not been tested yet. Reports are welcome as [GitHub issues](https://github.com/CodesWhat/idlescreen/issues).
 
 Camera frames stay inside the local App Group mailbox. They are not sent over
 the network, written to logs, or retained as test evidence. The mailbox is one

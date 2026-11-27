@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Apple silicon Mac (M1 or later), macOS 26 Tahoe or later
+- Apple silicon Mac (M1 or later), macOS 26 (Tahoe). macOS 27 has not been tested yet. Reports are welcome as [GitHub issues](https://github.com/CodesWhat/idlescreen/issues).
 - Xcode 26
 - XcodeGen 2.46.0
 - Python 3 for deterministic fixture tests
