@@ -13,7 +13,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
-    "posthog-js": "1.450.0",
+    "posthog-js": "1.454.5",
     "web-vitals": "6.2.3"
   }
 }
